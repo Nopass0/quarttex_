@@ -113,7 +113,13 @@ jobs:
             ./scripts/install-dependencies.sh
             
             # Stop existing containers first
-            docker-compose -f docker-compose.prod.yml down || true
+            docker compose -f docker-compose.prod.yml down || true
+            
+            # Initialize git if needed
+            if [ ! -d .git ]; then
+              git init
+              git remote add origin https://github.com/Nopass0/chase.git
+            fi
             
             # Pull latest changes
             git fetch origin
@@ -132,12 +138,12 @@ jobs:
             mkdir -p ssl
             
             # Remove old containers and images
-            docker-compose -f docker-compose.prod.yml rm -f
+            docker compose -f docker-compose.prod.yml rm -f
             docker image prune -af
             
             # Build and start new containers (using prod config without local postgres)
-            docker-compose -f docker-compose.prod.yml build --no-cache
-            docker-compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml build --no-cache
+            docker compose -f docker-compose.prod.yml up -d
             
             # Wait for services to be ready
             echo "Waiting for services to start..."
@@ -145,34 +151,34 @@ jobs:
             
             # Run database migrations
             echo "Running database migrations..."
-            docker-compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
+            docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
               echo "Migration failed, retrying..."
               sleep 10
-              docker-compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+              docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
             }
             
             # Verify all services are running
             echo "Verifying services..."
             if ! docker ps | grep -q "chase_backend"; then
               echo "ERROR: Backend container is not running!"
-              docker-compose logs backend
+              docker compose logs backend
               exit 1
             fi
             
             if ! docker ps | grep -q "chase_frontend"; then
               echo "ERROR: Frontend container is not running!"
-              docker-compose logs frontend
+              docker compose logs frontend
               exit 1
             fi
             
             if ! docker ps | grep -q "chase_nginx"; then
               echo "ERROR: Nginx container is not running!"
-              docker-compose -f docker-compose.prod.yml logs nginx
+              docker compose -f docker-compose.prod.yml logs nginx
               exit 1
             fi
             
             # Show final status
-            docker-compose -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml ps
             
             # Clean up disk space
             docker system prune -af
