@@ -38,13 +38,7 @@
     background-color: #004d2e !important;
   }
   
-  /* Dropdown menu items hover */
-  [role="menuitem"]:hover,
-  .dropdown-item:hover,
-  [data-radix-collection-item]:hover {
-    background-color: rgba(0, 96, 57, 0.08);
-    transition: background-color 0.2s ease;
-  }
+  /* Dropdown menu items hover - handled in enhanced section below */
   
   /* Table row hover */
   tbody tr:hover {
@@ -57,6 +51,24 @@
   .hover\:shadow:hover {
     box-shadow: 0 0 0 1px rgba(0, 96, 57, 0.15), 0 4px 6px -1px rgba(0, 96, 57, 0.08);
     transition: box-shadow 0.2s ease;
+  }
+  
+  /* Input default border */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    border: 1px solid rgb(229 229 229) !important;
+  }
+  
+  /* Ensure all inputs have visible border */
+  input {
+    border: 1px solid rgb(229 229 229) !important;
   }
   
   /* Select and input focus states */
@@ -91,12 +103,12 @@
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
     --ring: 160 100% 18.8%; /* #006039 */
     --radius: 0.75rem;
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-foreground: 240 5.3% 15%;
     --sidebar-primary: 160 100% 18.8%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 160 50% 95%;
@@ -160,6 +172,35 @@
 
 .flash-once {
   animation: flash 1s ease-in-out;
+}
+
+/* Animation for search fields */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: slideDown 0.2s ease-out;
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @layer components {
@@ -463,6 +504,34 @@
     color: hsl(var(--primary));
   }
 
+  /* Enhanced DropdownMenu and ContextMenu hover states */
+  [role="menuitem"]:not([data-state="checked"]):hover,
+  [role="menuitemcheckbox"]:not([data-state="checked"]):hover,
+  [role="menuitemradio"]:not([data-state="checked"]):hover,
+  [data-highlighted]:not([data-state="checked"]) {
+    background-color: rgb(220 252 231) !important;
+    color: rgb(30 30 30) !important;
+  }
+  
+  /* Active/checked state for dropdown items */
+  [role="menuitem"][data-state="checked"],
+  [role="menuitemcheckbox"][data-state="checked"],
+  [role="menuitemradio"][data-state="checked"] {
+    background-color: rgb(220 252 231) !important;
+    color: rgb(0 96 57) !important;
+  }
+
+  [role="menuitem"]:focus,
+  [role="menuitemcheckbox"]:focus,
+  [role="menuitemradio"]:focus {
+    outline: none !important;
+  }
+
+  /* Animate fade-in class */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
   /* Badge variants */
   .badge-glow {
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
@@ -483,6 +552,13 @@
     border: 1px solid hsl(var(--primary));
     color: hsl(var(--primary));
     box-shadow: inset 0 0 0 1px rgba(0, 96, 57, 0.1);
+  }
+  
+  /* Prevent badge hover state changes */
+  [data-badge]:hover {
+    background-color: initial !important;
+    color: initial !important;
+    border-color: initial !important;
   }
 
   /* Slider enhancements */

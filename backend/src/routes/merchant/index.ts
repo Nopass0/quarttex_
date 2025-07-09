@@ -16,6 +16,7 @@ import authRoutes from "./auth";
 import dashboardRoutes from "./dashboard";
 import apiDocsRoutes from "./api-docs";
 import { calculateFreezingParams } from "@/utils/freezing";
+import { merchantPayoutsApi } from "@/api/merchant/payouts";
 
 export default (app: Elysia) =>
   app
@@ -30,6 +31,9 @@ export default (app: Elysia) =>
     
     // Основные API маршруты (с merchantGuard для API ключа)
     .use(merchantGuard())
+    
+    // Payout API routes
+    .use(merchantPayoutsApi)
 
     /* ──────── GET /merchant/connect ──────── */
     .get(

@@ -197,23 +197,27 @@ const getBankName = (cardNumber: string) => {
 }
 
 export function TransactionsList() {
-  const [activeTab, setActiveTab] = useState<'all' | 'deals' | 'payouts'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'deals' | 'payouts'>('deals')
   const [searchQuery, setSearchQuery] = useState('')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 20, totalPages: 0 })
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [detailsOpen, setDetailsOpen] = useState<string | null>(null)
+  const [merchants, setMerchants] = useState<Array<{id: string, name: string}>>([])
+  const [traders, setTraders] = useState<Array<{id: string, email: string, name?: string}>>([])
   const { token: adminToken } = useAdminAuth()
   
   // Filters
   const [filters, setFilters] = useState({
     status: 'all',
     merchantId: '',
+    traderId: '',
     methodId: '',
     dateFrom: null as Date | null,
     dateTo: null as Date | null,
@@ -228,6 +232,8 @@ export function TransactionsList() {
 
   useEffect(() => {
     fetchTransactions()
+    fetchMerchants()
+    fetchTraders()
     
     // Set up polling for real-time updates
     const interval = setInterval(() => {
@@ -236,6 +242,36 @@ export function TransactionsList() {
     
     return () => clearInterval(interval)
   }, [activeTab, meta.page, filters, sortField, sortOrder])
+
+  const fetchMerchants = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/list`, {
+        headers: {
+          'x-admin-key': adminToken || '',
+        },
+      })
+      if (!response.ok) throw new Error('Failed to fetch merchants')
+      const data = await response.json()
+      setMerchants(data.data)
+    } catch (error) {
+      console.error('Failed to fetch merchants:', error)
+    }
+  }
+
+  const fetchTraders = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users?role=trader`, {
+        headers: {
+          'x-admin-key': adminToken || '',
+        },
+      })
+      if (!response.ok) throw new Error('Failed to fetch traders')
+      const data = await response.json()
+      setTraders(data.data.filter((user: any) => user.trader))
+    } catch (error) {
+      console.error('Failed to fetch traders:', error)
+    }
+  }
 
   const fetchTransactions = async () => {
     try {
@@ -249,6 +285,8 @@ export function TransactionsList() {
         ...(activeTab === 'payouts' && { type: 'OUT' }),
         ...(filters.status !== 'all' && { status: filters.status }),
         ...(filters.merchantId && { merchantId: filters.merchantId }),
+        ...(filters.traderId && filters.traderId !== 'unassigned' && { userId: filters.traderId }),
+        ...(filters.traderId === 'unassigned' && { userId: 'null' }),
         ...(filters.methodId && { methodId: filters.methodId }),
         ...(filters.dateFrom && { createdFrom: filters.dateFrom.toISOString() }),
         ...(filters.dateTo && { createdTo: filters.dateTo.toISOString() }),
@@ -391,6 +429,11 @@ export function TransactionsList() {
     setIsEditDialogOpen(true)
   }
 
+  const openTransactionDetailsDialog = (transaction: Transaction) => {
+    setSelectedTransaction(transaction)
+    setIsDetailsDialogOpen(true)
+  }
+
   const renderRequisites = (requisites: Transaction['requisites']) => {
     if (!requisites) return <span className="text-gray-400">-</span>
 
@@ -434,192 +477,105 @@ export function TransactionsList() {
     return <span className="text-gray-400">-</span>
   }
 
-  const renderTransactionRow = (transaction: Transaction) => {
+  const renderTransactionCard = (transaction: Transaction) => {
     const StatusIcon = statusIcons[transaction.status]
-    const isDetailsOpen = detailsOpen === transaction.id
 
     return (
-      <React.Fragment key={transaction.id}>
-        <TableRow
-          className={cn(
-            "cursor-pointer hover:bg-gray-50 transition-all duration-300",
-            transaction.isNew && "flash-once"
-          )}
-          onClick={() => setDetailsOpen(isDetailsOpen ? null : transaction.id)}
-        >
-          <TableCell className="w-12">
-            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusColors[transaction.status])}>
-              <StatusIcon className="h-4 w-4" />
-            </div>
-          </TableCell>
-          <TableCell>
+      <div
+        key={transaction.id}
+        className={cn(
+          "bg-white rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-300 border border-gray-100",
+          transaction.isNew && "flash-once"
+        )}
+        onClick={() => openTransactionDetailsDialog(transaction)}
+      >
+        <div className="flex items-start gap-4">
+          {/* Status Icon */}
+          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", statusColors[transaction.status])}>
+            <StatusIcon className="h-5 w-5" />
+          </div>
+          
+          {/* Merchant Info */}
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-base">{transaction.merchant.name}</div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                copyToClipboard(transaction.merchant.id, 'Мерчант ID скопирован')
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              {transaction.merchant.id.slice(0, 8)}...
+            </button>
+          </div>
+          
+          {/* Client Info */}
+          <div className="min-w-0">
+            <div className="font-medium">{transaction.clientName}</div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                copyToClipboard(transaction.userIp || '', 'IP адрес скопирован')
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              {transaction.userIp || 'Нет IP'}
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 copyToClipboard(transaction.orderId, 'Order ID скопирован')
               }}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors block"
             >
               {transaction.orderId.slice(0, 8)}...
             </button>
-          </TableCell>
-          <TableCell>
-            <div>
-              <div className="font-medium">{transaction.merchant.name}</div>
-              <div className="text-xs text-gray-500">{transaction.merchant.id.slice(0, 8)}...</div>
-            </div>
-          </TableCell>
-          <TableCell>
-            <div>
-              <div>{transaction.clientName}</div>
-              <div className="text-xs text-gray-500">{transaction.userIp || 'Нет IP'}</div>
-            </div>
-          </TableCell>
-          <TableCell>
-            <div>
-              <div className="font-medium">{formatAmount(transaction.amount)} {transaction.assetOrBank}</div>
-              <div className="text-xs text-gray-500">{transaction.method.name}</div>
-            </div>
-          </TableCell>
-          <TableCell>
+          </div>
+          
+          {/* Amount */}
+          <div className="text-right">
+            <div className="font-semibold text-lg">{formatAmount(transaction.amount)}</div>
+            <div className="text-xs text-gray-500">{transaction.assetOrBank}</div>
+            <div className="text-xs text-gray-500">{transaction.method.name}</div>
+          </div>
+          
+          {/* Trader Info */}
+          <div className="min-w-[200px]">
             {transaction.trader ? (
-              <div>
-                <div className="text-sm">{transaction.trader.name || transaction.trader.email}</div>
-                <div className="text-xs text-gray-500">{transaction.trader.email}</div>
+              <div className="bg-blue-50 text-blue-700 px-3 py-2 rounded-md">
+                <div className="text-sm font-medium">{transaction.trader.email}</div>
+                <div className="text-xs">ID: {transaction.trader.id}</div>
+                {transaction.requisites && (
+                  <>
+                    <div className="text-xs mt-1">{transaction.requisites.recipientName}</div>
+                    {transaction.requisites.cardNumber && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          copyToClipboard(transaction.requisites.cardNumber, 'Номер карты скопирован')
+                        }}
+                        className="text-xs font-mono hover:text-blue-900 transition-colors"
+                      >
+                        {formatCardNumber(transaction.requisites.cardNumber)}
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             ) : (
-              <span className="text-gray-400">Не назначен</span>
-            )}
-          </TableCell>
-          <TableCell>{renderRequisites(transaction.requisites)}</TableCell>
-          <TableCell>
-            <div className="text-xs">
-              <div>{formatDateTime(transaction.createdAt)}</div>
-              <div className="text-gray-500">обн. {formatDateTime(transaction.updatedAt)}</div>
-            </div>
-          </TableCell>
-          <TableCell>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                openEditDialog(transaction)
-              }}
-              disabled={isLoading}
-            >
-              <Edit className="h-4 w-4 text-[#006039]" />
-            </Button>
-          </TableCell>
-        </TableRow>
-        {isDetailsOpen && (
-          <TableRow>
-            <TableCell colSpan={9} className="bg-gray-50 p-4">
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">ID транзакции:</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs bg-gray-200 px-2 py-1 rounded">{transaction.id}</code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(transaction.id, 'ID скопирован')}
-                      >
-                        <Copy className="h-3 w-3 text-[#006039]" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Order ID:</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs bg-gray-200 px-2 py-1 rounded">{transaction.orderId}</code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(transaction.orderId, 'Order ID скопирован')}
-                      >
-                        <Copy className="h-3 w-3 text-[#006039]" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Тип операции:</span>
-                    <div className="mt-1">{transaction.type === 'IN' ? 'Входящая' : 'Исходящая'}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Курс:</span>
-                    <div className="mt-1">{transaction.rate || 'Не установлен'}</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Комиссия:</span>
-                    <div className="mt-1">{transaction.commission}%</div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Истекает:</span>
-                    <div className="mt-1">{formatDateTime(transaction.expired_at)}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Callback URI:</span>
-                    <div className="mt-1">
-                      <div className="text-xs break-all">{transaction.callbackUri || 'Не указан'}</div>
-                      {transaction.callbackUri && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => sendCallback(transaction.callbackUri, transaction)}
-                        >
-                          <Send className="h-3 w-3 mr-1 text-[#006039]" />
-                          Отправить
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Success URI:</span>
-                    <div className="mt-1">
-                      <div className="text-xs break-all">{transaction.successUri || 'Не указан'}</div>
-                      {transaction.successUri && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => sendCallback(transaction.successUri, transaction)}
-                        >
-                          <Send className="h-3 w-3 mr-1 text-[#006039]" />
-                          Отправить
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Fail URI:</span>
-                    <div className="mt-1">
-                      <div className="text-xs break-all">{transaction.failUri || 'Не указан'}</div>
-                      {transaction.failUri && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => sendCallback(transaction.failUri, transaction)}
-                        >
-                          <Send className="h-3 w-3 mr-1 text-[#006039]" />
-                          Отправить
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-md">
+                <div className="text-sm">Не назначено</div>
               </div>
-            </TableCell>
-          </TableRow>
-        )}
-      </React.Fragment>
+            )}
+          </div>
+          
+          {/* Dates */}
+          <div className="text-right text-xs text-gray-500">
+            <div>Создано: {formatDateTime(transaction.createdAt)}</div>
+            <div>Истекает: {formatDateTime(transaction.expired_at)}</div>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -627,27 +583,183 @@ export function TransactionsList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#006039]" />
+          <div className="relative w-[500px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#006039]" />
             <Input
               placeholder="Поиск по ID, OrderID, клиенту..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-12 text-base"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter className="h-4 w-4 mr-2 text-[#006039]" />
-            Фильтры
-            {Object.values(filters).some(v => v && v !== 'all') && (
-              <span className="ml-2 bg-[#006039] text-white rounded-full px-2 py-0.5 text-xs">
-                {Object.values(filters).filter(v => v && v !== 'all').length}
-              </span>
-            )}
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <Filter className="h-4 w-4 mr-2 text-[#006039]" />
+                Фильтры
+                {Object.values(filters).some(v => v && v !== 'all') && (
+                  <span className="ml-2 bg-[#006039] text-white rounded-full px-2 py-0.5 text-xs">
+                    {Object.values(filters).filter(v => v && v !== 'all').length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[600px] p-6" align="start">
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg mb-4">Фильтры</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Статус</Label>
+                    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Все статусы" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Все статусы</SelectItem>
+                        <SelectItem value="CREATED">Создана</SelectItem>
+                        <SelectItem value="IN_PROGRESS">В процессе</SelectItem>
+                        <SelectItem value="READY">Готова</SelectItem>
+                        <SelectItem value="CANCELED">Отменена</SelectItem>
+                        <SelectItem value="EXPIRED">Истекла</SelectItem>
+                        <SelectItem value="DISPUTE">Спор</SelectItem>
+                        <SelectItem value="MILK">Ошибка</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Тип</Label>
+                    <Select 
+                      value={activeTab === 'all' ? 'all' : activeTab === 'deals' ? 'IN' : 'OUT'} 
+                      onValueChange={(value) => {
+                        if (value === 'all') setActiveTab('all')
+                        else if (value === 'IN') setActiveTab('deals')
+                        else if (value === 'OUT') setActiveTab('payouts')
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Все</SelectItem>
+                        <SelectItem value="IN">Сделки (IN)</SelectItem>
+                        <SelectItem value="OUT">Выплаты (OUT)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Мерчант</Label>
+                    <Select value={filters.merchantId} onValueChange={(value) => setFilters({ ...filters, merchantId: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Все мерчанты" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Все мерчанты</SelectItem>
+                        {merchants.map(merchant => (
+                          <SelectItem key={merchant.id} value={merchant.id}>
+                            {merchant.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Трейдер</Label>
+                    <Select value={filters.traderId} onValueChange={(value) => setFilters({ ...filters, traderId: value })}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Все трейдеры" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Все трейдеры</SelectItem>
+                        <SelectItem value="unassigned">Не назначен</SelectItem>
+                        {traders.map(trader => (
+                          <SelectItem key={trader.id} value={trader.id}>
+                            {trader.name || trader.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Дата от</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal mt-1",
+                            !filters.dateFrom && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-[#006039]" />
+                          {filters.dateFrom ? format(filters.dateFrom, "PPP", { locale: ru }) : "Выберите дату"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={filters.dateFrom || undefined}
+                          onSelect={(date) => setFilters({ ...filters, dateFrom: date || null })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div>
+                    <Label>Дата до</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal mt-1",
+                            !filters.dateTo && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-[#006039]" />
+                          {filters.dateTo ? format(filters.dateTo, "PPP", { locale: ru }) : "Выберите дату"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={filters.dateTo || undefined}
+                          onSelect={(date) => setFilters({ ...filters, dateTo: date || null })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilters({
+                      status: 'all',
+                      merchantId: '',
+                      traderId: '',
+                      methodId: '',
+                      dateFrom: null,
+                      dateTo: null,
+                    })}
+                  >
+                    <X className="h-4 w-4 mr-2 text-[#006039]" />
+                    Сбросить фильтры
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="outline"
             size="icon"
@@ -659,105 +771,12 @@ export function TransactionsList() {
         </div>
       </div>
 
-      {showFilters && (
-        <Card className="p-4 space-y-4">
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <Label>Статус</Label>
-              <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Все статусы" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все статусы</SelectItem>
-                  <SelectItem value="CREATED">Создана</SelectItem>
-                  <SelectItem value="IN_PROGRESS">В процессе</SelectItem>
-                  <SelectItem value="READY">Готова</SelectItem>
-                  <SelectItem value="CANCELED">Отменена</SelectItem>
-                  <SelectItem value="EXPIRED">Истекла</SelectItem>
-                  <SelectItem value="DISPUTE">Спор</SelectItem>
-                  <SelectItem value="MILK">Ошибка</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label>Дата от</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !filters.dateFrom && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-[#006039]" />
-                    {filters.dateFrom ? format(filters.dateFrom, "PPP", { locale: ru }) : "Выберите дату"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <CalendarComponent
-                    mode="single"
-                    selected={filters.dateFrom || undefined}
-                    onSelect={(date) => setFilters({ ...filters, dateFrom: date || null })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div>
-              <Label>Дата до</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !filters.dateTo && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-[#006039]" />
-                    {filters.dateTo ? format(filters.dateTo, "PPP", { locale: ru }) : "Выберите дату"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <CalendarComponent
-                    mode="single"
-                    selected={filters.dateTo || undefined}
-                    onSelect={(date) => setFilters({ ...filters, dateTo: date || null })}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={() => setFilters({
-                  status: 'all',
-                  merchantId: '',
-                  methodId: '',
-                  dateFrom: null,
-                  dateTo: null,
-                })}
-                className="w-full"
-              >
-                <X className="h-4 w-4 mr-2 text-[#006039]" />
-                Сбросить
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
+      
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
-          <TabsTrigger value="all">Все</TabsTrigger>
-          <TabsTrigger value="deals">Сделки (IN)</TabsTrigger>
-          <TabsTrigger value="payouts">Выплаты (OUT)</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 max-w-xs mb-4">
+          <TabsTrigger value="deals">Сделки</TabsTrigger>
+          <TabsTrigger value="payouts">Выплаты</TabsTrigger>
         </TabsList>
         
         <TabsContent value={activeTab} className="mt-4">
@@ -767,51 +786,15 @@ export function TransactionsList() {
             </div>
           ) : (
             <>
-              <Table>
-                <TableCaption>
-                  Показано {transactions.length} из {meta.total} транзакций
-                </TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">Статус</TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center gap-1 hover:text-gray-900"
-                        onClick={() => handleSort('orderId')}
-                      >
-                        Order ID
-                        <ArrowUpDown className="h-3 w-3 text-[#006039]" />
-                      </button>
-                    </TableHead>
-                    <TableHead>Мерчант</TableHead>
-                    <TableHead>Клиент</TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center gap-1 hover:text-gray-900"
-                        onClick={() => handleSort('amount')}
-                      >
-                        Сумма
-                        <ArrowUpDown className="h-3 w-3 text-[#006039]" />
-                      </button>
-                    </TableHead>
-                    <TableHead>Трейдер</TableHead>
-                    <TableHead>Реквизиты</TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center gap-1 hover:text-gray-900"
-                        onClick={() => handleSort('createdAt')}
-                      >
-                        Дата
-                        <ArrowUpDown className="h-3 w-3 text-[#006039]" />
-                      </button>
-                    </TableHead>
-                    <TableHead>Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map(renderTransactionRow)}
-                </TableBody>
-              </Table>
+              <div className="space-y-3">
+                {transactions.map(renderTransactionCard)}
+              </div>
+              
+              {transactions.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  Транзакции не найдены
+                </div>
+              )}
 
               {meta.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
@@ -842,6 +825,216 @@ export function TransactionsList() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Детали транзакции</DialogTitle>
+          </DialogHeader>
+          {selectedTransaction && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-gray-500">ID транзакции</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="text-sm bg-gray-100 px-2 py-1 rounded">{selectedTransaction.id}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(selectedTransaction.id, 'ID скопирован')}
+                    >
+                      <Copy className="h-3 w-3 text-[#006039]" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Order ID</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="text-sm bg-gray-100 px-2 py-1 rounded">{selectedTransaction.orderId}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(selectedTransaction.orderId, 'Order ID скопирован')}
+                    >
+                      <Copy className="h-3 w-3 text-[#006039]" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Статус</Label>
+                  <div className="mt-1">
+                    <Badge className={statusColors[selectedTransaction.status]}>
+                      {statusLabels[selectedTransaction.status]}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">Мерчант</Label>
+                  <div className="mt-1">{selectedTransaction.merchant.name}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Метод оплаты</Label>
+                  <div className="mt-1">{selectedTransaction.method.name}</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-gray-500">Клиент</Label>
+                  <div className="mt-1">{selectedTransaction.clientName}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">IP адрес</Label>
+                  <div className="mt-1">
+                    <button
+                      onClick={() => copyToClipboard(selectedTransaction.userIp || '', 'IP адрес скопирован')}
+                      className="hover:text-[#006039] transition-colors"
+                    >
+                      {selectedTransaction.userIp || 'Не указан'}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Тип операции</Label>
+                  <div className="mt-1">{selectedTransaction.type === 'IN' ? 'Входящая' : 'Исходящая'}</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-gray-500">Сумма</Label>
+                  <div className="mt-1 text-lg font-medium">{formatAmount(selectedTransaction.amount)} {selectedTransaction.assetOrBank}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Курс</Label>
+                  <div className="mt-1">{selectedTransaction.rate || 'Не установлен'}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Комиссия</Label>
+                  <div className="mt-1">{selectedTransaction.commission}%</div>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-gray-500">Трейдер</Label>
+                {selectedTransaction.trader ? (
+                  <div className="mt-1 bg-blue-50 p-3 rounded-md">
+                    <div className="font-medium">{selectedTransaction.trader.name || selectedTransaction.trader.email}</div>
+                    <div className="text-sm text-gray-600">{selectedTransaction.trader.email}</div>
+                    {selectedTransaction.requisites && (
+                      <div className="mt-2">
+                        <div className="text-sm">{selectedTransaction.requisites.recipientName}</div>
+                        {selectedTransaction.requisites.cardNumber && (
+                          <button
+                            onClick={() => copyToClipboard(selectedTransaction.requisites!.cardNumber, 'Номер карты скопирован')}
+                            className="text-sm font-mono hover:text-blue-700 transition-colors"
+                          >
+                            {formatCardNumber(selectedTransaction.requisites.cardNumber)}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-1 bg-gray-100 p-3 rounded-md text-gray-500">
+                    Не назначен
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-gray-500">Создано</Label>
+                  <div className="mt-1">{formatDateTime(selectedTransaction.createdAt)}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Обновлено</Label>
+                  <div className="mt-1">{formatDateTime(selectedTransaction.updatedAt)}</div>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Истекает</Label>
+                  <div className="mt-1">{formatDateTime(selectedTransaction.expired_at)}</div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-gray-500">Callback URLs</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Callback URI</div>
+                        <div className="text-xs text-gray-600 break-all mt-1">{selectedTransaction.callbackUri || 'Не указан'}</div>
+                      </div>
+                      {selectedTransaction.callbackUri && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => sendCallback(selectedTransaction.callbackUri, selectedTransaction)}
+                        >
+                          <Send className="h-3 w-3 mr-1 text-[#006039]" />
+                          Отправить
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Success URI</div>
+                        <div className="text-xs text-gray-600 break-all mt-1">{selectedTransaction.successUri || 'Не указан'}</div>
+                      </div>
+                      {selectedTransaction.successUri && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => sendCallback(selectedTransaction.successUri, selectedTransaction)}
+                        >
+                          <Send className="h-3 w-3 mr-1 text-[#006039]" />
+                          Отправить
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Fail URI</div>
+                        <div className="text-xs text-gray-600 break-all mt-1">{selectedTransaction.failUri || 'Не указан'}</div>
+                      </div>
+                      {selectedTransaction.failUri && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => sendCallback(selectedTransaction.failUri, selectedTransaction)}
+                        >
+                          <Send className="h-3 w-3 mr-1 text-[#006039]" />
+                          Отправить
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDetailsDialogOpen(false)
+                openEditDialog(selectedTransaction!)
+              }}
+            >
+              <Edit className="h-4 w-4 mr-2 text-[#006039]" />
+              Редактировать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl">

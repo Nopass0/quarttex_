@@ -61,14 +61,14 @@ const traderNavItems: NavItem[] = [
     icon: FileText,
   },
   {
-    title: "Реквизиты",
-    href: "/trader/requisites",
-    icon: CreditCard,
-  },
-  {
     title: "Устройства",
     href: "/trader/devices",
     icon: Smartphone,
+  },
+  {
+    title: "Реквизиты",
+    href: "/trader/requisites",
+    icon: CreditCard,
   },
   {
     title: "Сообщения",
@@ -327,7 +327,7 @@ export function Sidebar({ variant }: SidebarProps) {
           }}
           className={cn(
             "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200",
-            "text-gray-600 hover:text-gray-900",
+            "text-gray-800 hover:text-gray-950 font-semibold",
             isActive ? "bg-[#006039]/10 text-[#006039] font-medium border-l-4 border-[#006039] -ml-[1px]" : "hover:bg-gray-50",
             level > 0 && "pl-12"
           )}
@@ -338,7 +338,7 @@ export function Sidebar({ variant }: SidebarProps) {
           )}>
             <item.icon className="h-5 w-5 text-[#006039]" />
           </div>
-          <span className="flex-1 text-left text-sm">{item.title}</span>
+          <span className="flex-1 text-left text-sm font-semibold">{item.title}</span>
           {hasChildren && (
             <ChevronDown
               className={cn(
@@ -481,11 +481,11 @@ export function Sidebar({ variant }: SidebarProps) {
         <div className="p-4 border-t border-gray-100">
           <Button
             variant="ghost"
-            className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            className="w-full justify-start text-gray-800 hover:text-gray-950 font-semibold hover:bg-gray-50"
             onClick={handleLogout}
           >
             <LogOut className="h-5 w-5 mr-3 text-[#006039]" />
-            <span className="text-sm">Выход</span>
+            <span className="text-sm font-semibold">Выход</span>
           </Button>
         </div>
       </div>

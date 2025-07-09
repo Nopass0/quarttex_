@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { traderApiInstance } from "./api";
 
 export interface Payout {
   id: string;
@@ -34,7 +34,7 @@ export const payoutApi = {
     limit?: number;
     offset?: number;
   }) {
-    const response = await api.get("/trader/payouts", { params });
+    const response = await traderApiInstance.get("/trader/payouts", { params });
     return response.data as {
       success: boolean;
       payouts: Payout[];
@@ -44,7 +44,7 @@ export const payoutApi = {
 
   // Accept a payout
   async acceptPayout(payoutId: string) {
-    const response = await api.post(`/trader/payouts/${payoutId}/accept`);
+    const response = await traderApiInstance.post(`/trader/payouts/${payoutId}/accept`);
     return response.data as {
       success: boolean;
       payout: {
@@ -57,7 +57,7 @@ export const payoutApi = {
 
   // Confirm payout with proof
   async confirmPayout(payoutId: string, proofFiles: string[]) {
-    const response = await api.post(`/trader/payouts/${payoutId}/confirm`, {
+    const response = await traderApiInstance.post(`/trader/payouts/${payoutId}/confirm`, {
       proofFiles,
     });
     return response.data as {
@@ -71,7 +71,7 @@ export const payoutApi = {
 
   // Cancel payout
   async cancelPayout(payoutId: string, reason: string) {
-    const response = await api.post(`/trader/payouts/${payoutId}/cancel`, {
+    const response = await traderApiInstance.post(`/trader/payouts/${payoutId}/cancel`, {
       reason,
     });
     return response.data as {
@@ -85,7 +85,7 @@ export const payoutApi = {
 
   // Get payout balance
   async getBalance() {
-    const response = await api.get("/trader/payouts/balance");
+    const response = await traderApiInstance.get("/trader/payouts/balance");
     return response.data as {
       success: boolean;
       balance: PayoutBalance;
@@ -94,7 +94,7 @@ export const payoutApi = {
 
   // Update payout balance
   async updateBalance(balance: number) {
-    const response = await api.put("/trader/payouts/balance", { balance });
+    const response = await traderApiInstance.put("/trader/payouts/balance", { balance });
     return response.data as {
       success: boolean;
       balance: PayoutBalance;
@@ -106,7 +106,7 @@ export const payoutApi = {
     const formData = new FormData();
     formData.append("file", file);
     
-    const response = await api.post("/trader/upload", formData, {
+    const response = await traderApiInstance.post("/trader/upload", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

@@ -92,9 +92,9 @@ const statusConfig = {
     label: "Выполнено",
     color: "bg-green-50 text-green-600 border-green-200",
   },
-  FAILED: { 
-    label: "Ошибка", 
-    color: "bg-red-50 text-red-600 border-red-200" 
+  FAILED: {
+    label: "Ошибка",
+    color: "bg-red-50 text-red-600 border-red-200",
   },
   CANCELLED: {
     label: "Отменено",
@@ -125,12 +125,21 @@ export function PayoutsList() {
     totalPayouts: 0,
     totalAmount: 0,
     profit: 0,
-    currency: "USDT"
+    currency: "USDT",
   });
 
   const router = useRouter();
   const setFinancials = useTraderStore((state) => state.setFinancials);
   const financials = useTraderStore((state) => state.financials);
+
+  const allStatuses = [
+    "Все",
+    "Активные",
+    "Проверка",
+    "Финализация",
+    "История",
+    "Отменённые",
+  ];
 
   useEffect(() => {
     fetchPayouts();
@@ -160,17 +169,21 @@ export function PayoutsList() {
         {
           id: "550e8400-e29b-41d4-a716-446655440000",
           numericId: 1001,
-          amount: 150.50,
+          amount: 150.5,
           currency: "USDT",
           status: "COMPLETED",
           method: "card",
           recipientName: "Иван Иванов",
           cardNumber: "4276 **** **** 1234",
           bankType: "SBERBANK",
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          completedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          createdAt: new Date(
+            Date.now() - 2 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          completedAt: new Date(
+            Date.now() - 1 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
           transactionHash: "0x1234567890abcdef",
-          commission: 3.01
+          commission: 3.01,
         },
         {
           id: "550e8400-e29b-41d4-a716-446655440001",
@@ -180,13 +193,15 @@ export function PayoutsList() {
           status: "PROCESSING",
           method: "wallet",
           walletAddress: "0xAbCdEf1234567890",
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          commission: 1.50
+          createdAt: new Date(
+            Date.now() - 1 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          commission: 1.5,
         },
         {
           id: "550e8400-e29b-41d4-a716-446655440002",
           numericId: 1003,
-          amount: 200.00,
+          amount: 200.0,
           currency: "USDT",
           status: "PENDING",
           method: "card",
@@ -194,26 +209,29 @@ export function PayoutsList() {
           cardNumber: "5536 **** **** 3055",
           bankType: "TBANK",
           createdAt: new Date().toISOString(),
-          commission: 4.00
-        }
+          commission: 4.0,
+        },
       ];
 
       if (page === 1) {
         setPayouts(mockPayouts);
-        
+
         // Calculate stats
-        const completed = mockPayouts.filter(p => p.status === "COMPLETED");
+        const completed = mockPayouts.filter((p) => p.status === "COMPLETED");
         const totalAmount = completed.reduce((sum, p) => sum + p.amount, 0);
-        const totalCommission = completed.reduce((sum, p) => sum + (p.commission || 0), 0);
-        
+        const totalCommission = completed.reduce(
+          (sum, p) => sum + (p.commission || 0),
+          0,
+        );
+
         setStats({
           totalPayouts: completed.length,
           totalAmount: totalAmount,
           profit: totalCommission,
-          currency: "USDT"
+          currency: "USDT",
         });
       } else {
-        setPayouts(prev => [...prev, ...mockPayouts]);
+        setPayouts((prev) => [...prev, ...mockPayouts]);
       }
 
       setHasMore(mockPayouts.length === 10);
@@ -228,7 +246,7 @@ export function PayoutsList() {
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
-      setPage(prev => prev + 1);
+      setPage((prev) => prev + 1);
     }
   };
 
@@ -249,10 +267,12 @@ export function PayoutsList() {
       }
 
       // Status filter
-      if (filterStatus !== "all" && payout.status !== filterStatus) return false;
+      if (filterStatus !== "all" && payout.status !== filterStatus)
+        return false;
 
       // Method filter
-      if (filterMethod !== "all" && payout.method !== filterMethod) return false;
+      if (filterMethod !== "all" && payout.method !== filterMethod)
+        return false;
 
       // Amount filter
       if (filterAmountType === "exact" && filterAmount.exact) {
@@ -265,7 +285,10 @@ export function PayoutsList() {
       }
 
       // Date filter
-      if (filterDateFrom && new Date(payout.createdAt) < new Date(filterDateFrom))
+      if (
+        filterDateFrom &&
+        new Date(payout.createdAt) < new Date(filterDateFrom)
+      )
         return false;
       if (filterDateTo && new Date(payout.createdAt) > new Date(filterDateTo))
         return false;
@@ -275,14 +298,18 @@ export function PayoutsList() {
     .sort((a, b) => {
       switch (sortBy) {
         case "oldest":
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          return (
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
         case "amount_desc":
           return b.amount - a.amount;
         case "amount_asc":
           return a.amount - b.amount;
         case "newest":
         default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
       }
     });
 
@@ -306,7 +333,7 @@ export function PayoutsList() {
     "24h": "за 24 часа",
     week: "за неделю",
     month: "за месяц",
-    year: "за год"
+    year: "за год",
   };
 
   if (loading) {
@@ -336,7 +363,9 @@ export function PayoutsList() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 gap-1">
-                  <span className="text-xs">Период: {periodLabels[period]}</span>
+                  <span className="text-xs">
+                    Период: {periodLabels[period]}
+                  </span>
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -361,10 +390,13 @@ export function PayoutsList() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold">
-              {stats.totalAmount > 0 ? `${stats.totalAmount.toFixed(2)} ${stats.currency}` : "Нет данных"}
+              {stats.totalAmount > 0
+                ? `${stats.totalAmount.toFixed(2)} ${stats.currency}`
+                : "Нет данных"}
             </p>
             <p className="text-sm text-gray-500">
-              {stats.totalPayouts} {stats.totalPayouts === 1 ? 'выплата' : 'выплат'}
+              {stats.totalPayouts}{" "}
+              {stats.totalPayouts === 1 ? "выплата" : "выплат"}
             </p>
           </div>
         </Card>
@@ -378,7 +410,9 @@ export function PayoutsList() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 gap-1">
-                  <span className="text-xs">Период: {periodLabels[period]}</span>
+                  <span className="text-xs">
+                    Период: {periodLabels[period]}
+                  </span>
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
@@ -403,11 +437,11 @@ export function PayoutsList() {
           </div>
           <div className="space-y-1">
             <p className="text-2xl font-bold">
-              {stats.profit > 0 ? `${stats.profit.toFixed(2)} ${stats.currency}` : "Нет данных"}
+              {stats.profit > 0
+                ? `${stats.profit.toFixed(2)} ${stats.currency}`
+                : "Нет данных"}
             </p>
-            <p className="text-sm text-gray-500">
-              Комиссия с выплат
-            </p>
+            <p className="text-sm text-gray-500">Комиссия с выплат</p>
           </div>
         </Card>
       </div>
@@ -476,7 +510,9 @@ export function PayoutsList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-full">
-                        <DropdownMenuItem onClick={() => setFilterStatus("all")}>
+                        <DropdownMenuItem
+                          onClick={() => setFilterStatus("all")}
+                        >
                           Все статусы
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -505,21 +541,27 @@ export function PayoutsList() {
                             {filterMethod === "all"
                               ? "Все методы"
                               : filterMethod === "card"
-                              ? "На карту"
-                              : "На кошелек"}
+                                ? "На карту"
+                                : "На кошелек"}
                           </span>
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-full">
-                        <DropdownMenuItem onClick={() => setFilterMethod("all")}>
+                        <DropdownMenuItem
+                          onClick={() => setFilterMethod("all")}
+                        >
                           Все методы
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setFilterMethod("card")}>
+                        <DropdownMenuItem
+                          onClick={() => setFilterMethod("card")}
+                        >
                           На карту
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setFilterMethod("wallet")}>
+                        <DropdownMenuItem
+                          onClick={() => setFilterMethod("wallet")}
+                        >
                           На кошелек
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -535,7 +577,10 @@ export function PayoutsList() {
                         placeholder="От"
                         value={filterAmount.min}
                         onChange={(e) =>
-                          setFilterAmount({ ...filterAmount, min: e.target.value })
+                          setFilterAmount({
+                            ...filterAmount,
+                            min: e.target.value,
+                          })
                         }
                       />
                       <Input
@@ -543,7 +588,10 @@ export function PayoutsList() {
                         placeholder="До"
                         value={filterAmount.max}
                         onChange={(e) =>
-                          setFilterAmount({ ...filterAmount, max: e.target.value })
+                          setFilterAmount({
+                            ...filterAmount,
+                            max: e.target.value,
+                          })
                         }
                       />
                     </div>
@@ -578,10 +626,10 @@ export function PayoutsList() {
                     {sortBy === "newest"
                       ? "Сначала новые"
                       : sortBy === "oldest"
-                      ? "Сначала старые"
-                      : sortBy === "amount_desc"
-                      ? "Сумма ↓"
-                      : "Сумма ↑"}
+                        ? "Сначала старые"
+                        : sortBy === "amount_desc"
+                          ? "Сумма ↓"
+                          : "Сумма ↑"}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
@@ -623,29 +671,44 @@ export function PayoutsList() {
                   {/* Left Section */}
                   <div className="flex items-start gap-4">
                     {/* Icon */}
-                    <div className={cn(
-                      "w-12 h-12 rounded-lg flex items-center justify-center",
-                      payout.status === "COMPLETED" ? "bg-green-100" :
-                      payout.status === "PROCESSING" ? "bg-blue-100" :
-                      payout.status === "PENDING" ? "bg-yellow-100" :
-                      "bg-red-100"
-                    )}>
+                    <div
+                      className={cn(
+                        "w-12 h-12 rounded-lg flex items-center justify-center",
+                        payout.status === "COMPLETED"
+                          ? "bg-green-100"
+                          : payout.status === "PROCESSING"
+                            ? "bg-blue-100"
+                            : payout.status === "PENDING"
+                              ? "bg-yellow-100"
+                              : "bg-red-100",
+                      )}
+                    >
                       {payout.method === "card" ? (
-                        <CreditCard className={cn(
-                          "h-6 w-6",
-                          payout.status === "COMPLETED" ? "text-green-600" :
-                          payout.status === "PROCESSING" ? "text-blue-600" :
-                          payout.status === "PENDING" ? "text-yellow-600" :
-                          "text-red-600"
-                        )} />
+                        <CreditCard
+                          className={cn(
+                            "h-6 w-6",
+                            payout.status === "COMPLETED"
+                              ? "text-green-600"
+                              : payout.status === "PROCESSING"
+                                ? "text-blue-600"
+                                : payout.status === "PENDING"
+                                  ? "text-yellow-600"
+                                  : "text-red-600",
+                          )}
+                        />
                       ) : (
-                        <Wallet className={cn(
-                          "h-6 w-6",
-                          payout.status === "COMPLETED" ? "text-green-600" :
-                          payout.status === "PROCESSING" ? "text-blue-600" :
-                          payout.status === "PENDING" ? "text-yellow-600" :
-                          "text-red-600"
-                        )} />
+                        <Wallet
+                          className={cn(
+                            "h-6 w-6",
+                            payout.status === "COMPLETED"
+                              ? "text-green-600"
+                              : payout.status === "PROCESSING"
+                                ? "text-blue-600"
+                                : payout.status === "PENDING"
+                                  ? "text-yellow-600"
+                                  : "text-red-600",
+                          )}
+                        />
                       )}
                     </div>
 
@@ -655,11 +718,16 @@ export function PayoutsList() {
                         <h3 className="font-semibold">
                           Выплата #{payout.numericId}
                         </h3>
-                        <Badge className={cn("border", statusConfig[payout.status]?.color)}>
+                        <Badge
+                          className={cn(
+                            "border",
+                            statusConfig[payout.status]?.color,
+                          )}
+                        >
                           {statusConfig[payout.status]?.label}
                         </Badge>
                       </div>
-                      
+
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         {payout.method === "card" ? (
                           <>
@@ -668,19 +736,30 @@ export function PayoutsList() {
                             <span>{payout.recipientName}</span>
                           </>
                         ) : (
-                          <span className="font-mono">{payout.walletAddress}</span>
+                          <span className="font-mono">
+                            {payout.walletAddress}
+                          </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>
-                          {format(new Date(payout.createdAt), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+                          {format(
+                            new Date(payout.createdAt),
+                            "d MMMM yyyy 'в' HH:mm",
+                            { locale: ru },
+                          )}
                         </span>
                         {payout.completedAt && (
                           <>
                             <span>•</span>
                             <span className="text-green-600">
-                              Завершено {format(new Date(payout.completedAt), "d MMMM 'в' HH:mm", { locale: ru })}
+                              Завершено{" "}
+                              {format(
+                                new Date(payout.completedAt),
+                                "d MMMM 'в' HH:mm",
+                                { locale: ru },
+                              )}
                             </span>
                           </>
                         )}
@@ -698,7 +777,8 @@ export function PayoutsList() {
                     </div>
                     {payout.commission && (
                       <div className="text-xs text-gray-500">
-                        Комиссия: {payout.commission.toFixed(2)} {payout.currency}
+                        Комиссия: {payout.commission.toFixed(2)}{" "}
+                        {payout.currency}
                       </div>
                     )}
                   </div>
@@ -730,12 +810,23 @@ export function PayoutsList() {
       </div>
 
       {/* Payout Details Dialog */}
-      <Dialog open={!!selectedPayout} onOpenChange={() => setSelectedPayout(null)}>
+      <Dialog
+        open={!!selectedPayout}
+        onOpenChange={() => setSelectedPayout(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Детали выплаты #{selectedPayout?.numericId}</DialogTitle>
+            <DialogTitle>
+              Детали выплаты #{selectedPayout?.numericId}
+            </DialogTitle>
             <DialogDescription>
-              Информация о выплате от {selectedPayout && format(new Date(selectedPayout.createdAt), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+              Информация о выплате от{" "}
+              {selectedPayout &&
+                format(
+                  new Date(selectedPayout.createdAt),
+                  "d MMMM yyyy 'в' HH:mm",
+                  { locale: ru },
+                )}
             </DialogDescription>
           </DialogHeader>
 
@@ -744,13 +835,20 @@ export function PayoutsList() {
               {/* Status and Amount */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Badge className={cn("border", statusConfig[selectedPayout.status]?.color)}>
+                  <Badge
+                    className={cn(
+                      "border",
+                      statusConfig[selectedPayout.status]?.color,
+                    )}
+                  >
                     {statusConfig[selectedPayout.status]?.label}
                   </Badge>
                   {selectedPayout.transactionHash && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <FileText className="h-4 w-4" />
-                      <span className="font-mono">{selectedPayout.transactionHash}</span>
+                      <span className="font-mono">
+                        {selectedPayout.transactionHash}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -766,16 +864,22 @@ export function PayoutsList() {
                   {selectedPayout.method === "card" ? (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Номер карты</span>
+                        <span className="text-sm text-gray-600">
+                          Номер карты
+                        </span>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono">{selectedPayout.cardNumber}</span>
+                          <span className="font-mono">
+                            {selectedPayout.cardNumber}
+                          </span>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigator.clipboard.writeText(selectedPayout.cardNumber || "");
+                              navigator.clipboard.writeText(
+                                selectedPayout.cardNumber || "",
+                              );
                               toast.success("Номер карты скопирован");
                             }}
                           >
@@ -784,7 +888,9 @@ export function PayoutsList() {
                         </div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Имя получателя</span>
+                        <span className="text-sm text-gray-600">
+                          Имя получателя
+                        </span>
                         <span>{selectedPayout.recipientName}</span>
                       </div>
                       {selectedPayout.bankType && (
@@ -796,16 +902,22 @@ export function PayoutsList() {
                     </>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Адрес кошелька</span>
+                      <span className="text-sm text-gray-600">
+                        Адрес кошелька
+                      </span>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm">{selectedPayout.walletAddress}</span>
+                        <span className="font-mono text-sm">
+                          {selectedPayout.walletAddress}
+                        </span>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigator.clipboard.writeText(selectedPayout.walletAddress || "");
+                            navigator.clipboard.writeText(
+                              selectedPayout.walletAddress || "",
+                            );
                             toast.success("Адрес кошелька скопирован");
                           }}
                         >
@@ -823,20 +935,28 @@ export function PayoutsList() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Сумма</span>
-                    <span className="font-medium">{selectedPayout.amount.toFixed(2)} {selectedPayout.currency}</span>
+                    <span className="font-medium">
+                      {selectedPayout.amount.toFixed(2)}{" "}
+                      {selectedPayout.currency}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Курс</span>
                     <span>1 {selectedPayout.currency} = 100 RUB</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Сумма в рублях</span>
+                    <span className="text-sm text-gray-600">
+                      Сумма в рублях
+                    </span>
                     <span>{(selectedPayout.amount * 100).toFixed(2)} RUB</span>
                   </div>
                   {selectedPayout.commission && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Комиссия</span>
-                      <span>{selectedPayout.commission.toFixed(2)} {selectedPayout.currency}</span>
+                      <span>
+                        {selectedPayout.commission.toFixed(2)}{" "}
+                        {selectedPayout.currency}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -851,7 +971,11 @@ export function PayoutsList() {
                     <div>
                       <p className="text-sm font-medium">Создана</p>
                       <p className="text-sm text-gray-600">
-                        {format(new Date(selectedPayout.createdAt), "d MMMM yyyy 'в' HH:mm:ss", { locale: ru })}
+                        {format(
+                          new Date(selectedPayout.createdAt),
+                          "d MMMM yyyy 'в' HH:mm:ss",
+                          { locale: ru },
+                        )}
                       </p>
                     </div>
                   </div>
@@ -860,7 +984,9 @@ export function PayoutsList() {
                       <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5" />
                       <div>
                         <p className="text-sm font-medium">В обработке</p>
-                        <p className="text-sm text-gray-600">Ожидает подтверждения</p>
+                        <p className="text-sm text-gray-600">
+                          Ожидает подтверждения
+                        </p>
                       </div>
                     </div>
                   )}
@@ -870,7 +996,11 @@ export function PayoutsList() {
                       <div>
                         <p className="text-sm font-medium">Завершена</p>
                         <p className="text-sm text-gray-600">
-                          {format(new Date(selectedPayout.completedAt), "d MMMM yyyy 'в' HH:mm:ss", { locale: ru })}
+                          {format(
+                            new Date(selectedPayout.completedAt),
+                            "d MMMM yyyy 'в' HH:mm:ss",
+                            { locale: ru },
+                          )}
                         </p>
                       </div>
                     </div>

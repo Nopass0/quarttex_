@@ -25,7 +25,6 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-// import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,7 +36,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -135,7 +134,6 @@ export function PayoutsList() {
     СБП: "/bank-logos/sbp.svg",
   };
 
-
   // Helper functions
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -174,12 +172,15 @@ export function PayoutsList() {
       return "bg-red-100 text-red-700";
     } else if (payout.status === "checking") {
       return "bg-purple-100 text-purple-700";
-    } else if (payout.status === "created") {
-      return "bg-yellow-100 text-yellow-700";
-    } else if (payout.status === "expired" || expiresAt < now) {
+    } else if (
+      payout.status === "expired" ||
+      (expiresAt < now && !payout.accepted_at)
+    ) {
       return "bg-gray-100 text-gray-700";
-    } else {
+    } else if (payout.status === "active" || payout.accepted_at) {
       return "bg-blue-100 text-blue-700";
+    } else {
+      return "bg-yellow-100 text-yellow-700";
     }
   };
 
@@ -188,22 +189,26 @@ export function PayoutsList() {
     const expiresAt = new Date(payout.expire_at).getTime();
 
     if (payout.status === "completed" || payout.confirmed_at) {
-      return "Выплачено";
+      return "Выполнено";
     } else if (payout.status === "cancelled") {
       return "Отменено";
     } else if (payout.status === "checking") {
       return "Проверка";
-    } else if (payout.status === "created") {
-      return "Создана";
-    } else if (payout.status === "expired" || expiresAt < now) {
+    } else if (
+      payout.status === "expired" ||
+      (expiresAt < now && !payout.accepted_at)
+    ) {
       return "Истекло";
-    } else {
+    } else if (payout.status === "active" || payout.accepted_at) {
       return formatRemainingTime(payout.expire_at);
+    } else {
+      return "Доступно";
     }
   };
 
-  // Update timer every second
+  // Effects
   useEffect(() => {
+    // Update timers every second
     const interval = setInterval(() => {
       // Force re-render to update timers
       setBalanceInput((prev) => prev);
@@ -479,7 +484,7 @@ export function PayoutsList() {
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="bg-white rounded-lg border border-gray-200 p-5 hover:bg-gray-50 transition-colors cursor-pointer mb-4 h-[100px]"
+          className="bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
           onClick={() => setSelectedPayout(payout)}
         >
           <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center h-full">
@@ -487,13 +492,17 @@ export function PayoutsList() {
             <div className="flex items-center justify-center">
               <div className="w-12 h-12 bg-gray-50 rounded-lg shadow-sm flex items-center justify-center">
                 {payout.isCard ? (
-                  <CreditCard className="h-7 w-7 text-gray-700" />
+                  <CreditCard className="h-7 w-7 text-blue-600" />
                 ) : (
-                  <img
-                    src="/bank-logos/sbp.svg"
-                    alt="СБП"
-                    className="h-7 w-7"
-                  />
+                  bankLogos[payout.bank] ? (
+                    <img
+                      src={bankLogos[payout.bank]}
+                      alt={payout.bank}
+                      className="h-7 w-7"
+                    />
+                  ) : (
+                    <Building2 className="h-7 w-7 text-gray-400" />
+                  )
                 )}
               </div>
             </div>
@@ -716,6 +725,35 @@ export function PayoutsList() {
     </ContextMenu>
   );
 
+  const renderPayoutsList = () => (
+    <>
+      {/* Column Headers */}
+      <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
+        <div></div>
+        <div>Заявка</div>
+        <div>Реквизиты</div>
+        <div>Сумма</div>
+        <div>Сумма к списанию</div>
+        <div>Курс</div>
+        <div>Статус</div>
+      </div>
+      
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
+        <div className="p-6 space-y-4">
+          {filteredPayouts.map((payout) => (
+            <PayoutCard key={payout.id} payout={payout} />
+          ))}
+          {loadingMore && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -765,10 +803,10 @@ export function PayoutsList() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Balance and Filters */}
       <div className="bg-white px-6 py-4">
         <div className="flex items-end gap-3">
-          {/* Balance block first */}
+          {/* Balance Display */}
           <div className="bg-gray-100 rounded-lg px-5 h-12 flex flex-col justify-center min-w-[180px] mr-auto">
             <div className="text-xs text-gray-600">Баланс</div>
             <div className="text-lg font-semibold leading-tight">
@@ -776,7 +814,7 @@ export function PayoutsList() {
             </div>
           </div>
 
-          {/* Traffic Type */}
+          {/* Traffic Type Filter */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-500">Выбор типа трафика:</label>
             <DropdownMenu>
@@ -786,27 +824,36 @@ export function PayoutsList() {
                   className="h-12 justify-between w-[200px]"
                 >
                   <span className="flex items-center gap-2">
-                    {selectedTrafficType.length === 0 ? (
-                      "СБП"
-                    ) : (
-                      <div className="flex gap-1">
-                        {selectedTrafficType.includes(1) && (
-                          <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
-                            СБП
-                          </Badge>
-                        )}
-                        {selectedTrafficType.includes(2) && (
-                          <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
-                            Карты
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    {selectedTrafficType.length === 0
+                      ? "СБП"
+                      : selectedTrafficType.includes(0) && selectedTrafficType.includes(1)
+                      ? "СБП, Карты"
+                      : selectedTrafficType.includes(0)
+                      ? "СБП"
+                      : "Карты"}
                   </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[200px]">
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuCheckboxItem
+                  checked={selectedTrafficType.includes(0)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedTrafficType([...selectedTrafficType, 0]);
+                    } else {
+                      setSelectedTrafficType(
+                        selectedTrafficType.filter((t) => t !== 0),
+                      );
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  {selectedTrafficType.includes(0) && (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  СБП
+                </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={selectedTrafficType.includes(1)}
                   onCheckedChange={(checked) => {
@@ -823,31 +870,13 @@ export function PayoutsList() {
                   {selectedTrafficType.includes(1) && (
                     <Check className="h-4 w-4 mr-2" />
                   )}
-                  СБП
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={selectedTrafficType.includes(2)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedTrafficType([...selectedTrafficType, 2]);
-                    } else {
-                      setSelectedTrafficType(
-                        selectedTrafficType.filter((t) => t !== 2),
-                      );
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  {selectedTrafficType.includes(2) && (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
                   Карты
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          {/* SBP Banks */}
+          {/* Banks Filter */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-500">Выбор банков СБП:</label>
             <DropdownMenu>
@@ -857,59 +886,41 @@ export function PayoutsList() {
                   className="h-12 justify-between w-[250px]"
                 >
                   <span className="flex items-center gap-2">
-                    {selectedBanks.length === 0 ? (
-                      "Выберите банки"
-                    ) : (
-                      <div className="flex gap-1">
-                        {selectedBanks.slice(0, 2).map((index) => (
-                          <Badge
-                            key={index}
-                            className="h-5 px-2 bg-green-100 text-green-700 border-green-200"
-                          >
-                            {Object.keys(bankLogos)[index]}
-                          </Badge>
-                        ))}
-                        {selectedBanks.length > 2 && (
-                          <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
-                            +{selectedBanks.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    {selectedBanks.length === 0
+                      ? "Выберите банки"
+                      : `Выбрано: ${selectedBanks.length}`}
                   </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-[250px] max-h-[300px] overflow-y-auto"
-              >
-                {Object.keys(bankLogos).map((bank, index) => (
-                  <DropdownMenuCheckboxItem
-                    key={bank}
-                    checked={selectedBanks.includes(index)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedBanks([...selectedBanks, index]);
-                      } else {
-                        setSelectedBanks(
-                          selectedBanks.filter((b) => b !== index),
-                        );
-                      }
-                    }}
-                    className="cursor-pointer"
-                  >
-                    {selectedBanks.includes(index) && (
-                      <Check className="h-4 w-4 mr-2" />
-                    )}
-                    {bank}
-                  </DropdownMenuCheckboxItem>
-                ))}
+              <DropdownMenuContent align="end" className="w-[250px]">
+                {["Сбербанк", "Тинькофф", "ВТБ", "Альфа-банк", "Райффайзен"]
+                  .map((bank, index) => (
+                    <DropdownMenuCheckboxItem
+                      key={bank}
+                      checked={selectedBanks.includes(index)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedBanks([...selectedBanks, index]);
+                        } else {
+                          setSelectedBanks(
+                            selectedBanks.filter((b) => b !== index),
+                          );
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      {selectedBanks.includes(index) && (
+                        <Check className="h-4 w-4 mr-2" />
+                      )}
+                      {bank}
+                    </DropdownMenuCheckboxItem>
+                  ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          {/* Card Banks */}
+          {/* Card Banks Filter */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-gray-500">
               Выбор банков по картам:
@@ -921,40 +932,15 @@ export function PayoutsList() {
                   className="h-12 justify-between w-[250px]"
                 >
                   <span className="flex items-center gap-2">
-                    {selectedCardBanks.length === 0 ? (
-                      "Выберите банки"
-                    ) : (
-                      <div className="flex gap-1">
-                        {selectedCardBanks.slice(0, 2).map((index) => {
-                          const banks = Object.keys(bankLogos).filter(
-                            (bank) => bank !== "СБП",
-                          );
-                          return (
-                            <Badge
-                              key={index}
-                              className="h-5 px-2 bg-green-100 text-green-700 border-green-200"
-                            >
-                              {banks[index]}
-                            </Badge>
-                          );
-                        })}
-                        {selectedCardBanks.length > 2 && (
-                          <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
-                            +{selectedCardBanks.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    {selectedCardBanks.length === 0
+                      ? "Выберите банки"
+                      : `Выбрано: ${selectedCardBanks.length}`}
                   </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-[250px] max-h-[300px] overflow-y-auto"
-              >
-                {Object.keys(bankLogos)
-                  .filter((bank) => bank !== "СБП")
+              <DropdownMenuContent align="end" className="w-[250px]">
+                {["Сбербанк", "Тинькофф", "ВТБ", "Альфа-банк", "Райффайзен"]
                   .map((bank, index) => (
                     <DropdownMenuCheckboxItem
                       key={bank}
@@ -1003,260 +989,40 @@ export function PayoutsList() {
       </div>
 
       {/* Content with Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        {/* Tabs Header */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Tabs */}
         <div className="bg-white px-6 pb-4">
-          <TabsList className="h-12 p-1">
-            <TabsTrigger value="all" className="h-10 px-6">
-              Все
-            </TabsTrigger>
-            <TabsTrigger value="active" className="h-10 px-6">
-              Активные
-            </TabsTrigger>
-            <TabsTrigger value="check" className="h-10 px-6">
-              Проверка
-            </TabsTrigger>
-            <TabsTrigger value="finalization" className="h-10 px-6">
-              Финализация
-            </TabsTrigger>
-            <TabsTrigger value="history" className="h-10 px-6">
-              История
-            </TabsTrigger>
-            <TabsTrigger value="cancelled" className="h-10 px-6">
-              Отменённые
-            </TabsTrigger>
-          </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="h-12 p-1">
+              <TabsTrigger value="all" className="h-10 px-6">
+                Все
+              </TabsTrigger>
+              <TabsTrigger value="active" className="h-10 px-6">
+                Активные
+              </TabsTrigger>
+              <TabsTrigger value="check" className="h-10 px-6">
+                Проверка
+              </TabsTrigger>
+              <TabsTrigger value="finalization" className="h-10 px-6">
+                Финализация
+              </TabsTrigger>
+              <TabsTrigger value="history" className="h-10 px-6">
+                История
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" className="h-10 px-6">
+                Отменённые
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        {/* Tab Content */}
+        {/* Tab Content - Conditional Rendering */}
         <div className="flex-1 flex flex-col overflow-hidden">
-        {activeTab === "all" && (
-          <>
-          {/* Column Headers */}
-          <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
-            <div></div>
-            <div className="flex items-center gap-2">
-              {showIdSearch ? (
-                <div className="flex items-center gap-1 animate-fade-in">
-                  <Input
-                    placeholder="ID"
-                    value={searchId}
-                    onChange={(e) => setSearchId(e.target.value)}
-                    className="h-8 text-sm"
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    onClick={() => {
-                      setShowIdSearch(false);
-                      setSearchId("");
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <span>Заявка</span>
-                  <Search
-                    className="h-3.5 w-3.5 cursor-pointer text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowIdSearch(true)}
-                  />
-                </>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {showRequisitesSearch ? (
-                <div className="flex items-center gap-1 animate-fade-in">
-                  <Input
-                    placeholder="Поиск реквизитов"
-                    value={searchRequisites}
-                    onChange={(e) => setSearchRequisites(e.target.value)}
-                    className="h-8 text-sm"
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    onClick={() => {
-                      setShowRequisitesSearch(false);
-                      setSearchRequisites("");
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <span>Реквизиты</span>
-                  <Search
-                    className="h-3.5 w-3.5 cursor-pointer text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowRequisitesSearch(true)}
-                  />
-                </>
-              )}
-            </div>
-            <div>Сумма</div>
-            <div>Сумма к списанию</div>
-            <div>Курс</div>
-            <div>Статус</div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-            <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
-              {loadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
-
-        {activeTab === "active" && (
-          <>
-          {/* Column Headers */}
-          <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
-            <div></div>
-            <div>Заявка</div>
-            <div>Реквизиты</div>
-            <div>Сумма</div>
-            <div>Сумма к списанию</div>
-            <div>Курс</div>
-            <div>Статус</div>
-          </div>
-          <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-            <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
-              {loadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
-
-        {activeTab === "check" && (
-          <>
-          {/* Column Headers */}
-          <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
-            <div></div>
-            <div>Заявка</div>
-            <div>Реквизиты</div>
-            <div>Сумма</div>
-            <div>Сумма к списанию</div>
-            <div>Курс</div>
-            <div>Статус</div>
-          </div>
-          <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-            <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
-              {loadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
-
-        {activeTab === "finalization" && (
-          <>
-          {/* Column Headers */}
-          <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
-            <div></div>
-            <div>Заявка</div>
-            <div>Реквизиты</div>
-            <div>Сумма</div>
-            <div>Сумма к списанию</div>
-            <div>Курс</div>
-            <div>Статус</div>
-          </div>
-          <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-            <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
-              {loadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
-
-        {activeTab === "history" && (
-          <>
-          {/* Column Headers */}
-          <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
-            <div></div>
-            <div>Заявка</div>
-            <div>Реквизиты</div>
-            <div>Сумма</div>
-            <div>Сумма к списанию</div>
-            <div>Курс</div>
-            <div>Статус</div>
-          </div>
-          <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-            <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
-              {loadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
-
-        {activeTab === "cancelled" && (
-          <>
-          {/* Column Headers */}
-          <div className="grid grid-cols-[60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
-            <div></div>
-            <div>Заявка</div>
-            <div>Реквизиты</div>
-            <div>Сумма</div>
-            <div>Сумма к списанию</div>
-            <div>Курс</div>
-            <div>Статус</div>
-          </div>
-          <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
-            <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
-              {loadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
+          {renderPayoutsList()}
         </div>
-      </Tabs>
+      </div>
 
+      {/* Dialogs */}
       {/* Payout Details Dialog */}
       <Dialog
         open={!!selectedPayout}
@@ -1443,7 +1209,6 @@ export function PayoutsList() {
                 </div>
               );
             })()}
-            
             
             {/* File Upload */}
             <div className="space-y-2">

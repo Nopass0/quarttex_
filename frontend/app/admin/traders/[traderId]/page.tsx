@@ -724,14 +724,25 @@ function TraderProfileContent() {
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                onClick={() => {
-                  // Mock withdrawal history data
-                  setWithdrawalHistory([
-                    { id: '1', amount: 150, status: 'completed', createdAt: '2024-01-15T10:30:00', type: 'profit' },
-                    { id: '2', amount: 200, status: 'pending', createdAt: '2024-01-14T15:45:00', type: 'profit' },
-                    { id: '3', amount: 100, status: 'rejected', createdAt: '2024-01-13T09:20:00', type: 'profit' },
-                    { id: '4', amount: 300, status: 'completed', createdAt: '2024-01-12T14:00:00', type: 'profit' },
-                  ])
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/admin/traders/${params.traderId}/withdrawals`, {
+                      headers: {
+                        'x-admin-key': localStorage.getItem('adminKey') || ''
+                      }
+                    })
+                    
+                    if (response.ok) {
+                      const data = await response.json()
+                      setWithdrawalHistory(data.withdrawals)
+                    } else {
+                      // Fallback to empty array if API fails
+                      setWithdrawalHistory([])
+                    }
+                  } catch (error) {
+                    console.error('Failed to fetch withdrawal history:', error)
+                    setWithdrawalHistory([])
+                  }
                   setIsWithdrawalDialogOpen(true)
                 }}
               >
@@ -934,31 +945,45 @@ function TraderProfileContent() {
               <TableCaption>История всех запросов на вывод</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Дата и время</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Дата создания</TableHead>
+                  <TableHead>Дата принятия</TableHead>
                   <TableHead>Сумма</TableHead>
                   <TableHead>Статус</TableHead>
-                  <TableHead>Тип</TableHead>
+                  <TableHead>Мерчант</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {withdrawalHistory.map((withdrawal) => (
+                {withdrawalHistory.length > 0 ? withdrawalHistory.map((withdrawal) => (
                   <TableRow key={withdrawal.id}>
+                    <TableCell className="font-mono text-sm">#{withdrawal.numericId}</TableCell>
                     <TableCell>{new Date(withdrawal.createdAt).toLocaleString('ru-RU')}</TableCell>
-                    <TableCell className="font-medium">${formatAmount(withdrawal.amount)}</TableCell>
+                    <TableCell>
+                      {withdrawal.acceptedAt ? new Date(withdrawal.acceptedAt).toLocaleString('ru-RU') : '-'}
+                    </TableCell>
+                    <TableCell className="font-medium">₽{formatAmount(withdrawal.amount)}</TableCell>
                     <TableCell>
                       <Badge variant={
                         withdrawal.status === 'completed' ? 'default' :
-                        withdrawal.status === 'pending' ? 'secondary' :
-                        'destructive'
+                        withdrawal.status === 'cancelled' ? 'destructive' :
+                        withdrawal.status === 'expired' ? 'secondary' :
+                        'secondary'
                       }>
                         {withdrawal.status === 'completed' ? 'Выполнен' :
-                         withdrawal.status === 'pending' ? 'В ожидании' :
-                         'Отклонен'}
+                         withdrawal.status === 'cancelled' ? 'Отменён' :
+                         withdrawal.status === 'expired' ? 'Истёк' :
+                         withdrawal.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>Прибыль</TableCell>
+                    <TableCell>{withdrawal.merchantName}</TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500">
+                      Нет данных о выводах
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

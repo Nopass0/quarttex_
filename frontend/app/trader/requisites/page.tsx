@@ -580,6 +580,7 @@ export default function TraderRequisitesPage() {
                     <Checkbox
                       checked={selectedRequisites.includes(requisite.id)}
                       onCheckedChange={() => toggleSelect(requisite.id)}
+                      onClick={(e) => e.stopPropagation()}
                       className="flex-shrink-0"
                     />
 

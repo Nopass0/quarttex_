@@ -11,6 +11,164 @@ const authHeader = t.Object({
 });
 
 export default new Elysia({ prefix: "/traders" })
+  /* ───────────────── Get traders list ───────────────── */
+  .get(
+    "/",
+    async ({ query }) => {
+      const page = query.page || 1;
+      const limit = query.limit || 50;
+      const offset = (page - 1) * limit;
+      
+      const where: Prisma.UserWhereInput = {};
+      
+      // Search filter
+      if (query.search) {
+        where.OR = [
+          { email: { contains: query.search, mode: 'insensitive' } },
+          { name: { contains: query.search, mode: 'insensitive' } },
+          { numericId: parseInt(query.search) || 0 },
+        ];
+      }
+      
+      // Status filters
+      if (query.banned !== undefined) {
+        where.banned = query.banned === 'true';
+      }
+      
+      if (query.trafficEnabled !== undefined) {
+        where.trafficEnabled = query.trafficEnabled === 'true';
+      }
+      
+      const [traders, total] = await Promise.all([
+        db.user.findMany({
+          where,
+          include: {
+            bankDetails: {
+              select: {
+                id: true,
+                cardNumber: true,
+                bankType: true,
+                recipientName: true,
+              }
+            },
+            devices: {
+              select: {
+                id: true,
+                name: true,
+                isOnline: true,
+              }
+            },
+            team: {
+              include: {
+                agent: {
+                  select: {
+                    id: true,
+                    name: true,
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                tradedTransactions: {
+                  where: {
+                    status: 'READY'
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: offset,
+          take: limit,
+        }),
+        db.user.count({ where }),
+      ]);
+      
+      const formattedTraders = traders.map(trader => ({
+        id: trader.id,
+        numericId: trader.numericId,
+        email: trader.email,
+        name: trader.name,
+        banned: trader.banned,
+        trafficEnabled: trader.trafficEnabled,
+        balanceUsdt: trader.balanceUsdt,
+        balanceRub: trader.balanceRub,
+        frozenUsdt: trader.frozenUsdt,
+        frozenRub: trader.frozenRub,
+        payoutBalance: trader.payoutBalance,
+        frozenPayoutBalance: trader.frozenPayoutBalance,
+        deposit: trader.deposit,
+        profitFromDeals: trader.profitFromDeals,
+        profitFromPayouts: trader.profitFromPayouts,
+        completedTransactions: trader._count.tradedTransactions,
+        bankDetailsCount: trader.bankDetails.length,
+        devicesCount: trader.devices.length,
+        onlineDevices: trader.devices.filter(d => d.isOnline).length,
+        teamName: trader.team?.name || null,
+        agentName: trader.team?.agent?.name || null,
+        createdAt: trader.createdAt,
+      }));
+      
+      return {
+        traders: formattedTraders,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        }
+      };
+    },
+    {
+      tags: ["admin"],
+      headers: authHeader,
+      query: t.Object({
+        page: t.Optional(t.Number({ minimum: 1 })),
+        limit: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
+        search: t.Optional(t.String()),
+        banned: t.Optional(t.String()),
+        trafficEnabled: t.Optional(t.String()),
+      }),
+      response: {
+        200: t.Object({
+          traders: t.Array(t.Object({
+            id: t.String(),
+            numericId: t.Number(),
+            email: t.String(),
+            name: t.String(),
+            banned: t.Boolean(),
+            trafficEnabled: t.Boolean(),
+            balanceUsdt: t.Number(),
+            balanceRub: t.Number(),
+            frozenUsdt: t.Number(),
+            frozenRub: t.Number(),
+            payoutBalance: t.Number(),
+            frozenPayoutBalance: t.Number(),
+            deposit: t.Number(),
+            profitFromDeals: t.Number(),
+            profitFromPayouts: t.Number(),
+            completedTransactions: t.Number(),
+            bankDetailsCount: t.Number(),
+            devicesCount: t.Number(),
+            onlineDevices: t.Number(),
+            teamName: t.Nullable(t.String()),
+            agentName: t.Nullable(t.String()),
+            createdAt: t.Date(),
+          })),
+          pagination: t.Object({
+            page: t.Number(),
+            limit: t.Number(),
+            total: t.Number(),
+            totalPages: t.Number(),
+          })
+        }),
+        401: ErrorSchema,
+        403: ErrorSchema,
+      },
+    },
+  )
+  
   /* ───────────────── Get trader full details ───────────────── */
   .get(
     "/:id/full",
@@ -150,6 +308,127 @@ export default new Elysia({ prefix: "/traders" })
             id: t.String(),
             email: t.String(),
             name: t.String(),
+          })
+        }),
+        404: ErrorSchema,
+        401: ErrorSchema,
+        403: ErrorSchema,
+      },
+    },
+  )
+  
+  /* ───────────────── Get trader withdrawal history ───────────────── */
+  .get(
+    "/:id/withdrawals",
+    async ({ params, query, error }) => {
+      try {
+        const trader = await db.user.findUnique({
+          where: { id: params.id }
+        });
+
+        if (!trader) {
+          return error(404, { error: "Трейдер не найден" });
+        }
+
+        const page = query.page || 1;
+        const limit = query.limit || 20;
+        const offset = (page - 1) * limit;
+
+        const where = {
+          traderId: params.id,
+          status: { in: ["COMPLETED", "CANCELLED", "EXPIRED"] }
+        };
+
+        const [withdrawals, total] = await Promise.all([
+          db.payout.findMany({
+            where,
+            select: {
+              id: true,
+              numericId: true,
+              amount: true,
+              amountUsdt: true,
+              total: true,
+              totalUsdt: true,
+              status: true,
+              createdAt: true,
+              acceptedAt: true,
+              confirmedAt: true,
+              cancelledAt: true,
+              cancelReason: true,
+              merchant: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: offset,
+            take: limit,
+          }),
+          db.payout.count({ where }),
+        ]);
+
+        const formattedWithdrawals = withdrawals.map(withdrawal => ({
+          id: withdrawal.id,
+          numericId: withdrawal.numericId,
+          amount: withdrawal.total, // Total amount earned
+          status: withdrawal.status.toLowerCase(),
+          createdAt: withdrawal.createdAt,
+          acceptedAt: withdrawal.acceptedAt,
+          confirmedAt: withdrawal.confirmedAt,
+          cancelledAt: withdrawal.cancelledAt,
+          cancelReason: withdrawal.cancelReason,
+          type: 'payout',
+          merchantName: withdrawal.merchant.name,
+        }));
+
+        return {
+          withdrawals: formattedWithdrawals,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          }
+        };
+      } catch (e) {
+        if (
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === "P2025"
+        )
+          return error(404, { error: "Трейдер не найден" });
+        throw e;
+      }
+    },
+    {
+      tags: ["admin"],
+      headers: authHeader,
+      params: t.Object({ id: t.String() }),
+      query: t.Object({
+        page: t.Optional(t.Number({ minimum: 1 })),
+        limit: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
+      }),
+      response: {
+        200: t.Object({
+          withdrawals: t.Array(t.Object({
+            id: t.String(),
+            numericId: t.Number(),
+            amount: t.Number(),
+            status: t.String(),
+            createdAt: t.Date(),
+            acceptedAt: t.Nullable(t.Date()),
+            confirmedAt: t.Nullable(t.Date()),
+            cancelledAt: t.Nullable(t.Date()),
+            cancelReason: t.Nullable(t.String()),
+            type: t.String(),
+            merchantName: t.String(),
+          })),
+          pagination: t.Object({
+            page: t.Number(),
+            limit: t.Number(),
+            total: t.Number(),
+            totalPages: t.Number(),
           })
         }),
         404: ErrorSchema,

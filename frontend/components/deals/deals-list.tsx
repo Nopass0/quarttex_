@@ -692,55 +692,6 @@ export function DealsList() {
           />
         </div>
 
-        {/* Sort */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="default" className="gap-2">
-              <ArrowUpDown className="h-4 w-4 text-[#006039]" />
-              Сортировка
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-56">
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Сортировать</h4>
-              <div className="space-y-1">
-                <Button
-                  variant={sortBy === "newest" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortBy("newest")}
-                >
-                  Сначала новые
-                </Button>
-                <Button
-                  variant={sortBy === "oldest" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortBy("oldest")}
-                >
-                  Сначала старые
-                </Button>
-                <Button
-                  variant={sortBy === "amount_desc" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortBy("amount_desc")}
-                >
-                  Сумма по убыванию
-                </Button>
-                <Button
-                  variant={sortBy === "amount_asc" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => setSortBy("amount_asc")}
-                >
-                  Сумма по возрастанию
-                </Button>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
         {/* Filters */}
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
           <PopoverTrigger asChild>
@@ -838,18 +789,26 @@ export function DealsList() {
               <div className="space-y-2">
                 <Label className="text-sm">Сумма зачисление</Label>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                    <span className="text-sm">Точное значение</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Диапазон</span>
-                      <Switch
-                        checked={filterAmountType === "range"}
-                        onCheckedChange={(checked) =>
-                          setFilterAmountType(checked ? "range" : "exact")
-                        }
-                        className="data-[state=checked]:bg-[#006039]"
-                      />
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className={cn(
+                        "text-sm font-medium transition-colors",
+                        filterAmountType === "range" ? "text-[#006039]" : "text-gray-500 hover:text-gray-700"
+                      )}
+                      onClick={() => setFilterAmountType("range")}
+                    >
+                      Диапазон
+                    </button>
+                    <span className="text-gray-400">/</span>
+                    <button
+                      className={cn(
+                        "text-sm font-medium transition-colors",
+                        filterAmountType === "exact" ? "text-[#006039]" : "text-gray-500 hover:text-gray-700"
+                      )}
+                      onClick={() => setFilterAmountType("exact")}
+                    >
+                      Точное значение
+                    </button>
                   </div>
                   {filterAmountType === "exact" ? (
                     <Input
@@ -1054,6 +1013,55 @@ export function DealsList() {
                   onClick={() => setFiltersOpen(false)}
                 >
                   Применить фильтры
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Sort */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="default" className="gap-2">
+              <ArrowUpDown className="h-4 w-4 text-[#006039]" />
+              Сортировка
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-56">
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">Сортировать</h4>
+              <div className="space-y-1">
+                <Button
+                  variant={sortBy === "newest" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setSortBy("newest")}
+                >
+                  Сначала новые
+                </Button>
+                <Button
+                  variant={sortBy === "oldest" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setSortBy("oldest")}
+                >
+                  Сначала старые
+                </Button>
+                <Button
+                  variant={sortBy === "amount_desc" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setSortBy("amount_desc")}
+                >
+                  Сумма по убыванию
+                </Button>
+                <Button
+                  variant={sortBy === "amount_asc" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setSortBy("amount_asc")}
+                >
+                  Сумма по возрастанию
                 </Button>
               </div>
             </div>

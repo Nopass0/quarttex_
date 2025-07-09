@@ -37,6 +37,7 @@ import kkkSettingsRoutes from "@/routes/admin/kkk-settings";
 import processorRoutes from "@/routes/admin/processor";
 import deviceEmulatorRoutes from "@/routes/admin/device-emulator";
 import metricsRoutes from "@/routes/admin/metrics";
+import payoutEmulatorRoutes from "@/routes/admin/payout-emulator";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
 
@@ -106,6 +107,7 @@ export default (app: Elysia) =>
     .group("/kkk-settings", (a) => kkkSettingsRoutes(a))
     .use(processorRoutes)
     .use(deviceEmulatorRoutes)
+    .use(payoutEmulatorRoutes)
     .group("", (a) => metricsRoutes(a))
 
     /* ───────────────── enums ───────────────── */

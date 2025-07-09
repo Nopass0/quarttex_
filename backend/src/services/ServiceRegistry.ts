@@ -5,6 +5,7 @@ import { db } from '../db';
 export class ServiceRegistry {
   private static instance: ServiceRegistry;
   private services: Map<string, BaseService> = new Map();
+  private static staticServices: Map<string, any> = new Map();
 
   private constructor() {}
 
@@ -13,6 +14,24 @@ export class ServiceRegistry {
       ServiceRegistry.instance = new ServiceRegistry();
     }
     return ServiceRegistry.instance;
+  }
+  
+  /**
+   * Статический метод для регистрации сервисов
+   */
+  static register(name: string, service: any): void {
+    ServiceRegistry.staticServices.set(name, service);
+  }
+  
+  /**
+   * Статический метод для получения сервисов
+   */
+  static get<T = any>(name: string): T {
+    const service = ServiceRegistry.staticServices.get(name);
+    if (!service) {
+      throw new Error(`Service ${name} not found in static registry`);
+    }
+    return service as T;
   }
 
   /**
@@ -99,6 +118,17 @@ export class ServiceRegistry {
    */
   getService(name: string): BaseService | undefined {
     return this.services.get(name);
+  }
+  
+  /**
+   * Получает сервис по имени (типизированный)
+   */
+  get<T extends BaseService>(name: string): T {
+    const service = this.services.get(name);
+    if (!service) {
+      throw new Error(`Service ${name} not found in registry`);
+    }
+    return service as T;
   }
 
   /**

@@ -437,7 +437,7 @@ export function FinancesMain() {
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
             <div className="text-sm text-gray-500">
-              Средства в эскроу для активных сделок
+              Средства в эскроу для активных сделок (проводится сделка)
             </div>
           </div>
         </Card>

@@ -63,6 +63,12 @@ model User {
   deposit Float @default(0)
   /// Максимальное количество выплат, которые можно брать на проверку одновременно
   maxSimultaneousPayouts Int @default(5)
+  /// Время на принятие выплаты в минутах
+  payoutAcceptanceTime Int @default(5)
+  /// Баланс для выплат в рублях
+  payoutBalance Float @default(0)
+  /// Замороженный баланс выплат
+  frozenPayoutBalance Float @default(0)
 
   tradedTransactions    Transaction[]           @relation("TraderTransactions") // Транзакции, где пользователь является трейдером
   sessions              Session[]
@@ -74,6 +80,7 @@ model User {
   traderMerchants       TraderMerchant[]
   agentTraders          AgentTrader[]
   supportTickets        SupportTicket[]
+  payouts               Payout[]                @relation("TraderPayouts")
 }
 
 model Session {
@@ -157,6 +164,7 @@ model Merchant {
   Transaction     Transaction[]
   traderMerchants TraderMerchant[]
   supportTickets  SupportTicket[]
+  payouts         Payout[]
 }
 
 enum Currency {
@@ -722,4 +730,60 @@ model ServiceConfig {
   config     Json
   isEnabled  Boolean  @default(true)
   updatedAt  DateTime @updatedAt
+}
+
+model Payout {
+  id              String        @id @default(cuid())
+  numericId       Int           @unique @default(autoincrement())
+  merchant        Merchant      @relation(fields: [merchantId], references: [id])
+  merchantId      String
+  trader          User?         @relation("TraderPayouts", fields: [traderId], references: [id])
+  traderId        String?
+  
+  amount          Float         // Amount in RUB
+  amountUsdt      Float         // Amount in USDT
+  total           Float         // Total amount to deduct (with fees) in RUB
+  totalUsdt       Float         // Total amount to deduct (with fees) in USDT
+  rate            Float         // Exchange rate
+  
+  wallet          String        // Card number or phone
+  bank            String        // Bank name
+  isCard          Boolean       // true for card, false for SBP
+  
+  status          PayoutStatus  @default(CREATED)
+  
+  createdAt       DateTime      @default(now())
+  acceptedAt      DateTime?     // When trader accepted the payout
+  expireAt        DateTime      // Expiration time
+  confirmedAt     DateTime?     // When payout was confirmed
+  cancelledAt     DateTime?     // When payout was cancelled
+  
+  proofFiles      String[]      // Array of file URLs for proof
+  disputeFiles    String[]      // Array of file URLs for dispute
+  disputeMessage  String?       // Dispute message
+  cancelReason    String?       // Cancellation reason
+  
+  merchantWebhookUrl String?    // Webhook URL for merchant callbacks
+  merchantMetadata   Json?      // Additional merchant data
+  
+  acceptanceTime     Int        @default(5) // Minutes for trader to accept
+  processingTime     Int        @default(15) // Minutes to process after acceptance
+  
+  pushNotificationTime Int?     // Minutes after expiry to send push
+  pushSent             Boolean  @default(false)
+  
+  @@index([status, traderId])
+  @@index([merchantId, status])
+  @@index([createdAt])
+  @@index([expireAt])
+}
+
+enum PayoutStatus {
+  CREATED       // Created by merchant, waiting for trader
+  ACTIVE        // Accepted by trader, in process
+  CHECKING      // Proof submitted, checking
+  COMPLETED     // Successfully paid
+  CANCELLED     // Cancelled by trader
+  EXPIRED       // Time expired
+  DISPUTED      // In dispute
 }

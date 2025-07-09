@@ -121,12 +121,12 @@ export function RequisiteInfoModal({ open, onOpenChange, requisite }: RequisiteI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 overflow-hidden">
+      <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col">
         <DialogHeader className="sr-only">
           <DialogTitle>Информация о реквизите</DialogTitle>
         </DialogHeader>
         {/* Mobile Header */}
-        <div className="flex items-center justify-between p-4 border-b md:hidden">
+        <div className="flex items-center justify-between p-4 border-b md:hidden flex-shrink-0">
           <button
             onClick={() => onOpenChange(false)}
             className="flex items-center gap-1 text-[#006039] font-medium"
@@ -140,7 +140,7 @@ export function RequisiteInfoModal({ open, onOpenChange, requisite }: RequisiteI
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* Title */}
           <h3 className="text-xl font-semibold">Информация о реквизите</h3>
 

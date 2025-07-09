@@ -8,6 +8,7 @@ import { devicesRoutes } from "./devices";
 import messagesRoutes from "./messages";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
+import { traderPayoutsApi } from "@/api/trader/payouts";
 
 /**
  * Маршруты для трейдера
@@ -46,6 +47,7 @@ export default (app: Elysia) =>
     .group("/balance-topups", (app) => balanceTopupRoutes(app))
     .use(devicesRoutes)
     .use(messagesRoutes)
+    .use(traderPayoutsApi)
     .get(
       "/methods",
       async () => {
