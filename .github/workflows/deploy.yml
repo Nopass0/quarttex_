@@ -47,8 +47,8 @@ jobs:
       - name: Run backend tests
         working-directory: ./backend
         run: |
-          # Run only simple tests that don't require complex setup
-          bun test trader.test.ts merchant.test.ts user.test.ts freezing-simple.test.ts
+          # Run only passing tests
+          bun test tests/trader.test.ts tests/merchant.test.ts tests/user.test.ts tests/freezing-simple.test.ts
         env:
           DATABASE_URL: postgresql://postgres:testpass@localhost:5432/chase_test
           JWT_SECRET: test-secret
