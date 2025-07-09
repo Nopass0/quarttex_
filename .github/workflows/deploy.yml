@@ -90,7 +90,7 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          source: "scripts/install-dependencies.sh"
+          source: "scripts/install-dependencies.sh,docker-compose.prod.yml,nginx/,ssl/"
           target: "${{ secrets.PROJECT_PATH }}"
       
       - name: Deploy to server
