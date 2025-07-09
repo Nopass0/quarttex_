@@ -90,8 +90,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          source: "scripts/install-dependencies.sh,docker-compose.prod.yml,nginx/,ssl/"
+          source: "."
           target: "${{ secrets.PROJECT_PATH }}"
+          rm: true
       
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
@@ -107,23 +108,8 @@ jobs:
             # Navigate to project directory
             cd ${{ secrets.PROJECT_PATH }}
             
-            # Run installation script first
-            echo "Installing dependencies..."
-            chmod +x scripts/install-dependencies.sh
-            ./scripts/install-dependencies.sh
-            
             # Stop existing containers first
             docker compose -f docker-compose.prod.yml down || true
-            
-            # Initialize git if needed
-            if [ ! -d .git ]; then
-              git init
-              git remote add origin https://github.com/Nopass0/chase.git
-            fi
-            
-            # Pull latest changes
-            git fetch origin
-            git reset --hard origin/main
             
             # Create .env file for production
             cat > .env << 'EOF'
