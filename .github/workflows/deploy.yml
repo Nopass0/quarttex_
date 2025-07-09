@@ -44,6 +44,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:testpass@localhost:5432/chase_test
       
+      - name: Clean test database
+        working-directory: ./backend
+        run: |
+          npx prisma migrate reset --force --skip-seed
+        env:
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/chase_test
+      
       - name: Run backend tests
         working-directory: ./backend
         run: |

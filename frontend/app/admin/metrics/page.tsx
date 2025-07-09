@@ -189,7 +189,14 @@ function MetricsContent() {
           </Button>
           <DatePickerWithRange
             date={dateRange}
-            onDateChange={setDateRange}
+            onDateChange={(date) => {
+              if (date?.from) {
+                setDateRange({
+                  from: date.from,
+                  to: date.to || date.from
+                });
+              }
+            }}
           />
         </div>
       </div>
