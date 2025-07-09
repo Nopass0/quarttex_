@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chase_backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      NODE_ENV: production
+      PORT: 3001
+      SUPER_ADMIN_KEY: ${SUPER_ADMIN_KEY:-}
+      ADMIN_IPS: ${ADMIN_IPS:-}
+    expose:
+      - "3001"
+    networks:
+      - chase_network
+    restart: unless-stopped
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://chasepay.pro
+    container_name: chase_frontend
+    environment:
+      NODE_ENV: production
+    expose:
+      - "3000"
+    depends_on:
+      - backend
+    networks:
+      - chase_network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: chase_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - chase_network
+    restart: unless-stopped
+
+networks:
+  chase_network:
+    driver: bridge

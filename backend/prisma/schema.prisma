@@ -1,0 +1,725 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  numericId      Int      @unique @default(autoincrement())
+  email          String   @unique
+  password       String // sha-256 hash
+  banned         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  name           String
+  balanceUsdt    Float
+  balanceRub     Float
+  frozenUsdt     Float    @default(0) // Замороженные средства USDT
+  frozenRub      Float    @default(0) // Замороженные средства RUB
+  trafficEnabled Boolean  @default(true) // Включен ли трафик для пользователя
+  /// Константный курс для трейдера (если используется)
+  rateConst     Float?
+  /// Использовать ли константный курс вместо автоматического
+  useConstRate  Boolean  @default(false)
+  /// Процент профита трейдера
+  profitPercent Float?   @default(0)
+  /// Процент ставки трейдера
+  stakePercent  Float?   @default(0)
+  /// Баланс трейдера
+  trustBalance  Float    @default(0)
+  /// Прибыль со сделок (IN транзакций)
+  profitFromDeals Float  @default(0)
+  /// Прибыль с выплат (OUT транзакций)
+  profitFromPayouts Float @default(0)
+  /// Минимальный страховой депозит
+  minInsuranceDeposit Float @default(0)
+  /// Максимальный страховой депозит
+  maxInsuranceDeposit Float @default(100000)
+  /// Минимальная сумма на реквизит
+  minAmountPerRequisite Float @default(100)
+  /// Максимальная сумма на реквизит
+  maxAmountPerRequisite Float @default(100000)
+  /// Лимит одновременных споров
+  disputeLimit Int @default(5)
+  /// ID команды трейдера
+  teamId String?
+  team Team? @relation(fields: [teamId], references: [id])
+  /// Telegram Chat ID для уведомлений
+  telegramChatId String?
+  /// Telegram Dispute Chat ID для споров
+  telegramDisputeChatId String?
+  /// Telegram Bot Token
+  telegramBotToken String?
+  /// Депозит трейдера
+  deposit Float @default(0)
+  /// Максимальное количество выплат, которые можно брать на проверку одновременно
+  maxSimultaneousPayouts Int @default(5)
+
+  tradedTransactions    Transaction[]           @relation("TraderTransactions") // Транзакции, где пользователь является трейдером
+  sessions              Session[]
+  cryptoWallet          CryptoWallet?
+  bankDetails           BankDetail[]
+  WalletCreationRequest WalletCreationRequest[]
+  balanceTopUps         BalanceTopUp[]
+  devices               Device[]
+  traderMerchants       TraderMerchant[]
+  agentTraders          AgentTrader[]
+  supportTickets        SupportTicket[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  ip        String
+  createdAt DateTime @default(now())
+  expiredAt DateTime
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  role      AdminRole @default(ADMIN)
+  createdAt DateTime @default(now())
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+model AdminIpWhitelist {
+  id          String   @id @default(cuid())
+  ip          String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+enum MethodType {
+  upi
+  c2ckz
+  c2cuz
+  c2caz
+  c2c
+  sbp
+  spay
+  tpay
+  vpay
+  apay
+  m2ctj
+  m2ntj
+  m2csber
+  m2ctbank
+  connectc2c
+  connectsbp
+  nspk
+  ecom
+  crypto
+}
+
+enum Status {
+  CREATED
+  IN_PROGRESS
+  DISPUTE
+  EXPIRED
+  READY
+  MILK
+  CANCELED
+}
+
+enum TransactionType {
+  IN
+  OUT
+}
+
+model Merchant {
+  id       String  @id @default(cuid())
+  name     String
+  token    String  @unique
+  disabled Boolean @default(false)
+  banned   Boolean @default(false)
+  balanceUsdt Float @default(0)
+
+  settlements MerchantSettlement[]
+
+  merchantMethods MerchantMethod[]
+  createdAt       DateTime         @default(now())
+  Transaction     Transaction[]
+  traderMerchants TraderMerchant[]
+  supportTickets  SupportTicket[]
+}
+
+enum Currency {
+  rub
+  usdt
+}
+
+model Method {
+  id       String     @id @default(cuid())
+  code     String     @unique
+  name     String
+  type     MethodType
+  currency Currency   @default(rub)
+
+  commissionPayin  Float
+  commissionPayout Float
+
+  maxPayin  Float
+  minPayin  Float
+  maxPayout Float
+  minPayout Float
+
+  chancePayin  Float // Success rate for payin
+  chancePayout Float // Success rate for payout
+
+  isEnabled Boolean @default(true)
+
+  rateSource RateSource @default(bybit)
+
+  merchantMethods MerchantMethod[]
+  Transaction     Transaction[]
+  traderMerchants TraderMerchant[]
+  rateSettings    RateSettings?
+}
+
+// Junction table for many-to-many relationship between Merchant and Method
+model MerchantMethod {
+  id         String   @id @default(cuid())
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  merchantId String
+  method     Method   @relation(fields: [methodId], references: [id])
+  methodId   String
+  isEnabled  Boolean  @default(true)
+
+  @@unique([merchantId, methodId])
+}
+
+enum RateSource {
+  bybit
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  //auto increment
+  numericId   Int      @unique @default(autoincrement())
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+  merchantId  String
+  amount      Float
+  assetOrBank String
+  orderId     String
+  method      Method   @relation(fields: [methodId], references: [id])
+  currency    String?
+  userId      String
+  userIp      String?
+  callbackUri String
+  successUri  String
+  failUri     String
+
+  type TransactionType @default(IN) // payin, payout
+
+  expired_at DateTime
+
+  commission Float // Коммисия мерчанта
+  clientName String // ФИО
+  status     Status      @default(CREATED)
+  error      String?
+  requisites BankDetail? @relation(fields: [bankDetailId], references: [id])
+
+  rate     Float? // Exchange rate at the time of transaction creation
+  traderId String?
+  trader   User?   @relation("TraderTransactions", fields: [traderId], references: [id])
+
+  isMock Boolean @default(false)
+
+  // Заморозка средств для RUB транзакций
+  frozenUsdtAmount Float? // Количество замороженных USDT для этой транзакции
+  adjustedRate     Float? // Скорректированный курс с учетом ККК
+  kkkPercent       Float? // Процент ККК на момент создания транзакции
+  feeInPercent     Float? // Процент комиссии на ввод на момент создания транзакции
+  calculatedCommission Float? // Рассчитанная комиссия в USDT
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  acceptedAt DateTime?
+  methodId   String
+
+  receipts Receipt[]
+
+  bankDetailId String?
+
+  settlement   MerchantSettlement? @relation(fields: [settlementId], references: [id])
+  settlementId String?
+}
+
+model Receipt {
+  id            String      @id @default(cuid())
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transactionId String
+  fileData      String // Файл в формате base64
+  fileName      String
+  isChecked     Boolean     @default(false) // Проверен ли чек
+  isFake        Boolean     @default(false) // Является ли чек поддельным
+  isAuto        Boolean     @default(false) // Проверен ли чек автоматически
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+enum BankType {
+  SBERBANK
+  RAIFFEISEN
+  GAZPROMBANK
+  POCHTABANK
+  VTB
+  ROSSELKHOZBANK
+  ALFABANK
+  URALSIB
+  LOKOBANK
+  AKBARS
+  MKB
+  SPBBANK
+  MTSBANK
+  PROMSVYAZBANK
+  OZONBANK
+  RENAISSANCE
+  OTPBANK
+  AVANGARD
+  VLADBUSINESSBANK
+  TAVRICHESKIY
+  FORABANK
+  BCSBANK
+  HOMECREDIT
+  BBRBANK
+  CREDITEUROPE
+  RNKB
+  UBRIR
+  GENBANK
+  SINARA
+  ABSOLUTBANK
+  MTSMONEY
+  SVOYBANK
+  TRANSKAPITALBANK
+  DOLINSK
+  TBANK
+}
+
+model WalletTransaction {
+  id              String       @id @default(cuid())
+  externalTxId    String       @unique // ID транзакции в блокчейне
+  wallet          CryptoWallet @relation(fields: [walletId], references: [id])
+  walletId        String
+  amount          Float // Сумма в USDT
+  senderAddress   String? // Адрес отправителя (для входящих транзакций)
+  receiverAddress String? // Адрес получателя (для исходящих транзакций)
+  timestamp       DateTime // Время транзакции
+  status          String // PENDING, COMPLETED, FAILED
+  type            String // USER_DEPOSIT, DEPOSIT, TRANSFER_TO_MAIN
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model BankDetail {
+  id                   String        @id @default(cuid())
+  user                 User          @relation(fields: [userId], references: [id])
+  userId               String
+  methodType           MethodType
+  bankType             BankType
+  cardNumber           String
+  recipientName        String
+  phoneNumber          String?
+  minAmount            Float
+  maxAmount            Float
+  dailyLimit           Float
+  monthlyLimit         Float
+  maxCountTransactions Int?
+  intervalMinutes      Int           @default(0) // Интервал между заявками в минутах
+  dailyTraffic         Float         @default(0) // Трафик за день
+  monthlyTraffic       Float         @default(0) // Трафик за месяц
+  isArchived           Boolean       @default(false) // Архивирован ли реквизит
+  device               Device?       @relation(fields: [deviceId], references: [id])
+  deviceId             String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  Transaction          Transaction[]
+}
+
+model MasterWallet {
+  id          String   @id @default(cuid())
+  address     String   @unique
+  privateHex  String   @map("private_hex")
+  balanceUsdt Float    @default(0) @map("balance_usdt")
+  balanceTrx  Float    @default(0) @map("balance_trx")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  transfers MasterWalletTransfer[]
+}
+
+model MasterWalletTransfer {
+  id             String       @id @default(cuid())
+  masterWallet   MasterWallet @relation(fields: [masterWalletId], references: [id])
+  masterWalletId String       @map("master_wallet_id")
+  amount         Float
+  toAddress      String       @map("to_address")
+  asset          String
+  status         String
+  txHash         String?      @map("tx_hash")
+  error          String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+}
+
+model SystemConfig {
+  key   String @id
+  value String
+}
+
+model RateSettings {
+  id         String   @id @default(cuid())
+  methodId   String   @unique
+  method     Method   @relation(fields: [methodId], references: [id])
+  kkkPercent Float    @default(0) // Коэффициент корректировки курса (%)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model TopupSettings {
+  id               String   @id @default(cuid())
+  walletAddress    String   // Адрес кошелька для пополнения
+  network          String   @default("TRC-20") // Сеть
+  minAmount        Float    @default(10) // Минимальная сумма пополнения
+  confirmations    Int      @default(1) // Количество подтверждений
+  isActive         Boolean  @default(true) // Активны ли пополнения
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// CryptoWallet — snake_case columns for SQLx
+model CryptoWallet {
+  id           String              @id @default(cuid())
+  address      String              @unique
+  user         User                @relation(fields: [userId], references: [id])
+  userId       String              @unique @map("user_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  isActive     Boolean             @default(true) @map("is_active")
+  transactions WalletTransaction[]
+}
+
+model WalletCreationRequest {
+  id          String        @id @default(cuid())
+  user        User          @relation(fields: [userId], references: [id])
+  userId      String
+  status      RequestStatus @default(PENDING)
+  address     String?
+  createdAt   DateTime      @default(now())
+  processedAt DateTime?
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Device {
+  id            String         @id @default(cuid())
+  name          String
+  energy        Float?
+  ethernetSpeed Float?
+  isOnline      Boolean?
+  token         String?        @unique
+  emulated      Boolean        @default(false)
+  lastActiveAt  DateTime?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  user          User           @relation(fields: [userId], references: [id])
+  userId        String
+  bankDetails   BankDetail[]
+  notifications Notification[]
+  
+  @@index([emulated, isOnline])
+}
+
+enum NotificationType {
+  AppNotification
+  SMS
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType
+  application String?
+  title       String?          // Заголовок уведомления
+  message     String
+  metadata    Json?            // Дополнительные данные
+  isRead      Boolean          @default(false)
+  isProcessed Boolean          @default(false)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  Device      Device?          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  deviceId    String?
+  
+  @@index([deviceId, createdAt(sort: Desc)])
+  @@index([isProcessed, type])
+}
+
+enum BalanceTopUpStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model BalanceTopUp {
+  id          String             @id @default(cuid())
+  user        User               @relation(fields: [userId], references: [id])
+  userId      String
+  amount      Float
+  txHash      String
+  status      BalanceTopUpStatus @default(PENDING)
+  createdAt   DateTime           @default(now())
+  processedAt DateTime?
+}
+
+model RateSetting {
+  id        Int      @id @default(1)
+  value     Float
+  updatedAt DateTime @updatedAt
+}
+
+model MerchantSettlement {
+  id         String   @id @default(cuid())
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  merchantId String
+  amount     Float
+  createdAt  DateTime @default(now())
+
+  transactions Transaction[]
+}
+
+enum ServiceStatus {
+  RUNNING
+  STOPPED
+  ERROR
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  name            String        @unique
+  displayName     String
+  description     String?
+  status          ServiceStatus @default(STOPPED)
+  interval        Int           @default(5000) // Интервал в миллисекундах
+  enabled         Boolean       @default(true)
+  maxLogs         Int           @default(2500) // Максимальное количество логов
+  lastTick        DateTime?
+  lastError       String?
+  errorCount      Int           @default(0)
+  publicFields    Json?         // Публичные поля сервиса в формате JSON
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  logs ServiceLog[]
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+model ServiceLog {
+  id        String    @id @default(cuid())
+  service   Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  level     LogLevel  @default(INFO)
+  message   String
+  data      Json?     // Дополнительные данные в формате JSON
+  createdAt DateTime  @default(now())
+  
+  @@index([serviceId, createdAt(sort: Desc)])
+}
+
+// Junction table for many-to-many relationship between Trader and Merchant
+model TraderMerchant {
+  id                   String   @id @default(cuid())
+  trader               User     @relation(fields: [traderId], references: [id])
+  traderId             String
+  merchant             Merchant @relation(fields: [merchantId], references: [id])
+  merchantId           String
+  method               Method   @relation(fields: [methodId], references: [id])
+  methodId             String
+  feeIn                Float    @default(0) // Комиссия на ввод
+  feeOut               Float    @default(0) // Комиссия на вывод
+  isFeeInEnabled       Boolean  @default(true) // Включена ли комиссия на ввод
+  isFeeOutEnabled      Boolean  @default(true) // Включена ли комиссия на вывод
+  isMerchantEnabled    Boolean  @default(true) // Включен ли мерчант для трейдера
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([traderId, merchantId, methodId])
+}
+
+model Agent {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String   // sha-256 hash
+  name            String
+  commissionRate  Float    @default(0) // Процент комиссии агента
+  trcWallet       String?  // TRC-20 USDT кошелек для выплат
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  agentTraders    AgentTrader[]
+  agentPayouts    AgentPayout[]
+  sessions        AgentSession[]
+  teams           Team[]
+  supportTickets  SupportTicket[]
+}
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  ip        String
+  createdAt DateTime @default(now())
+  expiredAt DateTime
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  agentId   String
+}
+
+// Junction table for Agent-Trader relationship
+model AgentTrader {
+  id         String   @id @default(cuid())
+  agent      Agent    @relation(fields: [agentId], references: [id])
+  agentId    String
+  trader     User     @relation(fields: [traderId], references: [id])
+  traderId   String
+  teamId     String?
+  team       Team?    @relation(fields: [teamId], references: [id])
+  createdAt  DateTime @default(now())
+  
+  @@unique([agentId, traderId])
+}
+
+model AgentPayout {
+  id            String   @id @default(cuid())
+  agent         Agent    @relation(fields: [agentId], references: [id])
+  agentId       String
+  amount        Float    // Сумма выплаты в USDT
+  isPaid        Boolean  @default(false)
+  paidAt        DateTime?
+  txHash        String?  // Хеш транзакции при выплате
+  periodStart   DateTime // Начало периода для расчета
+  periodEnd     DateTime // Конец периода для расчета
+  earnings      Float    // Заработок за период
+  createdAt     DateTime @default(now())
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  name          String
+  agent         Agent    @relation(fields: [agentId], references: [id])
+  agentId       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  traders       User[]
+  agentTraders  AgentTrader[]
+  
+  @@unique([agentId, name])
+}
+
+model AppVersion {
+  id           String   @id @default(cuid())
+  version      String   @unique
+  description  String?
+  fileUrl      String
+  fileName     String
+  fileSize     Int
+  isPrimary    Boolean  @default(false)
+  uploadedAt   DateTime @default(now())
+  uploadedBy   String   // Admin who uploaded this version
+}
+
+model SupportTicket {
+  id            String   @id @default(cuid())
+  subject       String
+  status        SupportTicketStatus @default(OPEN)
+  priority      SupportTicketPriority @default(NORMAL)
+  
+  // User who created the ticket
+  userType      UserType
+  userId        String?
+  merchantId    String?
+  agentId       String?
+  
+  // Relations
+  user          User?    @relation(fields: [userId], references: [id])
+  merchant      Merchant? @relation(fields: [merchantId], references: [id])
+  agent         Agent?   @relation(fields: [agentId], references: [id])
+  
+  messages      SupportMessage[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  closedAt      DateTime?
+  
+  @@index([userType, status])
+  @@index([createdAt])
+}
+
+model SupportMessage {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  message      String
+  isFromSupport Boolean @default(false)
+  authorName   String?
+  
+  attachments  String[] // Array of file URLs
+  
+  createdAt    DateTime @default(now())
+  readAt       DateTime?
+  
+  @@index([ticketId, createdAt])
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_REPLY
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum UserType {
+  TRADER
+  MERCHANT
+  AGENT
+}
+
+model ServiceConfig {
+  id         String   @id @default(uuid())
+  serviceKey String   @unique // 'device_emulator', 'notification_auto_processor'
+  config     Json
+  isEnabled  Boolean  @default(true)
+  updatedAt  DateTime @updatedAt
+}
