@@ -5,40 +5,60 @@ import { Status, TransactionType } from '@prisma/client';
 import traderRoutes from '@/routes/trader';
 import { randomBytes } from 'node:crypto';
 
-// Мок для middleware traderGuard
-const mockTraderGuard = () => (app: Elysia) =>
-  app
-    .derive(() => {
-      return {
-        trader: {
-          id: 'test-trader-id',
-          email: 'test-trader@example.com',
-          name: 'Test Trader',
-          balanceUsdt: 1000,
-          balanceRub: 50000,
-          banned: false,
-          createdAt: new Date(),
-          password: 'hash',
-          trafficEnabled: true
-        }
-      };
-    });
-
 // Мок для заголовков запроса
-const mockHeaders = {
+let mockHeaders: Record<string, string> = {
   'x-trader-token': 'test-token'
 };
 
 // Тестовый экземпляр приложения
-const app = new Elysia()
-  .use(mockTraderGuard())
-  .use(traderRoutes);
+let app: Elysia;
 
 describe('Маршруты трейдера', () => {
   let testTransactionId: string;
+  let testTraderId: string;
+  let testMethodId: string;
+  let testMerchantId: string;
+  let testSessionToken: string;
   
   // Создаем тестовые данные перед запуском тестов
   beforeAll(async () => {
+    // Создаем тестового трейдера в базе данных
+    const uniqueEmail = `test-trader-${Date.now()}-${randomBytes(4).toString('hex')}@example.com`;
+    const uniqueTraderId = `test-trader-${Date.now()}-${randomBytes(4).toString('hex')}`;
+    const trader = await db.user.create({
+      data: {
+        id: uniqueTraderId,
+        email: uniqueEmail,
+        name: 'Test Trader',
+        password: 'hash',
+        balanceUsdt: 1000,
+        balanceRub: 50000,
+        banned: false,
+        trafficEnabled: true
+      }
+    });
+    testTraderId = trader.id;
+    
+    // Create a session for the trader
+    const session = await db.session.create({
+      data: {
+        userId: trader.id,
+        token: `test-session-${Date.now()}-${randomBytes(16).toString('hex')}`,
+        expiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        ip: '127.0.0.1' // Test IP address
+      }
+    });
+    testSessionToken = session.token;
+    
+    // Update headers with actual session token
+    mockHeaders = {
+      'x-trader-token': testSessionToken
+    };
+    
+    // Initialize app with actual routes (no need for mock guard)
+    app = new Elysia()
+      .use(traderRoutes);
+    
     // Создаем тестового мерчанта
     const merchant = await db.merchant.create({
       data: {
@@ -48,11 +68,13 @@ describe('Маршруты трейдера', () => {
         banned: false
       }
     });
+    testMerchantId = merchant.id;
     
     // Создаем тестовый метод
+    const methodCode = `test-method-${Date.now()}-${randomBytes(4).toString('hex')}`;
     const method = await db.method.create({
       data: {
-        code: 'test-method',
+        code: methodCode,
         name: 'Test Method',
         type: 'c2c',
         commissionPayin: 0.01,
@@ -66,6 +88,7 @@ describe('Маршруты трейдера', () => {
         isEnabled: true
       }
     });
+    testMethodId = method.id;
     
     // Создаем тестовую транзакцию
     const transaction = await db.transaction.create({
@@ -84,7 +107,7 @@ describe('Маршруты трейдера', () => {
         commission: 10,
         clientName: 'Test Client',
         status: Status.IN_PROGRESS,
-        traderId: 'test-trader-id'
+        traderId: testTraderId
       }
     });
     
@@ -94,13 +117,19 @@ describe('Маршруты трейдера', () => {
   // Удаляем тестовые данные после завершения тестов
   afterAll(async () => {
     await db.transaction.deleteMany({
-      where: { traderId: 'test-trader-id' }
+      where: { id: testTransactionId }
+    });
+    await db.session.deleteMany({
+      where: { userId: testTraderId }
     });
     await db.method.deleteMany({
-      where: { code: 'test-method' }
+      where: { id: testMethodId }
     });
     await db.merchant.deleteMany({
-      where: { name: 'Test Merchant' }
+      where: { id: testMerchantId }
+    });
+    await db.user.deleteMany({
+      where: { id: testTraderId }
     });
   });
   
@@ -110,6 +139,11 @@ describe('Маршруты трейдера', () => {
         headers: mockHeaders
       })
     );
+    
+    if (response.status !== 200) {
+      const errorBody = await response.text();
+      console.error('Response error:', errorBody);
+    }
     
     expect(response.status).toBe(200);
     
@@ -126,11 +160,16 @@ describe('Маршруты трейдера', () => {
       })
     );
     
+    if (response.status !== 200) {
+      const errorBody = await response.text();
+      console.error('Response error:', errorBody);
+    }
+    
     expect(response.status).toBe(200);
     
     const body = await response.json();
     expect(body).toHaveProperty('id', testTransactionId);
-    expect(body).toHaveProperty('traderId', 'test-trader-id');
+    expect(body).toHaveProperty('traderId', testTraderId);
   });
   
   it('PATCH /transactions/:id/status должен обновлять статус транзакции', async () => {
@@ -146,6 +185,11 @@ describe('Маршруты трейдера', () => {
         })
       })
     );
+    
+    if (response.status !== 200) {
+      const errorBody = await response.text();
+      console.error('Response error:', errorBody);
+    }
     
     expect(response.status).toBe(200);
     

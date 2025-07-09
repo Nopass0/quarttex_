@@ -5,32 +5,34 @@ import merchantRoutes from '@/routes/merchant'
 import { Status, TransactionType } from '@prisma/client'
 import { randomBytes } from 'node:crypto'
 
-let mockMerchant: any
-
-const mockMerchantGuard = () => (app: Elysia) =>
-  app.derive(() => ({ merchant: mockMerchant }))
-
-const mockHeaders = {
+let mockHeaders: Record<string, string> = {
   'x-merchant-api-key': 'test-key'
 }
 
 let app: Elysia
 let orderId: string
+let merchantId: string
+let methodId: string
+let merchantToken: string
 
 describe('Маршруты мерчанта', () => {
   beforeAll(async () => {
+    const uniqueName = `Test Merchant ${Date.now()}`;
+    merchantToken = randomBytes(16).toString('hex');
     const merchant = await db.merchant.create({
       data: {
-        name: 'Test Merchant',
-        token: randomBytes(16).toString('hex'),
+        name: uniqueName,
+        token: merchantToken,
         disabled: false,
         banned: false
       }
     })
+    merchantId = merchant.id;
 
+    const methodCode = `test-method-m-${Date.now()}-${randomBytes(4).toString('hex')}`;
     const method = await db.method.create({
       data: {
-        code: 'test-method-m',
+        code: methodCode,
         name: 'Test Method',
         type: 'c2c',
         commissionPayin: 0.01,
@@ -44,6 +46,7 @@ describe('Маршруты мерчанта', () => {
         isEnabled: true
       }
     })
+    methodId = method.id;
 
     orderId = 'order-' + randomBytes(4).toString('hex')
 
@@ -66,22 +69,18 @@ describe('Маршруты мерчанта', () => {
       }
     })
 
-    mockMerchant = {
-      id: merchant.id,
-      name: merchant.name,
-      token: merchant.token,
-      disabled: false,
-      banned: false,
-      createdAt: new Date()
+    // Update headers with actual merchant token
+    mockHeaders = {
+      'x-merchant-api-key': merchantToken
     }
 
-    app = new Elysia().use(mockMerchantGuard()).use(merchantRoutes)
+    app = new Elysia().use(merchantRoutes)
   })
 
   afterAll(async () => {
     await db.transaction.deleteMany({ where: { orderId } })
-    await db.method.deleteMany({ where: { code: 'test-method-m' } })
-    await db.merchant.deleteMany({ where: { name: 'Test Merchant' } })
+    await db.method.deleteMany({ where: { id: methodId } })
+    await db.merchant.deleteMany({ where: { id: merchantId } })
   })
 
   it('PATCH /transactions/by-order-id/:orderId/cancel отменяет транзакцию', async () => {
