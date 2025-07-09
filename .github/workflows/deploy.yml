@@ -36,11 +36,11 @@ jobs:
       
       - name: Generate Prisma Client
         working-directory: ./backend
-        run: npx prisma generate
+        run: bunx prisma generate
       
       - name: Run database migrations
         working-directory: ./backend
-        run: npx prisma migrate deploy
+        run: bunx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:testpass@localhost:5432/chase_test
       
@@ -137,10 +137,10 @@ jobs:
             
             # Run database migrations
             echo "Running database migrations..."
-            docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
+            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma migrate deploy || {
               echo "Migration failed, retrying..."
               sleep 10
-              docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+              docker compose -f docker-compose.prod.yml exec -T backend bunx prisma migrate deploy
             }
             
             # Verify all services are running
