@@ -202,7 +202,7 @@ export default function ElementsTestPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button disabled>Disabled</Button>
-                <Button loading={loading} onClick={() => {
+                <Button disabled={loading} onClick={() => {
                   setLoading(true)
                   setTimeout(() => setLoading(false), 2000)
                 }}>
