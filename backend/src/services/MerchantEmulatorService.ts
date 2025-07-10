@@ -19,6 +19,7 @@ export class MerchantEmulatorService extends BaseService {
   description = 'Создает тестовые транзакции от имени тестового мерчанта';
   interval = 5000; // Проверяем каждые 5 секунд
   enabledByDefault = false; // По умолчанию выключен
+  autoStart = false; // По умолчанию не запускается
   tags = ['emulator', 'testing'];
 
   private merchantToken: string | null = null;
@@ -33,7 +34,13 @@ export class MerchantEmulatorService extends BaseService {
   private maxAmount: number = 30000; // Максимальная сумма по умолчанию (30000 руб)
 
   constructor() {
-    super();
+    super({
+      displayName: 'Эмулятор мерчанта',
+      description: 'Создает тестовые транзакции от имени тестового мерчанта',
+      enabled: false,
+      autoStart: false,
+      tags: ['emulator', 'testing']
+    });
     this.setupCallbackEndpoint();
     this.setupConfigEndpoints();
   }
@@ -386,7 +393,8 @@ export class MerchantEmulatorService extends BaseService {
       const successToken = randomBytes(16).toString('hex');
       const failToken = randomBytes(16).toString('hex');
 
-      const baseUrl = process.env.API_URL || 'http://localhost:3000/api';
+      const port = process.env.PORT || '3001';
+      const baseUrl = process.env.API_URL || `http://localhost:${port}/api`;
       const callbackUri = `${baseUrl}/service/merchantemulatorservice/callback/${callbackToken}`;
       const successUri = `${baseUrl}/service/merchantemulatorservice/callback/${successToken}`;
       const failUri = `${baseUrl}/service/merchantemulatorservice/callback/${failToken}`;

@@ -164,6 +164,12 @@ jobs:
               echo "Service initialization failed, continuing anyway..."
             }
             
+            # Disable emulator services
+            echo "Disabling emulator services..."
+            docker compose -f docker-compose.prod.yml exec -T backend bun run scripts/disable-emulator-services.ts || {
+              echo "Failed to disable emulator services, continuing anyway..."
+            }
+            
             # Verify all services are running
             echo "Verifying services..."
             if ! docker ps | grep -q "chase_backend"; then

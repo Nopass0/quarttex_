@@ -118,16 +118,28 @@ for await (const file of glob.scan({ cwd: scanRoot, absolute: true })) {
       console.info(`📡 Registered ${instance.getEndpoints().length} endpoints for ${Service.name}`);
     }
     
-    // Auto-start services that have autoStart enabled
-    if ((instance as any).autoStart) {
-      try {
+    // Check if service should be auto-started based on database configuration
+    try {
+      // First check if service exists in database
+      const dbService = await db.service.findUnique({
+        where: { name: Service.name }
+      });
+      
+      // Only auto-start if:
+      // 1. Service exists in DB and is enabled
+      // 2. OR service doesn't exist in DB but has autoStart=true (for new services)
+      const shouldAutoStart = dbService 
+        ? dbService.enabled 
+        : (instance as any).autoStart;
+      
+      if (shouldAutoStart) {
         await serviceRegistry.startService(Service.name);
         console.info(`✅ Service ${Service.name} registered and auto-started`);
-      } catch (error) {
-        console.error(`❌ Failed to start service ${Service.name}:`, error);
+      } else {
+        console.info(`📝 Service ${Service.name} registered (auto-start disabled)`);
       }
-    } else {
-      console.info(`📝 Service ${Service.name} registered (auto-start disabled)`);
+    } catch (error) {
+      console.error(`❌ Failed to check/start service ${Service.name}:`, error);
     }
   }
 }
