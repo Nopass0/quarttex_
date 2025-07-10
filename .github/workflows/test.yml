@@ -16,7 +16,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: testpassword
-          POSTGRES_DB: testdb
+          POSTGRES_DB: chase_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -40,12 +40,16 @@ jobs:
       - name: Setup test environment
         working-directory: ./backend
         run: |
-          echo "DATABASE_URL=postgresql://postgres:testpassword@localhost:5432/testdb?schema=public" > .env
+          echo "DATABASE_URL=postgresql://postgres:testpassword@localhost:5432/chase_test?schema=public" > .env
           echo "JWT_SECRET=test-secret-key" >> .env
       
+      - name: Generate Prisma client
+        working-directory: ./backend
+        run: bunx prisma generate
+        
       - name: Run Prisma migrations
         working-directory: ./backend
-        run: bun run prisma migrate deploy
+        run: bunx prisma migrate deploy
       
       - name: Run backend tests
         working-directory: ./backend
