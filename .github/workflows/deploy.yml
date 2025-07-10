@@ -123,9 +123,6 @@ jobs:
             # Ensure SSL certificates directory exists
             mkdir -p ssl
             
-            # Use flexible nginx configuration
-            cp nginx/conf.d/default-flexible.conf nginx/conf.d/default.conf
-            
             # Remove old containers and images
             docker compose -f docker-compose.prod.yml rm -f
             docker image prune -af
