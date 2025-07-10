@@ -52,6 +52,14 @@ if [[ "$OS" == "linux" ]]; then
         apt-get update
         apt-get install -y postgresql postgresql-contrib
         print_success "PostgreSQL installed via apt"
+        
+        # Start PostgreSQL service
+        systemctl start postgresql || service postgresql start
+        systemctl enable postgresql || true
+        
+        # Wait for PostgreSQL to start
+        sleep 2
+        
     # CentOS/RHEL/Fedora
     elif command -v yum &> /dev/null; then
         yum install -y postgresql postgresql-server postgresql-contrib
