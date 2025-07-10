@@ -151,10 +151,10 @@ jobs:
             
             # Push database schema changes
             echo "Pushing database schema..."
-            docker compose -f docker-compose.prod.yml exec -T backend bun prisma db push || {
+            docker compose -f docker-compose.prod.yml exec -T backend bun prisma db push --accept-data-loss || {
               echo "Schema push failed, retrying..."
               sleep 10
-              docker compose -f docker-compose.prod.yml exec -T backend bun prisma db push
+              docker compose -f docker-compose.prod.yml exec -T backend bun prisma db push --accept-data-loss
             }
             
             # Verify all services are running
