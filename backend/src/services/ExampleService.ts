@@ -17,8 +17,8 @@ export class ExampleService extends BaseService {
     super({
       displayName: 'Пример сервиса',
       description: 'Демонстрационный сервис для показа возможностей логирования и управления',
-      enabled: true,
-      autoStart: true,
+      enabled: false,
+      autoStart: false,
       tags: ['example', 'demo', 'logging'],
     });
     

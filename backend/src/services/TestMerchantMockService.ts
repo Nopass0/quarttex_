@@ -25,6 +25,16 @@ export default class TestMerchantMockService extends BaseService {
   protected interval = 5_000;
 
   private merchantId!: string;
+  
+  constructor() {
+    super({
+      displayName: 'Test Merchant Mock Service',
+      description: 'Creates mock transactions for testing',
+      enabled: false,
+      autoStart: false,
+      tags: ['test', 'mock'],
+    });
+  }
 
   /* ───────── one-shot инициализация ───────── */
   protected async onStart(): Promise<void> {

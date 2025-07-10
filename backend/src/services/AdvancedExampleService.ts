@@ -18,8 +18,8 @@ export default class AdvancedExampleService extends BaseService {
     super({
       displayName: 'Продвинутый пример сервиса',
       description: 'Демонстрация всех возможностей системы сервисов: настройки, эндпоинты, межсервисное взаимодействие',
-      enabled: true,
-      autoStart: true,
+      enabled: false,
+      autoStart: false,
       tags: ['example', 'advanced', 'demo'],
     });
 

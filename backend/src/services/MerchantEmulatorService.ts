@@ -257,14 +257,16 @@ export class MerchantEmulatorService extends BaseService {
             code: 'TEST_C2C',
             name: 'Тестовый перевод',
             type: 'c2c',
-            currency: 'RUB',
+            currency: 'rub',
             isEnabled: true,
             minPayin: 100,
             maxPayin: 100000,
             minPayout: 100,
             maxPayout: 100000,
             commissionPayin: 0,
-            commissionPayout: 0
+            commissionPayout: 0,
+            chancePayin: 1.0,
+            chancePayout: 1.0
           }
         });
 
