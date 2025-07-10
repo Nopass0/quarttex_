@@ -245,7 +245,14 @@ export abstract class BaseService {
       const timestamp = new Date().toISOString();
       console.log(`[${timestamp}] [${this.constructor.name}] ${level}: ${message}`, data || '');
     } catch (error) {
-      console.error(`Failed to log message: ${error}`);
+      // If foreign key constraint violated, re-register the service
+      if (error.code === 'P2003') {
+        console.warn(`Service ${this.constructor.name} foreign key violation, re-registering...`);
+        this.serviceId = undefined;
+        await this.registerService();
+      } else {
+        console.error(`Failed to log message: ${error}`);
+      }
     }
   }
 
@@ -353,7 +360,14 @@ export abstract class BaseService {
         });
       }
     } catch (error) {
-      console.error(`Failed to update service status:`, error);
+      // If service record doesn't exist (P2025), re-register the service
+      if (error.code === 'P2025') {
+        console.warn(`Service ${this.constructor.name} not found in database, re-registering...`);
+        this.serviceId = undefined;
+        await this.registerService();
+      } else {
+        console.error(`Failed to update service status:`, error);
+      }
     }
   }
 
