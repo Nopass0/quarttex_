@@ -31,6 +31,33 @@ if [[ $EUID -eq 0 ]]; then
    exit 1
 fi
 
+# Function to check if we can use sudo
+can_use_sudo() {
+    if command -v sudo &> /dev/null; then
+        # Check if user has sudo privileges
+        if sudo -n true 2>/dev/null; then
+            return 0
+        else
+            # Try to prompt for password
+            echo "This script needs sudo privileges for some operations."
+            if sudo true; then
+                return 0
+            fi
+        fi
+    fi
+    return 1
+}
+
+# Check if PostgreSQL is already installed and running
+is_postgres_running() {
+    if command -v psql &> /dev/null; then
+        if psql -U postgres -c "SELECT 1" &> /dev/null || psql -U $USER -c "SELECT 1" &> /dev/null; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 # Detect OS
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     OS="linux"
@@ -44,32 +71,47 @@ fi
 print_info "Detected OS: $OS"
 
 # Step 1: Install PostgreSQL
-print_info "Installing PostgreSQL..."
-if [[ "$OS" == "linux" ]]; then
-    # Ubuntu/Debian
-    if command -v apt-get &> /dev/null; then
-        sudo apt-get update
-        sudo apt-get install -y postgresql postgresql-contrib
-        print_success "PostgreSQL installed via apt"
-    # CentOS/RHEL/Fedora
-    elif command -v yum &> /dev/null; then
-        sudo yum install -y postgresql postgresql-server postgresql-contrib
-        sudo postgresql-setup initdb
-        sudo systemctl enable postgresql
-        sudo systemctl start postgresql
-        print_success "PostgreSQL installed via yum"
-    else
-        print_error "Unsupported Linux distribution"
-        exit 1
-    fi
-elif [[ "$OS" == "macos" ]]; then
-    if command -v brew &> /dev/null; then
-        brew install postgresql
-        brew services start postgresql
-        print_success "PostgreSQL installed via Homebrew"
-    else
-        print_error "Homebrew not found. Please install Homebrew first."
-        exit 1
+print_info "Checking PostgreSQL installation..."
+
+if is_postgres_running; then
+    print_success "PostgreSQL is already installed and running"
+else
+    print_info "PostgreSQL not found. Attempting to install..."
+    
+    if [[ "$OS" == "linux" ]]; then
+        if ! can_use_sudo; then
+            print_error "PostgreSQL is not installed and sudo privileges are required to install it."
+            print_error "Please install PostgreSQL manually or run this script with sudo privileges."
+            print_info "On Ubuntu/Debian: sudo apt-get install postgresql postgresql-contrib"
+            print_info "On CentOS/RHEL: sudo yum install postgresql postgresql-server postgresql-contrib"
+            exit 1
+        fi
+        
+        # Ubuntu/Debian
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql postgresql-contrib
+            print_success "PostgreSQL installed via apt"
+        # CentOS/RHEL/Fedora
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y postgresql postgresql-server postgresql-contrib
+            sudo postgresql-setup initdb
+            sudo systemctl enable postgresql
+            sudo systemctl start postgresql
+            print_success "PostgreSQL installed via yum"
+        else
+            print_error "Unsupported Linux distribution"
+            exit 1
+        fi
+    elif [[ "$OS" == "macos" ]]; then
+        if command -v brew &> /dev/null; then
+            brew install postgresql
+            brew services start postgresql
+            print_success "PostgreSQL installed via Homebrew"
+        else
+            print_error "Homebrew not found. Please install Homebrew first."
+            exit 1
+        fi
     fi
 fi
 
@@ -81,21 +123,67 @@ DB_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
 DB_NAME="chase_dev"
 DB_USER="chase_user"
 
-# Create user and database
-sudo -u postgres psql <<EOF
--- Create user
-CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';
+# Function to execute PostgreSQL commands
+execute_psql() {
+    local sql="$1"
+    
+    # Try different methods to connect to PostgreSQL
+    if psql -U postgres -c "$sql" 2>/dev/null; then
+        return 0
+    elif psql -U $USER -c "$sql" 2>/dev/null; then
+        return 0
+    elif can_use_sudo && sudo -u postgres psql -c "$sql" 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
 
--- Create database
-CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};
+# Function to execute PostgreSQL commands with database
+execute_psql_db() {
+    local db="$1"
+    local sql="$2"
+    
+    if psql -U postgres -d "$db" -c "$sql" 2>/dev/null; then
+        return 0
+    elif psql -U $USER -d "$db" -c "$sql" 2>/dev/null; then
+        return 0
+    elif can_use_sudo && sudo -u postgres psql -d "$db" -c "$sql" 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
 
--- Grant all privileges
-GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
-
--- Connect to the database and set up extensions
-\c ${DB_NAME}
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-EOF
+# Check if database already exists
+if execute_psql "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}';" | grep -q 1; then
+    print_info "Database '${DB_NAME}' already exists"
+    # Generate new credentials for existing database
+    print_info "Updating database credentials..."
+    execute_psql "ALTER USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';" || true
+else
+    # Create user and database
+    print_info "Creating database user and database..."
+    
+    # Create user (ignore error if already exists)
+    execute_psql "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';" || true
+    
+    # Create database
+    if ! execute_psql "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"; then
+        print_error "Failed to create database. Please check your PostgreSQL installation."
+        print_info "You may need to create the database manually:"
+        print_info "  CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASSWORD}';"
+        print_info "  CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+        print_info "  GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+        exit 1
+    fi
+    
+    # Grant privileges
+    execute_psql "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" || true
+    
+    # Create extensions
+    execute_psql_db "${DB_NAME}" "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" || true
+fi
 
 print_success "Database '${DB_NAME}' created with user '${DB_USER}'"
 
@@ -320,7 +408,7 @@ fi
 # Check database connection
 echo ""
 echo "📊 Database status:"
-if PGPASSWORD="${DB_PASSWORD}" psql -h localhost -U chase_user -d chase_dev -c "SELECT 1" > /dev/null 2>&1; then
+if PGPASSWORD="${DB_PASSWORD}" psql -h localhost -U ${DB_USER} -d ${DB_NAME} -c "SELECT 1" > /dev/null 2>&1; then
     echo "✅ Database is accessible"
 else
     echo "❌ Database connection failed"

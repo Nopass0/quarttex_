@@ -232,7 +232,10 @@ export function FinancesMain() {
     switch (status) {
       case "completed":
         return (
-          <Badge className="bg-green-100 border-green-200" style={{ color: '#006039' }}>
+          <Badge
+            className="bg-green-100 border-green-200"
+            style={{ color: "#006039" }}
+          >
             Завершено
           </Badge>
         );
@@ -295,7 +298,7 @@ export function FinancesMain() {
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setDepositDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Пополнить
               </Button>
             </div>
@@ -305,8 +308,11 @@ export function FinancesMain() {
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
-              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
+            <div
+              className="flex items-center gap-1 text-sm"
+              style={{ color: "#006039" }}
+            >
+              <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
               <span>+12.5%</span>
             </div>
           </div>
@@ -322,7 +328,7 @@ export function FinancesMain() {
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
               </Button>
             </div>
@@ -346,18 +352,21 @@ export function FinancesMain() {
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold" style={{ color: '#006039' }}>
+              <span className="text-2xl font-bold" style={{ color: "#006039" }}>
                 +{(financials?.profitFromDeals || 0).toFixed(2)}
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
-              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
+            <div
+              className="flex items-center gap-1 text-sm"
+              style={{ color: "#006039" }}
+            >
+              <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
               <span>+8.3%</span>
             </div>
           </div>
@@ -373,18 +382,21 @@ export function FinancesMain() {
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold" style={{ color: '#006039' }}>
+              <span className="text-2xl font-bold" style={{ color: "#006039" }}>
                 +{(financials?.profitFromPayouts || 0).toFixed(2)}
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
-              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
+            <div
+              className="flex items-center gap-1 text-sm"
+              style={{ color: "#006039" }}
+            >
+              <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
               <span>+15.2%</span>
             </div>
           </div>
@@ -400,7 +412,7 @@ export function FinancesMain() {
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
               </Button>
             </div>
@@ -410,8 +422,11 @@ export function FinancesMain() {
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
-              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
+            <div
+              className="flex items-center gap-1 text-sm"
+              style={{ color: "#006039" }}
+            >
+              <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
               <span>+5.7%</span>
             </div>
           </div>
@@ -427,7 +442,9 @@ export function FinancesMain() {
         <Card className="p-6 flex-1 min-w-[240px]">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">ЭСКРОУ-СЧЕТ</span>
+              <span className="text-sm text-gray-600">
+                ЭСКРОУ-СЧЕТ (ПРОВОДИТСЯ СДЕЛКА)
+              </span>
               <Shield className="h-4 w-4 text-[#006039]" />
             </div>
             <div className="flex items-baseline gap-2">
@@ -469,14 +486,17 @@ export function FinancesMain() {
             value="operations"
             className="data-[state=active]:bg-[#006039]/10 h-12 data-[state=active]:text-gray-900 data-[state=active]:shadow-sm px-6"
           >
-            <WalletIcon className="h-4 w-4 mr-2" style={{ color: '#006039' }} />
+            <WalletIcon className="h-4 w-4 mr-2" style={{ color: "#006039" }} />
             Операции по счету
           </TabsTrigger>
           <TabsTrigger
             value="deposits"
             className="data-[state=active]:bg-[#006039]/10 h-12 data-[state=active]:text-gray-900 data-[state=active]:shadow-sm px-6"
           >
-            <BanknoteIcon className="h-4 w-4 mr-2" style={{ color: '#006039' }} />
+            <BanknoteIcon
+              className="h-4 w-4 mr-2"
+              style={{ color: "#006039" }}
+            />
             Заявки на пополнение
           </TabsTrigger>
         </TabsList>
@@ -499,7 +519,7 @@ export function FinancesMain() {
 
               <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
+                  <Filter className="h-4 w-4 mr-2 text-green-700" />
                   <SelectValue placeholder="Тип операции" />
                 </SelectTrigger>
                 <SelectContent>
@@ -515,7 +535,7 @@ export function FinancesMain() {
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[150px]">
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <ArrowUpDown className="h-4 w-4 mr-2 text-green-700" />
                   <SelectValue placeholder="Статус" />
                 </SelectTrigger>
                 <SelectContent>
@@ -529,7 +549,7 @@ export function FinancesMain() {
 
               <Select value={dateRange} onValueChange={setDateRange}>
                 <SelectTrigger className="w-[140px]">
-                  <Calendar className="h-4 w-4 mr-2" />
+                  <Calendar className="h-4 w-4 mr-2 text-green-700" />
                   <SelectValue placeholder="Период" />
                 </SelectTrigger>
                 <SelectContent>
@@ -626,7 +646,10 @@ export function FinancesMain() {
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="p-2 bg-white rounded-lg" style={{ color: '#006039' }}>
+                    <div
+                      className="p-2 bg-white rounded-lg"
+                      style={{ color: "#006039" }}
+                    >
                       <ArrowDownRight className="h-4 w-4" />
                     </div>
                     <div>
@@ -651,7 +674,7 @@ export function FinancesMain() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold" style={{ color: '#006039' }}>
+                    <div className="font-semibold" style={{ color: "#006039" }}>
                       +{request.amount.toFixed(2)} {request.currency}
                     </div>
                     <div className="mt-1">{getStatusBadge(request.status)}</div>
