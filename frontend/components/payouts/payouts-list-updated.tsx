@@ -554,13 +554,20 @@ export function PayoutsList() {
                 </button>
               </div>
               <div className="text-xs text-gray-500">
-                {format(new Date(payout.created_at), "HH:mm", {
+                {format(new Date(payout.created_at), "dd.MM HH:mm", {
                   locale: ru,
                 })}
               </div>
               {payout.accepted_at && (
                 <div className="text-xs text-green-600">
-                  {format(new Date(payout.accepted_at), "HH:mm", {
+                  Принято: {format(new Date(payout.accepted_at), "HH:mm", {
+                    locale: ru,
+                  })}
+                </div>
+              )}
+              {payout.confirmed_at && (
+                <div className="text-xs text-blue-600">
+                  Завершено: {format(new Date(payout.confirmed_at), "HH:mm", {
                     locale: ru,
                   })}
                 </div>
@@ -710,16 +717,6 @@ export function PayoutsList() {
               </Button>
             ) : payout.status === "active" && payout.accepted_at ? (
               <div className="flex items-center gap-2">
-                <Badge
-                  className={cn(
-                    "h-9 px-3 rounded-md flex items-center justify-center gap-1.5 text-sm font-medium transition-none hover:brightness-100",
-                    getStatusColor(payout),
-                  )}
-                  data-badge
-                >
-                  <Clock className="h-4 w-4" />
-                  <span>{getStatusText(payout)}</span>
-                </Badge>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -1377,23 +1374,62 @@ export function PayoutsList() {
           <DialogHeader>
             <DialogTitle>Отменить выплату</DialogTitle>
             <DialogDescription>
-              Укажите причину отмены выплаты. Минимум 5 символов.
+              Выберите причину отмены и прикрепите файлы подтверждения
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cancel-reason">Причина отмены</Label>
-              <textarea
-                id="cancel-reason"
-                className="w-full min-h-[100px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="Опишите причину отмены..."
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-              />
+              <Label>Причина отмены</Label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cancel-reason"
+                    value="Недостаточно средств"
+                    checked={cancelReason === "Недостаточно средств"}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-sm">Недостаточно средств</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cancel-reason"
+                    value="Карта заблокирована"
+                    checked={cancelReason === "Карта заблокирована"}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-sm">Карта заблокирована</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cancel-reason"
+                    value="Технические проблемы"
+                    checked={cancelReason === "Технические проблемы"}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-sm">Технические проблемы</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cancel-reason"
+                    value="Подозрительная операция"
+                    checked={cancelReason === "Подозрительная операция"}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-sm">Подозрительная операция</span>
+                </label>
+              </div>
             </div>
             {/* File Upload for Cancellation */}
             <div className="space-y-2">
-              <Label>Файлы (опционально)</Label>
+              <Label>Файлы подтверждения *</Label>
               <div className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center">
                 <input
                   type="file"

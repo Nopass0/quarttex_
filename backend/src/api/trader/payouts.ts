@@ -25,7 +25,8 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
         return {
           success: true,
           payouts: payouts.map((p) => ({
-            id: p.id,
+            id: p.numericId,  // Use numericId as the display ID
+            uuid: p.id,       // Add the actual UUID for API calls
             numericId: p.numericId,
             amount: p.amount,
             amountUsdt: p.amountUsdt,
