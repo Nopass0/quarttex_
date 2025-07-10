@@ -257,4 +257,120 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         reason: t.Optional(t.String()),
       }),
     }
+  )
+
+  // Approve payout (from CHECKING status)
+  .post(
+    "/:id/approve",
+    async ({ params, set }) => {
+      const payout = await db.payout.findUnique({
+        where: { id: params.id },
+        include: { trader: true },
+      });
+
+      if (!payout) {
+        set.status = 404;
+        return { error: "Payout not found" };
+      }
+
+      if (payout.status !== "CHECKING") {
+        set.status = 400;
+        return { error: "Can only approve payouts in CHECKING status" };
+      }
+
+      if (!payout.traderId) {
+        set.status = 400;
+        return { error: "Payout has no trader assigned" };
+      }
+
+      // Update payout status to COMPLETED and unfreeze trader balance
+      const [updatedPayout] = await db.$transaction([
+        db.payout.update({
+          where: { id: params.id },
+          data: {
+            status: "COMPLETED",
+            confirmedAt: new Date(),
+          },
+        }),
+        db.user.update({
+          where: { id: payout.traderId },
+          data: {
+            frozenPayoutBalance: { decrement: payout.total },
+          },
+        }),
+      ]);
+
+      // Send webhook
+      await payoutService.sendMerchantWebhook(updatedPayout, "COMPLETED");
+
+      return {
+        success: true,
+        data: updatedPayout,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+    }
+  )
+
+  // Reject payout (from CHECKING status)
+  .post(
+    "/:id/reject",
+    async ({ params, body, set }) => {
+      const payout = await db.payout.findUnique({
+        where: { id: params.id },
+        include: { trader: true },
+      });
+
+      if (!payout) {
+        set.status = 404;
+        return { error: "Payout not found" };
+      }
+
+      if (payout.status !== "CHECKING") {
+        set.status = 400;
+        return { error: "Can only reject payouts in CHECKING status" };
+      }
+
+      if (!payout.traderId) {
+        set.status = 400;
+        return { error: "Payout has no trader assigned" };
+      }
+
+      // Update payout status to DISPUTED and return frozen balance to available
+      const [updatedPayout] = await db.$transaction([
+        db.payout.update({
+          where: { id: params.id },
+          data: {
+            status: "DISPUTED",
+            disputeMessage: body.reason,
+          },
+        }),
+        db.user.update({
+          where: { id: payout.traderId },
+          data: {
+            frozenPayoutBalance: { decrement: payout.total },
+            payoutBalance: { increment: payout.total },
+          },
+        }),
+      ]);
+
+      // Send webhook
+      await payoutService.sendMerchantWebhook(updatedPayout, "DISPUTED");
+
+      return {
+        success: true,
+        data: updatedPayout,
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: t.Object({
+        reason: t.String({ minLength: 5 }),
+      }),
+    }
   );

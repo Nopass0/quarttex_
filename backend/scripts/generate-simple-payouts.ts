@@ -62,7 +62,7 @@ async function generateSimplePayouts() {
       const payout = await db.payout.create({
         data: {
           merchantId: merchant.id,
-          traderId: user.id,
+          traderId: null, // Не назначаем трейдера сразу
           amount: data.amount,
           amountUsdt: amountUsdt,
           total: total,
@@ -71,9 +71,9 @@ async function generateSimplePayouts() {
           wallet: data.wallet,
           bank: data.bank,
           isCard: data.isCard,
-          status: i < 3 ? PayoutStatus.IN_PROGRESS : PayoutStatus.COMPLETED,
-          confirmedAt: i >= 3 ? new Date() : null,
-          expireAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // Истекает через 24 часа
+          status: PayoutStatus.CREATED, // Все выплаты создаем в статусе CREATED
+          processingTime: 30, // 30 минут на обработку
+          expireAt: new Date(Date.now() + 30 * 60 * 1000) // Истекает через 30 минут
         }
       });
 
@@ -83,8 +83,8 @@ async function generateSimplePayouts() {
 
     console.log(`\n✨ Успешно создано ${createdPayouts.length} тестовых выплат!`);
     console.log(`📊 Статистика:`);
-    console.log(`- В процессе: 3 выплаты`);
-    console.log(`- Завершено: 7 выплат`);
+    console.log(`- Все выплаты в статусе CREATED (доступны для принятия)`);
+    console.log(`- Время на принятие: 30 минут`);
     console.log(`- Общая сумма: ${payoutData.reduce((sum, p) => sum + p.amount, 0).toLocaleString('ru-RU')} руб`);
 
   } catch (error) {
