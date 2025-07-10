@@ -58,12 +58,6 @@ logs/
 **/*.tar.gz
 **/*.tgz
 
-# SSL certificates (keep private key secure)
-ssl/*.pem
-ssl/*.crt
-ssl/*.key
-!ssl/README.md
-!ssl/*.csr
 
 # Backups
 backups/
@@ -96,9 +90,7 @@ next-env.d.ts
 
 # Vercel
 .vercel
-# SSL Private Keys
-ssl/private.key
-ssl/*.key
+
 
 # Temporary - websocket server
 websocket-server/
