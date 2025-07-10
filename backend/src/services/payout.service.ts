@@ -115,36 +115,46 @@ export class PayoutService {
    * Distribute payout to available traders based on filters
    */
   private async distributePayoutToTraders(payout: Payout) {
-    // Find eligible traders
-    const traders = await db.user.findMany({
-      where: {
-        banned: false,
-        trafficEnabled: true,
-        payoutBalance: {
-          gte: payout.total, // Has enough balance
+    // Trigger the monitor service to distribute this specific payout
+    try {
+      const monitorService = ServiceRegistry.getInstance().get<any>("PayoutMonitorService");
+      if (monitorService && monitorService.distributeSpecificPayout) {
+        await monitorService.distributeSpecificPayout(payout.id);
+      }
+    } catch (error) {
+      console.log("PayoutMonitorService not available, using fallback distribution");
+      
+      // Fallback: Find eligible traders
+      const traders = await db.user.findMany({
+        where: {
+          banned: false,
+          trafficEnabled: true,
+          payoutBalance: {
+            gte: payout.total, // Has enough balance
+          },
+          // TODO: Add filters for traffic type and banks
         },
-        // TODO: Add filters for traffic type and banks
-      },
-      orderBy: {
-        createdAt: "asc", // FIFO distribution
-      },
-    });
-    
-    console.log(`Distributing payout ${payout.id} to ${traders.length} eligible traders`);
-    
-    // Get merchant info for notifications
-    const payoutWithMerchant = await db.payout.findUnique({
-      where: { id: payout.id },
-      include: { merchant: true },
-    });
-    
-    if (!payoutWithMerchant) return;
-    
-    // Send Telegram notifications to eligible traders
-    const telegramService = this.getTelegramService();
-    if (telegramService) {
-      for (const trader of traders) {
-        await telegramService.notifyTraderNewPayout(trader.id, payoutWithMerchant);
+        orderBy: {
+          createdAt: "asc", // FIFO distribution
+        },
+      });
+      
+      console.log(`Distributing payout ${payout.id} to ${traders.length} eligible traders`);
+      
+      // Get merchant info for notifications
+      const payoutWithMerchant = await db.payout.findUnique({
+        where: { id: payout.id },
+        include: { merchant: true },
+      });
+      
+      if (!payoutWithMerchant) return;
+      
+      // Send Telegram notifications to eligible traders
+      const telegramService = this.getTelegramService();
+      if (telegramService) {
+        for (const trader of traders) {
+          await telegramService.notifyTraderNewPayout(trader.id, payoutWithMerchant);
+        }
       }
     }
   }
@@ -188,16 +198,17 @@ export class PayoutService {
       throw new Error("Insufficient payout balance");
     }
     
-    // Check simultaneous payouts limit
+    // Count current payouts for the trader
     const activePayouts = await db.payout.count({
       where: {
         traderId,
-        status: { in: ["ACTIVE", "CHECKING"] },
+        status: "ACTIVE",
       },
     });
     
+    // Check trader's personal limit
     if (activePayouts >= trader.maxSimultaneousPayouts) {
-      throw new Error("Maximum simultaneous payouts reached");
+      throw new Error(`Maximum simultaneous payouts reached (${trader.maxSimultaneousPayouts})`);
     }
     
     // Accept payout and freeze balance

@@ -30,6 +30,7 @@ import {
   Home,
   DollarSign,
   Folder,
+  Send,
 } from "lucide-react"
 import { useTraderAuth, useAdminAuth } from "@/stores/auth"
 import { useAgentAuth } from "@/stores/agent-auth"
@@ -106,6 +107,11 @@ const traderNavItems: NavItem[] = [
     href: "/trader/folders",
     icon: Folder,
   },
+  {
+    title: "Telegram",
+    href: "/trader/telegram",
+    icon: Send,
+  },
 ]
 
 const adminNavItems: NavItem[] = [
@@ -168,6 +174,27 @@ const adminNavItems: NavItem[] = [
     title: "Метрики",
     href: "/admin/metrics",
     icon: BarChart3,
+  },
+  {
+    title: "Выплаты",
+    icon: DollarSign,
+    children: [
+      {
+        title: "Все выплаты",
+        href: "/admin/payouts",
+        icon: DollarSign,
+      },
+      {
+        title: "Лимиты трейдеров",
+        href: "/admin/trader-payout-settings",
+        icon: Users,
+      },
+      {
+        title: "Настройки ставок",
+        href: "/admin/rate-settings",
+        icon: TrendingUp,
+      },
+    ],
   },
 ]
 

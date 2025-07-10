@@ -86,6 +86,9 @@ type Trader = {
   lastTransactionAt: string | null
   agent: Agent | null
   team: Team | null
+  maxSimultaneousPayouts: number
+  payoutBalance: number
+  frozenPayoutBalance: number
 }
 
 function TraderProfileContent() {

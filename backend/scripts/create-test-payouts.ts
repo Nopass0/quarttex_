@@ -1,110 +1,64 @@
-import { db } from '../src/db';
-import { PayoutService } from '../src/services/payout.service';
-
-console.log('🚀 Создание тестовых выплат...\n');
+#!/usr/bin/env bun
 
 async function createTestPayouts() {
-  try {
-    // Находим мерчанта
-    const merchant = await db.merchant.findUnique({
-      where: { token: 'test-payout-merchant' }
-    });
-
-    if (!merchant) {
-      console.log('❌ Мерчант не найден');
-      return;
-    }
-
-    const payoutService = PayoutService.getInstance();
+  const API_URL = 'http://localhost:3000/api';
+  const MERCHANT_TOKEN = 'test-payout-merchant';
+  
+  const payoutData = [
+    { amount: 5000, wallet: '79001234567', bank: 'SBER', isCard: true, rate: 98 },
+    { amount: 10000, wallet: '41001234567890', bank: 'TINKOFF', isCard: true, rate: 97.5 },
+    { amount: 15000, wallet: '79009876543', bank: 'ALFA', isCard: false, rate: 98.2 },
+    { amount: 7500, wallet: '41009876543210', bank: 'VTB', isCard: true, rate: 97.8 },
+    { amount: 20000, wallet: '79005555555', bank: 'SBER', isCard: false, rate: 98.5 },
+    { amount: 3000, wallet: '41005555555555', bank: 'TINKOFF', isCard: true, rate: 97 },
+    { amount: 12000, wallet: '79007777777', bank: 'ALFA', isCard: true, rate: 98.3 },
+    { amount: 8000, wallet: '41007777777777', bank: 'VTB', isCard: false, rate: 97.7 },
+    { amount: 25000, wallet: '79003333333', bank: 'SBER', isCard: true, rate: 98.8 },
+    { amount: 6000, wallet: '41003333333333', bank: 'TINKOFF', isCard: false, rate: 97.2 },
+  ];
+  
+  console.log('🚀 Creating 10 test payouts...\n');
+  
+  for (let i = 0; i < payoutData.length; i++) {
+    const data = payoutData[i];
     
-    // Создаем 5 тестовых выплат
-    const testPayouts = [
-      {
-        amount: 1500,
-        wallet: '+79001234567',
-        bank: 'Сбербанк СБП',
-        isCard: false,
-      },
-      {
-        amount: 3000,
-        wallet: '2202 **** **** 1234',
-        bank: 'Сбербанк',
-        isCard: true,
-      },
-      {
-        amount: 2500,
-        wallet: '+79007654321',
-        bank: 'Тинькофф СБП',
-        isCard: false,
-      },
-      {
-        amount: 4000,
-        wallet: '5536 **** **** 5678',
-        bank: 'Тинькофф',
-        isCard: true,
-      },
-      {
-        amount: 1000,
-        wallet: '+79005555555',
-        bank: 'ВТБ СБП',
-        isCard: false,
-      },
-    ];
-
-    console.log('📝 Создание выплат:');
-    
-    for (let i = 0; i < testPayouts.length; i++) {
-      const payoutData = testPayouts[i];
-      const rate = 95 + Math.random() * 10; // курс от 95 до 105
-      
-      const payout = await payoutService.createPayout({
-        merchantId: merchant.id,
-        amount: payoutData.amount,
-        wallet: payoutData.wallet,
-        bank: payoutData.bank,
-        isCard: payoutData.isCard,
-        rate,
-        processingTime: 15,
-        webhookUrl: 'http://localhost:3000/webhook/test',
-        metadata: {
-          testPayout: true,
-          createdBy: 'create-test-payouts',
-          batchId: Date.now(),
-        }
+    try {
+      const response = await fetch(`${API_URL}/merchant/payouts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-merchant-api-key': MERCHANT_TOKEN,
+        },
+        body: JSON.stringify({
+          amount: data.amount,
+          wallet: data.wallet,
+          bank: data.bank,
+          isCard: data.isCard,
+          merchantRate: data.rate,
+          externalReference: `TEST-PAYOUT-${i + 1}`,
+          processingTime: 15,
+        }),
       });
-
-      console.log(`✅ Выплата #${payout.numericId}: ${payout.amount}₽ - ${payout.wallet} (${payout.bank})`);
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log(`✅ Payout #${i + 1} created:`);
+        console.log(`   ID: ${result.payout.id}`);
+        console.log(`   Numeric ID: ${result.payout.numericId}`);
+        console.log(`   Amount: ${result.payout.amount} RUB (${result.payout.amountUsdt} USDT)`);
+        console.log(`   Bank: ${result.payout.bank}`);
+        console.log(`   Status: ${result.payout.status}`);
+        console.log(`   Expires at: ${new Date(result.payout.expireAt).toLocaleString()}\n`);
+      } else {
+        console.log(`❌ Failed to create payout #${i + 1}: ${result.error}\n`);
+      }
+    } catch (error) {
+      console.log(`❌ Error creating payout #${i + 1}: ${error.message}\n`);
     }
-
-    // Показываем итоговую статистику
-    const totalPayouts = await db.payout.count();
-    const activePayouts = await db.payout.count({ where: { status: 'CREATED' } });
-    
-    console.log(`\n📊 Статистика:`);
-    console.log(`Всего выплат: ${totalPayouts}`);
-    console.log(`Активных выплат: ${activePayouts}`);
-
-    // Показываем баланс трейдера
-    const trader = await db.user.findUnique({
-      where: { email: 'payout-trader@test.com' }
-    });
-
-    if (trader) {
-      console.log(`\n👤 Трейдер (${trader.email}):`);
-      console.log(`Баланс выплат: ${trader.payoutBalance}₽`);
-      console.log(`Замороженный баланс: ${trader.frozenPayoutBalance}₽`);
-    }
-
-    console.log('\n🎉 Тестовые выплаты созданы успешно!');
-    console.log('\n📋 Данные для входа:');
-    console.log('Email трейдера: payout-trader@test.com');
-    console.log('Пароль: payout123');
-    
-  } catch (error) {
-    console.error('❌ Ошибка при создании выплат:', error);
   }
+  
+  console.log('✅ Finished creating test payouts!');
 }
 
-createTestPayouts()
-  .then(() => process.exit(0))
-  .catch(() => process.exit(1));
+createTestPayouts().catch(console.error);

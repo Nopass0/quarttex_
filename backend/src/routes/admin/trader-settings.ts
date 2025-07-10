@@ -317,6 +317,124 @@ export default new Elysia({ prefix: "/traders" })
     },
   )
   
+  /* ───────────────── Update trader payout limit ───────────────── */
+  .put(
+    "/:id/payout-limit",
+    async ({ params, body, error }) => {
+      try {
+        const trader = await db.user.findUnique({
+          where: { id: params.id }
+        });
+
+        if (!trader) {
+          return error(404, { error: "Трейдер не найден" });
+        }
+
+        const updated = await db.user.update({
+          where: { id: params.id },
+          data: {
+            maxSimultaneousPayouts: body.maxSimultaneousPayouts,
+          },
+          select: {
+            id: true,
+            numericId: true,
+            email: true,
+            maxSimultaneousPayouts: true,
+          }
+        });
+
+        return { success: true, trader: updated };
+      } catch (e) {
+        if (
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === "P2025"
+        )
+          return error(404, { error: "Трейдер не найден" });
+        throw e;
+      }
+    },
+    {
+      tags: ["admin"],
+      headers: authHeader,
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        maxSimultaneousPayouts: t.Number({ minimum: 1, maximum: 100 }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          trader: t.Object({
+            id: t.String(),
+            numericId: t.Number(),
+            email: t.String(),
+            maxSimultaneousPayouts: t.Number(),
+          })
+        }),
+        404: ErrorSchema,
+        401: ErrorSchema,
+        403: ErrorSchema,
+      },
+    },
+  )
+  
+  /* ───────────────── Get trader payout stats ───────────────── */
+  .get(
+    "/:id/payout-stats",
+    async ({ params, error }) => {
+      try {
+        const trader = await db.user.findUnique({
+          where: { id: params.id }
+        });
+
+        if (!trader) {
+          return error(404, { error: "Трейдер не найден" });
+        }
+
+        const [activePayouts, createdPayouts] = await Promise.all([
+          db.payout.count({
+            where: {
+              traderId: params.id,
+              status: "ACTIVE",
+            },
+          }),
+          db.payout.count({
+            where: {
+              traderId: params.id,
+              status: "CREATED",
+            },
+          }),
+        ]);
+
+        return {
+          traderId: params.id,
+          activePayouts,
+          createdPayouts,
+          totalPayouts: activePayouts + createdPayouts,
+          maxSimultaneousPayouts: trader.maxSimultaneousPayouts,
+        };
+      } catch (e) {
+        throw e;
+      }
+    },
+    {
+      tags: ["admin"],
+      headers: authHeader,
+      params: t.Object({ id: t.String() }),
+      response: {
+        200: t.Object({
+          traderId: t.String(),
+          activePayouts: t.Number(),
+          createdPayouts: t.Number(),
+          totalPayouts: t.Number(),
+          maxSimultaneousPayouts: t.Number(),
+        }),
+        404: ErrorSchema,
+        401: ErrorSchema,
+        403: ErrorSchema,
+      },
+    },
+  )
+  
   /* ───────────────── Get trader withdrawal history ───────────────── */
   .get(
     "/:id/withdrawals",
