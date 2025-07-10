@@ -123,6 +123,16 @@ jobs:
             # Ensure SSL certificates directory exists
             mkdir -p ssl
             
+            # Check if SSL certificates exist and use appropriate nginx config
+            if [ -f "/chasepay/ssl/certificate.crt" ]; then
+              echo "SSL certificates found, using HTTPS configuration"
+              # Keep the default.conf which has both HTTP and HTTPS
+            else
+              echo "No SSL certificates found, using HTTP-only configuration"
+              # Use HTTP-only configuration
+              cp nginx/conf.d/default-http-only.conf nginx/conf.d/default.conf
+            fi
+            
             # Remove old containers and images
             docker compose -f docker-compose.prod.yml rm -f
             docker image prune -af
