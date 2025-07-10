@@ -1,33 +1,46 @@
-import Elysia, { t } from "elysia";
+import { Elysia, t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
 import { db } from "../../db";
+import type { PayoutStatus } from "@prisma/client";
+import { validateFileUrls } from "../../middleware/fileUploadValidation";
 
 const payoutService = PayoutService.getInstance();
 
 export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
+  // Middleware to extract merchant from token
+  .derive(async ({ request, set }) => {
+    const token = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "");
+    
+    if (!token) {
+      set.status = 401;
+      return { error: "API key required" };
+    }
+    
+    const merchant = await db.merchant.findUnique({
+      where: { token },
+    });
+    
+    if (!merchant) {
+      set.status = 401;
+      return { error: "Invalid API key" };
+    }
+    
+    if (merchant.disabled || merchant.banned) {
+      set.status = 403;
+      return { error: "Merchant is disabled" };
+    }
+    
+    return { merchant };
+  })
+  
   // Create payout
   .post(
     "/",
-    async ({ body, headers, set }) => {
-      const token = headers["x-api-key"];
-      if (!token) {
-        set.status = 401;
-        return { error: "API key required" };
+    async ({ body, merchant, set }) => {
+      if ("error" in merchant) {
+        return merchant;
       }
-
-      const merchant = await db.merchant.findUnique({
-        where: { token },
-      });
-      if (!merchant) {
-        set.status = 401;
-        return { error: "Invalid API key" };
-      }
-
-      if (merchant.banned || merchant.disabled) {
-        set.status = 403;
-        return { error: "Merchant is disabled" };
-      }
-
+      
       try {
         const payout = await payoutService.createPayout({
           merchantId: merchant.id,
@@ -35,8 +48,9 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
           wallet: body.wallet,
           bank: body.bank,
           isCard: body.isCard,
-          rate: body.rate,
-          processingTime: body.processingTime,
+          merchantRate: body.merchantRate,
+          direction: "OUT",
+          externalReference: body.externalReference,
           webhookUrl: body.webhookUrl,
           metadata: body.metadata,
         });
@@ -70,7 +84,8 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         wallet: t.String({ minLength: 10 }),
         bank: t.String({ minLength: 3 }),
         isCard: t.Boolean(),
-        rate: t.Number({ minimum: 1 }),
+        merchantRate: t.Number({ minimum: 1 }),
+        externalReference: t.Optional(t.String()),
         processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60 })),
         webhookUrl: t.Optional(t.String({ format: "uri" })),
         metadata: t.Optional(t.Any()),
@@ -81,21 +96,11 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
   // Get payout by ID
   .get(
     "/:id",
-    async ({ params, headers, set }) => {
-      const token = headers["x-api-key"];
-      if (!token) {
-        set.status = 401;
-        return { error: "API key required" };
+    async ({ params, merchant, set }) => {
+      if ("error" in merchant) {
+        return merchant;
       }
-
-      const merchant = await db.merchant.findUnique({
-        where: { token },
-      });
-      if (!merchant) {
-        set.status = 401;
-        return { error: "Invalid API key" };
-      }
-
+      
       const payout = await payoutService.getPayoutById(params.id);
       if (!payout || payout.merchantId !== merchant.id) {
         set.status = 404;
@@ -138,27 +143,18 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
   // Approve payout
   .post(
     "/:id/approve",
-    async ({ params, headers, set }) => {
-      const token = headers["x-api-key"];
-      if (!token) {
-        set.status = 401;
-        return { error: "API key required" };
+    async ({ params, merchant, set }) => {
+      if ("error" in merchant) {
+        return merchant;
       }
-
-      const merchant = await db.merchant.findUnique({
-        where: { token },
-      });
-      if (!merchant) {
-        set.status = 401;
-        return { error: "Invalid API key" };
-      }
-
+      
       try {
         const payout = await payoutService.approvePayout(params.id, merchant.id);
         return {
           success: true,
           payout: {
             id: payout.id,
+            numericId: payout.numericId,
             status: payout.status,
           },
         };
@@ -177,22 +173,21 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
   // Create dispute
   .post(
     "/:id/dispute",
-    async ({ params, body, headers, set }) => {
-      const token = headers["x-api-key"];
-      if (!token) {
-        set.status = 401;
-        return { error: "API key required" };
+    async ({ params, body, merchant, set }) => {
+      if ("error" in merchant) {
+        return merchant;
       }
-
-      const merchant = await db.merchant.findUnique({
-        where: { token },
-      });
-      if (!merchant) {
-        set.status = 401;
-        return { error: "Invalid API key" };
-      }
-
+      
       try {
+        // Validate files if provided
+        if (body.files && body.files.length > 0) {
+          const validation = validateFileUrls(body.files);
+          if (!validation.valid) {
+            set.status = 400;
+            return { error: validation.error };
+          }
+        }
+        
         const payout = await payoutService.createDispute(
           params.id,
           merchant.id,
@@ -203,6 +198,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
           success: true,
           payout: {
             id: payout.id,
+            numericId: payout.numericId,
             status: payout.status,
           },
         };
@@ -222,36 +218,28 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
     }
   )
   
-  // Cancel payout
-  .post(
+  // Cancel payout  
+  .patch(
     "/:id/cancel",
-    async ({ params, body, headers, set }) => {
-      const token = headers["x-api-key"];
-      if (!token) {
-        set.status = 401;
-        return { error: "API key required" };
+    async ({ params, body, merchant, set }) => {
+      if ("error" in merchant) {
+        return merchant;
       }
-
-      const merchant = await db.merchant.findUnique({
-        where: { token },
-      });
-      if (!merchant) {
-        set.status = 401;
-        return { error: "Invalid API key" };
-      }
-
+      
       try {
-        const payout = await payoutService.cancelPayout(
+        const payout = await payoutService.cancelPayoutByMerchant(
           params.id,
           merchant.id,
-          body.reason,
-          true
+          body.reasonCode
         );
         return {
           success: true,
           payout: {
             id: payout.id,
+            numericId: payout.numericId,
             status: payout.status,
+            cancelledAt: payout.cancelledAt,
+            cancelReasonCode: payout.cancelReasonCode,
           },
         };
       } catch (error: any) {
@@ -264,7 +252,49 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         id: t.String(),
       }),
       body: t.Object({
-        reason: t.String({ minLength: 5 }),
+        reasonCode: t.String({ minLength: 3 }),
+      }),
+    }
+  )
+  
+  // Update payout rate
+  .patch(
+    "/:id/rate",
+    async ({ params, body, merchant, set }) => {
+      if ("error" in merchant) {
+        return merchant;
+      }
+      
+      try {
+        const payout = await payoutService.updatePayoutRate(
+          params.id,
+          merchant.id,
+          body.merchantRate,
+          body.amount
+        );
+        return {
+          success: true,
+          payout: {
+            id: payout.id,
+            numericId: payout.numericId,
+            amount: payout.amount,
+            merchantRate: payout.merchantRate,
+            rate: payout.rate,
+            total: payout.total,
+          },
+        };
+      } catch (error: any) {
+        set.status = 400;
+        return { error: error.message };
+      }
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: t.Object({
+        merchantRate: t.Optional(t.Number({ minimum: 0 })),
+        amount: t.Optional(t.Number({ minimum: 0 })),
       }),
     }
   )
@@ -272,60 +302,76 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
   // List payouts
   .get(
     "/",
-    async ({ query, headers, set }) => {
-      const token = headers["x-api-key"];
-      if (!token) {
-        set.status = 401;
-        return { error: "API key required" };
+    async ({ query, merchant }) => {
+      if ("error" in merchant) {
+        return merchant;
       }
-
-      const merchant = await db.merchant.findUnique({
-        where: { token },
-      });
-      if (!merchant) {
-        set.status = 401;
-        return { error: "Invalid API key" };
+      
+      const { status, direction, dateFrom, dateTo, page = 1, limit = 20 } = query;
+      
+      const filters: any = {};
+      
+      if (status) {
+        filters.status = status.split(",") as PayoutStatus[];
       }
-
+      
+      if (direction) {
+        filters.direction = direction;
+      }
+      
+      if (dateFrom || dateTo) {
+        filters.dateFrom = dateFrom ? new Date(dateFrom) : undefined;
+        filters.dateTo = dateTo ? new Date(dateTo) : undefined;
+      }
+      
       const { payouts, total } = await payoutService.getMerchantPayouts(
         merchant.id,
         {
-          status: query.status?.split(",") as any,
-          limit: query.limit,
-          offset: query.offset,
+          ...filters,
+          limit,
+          offset: (page - 1) * limit,
         }
       );
 
       return {
         success: true,
-        payouts: payouts.map((p) => ({
+        data: payouts.map((p) => ({
           id: p.id,
           numericId: p.numericId,
+          status: p.status,
+          direction: p.direction,
           amount: p.amount,
-          amountUsdt: p.amountUsdt,
-          total: p.total,
-          totalUsdt: p.totalUsdt,
           rate: p.rate,
+          total: p.total,
           wallet: p.wallet,
           bank: p.bank,
           isCard: p.isCard,
-          status: p.status,
-          expireAt: p.expireAt,
+          externalReference: p.externalReference,
           createdAt: p.createdAt,
           acceptedAt: p.acceptedAt,
           confirmedAt: p.confirmedAt,
           cancelledAt: p.cancelledAt,
+          trader: p.trader ? {
+            numericId: p.trader.numericId,
+            email: p.trader.email,
+          } : null,
         })),
-        total,
-        limit: query.limit || 20,
-        offset: query.offset || 0,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
       };
     },
     {
       query: t.Object({
         status: t.Optional(t.String()),
+        direction: t.Optional(t.Enum({ IN: "IN", OUT: "OUT" })),
+        dateFrom: t.Optional(t.String()),
+        dateTo: t.Optional(t.String()),
+        page: t.Optional(t.Number({ minimum: 1 })),
         limit: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
-        offset: t.Optional(t.Number({ minimum: 0 })),
       }),
     }
   );

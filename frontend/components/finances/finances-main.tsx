@@ -212,7 +212,7 @@ export function FinancesMain() {
   const getOperationColor = (type: string) => {
     switch (type) {
       case "deposit":
-        return "text-green-600";
+        return "text-[#006039]";
       case "withdrawal":
         return "text-red-600";
       case "commission":
@@ -220,9 +220,9 @@ export function FinancesMain() {
       case "freeze":
         return "text-blue-600";
       case "unfreeze":
-        return "text-green-600";
+        return "text-[#006039]";
       case "profit":
-        return "text-green-600";
+        return "text-[#006039]";
       default:
         return "text-gray-600";
     }
@@ -232,7 +232,7 @@ export function FinancesMain() {
     switch (status) {
       case "completed":
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-200">
+          <Badge className="bg-green-100 border-green-200" style={{ color: '#006039' }}>
             Завершено
           </Badge>
         );
@@ -292,10 +292,10 @@ export function FinancesMain() {
               <span className="text-sm text-gray-600">ТРАСТ</span>
               <Button
                 size="sm"
-                className="bg-green-50/20 hover:bg-green-50/30 text-gray-700 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setDepositDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1 text-green-600" />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
                 Пополнить
               </Button>
             </div>
@@ -305,8 +305,8 @@ export function FinancesMain() {
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp className="h-3 w-3" />
+            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
+              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
               <span>+12.5%</span>
             </div>
           </div>
@@ -319,10 +319,10 @@ export function FinancesMain() {
               <span className="text-sm text-gray-600">Компенсация выплат</span>
               <Button
                 size="sm"
-                className="bg-green-50/20 hover:bg-green-50/30 text-gray-700 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1 text-green-600" />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
                 Вывод средств
               </Button>
             </div>
@@ -343,21 +343,21 @@ export function FinancesMain() {
               <span className="text-sm text-gray-600">Прибыль с приема</span>
               <Button
                 size="sm"
-                className="bg-green-50/20 hover:bg-green-50/30 text-gray-700 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1 text-green-600" />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
                 Вывод средств
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-green-600">
+              <span className="text-2xl font-bold" style={{ color: '#006039' }}>
                 +{(financials?.profitFromDeals || 0).toFixed(2)}
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp className="h-3 w-3" />
+            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
+              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
               <span>+8.3%</span>
             </div>
           </div>
@@ -370,21 +370,21 @@ export function FinancesMain() {
               <span className="text-sm text-gray-600">Прибыль с выплат</span>
               <Button
                 size="sm"
-                className="bg-green-50/20 hover:bg-green-50/30 text-gray-700 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1 text-green-600" />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
                 Вывод средств
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-green-600">
+              <span className="text-2xl font-bold" style={{ color: '#006039' }}>
                 +{(financials?.profitFromPayouts || 0).toFixed(2)}
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp className="h-3 w-3" />
+            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
+              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
               <span>+15.2%</span>
             </div>
           </div>
@@ -397,10 +397,10 @@ export function FinancesMain() {
               <span className="text-sm text-gray-600">РЕФЕРАЛЬНЫЙ БАЛАНС</span>
               <Button
                 size="sm"
-                className="bg-green-50/20 hover:bg-green-50/30 text-gray-700 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
                 onClick={() => setWithdrawalDialogOpen(true)}
               >
-                <Wallet className="h-3 w-3 mr-1 text-green-600" />
+                <Wallet className="h-3 w-3 mr-1" style={{ color: '#006039' }} />
                 Вывод средств
               </Button>
             </div>
@@ -410,8 +410,8 @@ export function FinancesMain() {
               </span>
               <span className="text-sm font-medium text-[#006039]">USDT</span>
             </div>
-            <div className="flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp className="h-3 w-3" />
+            <div className="flex items-center gap-1 text-sm" style={{ color: '#006039' }}>
+              <TrendingUp className="h-3 w-3" style={{ color: '#006039' }} />
               <span>+5.7%</span>
             </div>
           </div>
@@ -467,16 +467,16 @@ export function FinancesMain() {
         <TabsList className="grid w-fit grid-cols-2 gap-1 bg-gray-50 p-1">
           <TabsTrigger
             value="operations"
-            className="data-[state=active]:bg-green-50 h-12 data-[state=active]:text-gray-900 data-[state=active]:shadow-sm px-6"
+            className="data-[state=active]:bg-[#006039]/10 h-12 data-[state=active]:text-gray-900 data-[state=active]:shadow-sm px-6"
           >
-            <WalletIcon className="h-4 w-4 mr-2 text-green-600" />
+            <WalletIcon className="h-4 w-4 mr-2" style={{ color: '#006039' }} />
             Операции по счету
           </TabsTrigger>
           <TabsTrigger
             value="deposits"
-            className="data-[state=active]:bg-green-50 h-12 data-[state=active]:text-gray-900 data-[state=active]:shadow-sm px-6"
+            className="data-[state=active]:bg-[#006039]/10 h-12 data-[state=active]:text-gray-900 data-[state=active]:shadow-sm px-6"
           >
-            <BanknoteIcon className="h-4 w-4 mr-2 text-green-600" />
+            <BanknoteIcon className="h-4 w-4 mr-2" style={{ color: '#006039' }} />
             Заявки на пополнение
           </TabsTrigger>
         </TabsList>
@@ -585,7 +585,7 @@ export function FinancesMain() {
                         operation.type === "deposit" ||
                           operation.type === "unfreeze" ||
                           operation.type === "profit"
-                          ? "text-green-600"
+                          ? "text-[#006039]"
                           : operation.type === "withdrawal" ||
                               operation.type === "commission" ||
                               operation.type === "freeze"
@@ -626,7 +626,7 @@ export function FinancesMain() {
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="p-2 bg-white rounded-lg text-green-600">
+                    <div className="p-2 bg-white rounded-lg" style={{ color: '#006039' }}>
                       <ArrowDownRight className="h-4 w-4" />
                     </div>
                     <div>
@@ -651,7 +651,7 @@ export function FinancesMain() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-green-600">
+                    <div className="font-semibold" style={{ color: '#006039' }}>
                       +{request.amount.toFixed(2)} {request.currency}
                     </div>
                     <div className="mt-1">{getStatusBadge(request.status)}</div>

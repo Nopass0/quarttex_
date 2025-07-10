@@ -293,7 +293,7 @@ export function PayoutsList() {
           status = "COMPLETED";
           break;
         case "cancelled":
-          status = "CANCELLED,EXPIRED";
+          status = "CANCELLED";
           break;
         case "all":
         default:
@@ -462,6 +462,13 @@ export function PayoutsList() {
 
   // Filter payouts locally (server already filters by status)
   const filteredPayouts = payouts.filter((payout) => {
+    // Hide all expired payouts
+    const now = new Date().getTime();
+    const expiresAt = new Date(payout.expire_at).getTime();
+    if (payout.status === "expired" || (expiresAt < now && payout.status === "created")) {
+      return false;
+    }
+    
     if (searchId && !payout.id.toString().includes(searchId)) {
       return false;
     }

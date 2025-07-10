@@ -34,7 +34,7 @@ export default function WebhooksApiDocsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Webhooks</h1>
             <p className="text-gray-600 mt-2">
-              Автоматические уведомления об изменении статуса транзакций
+              Автоматические уведомления об изменении статуса транзакций и выплат
             </p>
           </div>
 
@@ -42,8 +42,11 @@ export default function WebhooksApiDocsPage() {
         <Webhook className="h-4 w-4 text-[#006039]" />
         <AlertTitle>Как работают webhooks</AlertTitle>
         <AlertDescription className="mt-2">
-          При создании транзакции укажите <code className="bg-gray-100 px-1 rounded">callbackUri</code> для получения уведомлений.
-          Система автоматически отправит POST-запрос на указанный URL при изменении статуса транзакции.
+          <div className="space-y-2">
+            <p><strong>Транзакции:</strong> При создании транзакции укажите <code className="bg-gray-100 px-1 rounded">callbackUri</code> для получения уведомлений.</p>
+            <p><strong>Выплаты:</strong> При создании выплаты укажите <code className="bg-gray-100 px-1 rounded">webhookUrl</code> для получения уведомлений.</p>
+            <p>Система автоматически отправит POST-запрос на указанный URL при изменении статуса.</p>
+          </div>
         </AlertDescription>
       </Alert>
 
@@ -52,18 +55,20 @@ export default function WebhooksApiDocsPage() {
         <CardHeader>
           <CardTitle>Формат webhook запроса</CardTitle>
           <CardDescription>
-            POST-запрос, который отправляется на ваш callbackUri
+            POST-запрос, который отправляется на ваш webhook URL
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="headers">
+          <Tabs defaultValue="transaction-headers">
             <TabsList>
-              <TabsTrigger value="headers">Headers</TabsTrigger>
-              <TabsTrigger value="body">Body</TabsTrigger>
+              <TabsTrigger value="transaction-headers">Транзакции: Headers</TabsTrigger>
+              <TabsTrigger value="transaction-body">Транзакции: Body</TabsTrigger>
+              <TabsTrigger value="payout-headers">Выплаты: Headers</TabsTrigger>
+              <TabsTrigger value="payout-body">Выплаты: Body</TabsTrigger>
               <TabsTrigger value="signature">Подпись</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="headers" className="relative">
+            <TabsContent value="transaction-headers" className="relative">
               <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
 {`POST https://your-domain.com/webhook
 Content-Type: application/json
@@ -79,14 +84,14 @@ User-Agent: PaymentSystem/1.0`}
 Content-Type: application/json
 X-Signature: 7f3b1c2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b
 User-Agent: PaymentSystem/1.0`,
-                  'headers'
+                  'transaction-headers'
                 )}
               >
-                {copiedId === 'headers' ? <Check className="h-4 w-4 text-[#006039]" /> : <Copy className="h-4 w-4 text-[#006039]" />}
+                {copiedId === 'transaction-headers' ? <Check className="h-4 w-4 text-[#006039]" /> : <Copy className="h-4 w-4 text-[#006039]" />}
               </Button>
             </TabsContent>
 
-            <TabsContent value="body" className="relative">
+            <TabsContent value="transaction-body" className="relative">
               <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
 {`{
   "transactionId": "tx123",
@@ -118,10 +123,84 @@ User-Agent: PaymentSystem/1.0`,
   "timestamp": "2024-01-01T10:05:00.000Z",
   "signature": "7f3b1c2d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b"
 }`,
-                  'body'
+                  'transaction-body'
                 )}
               >
-                {copiedId === 'body' ? <Check className="h-4 w-4 text-[#006039]" /> : <Copy className="h-4 w-4 text-[#006039]" />}
+                {copiedId === 'transaction-body' ? <Check className="h-4 w-4 text-[#006039]" /> : <Copy className="h-4 w-4 text-[#006039]" />}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="payout-headers" className="relative">
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+{`POST https://your-domain.com/webhook/payouts
+Content-Type: application/json
+User-Agent: PaymentSystem/1.0`}
+              </pre>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => copyToClipboard(
+                  `POST https://your-domain.com/webhook/payouts
+Content-Type: application/json
+User-Agent: PaymentSystem/1.0`,
+                  'payout-headers'
+                )}
+              >
+                {copiedId === 'payout-headers' ? <Check className="h-4 w-4 text-[#006039]" /> : <Copy className="h-4 w-4 text-[#006039]" />}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="payout-body" className="relative">
+              <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+{`{
+  "event": "ACTIVE",
+  "payout": {
+    "id": "payout123",
+    "numericId": 2001,
+    "status": "ACTIVE",
+    "amount": 10000,
+    "amountUsdt": 104.71,
+    "wallet": "TRx1234567890abcdef",
+    "bank": "SBERBANK",
+    "externalReference": "PAYOUT-12345",
+    "proofFiles": [],
+    "disputeFiles": [],
+    "disputeMessage": null,
+    "cancelReason": null,
+    "cancelReasonCode": null,
+    "metadata": { "userId": "user123" }
+  }
+}`}
+              </pre>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => copyToClipboard(
+                  `{
+  "event": "ACTIVE",
+  "payout": {
+    "id": "payout123",
+    "numericId": 2001,
+    "status": "ACTIVE",
+    "amount": 10000,
+    "amountUsdt": 104.71,
+    "wallet": "TRx1234567890abcdef",
+    "bank": "SBERBANK",
+    "externalReference": "PAYOUT-12345",
+    "proofFiles": [],
+    "disputeFiles": [],
+    "disputeMessage": null,
+    "cancelReason": null,
+    "cancelReasonCode": null,
+    "metadata": { "userId": "user123" }
+  }
+}`,
+                  'payout-body'
+                )}
+              >
+                {copiedId === 'payout-body' ? <Check className="h-4 w-4 text-[#006039]" /> : <Copy className="h-4 w-4 text-[#006039]" />}
               </Button>
             </TabsContent>
 
@@ -176,34 +255,76 @@ app.post('/webhook', (req, res) => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="grid gap-3">
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <Badge variant="default">IN_PROGRESS</Badge>
-                <span className="text-sm">→</span>
-                <Badge variant="success">READY</Badge>
-                <span className="text-sm text-gray-600">Транзакция успешно завершена</span>
+          <Tabs defaultValue="transactions">
+            <TabsList className="w-full">
+              <TabsTrigger value="transactions" className="flex-1">Транзакции</TabsTrigger>
+              <TabsTrigger value="payouts" className="flex-1">Выплаты</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="transactions" className="mt-4">
+              <div className="grid gap-3">
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="default">IN_PROGRESS</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="success">READY</Badge>
+                  <span className="text-sm text-gray-600">Транзакция успешно завершена</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="default">IN_PROGRESS</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="destructive">CANCELED</Badge>
+                  <span className="text-sm text-gray-600">Транзакция отменена</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="default">IN_PROGRESS</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="destructive">EXPIRED</Badge>
+                  <span className="text-sm text-gray-600">Истекло время транзакции</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="success">READY</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="warning">DISPUTE</Badge>
+                  <span className="text-sm text-gray-600">Открыт спор по транзакции</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <Badge variant="default">IN_PROGRESS</Badge>
-                <span className="text-sm">→</span>
-                <Badge variant="destructive">CANCELED</Badge>
-                <span className="text-sm text-gray-600">Транзакция отменена</span>
+            </TabsContent>
+            
+            <TabsContent value="payouts" className="mt-4">
+              <div className="grid gap-3">
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="default">CREATED</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="warning">ACTIVE</Badge>
+                  <span className="text-sm text-gray-600">Выплата принята трейдером (event: ACTIVE)</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="warning">ACTIVE</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="secondary">CHECKING</Badge>
+                  <span className="text-sm text-gray-600">Трейдер загрузил документы (event: CHECKING)</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="secondary">CHECKING</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="success">COMPLETED</Badge>
+                  <span className="text-sm text-gray-600">Выплата подтверждена (event: COMPLETED)</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="secondary">CHECKING</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="warning">DISPUTED</Badge>
+                  <span className="text-sm text-gray-600">Открыт спор (event: DISPUTED)</span>
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Badge variant="default">CREATED</Badge>
+                  <span className="text-sm">→</span>
+                  <Badge variant="destructive">CANCELLED</Badge>
+                  <span className="text-sm text-gray-600">Выплата отменена (event: CANCELLED)</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <Badge variant="default">IN_PROGRESS</Badge>
-                <span className="text-sm">→</span>
-                <Badge variant="destructive">EXPIRED</Badge>
-                <span className="text-sm text-gray-600">Истекло время транзакции</span>
-              </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <Badge variant="success">READY</Badge>
-                <span className="text-sm">→</span>
-                <Badge variant="warning">DISPUTE</Badge>
-                <span className="text-sm text-gray-600">Открыт спор по транзакции</span>
-              </div>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -233,6 +354,7 @@ app.use(express.json())
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET
 
+// Webhook для транзакций
 app.post('/webhook/payment', async (req, res) => {
   try {
     // Проверка подписи
@@ -275,6 +397,47 @@ app.post('/webhook/payment', async (req, res) => {
     
   } catch (error) {
     console.error('Webhook error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Webhook для выплат
+app.post('/webhook/payouts', async (req, res) => {
+  try {
+    const { event, payout } = req.body
+    
+    switch (event) {
+      case 'ACTIVE':
+        // Выплата принята трейдером
+        await updatePayoutStatus(payout.id, 'processing')
+        break
+        
+      case 'CHECKING':
+        // Трейдер загрузил документы
+        await notifyFinanceTeam(payout.id, payout.proofFiles)
+        break
+        
+      case 'COMPLETED':
+        // Выплата завершена
+        await finalizePayment(payout.id)
+        await sendPayoutConfirmation(payout.externalReference)
+        break
+        
+      case 'CANCELLED':
+        // Выплата отменена
+        await handlePayoutCancellation(payout.id, payout.cancelReasonCode)
+        break
+        
+      case 'DISPUTED':
+        // Открыт спор
+        await escalateToSupport(payout.id, payout.disputeMessage)
+        break
+    }
+    
+    res.status(200).json({ received: true })
+    
+  } catch (error) {
+    console.error('Payout webhook error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

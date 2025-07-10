@@ -286,8 +286,8 @@ export function WithdrawalDialog({ open, onOpenChange }: WithdrawalDialogProps) 
           {/* Step 3: Success */}
           {step === 3 && (
             <div className="space-y-4 text-center">
-              <div className="p-6 bg-green-50 rounded-lg">
-                <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
+              <div className="p-6 rounded-lg" style={{ backgroundColor: 'rgba(0, 96, 57, 0.05)' }}>
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-4" style={{ color: '#006039' }} />
                 <h3 className="font-semibold text-lg mb-2">Заявка создана</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Ваша заявка на вывод {getFinalAmount().toFixed(2)} USDT принята

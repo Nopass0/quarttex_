@@ -454,7 +454,7 @@ model Device {
   userId        String
   bankDetails   BankDetail[]
   notifications Notification[]
-  
+
   @@index([emulated, isOnline])
 }
 
@@ -476,7 +476,7 @@ model Notification {
   updatedAt   DateTime         @updatedAt @map("updated_at")
   Device      Device?          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   deviceId    String?
-  
+
   @@index([deviceId, createdAt(sort: Desc)])
   @@index([isProcessed, type])
 }
@@ -535,7 +535,7 @@ model Service {
   publicFields    Json?         // Публичные поля сервиса в формате JSON
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  
+
   logs ServiceLog[]
 }
 
@@ -554,7 +554,7 @@ model ServiceLog {
   message   String
   data      Json?     // Дополнительные данные в формате JSON
   createdAt DateTime  @default(now())
-  
+
   @@index([serviceId, createdAt(sort: Desc)])
 }
 
@@ -587,7 +587,7 @@ model Agent {
   trcWallet       String?  // TRC-20 USDT кошелек для выплат
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   agentTraders    AgentTrader[]
   agentPayouts    AgentPayout[]
   sessions        AgentSession[]
@@ -615,7 +615,7 @@ model AgentTrader {
   teamId     String?
   team       Team?    @relation(fields: [teamId], references: [id])
   createdAt  DateTime @default(now())
-  
+
   @@unique([agentId, traderId])
 }
 
@@ -640,10 +640,10 @@ model Team {
   agentId       String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   traders       User[]
   agentTraders  AgentTrader[]
-  
+
   @@unique([agentId, name])
 }
 
@@ -664,24 +664,24 @@ model SupportTicket {
   subject       String
   status        SupportTicketStatus @default(OPEN)
   priority      SupportTicketPriority @default(NORMAL)
-  
+
   // User who created the ticket
   userType      UserType
   userId        String?
   merchantId    String?
   agentId       String?
-  
+
   // Relations
   user          User?    @relation(fields: [userId], references: [id])
   merchant      Merchant? @relation(fields: [merchantId], references: [id])
   agent         Agent?   @relation(fields: [agentId], references: [id])
-  
+
   messages      SupportMessage[]
-  
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   closedAt      DateTime?
-  
+
   @@index([userType, status])
   @@index([createdAt])
 }
@@ -690,16 +690,16 @@ model SupportMessage {
   id           String   @id @default(cuid())
   ticketId     String
   ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
+
   message      String
   isFromSupport Boolean @default(false)
   authorName   String?
-  
+
   attachments  String[] // Array of file URLs
-  
+
   createdAt    DateTime @default(now())
   readAt       DateTime?
-  
+
   @@index([ticketId, createdAt])
 }
 
@@ -739,43 +739,55 @@ model Payout {
   merchantId      String
   trader          User?         @relation("TraderPayouts", fields: [traderId], references: [id])
   traderId        String?
-  
+
   amount          Float         // Amount in RUB
   amountUsdt      Float         // Amount in USDT
   total           Float         // Total amount to deduct (with fees) in RUB
   totalUsdt       Float         // Total amount to deduct (with fees) in USDT
   rate            Float         // Exchange rate
-  
+
   wallet          String        // Card number or phone
   bank            String        // Bank name
   isCard          Boolean       // true for card, false for SBP
-  
+
   status          PayoutStatus  @default(CREATED)
-  
+  direction       PayoutDirection @default(OUT) // Transaction direction
+
+  // New fields for v1.6
+  merchantRate    Float?        // Rate provided by merchant
+  rateDelta       Float         @default(0) // Rate adjustment delta
+  feePercent      Float         @default(0) // Fee percentage
+  cancelReasonCode String?      // Cancellation reason code
+  externalReference String?     // External reference from merchant
+
   createdAt       DateTime      @default(now())
   acceptedAt      DateTime?     // When trader accepted the payout
   expireAt        DateTime      // Expiration time
   confirmedAt     DateTime?     // When payout was confirmed
   cancelledAt     DateTime?     // When payout was cancelled
-  
+
   proofFiles      String[]      // Array of file URLs for proof
   disputeFiles    String[]      // Array of file URLs for dispute
   disputeMessage  String?       // Dispute message
   cancelReason    String?       // Cancellation reason
-  
+
   merchantWebhookUrl String?    // Webhook URL for merchant callbacks
   merchantMetadata   Json?      // Additional merchant data
-  
+
   acceptanceTime     Int        @default(5) // Minutes for trader to accept
   processingTime     Int        @default(15) // Minutes to process after acceptance
-  
+
   pushNotificationTime Int?     // Minutes after expiry to send push
   pushSent             Boolean  @default(false)
-  
+
+  // Relations
+  rateAudits      PayoutRateAudit[]
+
   @@index([status, traderId])
   @@index([merchantId, status])
   @@index([createdAt])
   @@index([expireAt])
+  @@index([direction, status])
 }
 
 enum PayoutStatus {
@@ -786,4 +798,40 @@ enum PayoutStatus {
   CANCELLED     // Cancelled by trader
   EXPIRED       // Time expired
   DISPUTED      // In dispute
+}
+
+enum PayoutDirection {
+  IN
+  OUT
+}
+
+model PayoutRateAudit {
+  id               String   @id @default(cuid())
+  payout           Payout   @relation(fields: [payoutId], references: [id])
+  payoutId         String
+  
+  oldRateDelta     Float    // Previous rateDelta value
+  newRateDelta     Float    // New rateDelta value
+  oldFeePercent    Float    // Previous feePercent value
+  newFeePercent    Float    // New feePercent value
+  
+  adminId          String   // Admin who made the change
+  timestamp        DateTime @default(now())
+  
+  @@index([payoutId])
+  @@index([timestamp])
+}
+
+model TelegramLink {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  code         String   @unique // 6-digit code
+  chatId       String?  // Telegram chat ID when linked
+  isLinked     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime // Code expiration time
+  linkedAt     DateTime?
+  
+  @@index([code])
+  @@index([expiresAt])
 }

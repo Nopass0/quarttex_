@@ -193,7 +193,7 @@ export function FinancesList() {
     const statusConfig: any = {
       CREATED: { label: "Создана", color: "bg-blue-50 text-blue-600 border-blue-200" },
       IN_PROGRESS: { label: "В процессе", color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
-      READY: { label: "Готово", color: "bg-green-50 text-green-600 border-green-200" },
+      READY: { label: "Готово", color: "bg-[#006039]/10 text-[#006039] border-[#006039]/20" },
       EXPIRED: { label: "Истекло", color: "bg-red-50 text-red-600 border-red-200" },
       DISPUTE: { label: "Спор", color: "bg-purple-50 text-purple-600 border-purple-200" },
       CANCELED: { label: "Отменено", color: "bg-gray-50 text-gray-600 border-gray-200" },
@@ -203,7 +203,7 @@ export function FinancesList() {
   }
   
   const getTypeBadge = (type: string) => {
-    return type === "IN" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+    return type === "IN" ? "bg-[#006039]/10 text-[#006039]" : "bg-red-50 text-red-600"
   }
   
   const filteredTransactions = transactions.filter(tx => {

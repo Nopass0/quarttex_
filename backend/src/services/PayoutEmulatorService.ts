@@ -48,6 +48,15 @@ export default class PayoutEmulatorService extends BaseService {
   }
   
   protected async tick(): Promise<void> {
+    // Reload config from database
+    const savedConfig = await db.serviceConfig.findUnique({
+      where: { serviceKey: "payout_emulator" },
+    });
+    
+    if (savedConfig?.config) {
+      this.config = { ...this.config, ...(savedConfig.config as any) };
+    }
+    
     if (!this.config.enabled) {
       return;
     }
@@ -184,6 +193,15 @@ export default class PayoutEmulatorService extends BaseService {
       path: "/trigger",
       method: "POST",
       handler: async () => {
+        // Reload config from database
+        const savedConfig = await db.serviceConfig.findUnique({
+          where: { serviceKey: "payout_emulator" },
+        });
+        
+        if (savedConfig?.config) {
+          this.config = { ...this.config, ...(savedConfig.config as any) };
+        }
+        
         if (!this.config.enabled) {
           return { error: "Emulator is disabled" };
         }

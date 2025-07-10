@@ -634,6 +634,474 @@ const apiMethods: ApiMethod[] = [
         }
       }
     }
+  },
+  // Payout API endpoints (v1.6)
+  {
+    id: 'create-payout',
+    method: 'POST',
+    path: '/api/merchant/payouts',
+    title: 'Создание выплаты',
+    description: 'Создание новой выплаты (OUT транзакции) с автоматическим расчетом курса и комиссий',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта для аутентификации'
+      }
+    ],
+    body: [
+      {
+        name: 'amount',
+        type: 'number',
+        required: true,
+        description: 'Сумма выплаты в рублях',
+        example: 10000
+      },
+      {
+        name: 'wallet',
+        type: 'string',
+        required: true,
+        description: 'Кошелек получателя (USDT TRC-20)',
+        example: 'TRx1234567890abcdef'
+      },
+      {
+        name: 'bank',
+        type: 'string',
+        required: true,
+        description: 'Банк или платежная система',
+        example: 'SBERBANK'
+      },
+      {
+        name: 'isCard',
+        type: 'boolean',
+        required: true,
+        description: 'Является ли выплата на карту',
+        example: true
+      },
+      {
+        name: 'merchantRate',
+        type: 'number',
+        required: true,
+        description: 'Курс мерчанта USDT/RUB',
+        example: 95.5
+      },
+      {
+        name: 'externalReference',
+        type: 'string',
+        required: false,
+        description: 'Внешний идентификатор для отслеживания',
+        example: 'PAYOUT-12345'
+      },
+      {
+        name: 'processingTime',
+        type: 'number',
+        required: false,
+        description: 'Время обработки в минутах (5-60, по умолчанию 15)',
+        example: 15
+      },
+      {
+        name: 'webhookUrl',
+        type: 'string',
+        required: false,
+        description: 'URL для webhook уведомлений',
+        example: 'https://your-domain.com/webhook/payouts'
+      },
+      {
+        name: 'metadata',
+        type: 'object',
+        required: false,
+        description: 'Дополнительные данные',
+        example: { userId: 'user123', orderId: 'order456' }
+      }
+    ],
+    responses: {
+      '201': {
+        description: 'Выплата создана',
+        example: {
+          success: true,
+          payout: {
+            id: "payout123",
+            numericId: 2001,
+            amount: 10000,
+            amountUsdt: 104.71,
+            total: 10000,
+            totalUsdt: 104.71,
+            rate: 95.5,
+            wallet: "TRx1234567890abcdef",
+            bank: "SBERBANK",
+            isCard: true,
+            status: "CREATED",
+            expireAt: "2024-01-01T12:00:00.000Z",
+            createdAt: "2024-01-01T10:00:00.000Z"
+          }
+        }
+      },
+      '400': {
+        description: 'Неверные параметры',
+        example: { error: "Invalid parameters" }
+      }
+    }
+  },
+  {
+    id: 'get-payout',
+    method: 'GET',
+    path: '/api/merchant/payouts/{id}',
+    title: 'Получение выплаты',
+    description: 'Получение полной информации о выплате по ID',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта'
+      }
+    ],
+    pathParams: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        description: 'ID выплаты'
+      }
+    ],
+    responses: {
+      '200': {
+        description: 'Информация о выплате',
+        example: {
+          success: true,
+          payout: {
+            id: "payout123",
+            numericId: 2001,
+            amount: 10000,
+            amountUsdt: 104.71,
+            total: 10000,
+            totalUsdt: 104.71,
+            rate: 95.5,
+            wallet: "TRx1234567890abcdef",
+            bank: "SBERBANK",
+            isCard: true,
+            status: "ACTIVE",
+            expireAt: "2024-01-01T12:00:00.000Z",
+            createdAt: "2024-01-01T10:00:00.000Z",
+            acceptedAt: "2024-01-01T10:05:00.000Z",
+            confirmedAt: null,
+            cancelledAt: null,
+            proofFiles: [],
+            disputeFiles: [],
+            disputeMessage: null,
+            cancelReason: null
+          }
+        }
+      },
+      '404': {
+        description: 'Выплата не найдена',
+        example: { error: "Payout not found" }
+      }
+    }
+  },
+  {
+    id: 'list-payouts',
+    method: 'GET',
+    path: '/api/merchant/payouts',
+    title: 'Список выплат',
+    description: 'Получение списка выплат с фильтрацией и пагинацией',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта'
+      }
+    ],
+    queryParams: [
+      {
+        name: 'status',
+        type: 'string',
+        required: false,
+        description: 'Фильтр по статусу (можно несколько через запятую): CREATED, ACTIVE, CHECKING, COMPLETED, CANCELLED, DISPUTED, EXPIRED'
+      },
+      {
+        name: 'direction',
+        type: 'string',
+        required: false,
+        description: 'Направление: IN или OUT'
+      },
+      {
+        name: 'dateFrom',
+        type: 'string',
+        required: false,
+        description: 'Дата начала периода (ISO 8601)'
+      },
+      {
+        name: 'dateTo',
+        type: 'string',
+        required: false,
+        description: 'Дата конца периода (ISO 8601)'
+      },
+      {
+        name: 'page',
+        type: 'number',
+        required: false,
+        description: 'Номер страницы (по умолчанию 1)'
+      },
+      {
+        name: 'limit',
+        type: 'number',
+        required: false,
+        description: 'Количество записей на странице (1-100, по умолчанию 20)'
+      }
+    ],
+    responses: {
+      '200': {
+        description: 'Список выплат',
+        example: {
+          success: true,
+          data: [
+            {
+              id: "payout123",
+              numericId: 2001,
+              status: "COMPLETED",
+              direction: "OUT",
+              amount: 10000,
+              rate: 95.5,
+              total: 10000,
+              wallet: "TRx1234567890abcdef",
+              bank: "SBERBANK",
+              isCard: true,
+              externalReference: "PAYOUT-12345",
+              createdAt: "2024-01-01T10:00:00.000Z",
+              acceptedAt: "2024-01-01T10:05:00.000Z",
+              confirmedAt: "2024-01-01T10:10:00.000Z",
+              cancelledAt: null,
+              trader: {
+                numericId: 1001,
+                email: "trader@example.com"
+              }
+            }
+          ],
+          meta: {
+            total: 150,
+            page: 1,
+            limit: 20,
+            totalPages: 8
+          }
+        }
+      }
+    }
+  },
+  {
+    id: 'approve-payout',
+    method: 'POST',
+    path: '/api/merchant/payouts/{id}/approve',
+    title: 'Подтверждение выплаты',
+    description: 'Подтверждение выплаты после проверки документов трейдера',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта'
+      }
+    ],
+    pathParams: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        description: 'ID выплаты'
+      }
+    ],
+    responses: {
+      '200': {
+        description: 'Выплата подтверждена',
+        example: {
+          success: true,
+          payout: {
+            id: "payout123",
+            numericId: 2001,
+            status: "COMPLETED"
+          }
+        }
+      },
+      '400': {
+        description: 'Неверный статус выплаты',
+        example: { error: "Payout is not in checking status" }
+      }
+    }
+  },
+  {
+    id: 'cancel-payout',
+    method: 'PATCH',
+    path: '/api/merchant/payouts/{id}/cancel',
+    title: 'Отмена выплаты',
+    description: 'Отмена выплаты (только для статуса CREATED)',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта'
+      }
+    ],
+    pathParams: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        description: 'ID выплаты'
+      }
+    ],
+    body: [
+      {
+        name: 'reasonCode',
+        type: 'string',
+        required: true,
+        description: 'Код причины отмены (минимум 3 символа)',
+        example: 'INSUFFICIENT_FUNDS'
+      }
+    ],
+    responses: {
+      '200': {
+        description: 'Выплата отменена',
+        example: {
+          success: true,
+          payout: {
+            id: "payout123",
+            numericId: 2001,
+            status: "CANCELLED",
+            cancelledAt: "2024-01-01T10:30:00.000Z",
+            cancelReasonCode: "INSUFFICIENT_FUNDS"
+          }
+        }
+      },
+      '400': {
+        description: 'Неверный статус выплаты',
+        example: { error: "Cannot cancel payout in current status" }
+      }
+    }
+  },
+  {
+    id: 'update-payout-rate',
+    method: 'PATCH',
+    path: '/api/merchant/payouts/{id}/rate',
+    title: 'Обновление курса выплаты',
+    description: 'Обновление курса или суммы выплаты (только для статуса CREATED)',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта'
+      }
+    ],
+    pathParams: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        description: 'ID выплаты'
+      }
+    ],
+    body: [
+      {
+        name: 'merchantRate',
+        type: 'number',
+        required: false,
+        description: 'Новый курс мерчанта',
+        example: 96.0
+      },
+      {
+        name: 'amount',
+        type: 'number',
+        required: false,
+        description: 'Новая сумма выплаты',
+        example: 15000
+      }
+    ],
+    responses: {
+      '200': {
+        description: 'Курс обновлен',
+        example: {
+          success: true,
+          payout: {
+            id: "payout123",
+            numericId: 2001,
+            amount: 15000,
+            merchantRate: 96.0,
+            rate: 96.0,
+            total: 15000
+          }
+        }
+      },
+      '400': {
+        description: 'Неверный статус выплаты',
+        example: { error: "Cannot update rate after payout is accepted" }
+      }
+    }
+  },
+  {
+    id: 'create-dispute',
+    method: 'POST',
+    path: '/api/merchant/payouts/{id}/dispute',
+    title: 'Создание спора',
+    description: 'Создание спора по выплате (только для статуса CHECKING)',
+    category: 'Выплаты',
+    headers: [
+      {
+        name: 'x-merchant-api-key',
+        type: 'string',
+        required: true,
+        description: 'API-ключ мерчанта'
+      }
+    ],
+    pathParams: [
+      {
+        name: 'id',
+        type: 'string',
+        required: true,
+        description: 'ID выплаты'
+      }
+    ],
+    body: [
+      {
+        name: 'message',
+        type: 'string',
+        required: true,
+        description: 'Сообщение о причине спора (минимум 10 символов)',
+        example: 'Неверные реквизиты получателя'
+      },
+      {
+        name: 'files',
+        type: 'array',
+        required: false,
+        description: 'Массив URL файлов-доказательств',
+        example: ['https://example.com/proof1.png', 'https://example.com/proof2.pdf']
+      }
+    ],
+    responses: {
+      '200': {
+        description: 'Спор создан',
+        example: {
+          success: true,
+          payout: {
+            id: "payout123",
+            numericId: 2001,
+            status: "DISPUTED"
+          }
+        }
+      },
+      '400': {
+        description: 'Неверный статус выплаты',
+        example: { error: "Can only dispute payouts in checking status" }
+      }
+    }
   }
 ]
 
@@ -1034,10 +1502,21 @@ export default function MerchantApiDocsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">
-              При изменении статуса транзакции система автоматически отправляет уведомление на указанный в параметре <code className="bg-gray-100 px-1 rounded">callbackUri</code> адрес.
+              Система автоматически отправляет уведомления при изменении статуса транзакций и выплат.
             </p>
-            <div className="bg-gray-900 text-gray-100 p-4 rounded-lg text-sm">
-              <pre>{`POST https://your-domain.com/webhook
+            
+            <Tabs defaultValue="transactions" className="w-full">
+              <TabsList className="w-full">
+                <TabsTrigger value="transactions" className="flex-1">Транзакции</TabsTrigger>
+                <TabsTrigger value="payouts" className="flex-1">Выплаты</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="transactions" className="mt-4">
+                <p className="text-xs text-gray-600 mb-2">
+                  URL указывается в параметре <code className="bg-gray-100 px-1 rounded">callbackUri</code>
+                </p>
+                <div className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs">
+                  <pre>{`POST https://your-domain.com/webhook
 Content-Type: application/json
 X-Signature: HMAC-SHA256
 
@@ -1049,7 +1528,37 @@ X-Signature: HMAC-SHA256
   "crypto": 52.36,
   "timestamp": "2024-01-01T10:05:00.000Z"
 }`}</pre>
-            </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="payouts" className="mt-4">
+                <p className="text-xs text-gray-600 mb-2">
+                  URL указывается в параметре <code className="bg-gray-100 px-1 rounded">webhookUrl</code>
+                </p>
+                <div className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs">
+                  <pre>{`POST https://your-domain.com/webhook/payouts
+Content-Type: application/json
+
+{
+  "event": "ACTIVE",
+  "payout": {
+    "id": "payout123",
+    "numericId": 2001,
+    "status": "ACTIVE",
+    "amount": 10000,
+    "amountUsdt": 104.71,
+    "wallet": "TRx123...",
+    "bank": "SBERBANK",
+    "externalReference": "PAYOUT-12345",
+    "metadata": { "userId": "user123" }
+  }
+}`}</pre>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  События: ACTIVE, CHECKING, COMPLETED, CANCELLED, DISPUTED
+                </p>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 

@@ -17,6 +17,7 @@ import dashboardRoutes from "./dashboard";
 import apiDocsRoutes from "./api-docs";
 import { calculateFreezingParams } from "@/utils/freezing";
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
+import { validateFileUpload } from "@/middleware/fileUploadValidation";
 
 export default (app: Elysia) =>
   app
@@ -1094,6 +1095,12 @@ export default (app: Elysia) =>
 
           if (!transaction) {
             return error(404, { error: "Транзакция не найдена" });
+          }
+
+          // Validate file upload
+          const validation = validateFileUpload(body.fileData, body.fileName);
+          if (!validation.valid) {
+            return error(400, { error: validation.error });
           }
 
           // Создаем чек

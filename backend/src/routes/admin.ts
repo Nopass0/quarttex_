@@ -38,6 +38,7 @@ import processorRoutes from "@/routes/admin/processor";
 import deviceEmulatorRoutes from "@/routes/admin/device-emulator";
 import metricsRoutes from "@/routes/admin/metrics";
 import payoutEmulatorRoutes from "@/routes/admin/payout-emulator";
+import { adminPayoutsRoutes } from "@/routes/admin/payouts";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
 
@@ -108,6 +109,7 @@ export default (app: Elysia) =>
     .use(processorRoutes)
     .use(deviceEmulatorRoutes)
     .use(payoutEmulatorRoutes)
+    .use(adminPayoutsRoutes)
     .group("", (a) => metricsRoutes(a))
 
     /* ───────────────── enums ───────────────── */

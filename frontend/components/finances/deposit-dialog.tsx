@@ -76,7 +76,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowDownRight className="h-5 w-5 text-green-600" />
+            <ArrowDownRight className="h-5 w-5" style={{ color: '#006039' }} />
             Пополнение баланса
           </DialogTitle>
           <DialogDescription>
@@ -174,7 +174,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                     className="shrink-0"
                   >
                     {copiedAddress ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <CheckCircle2 className="h-4 w-4" style={{ color: '#006039' }} />
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
@@ -227,8 +227,8 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
           {/* Step 3: Confirmation */}
           {step === 3 && (
             <div className="space-y-4 text-center">
-              <div className="p-6 bg-green-50 rounded-lg">
-                <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
+              <div className="p-6 rounded-lg" style={{ backgroundColor: 'rgba(0, 96, 57, 0.05)' }}>
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-4" style={{ color: '#006039' }} />
                 <h3 className="font-semibold text-lg mb-2">Заявка создана</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Ваша заявка на пополнение {parseFloat(amount).toFixed(2)} USDT принята

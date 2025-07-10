@@ -16,6 +16,7 @@ import deviceRoutes from "@/routes/trader/device";
 import agentRoutes from "@/routes/agent";
 import appDownloadRoutes from "@/routes/public/app-download";
 import supportRoutes from "@/routes/support";
+import payoutWebSocketRoutes from "@/routes/websocket/payouts";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";
@@ -216,7 +217,8 @@ const app = new Elysia({ prefix: "/api" })
   .group("/trader", (app) => app.use(traderRoutes))
   .group("/app", (app) => app.use(appDownloadRoutes))
   .group("/support", (app) => app.use(supportRoutes))
-  .use(agentRoutes);
+  .use(agentRoutes)
+  .use(payoutWebSocketRoutes);
 
 // Register all service endpoints
 for (const serviceApp of serviceApps) {

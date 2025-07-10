@@ -1,6 +1,7 @@
 import Elysia, { t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
 import { db } from "../../db";
+import { validateFileUrls } from "../../middleware/fileUploadValidation";
 
 const payoutService = PayoutService.getInstance();
 
@@ -92,6 +93,13 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, body, trader, set }) => {
 
       try {
+        // Validate proof files
+        const validation = validateFileUrls(body.proofFiles);
+        if (!validation.valid) {
+          set.status = 400;
+          return { error: validation.error };
+        }
+        
         const payout = await payoutService.confirmPayout(
           params.id,
           trader.id,
