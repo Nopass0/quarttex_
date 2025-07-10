@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { Send, Check, AlertCircle, Loader2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { traderApi } from '@/services/api'
 import { useTraderAuth } from '@/stores/auth'
 
 export default function TelegramPage() {
@@ -26,7 +26,7 @@ export default function TelegramPage() {
 
     setIsLoading(true)
     try {
-      const response = await api.post('/telegram/link', {
+      const response = await traderApi.post('/telegram/link', {
         userId: trader?.id,
         telegramChatId,
         telegramBotToken,
@@ -46,7 +46,7 @@ export default function TelegramPage() {
   const handleUnlinkTelegram = async () => {
     setIsLoading(true)
     try {
-      await api.delete(`/telegram/link/${trader?.id}`)
+      await traderApi.delete(`/telegram/link/${trader?.id}`)
       setIsLinked(false)
       setTelegramChatId('')
       setBotToken('')
@@ -88,8 +88,8 @@ export default function TelegramPage() {
                     <li>Создайте бота через @BotFather в Telegram</li>
                     <li>Скопируйте токен бота (формат: 123456:ABC-DEF1234...)</li>
                     <li>Начните диалог с ботом и отправьте любое сообщение</li>
-                    <li>Перейдите на https://api.telegram.org/bot{'{ВАШ_ТОКЕН}'}/getUpdates</li>
-                    <li>Найдите ваш chat ID в поле "chat": {'{'}{"id": 123456789}</li>
+                    <li>Перейдите на https://api.telegram.org/bot{'<ВАШ_ТОКЕН>'}/getUpdates</li>
+                    <li>Найдите ваш chat ID в поле "chat": {"{ \"id\": 123456789 }"}</li>
                   </ol>
                 </AlertDescription>
               </Alert>
