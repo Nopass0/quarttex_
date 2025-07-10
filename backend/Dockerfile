@@ -1,9 +1,11 @@
 # Backend Dockerfile
 FROM oven/bun:latest
 
-# Install OpenSSL and other required dependencies
+# Install OpenSSL, Node.js and other required dependencies
 RUN apt-get update -y && \
-    apt-get install -y openssl ca-certificates && \
+    apt-get install -y openssl ca-certificates curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -17,7 +19,7 @@ COPY prisma ./prisma/
 RUN bun install
 
 # Generate Prisma client
-RUN bun run prisma generate
+RUN npx prisma generate
 
 # Copy source code
 COPY . .

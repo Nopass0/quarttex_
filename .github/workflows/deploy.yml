@@ -137,10 +137,10 @@ jobs:
             
             # Run database migrations
             echo "Running database migrations..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma migrate deploy || {
+            docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
               echo "Migration failed, retrying..."
               sleep 10
-              docker compose -f docker-compose.prod.yml exec -T backend bunx prisma migrate deploy
+              docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
             }
             
             # Verify all services are running
