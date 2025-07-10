@@ -149,12 +149,12 @@ jobs:
             echo "Waiting for services to start..."
             sleep 30
             
-            # Run database migrations
-            echo "Running database migrations..."
-            docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy || {
-              echo "Migration failed, retrying..."
+            # Push database schema changes
+            echo "Pushing database schema..."
+            docker compose -f docker-compose.prod.yml exec -T backend bun prisma db push || {
+              echo "Schema push failed, retrying..."
               sleep 10
-              docker compose -f docker-compose.prod.yml exec -T backend npx prisma migrate deploy
+              docker compose -f docker-compose.prod.yml exec -T backend bun prisma db push
             }
             
             # Verify all services are running
