@@ -189,6 +189,60 @@ export const traderApi = {
     const response = await traderApiInstance.get('/trader/messages', { params })
     return response.data
   },
+  // Devices endpoints
+  getDevices: async () => {
+    const response = await traderApiInstance.get('/trader/devices')
+    return response.data
+  },
+  getDevice: async (id: string) => {
+    const response = await traderApiInstance.get(`/trader/devices/${id}`)
+    return response.data
+  },
+  createDevice: async (data: { name: string }) => {
+    const response = await traderApiInstance.post('/trader/devices', data)
+    return response.data
+  },
+  regenerateDeviceToken: async (id: string) => {
+    const response = await traderApiInstance.post(`/trader/devices/${id}/regenerate-token`)
+    return response.data
+  },
+  deleteDevice: async (id: string) => {
+    const response = await traderApiInstance.delete(`/trader/devices/${id}`)
+    return response.data
+  },
+  stopDevice: async (id: string) => {
+    const response = await traderApiInstance.patch(`/trader/devices/${id}/stop`)
+    return response.data
+  },
+  startDevice: async (id: string) => {
+    const response = await traderApiInstance.patch(`/trader/devices/${id}/start`)
+    return response.data
+  },
+  linkDeviceToBankDetail: async (deviceId: string, bankDetailId: string) => {
+    const response = await traderApiInstance.post('/trader/devices/link', { deviceId, bankDetailId })
+    return response.data
+  },
+  unlinkDeviceFromBankDetail: async (deviceId: string, bankDetailId: string) => {
+    const response = await traderApiInstance.post('/trader/devices/unlink', { deviceId, bankDetailId })
+    return response.data
+  },
+  // Payouts endpoints
+  getPayouts: async (params?: { page?: number; limit?: number; status?: string }) => {
+    const response = await traderApiInstance.get('/trader/payouts', { params })
+    return response.data
+  },
+  acceptPayout: async (id: string) => {
+    const response = await traderApiInstance.post(`/trader/payouts/${id}/accept`)
+    return response.data
+  },
+  cancelPayout: async (id: string, data: { reason: string; proofFiles?: string[] }) => {
+    const response = await traderApiInstance.post(`/trader/payouts/${id}/cancel`, data)
+    return response.data
+  },
+  confirmPayout: async (id: string, data: { proofFiles?: string[] }) => {
+    const response = await traderApiInstance.post(`/trader/payouts/${id}/confirm`, data)
+    return response.data
+  },
 }
 
 // Merchant API instance with interceptors
