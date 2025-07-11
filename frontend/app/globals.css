@@ -24,8 +24,9 @@
   button:not(.bg-\[\#006039\]):hover,
   a:not(.bg-\[\#006039\]):hover,
   [role="button"]:not(.bg-\[\#006039\]):hover {
-    background-color: rgba(0, 96, 57, 0.08);
-    transition: background-color 0.2s ease;
+    background-color: rgba(0, 96, 57, 0.1);
+    color: #006039;
+    transition: all 0.2s ease;
   }
   
   /* Special case for green buttons - darker green on hover */
@@ -42,7 +43,7 @@
   
   /* Table row hover */
   tbody tr:hover {
-    background-color: rgba(0, 96, 57, 0.03);
+    background-color: rgba(0, 96, 57, 0.05);
     transition: background-color 0.2s ease;
   }
   
@@ -99,8 +100,8 @@
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 160 100% 18.8%; /* #006039 */
-    --accent-foreground: 0 0% 100%;
+    --accent: 160 50% 95%; /* Light green background */
+    --accent-foreground: 160 100% 18.8%; /* Dark green text */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 0 0% 89.8%;
@@ -130,8 +131,8 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 160 100% 18.8%; /* #006039 */
-    --accent-foreground: 0 0% 100%;
+    --accent: 160 40% 20%; /* Slightly lighter green for dark mode */
+    --accent-foreground: 160 50% 80%; /* Light green text for dark mode */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
@@ -509,16 +510,17 @@
   [role="menuitemcheckbox"]:not([data-state="checked"]):hover,
   [role="menuitemradio"]:not([data-state="checked"]):hover,
   [data-highlighted]:not([data-state="checked"]) {
-    background-color: rgb(220 252 231) !important;
-    color: rgb(30 30 30) !important;
+    background-color: rgba(0, 96, 57, 0.08) !important;
+    color: #006039 !important;
   }
   
   /* Active/checked state for dropdown items */
   [role="menuitem"][data-state="checked"],
   [role="menuitemcheckbox"][data-state="checked"],
   [role="menuitemradio"][data-state="checked"] {
-    background-color: rgb(220 252 231) !important;
-    color: rgb(0 96 57) !important;
+    background-color: rgba(0, 96, 57, 0.12) !important;
+    color: #006039 !important;
+    font-weight: 600;
   }
 
   [role="menuitem"]:focus,
