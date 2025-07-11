@@ -147,6 +147,11 @@ const adminNavItems: NavItem[] = [
     icon: Settings,
   },
   {
+    title: "Telegram-уведомления",
+    href: "/admin/telegram-notifications",
+    icon: Send,
+  },
+  {
     title: "Платежи",
     href: "/admin/payment-details",
     icon: Receipt,

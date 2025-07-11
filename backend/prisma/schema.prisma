@@ -100,6 +100,18 @@ model AdminIpWhitelist {
   createdAt   DateTime @default(now())
 }
 
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  details   String?
+  ip        String
+  createdAt DateTime @default(now())
+  
+  @@index([adminId])
+  @@index([createdAt])
+}
+
 model Merchant {
   id              String               @id @default(cuid())
   name            String

@@ -418,6 +418,19 @@ export const adminApi = {
     const response = await adminApiInstance.get(`/admin/devices/${id}/transactions`)
     return response.data
   },
+  // Telegram settings
+  getTelegramSettings: async () => {
+    const response = await adminApiInstance.get('/admin/telegram-settings')
+    return response.data
+  },
+  updateTelegramSettings: async (settings: { botLink: string; botUsername: string; botToken: string }) => {
+    const response = await adminApiInstance.put('/admin/telegram-settings', settings)
+    return response.data
+  },
+  restartTelegramService: async () => {
+    const response = await adminApiInstance.post('/admin/telegram-settings/restart-service')
+    return response.data
+  },
 }
 
 // Server health check
