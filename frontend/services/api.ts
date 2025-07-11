@@ -256,6 +256,35 @@ export const traderApi = {
     const response = await traderApiInstance.post('/trader/telegram/disconnect')
     return response.data
   },
+  // Folders endpoints
+  getFolders: async (params?: { page?: number; limit?: number; search?: string }) => {
+    const response = await traderApiInstance.get('/trader/folders', { params })
+    return response.data
+  },
+  getFolder: async (id: string) => {
+    const response = await traderApiInstance.get(`/trader/folders/${id}`)
+    return response.data
+  },
+  createFolder: async (data: { title: string; requisiteIds: string[] }) => {
+    const response = await traderApiInstance.post('/trader/folders', data)
+    return response.data
+  },
+  updateFolder: async (id: string, data: { title?: string; requisiteIds?: string[]; isActive?: boolean }) => {
+    const response = await traderApiInstance.put(`/trader/folders/${id}`, data)
+    return response.data
+  },
+  deleteFolder: async (id: string) => {
+    const response = await traderApiInstance.delete(`/trader/folders/${id}`)
+    return response.data
+  },
+  startAllRequisitesInFolder: async (id: string) => {
+    const response = await traderApiInstance.post(`/trader/folders/${id}/start-all`)
+    return response.data
+  },
+  stopAllRequisitesInFolder: async (id: string) => {
+    const response = await traderApiInstance.post(`/trader/folders/${id}/stop-all`)
+    return response.data
+  },
 }
 
 // Merchant API instance with interceptors

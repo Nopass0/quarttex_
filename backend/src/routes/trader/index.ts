@@ -7,6 +7,7 @@ import balanceTopupRoutes from "./balance-topups";
 import { devicesRoutes } from "./devices";
 import messagesRoutes from "./messages";
 import telegramRoutes from "./telegram";
+import foldersRoutes from "./folders";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
@@ -49,6 +50,7 @@ export default (app: Elysia) =>
     .use(devicesRoutes)
     .use(messagesRoutes)
     .use(telegramRoutes)
+    .use(foldersRoutes)
     .use(traderPayoutsApi)
     .get(
       "/methods",

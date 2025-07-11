@@ -74,6 +74,7 @@ model User {
   tradedTransactions     Transaction[]           @relation("TraderTransactions")
   team                   Team?                   @relation(fields: [teamId], references: [id])
   WalletCreationRequest  WalletCreationRequest[]
+  folders                Folder[]
 }
 
 model Session {
@@ -253,6 +254,7 @@ model BankDetail {
   device               Device?       @relation(fields: [deviceId], references: [id])
   user                 User          @relation(fields: [userId], references: [id])
   Transaction          Transaction[]
+  folders              RequisiteOnFolder[]
 }
 
 model MasterWallet {
@@ -632,6 +634,29 @@ model TelegramLink {
 
   @@index([code])
   @@index([expiresAt])
+}
+
+model Folder {
+  id        String   @id @default(uuid())
+  traderId  String   
+  title     String
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+  
+  trader     User                @relation(fields: [traderId], references: [id])
+  requisites RequisiteOnFolder[]
+  
+  @@index([traderId])
+}
+
+model RequisiteOnFolder {
+  folderId    String
+  requisiteId String
+  
+  folder    Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  requisite BankDetail @relation(fields: [requisiteId], references: [id], onDelete: Cascade)
+  
+  @@id([folderId, requisiteId])
 }
 
 enum AdminRole {
