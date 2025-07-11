@@ -15,6 +15,7 @@ import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import authRoutes from "./auth";
 import dashboardRoutes from "./dashboard";
 import apiDocsRoutes from "./api-docs";
+import { disputesRoutes } from "./disputes";
 import { calculateFreezingParams } from "@/utils/freezing";
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
 import { validateFileUpload } from "@/middleware/fileUploadValidation";
@@ -35,6 +36,9 @@ export default (app: Elysia) =>
     
     // Payout API routes
     .use(merchantPayoutsApi)
+    
+    // Dispute routes
+    .use(disputesRoutes)
 
     /* ──────── GET /merchant/connect ──────── */
     .get(

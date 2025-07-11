@@ -75,6 +75,7 @@ model User {
   team                   Team?                   @relation(fields: [teamId], references: [id])
   WalletCreationRequest  WalletCreationRequest[]
   folders                Folder[]
+  withdrawalDisputes     WithdrawalDispute[]
 }
 
 model Session {
@@ -124,9 +125,10 @@ model Merchant {
   merchantMethods MerchantMethod[]
   settlements     MerchantSettlement[]
   payouts         Payout[]
-  supportTickets  SupportTicket[]
-  traderMerchants TraderMerchant[]
-  Transaction     Transaction[]
+  supportTickets     SupportTicket[]
+  traderMerchants    TraderMerchant[]
+  Transaction        Transaction[]
+  withdrawalDisputes WithdrawalDispute[]
 }
 
 model Method {
@@ -599,6 +601,7 @@ model Payout {
   merchant             Merchant          @relation(fields: [merchantId], references: [id])
   trader               User?             @relation("TraderPayouts", fields: [traderId], references: [id])
   rateAudits           PayoutRateAudit[]
+  disputes             WithdrawalDispute[]
 
   @@index([status, traderId])
   @@index([merchantId, status])
@@ -657,6 +660,71 @@ model RequisiteOnFolder {
   requisite BankDetail @relation(fields: [requisiteId], references: [id], onDelete: Cascade)
   
   @@id([folderId, requisiteId])
+}
+
+model WithdrawalDispute {
+  id           String                    @id @default(uuid())
+  payoutId     String
+  merchantId   String
+  traderId     String
+  status       WithdrawalDisputeStatus   @default(OPEN)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  resolvedAt   DateTime?
+  resolution   String?
+  
+  payout       Payout                    @relation(fields: [payoutId], references: [id])
+  merchant     Merchant                  @relation(fields: [merchantId], references: [id])
+  trader       User                      @relation(fields: [traderId], references: [id])
+  messages     WithdrawalDisputeMessage[]
+  
+  @@index([payoutId])
+  @@index([merchantId])
+  @@index([traderId])
+  @@index([status])
+}
+
+model WithdrawalDisputeMessage {
+  id          String                @id @default(uuid())
+  disputeId   String
+  senderId    String
+  senderType  DisputeSenderType
+  message     String                @db.Text
+  createdAt   DateTime              @default(now())
+  
+  dispute     WithdrawalDispute     @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  attachments WithdrawalDisputeFile[]
+  
+  @@index([disputeId])
+  @@index([createdAt])
+}
+
+model WithdrawalDisputeFile {
+  id          String                   @id @default(uuid())
+  messageId   String
+  filename    String
+  url         String
+  size        Int
+  mimeType    String
+  createdAt   DateTime                 @default(now())
+  
+  message     WithdrawalDisputeMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@index([messageId])
+}
+
+enum WithdrawalDisputeStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED_SUCCESS
+  RESOLVED_FAIL
+  CANCELLED
+}
+
+enum DisputeSenderType {
+  MERCHANT
+  TRADER
+  ADMIN
 }
 
 enum AdminRole {

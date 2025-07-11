@@ -3,6 +3,7 @@ import { swagger } from "@elysiajs/swagger";
 import { jwt } from "@elysiajs/jwt";
 import { cors } from "@elysiajs/cors";
 import { ip } from "elysia-ip";
+import { staticPlugin } from "@elysiajs/static";
 import { JWTHandler } from "@/utils/types";
 
 import { loggerMiddleware } from "@/middleware/logger";
@@ -17,6 +18,7 @@ import agentRoutes from "@/routes/agent";
 import appDownloadRoutes from "@/routes/public/app-download";
 import supportRoutes from "@/routes/support";
 import payoutWebSocketRoutes from "@/routes/websocket/payouts";
+import { disputeWebSocketRoutes } from "@/routes/websocket/disputes";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";
@@ -150,6 +152,10 @@ const app = new Elysia({ prefix: "/api" })
     serviceRegistry,
   }))
   .use(ip())
+  .use(staticPlugin({
+    assets: "uploads",
+    prefix: "/uploads"
+  }))
   .use(cors({
     origin: true, // Разрешаем все origins в dev режиме
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -230,7 +236,8 @@ const app = new Elysia({ prefix: "/api" })
   .group("/app", (app) => app.use(appDownloadRoutes))
   .group("/support", (app) => app.use(supportRoutes))
   .use(agentRoutes)
-  .use(payoutWebSocketRoutes);
+  .use(payoutWebSocketRoutes)
+  .use(disputeWebSocketRoutes);
 
 // Register all service endpoints
 for (const serviceApp of serviceApps) {

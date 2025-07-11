@@ -285,6 +285,27 @@ export const traderApi = {
     const response = await traderApiInstance.post(`/trader/folders/${id}/stop-all`)
     return response.data
   },
+  // Disputes endpoints
+  getDisputes: async (params?: { page?: number; limit?: number; status?: string; type?: string }) => {
+    const response = await traderApiInstance.get('/trader/disputes', { params })
+    return response.data
+  },
+  getDispute: async (id: string) => {
+    const response = await traderApiInstance.get(`/trader/disputes/${id}`)
+    return response.data
+  },
+  sendDisputeMessage: async (disputeId: string, data: FormData) => {
+    const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/messages`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  resolveDispute: async (disputeId: string, data: { status: string; resolution: string }) => {
+    const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/resolve`, data)
+    return response.data
+  },
 }
 
 // Merchant API instance with interceptors
@@ -335,6 +356,31 @@ export const merchantApi = {
   },
   createDispute: async (transactionId: string, data: FormData) => {
     const response = await merchantApiInstance.post(`/merchant/dashboard/transactions/${transactionId}/dispute`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  // Payout disputes
+  createPayoutDispute: async (payoutId: string, data: FormData) => {
+    const response = await merchantApiInstance.post(`/merchant/disputes/${payoutId}`, data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+  getPayoutDisputes: async (params?: { page?: number; limit?: number; status?: string }) => {
+    const response = await merchantApiInstance.get('/merchant/disputes', { params })
+    return response.data
+  },
+  getPayoutDispute: async (id: string) => {
+    const response = await merchantApiInstance.get(`/merchant/disputes/${id}`)
+    return response.data
+  },
+  sendPayoutDisputeMessage: async (disputeId: string, data: FormData) => {
+    const response = await merchantApiInstance.post(`/merchant/disputes/${disputeId}/messages`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
