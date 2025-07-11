@@ -62,6 +62,46 @@ import {
 import { cn } from "@/lib/utils";
 import { RequisiteInfoModal } from "@/components/requisites/requisite-info-modal";
 
+// Функция для получения квадратных SVG логотипов банков
+const getBankIcon = (bankType: string) => {
+  const bankLogos: Record<string, string> = {
+    SBERBANK: "/bank-logos/sberbank.svg",
+    TBANK: "/bank-logos/tbank.svg",
+    ALFABANK: "/bank-logos/alfabank.svg",
+    VTB: "/bank-logos/vtb.svg",
+    RAIFFEISEN: "/bank-logos/raiffeisen.svg",
+    GAZPROMBANK: "/bank-logos/gazprombank.svg",
+    POCHTABANK: "/bank-logos/pochtabank.svg",
+    PROMSVYAZBANK: "/bank-logos/psb.svg",
+    SOVCOMBANK: "/bank-logos/sovcombank.svg",
+    SPBBANK: "/bank-logos/bspb.svg",
+    ROSSELKHOZBANK: "/bank-logos/rshb.svg",
+    OTKRITIE: "/bank-logos/otkritie.svg",
+    URALSIB: "/bank-logos/uralsib.svg",
+    MKB: "/bank-logos/mkb.svg",
+    MTSBANK: "/bank-logos/psb.svg", // Используем PSB как заглушку
+    OZONBANK: "/bank-logos/psb.svg", // Используем PSB как заглушку
+    AKBARS: "/bank-logos/akbars.svg",
+    DEFAULT: "/bank-logos/sberbank.svg",
+  };
+
+  const logoPath = bankLogos[bankType] || bankLogos.DEFAULT;
+
+  return (
+    <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center p-1">
+      <img
+        src={logoPath}
+        alt={bankType}
+        className="w-full h-full object-contain"
+        onError={(e) => {
+          // Если логотип не загрузился, показываем заглушку
+          e.currentTarget.src = "/bank-logos/sberbank.svg";
+        }}
+      />
+    </div>
+  );
+};
+
 interface Transaction {
   id: string;
   numericId: number;
@@ -77,6 +117,7 @@ interface Transaction {
   rate?: number | null;
   frozenUsdtAmount?: number | null;
   calculatedCommission?: number | null;
+  deviceId?: string;
   merchant?: {
     id: string;
     name: string;
@@ -164,21 +205,6 @@ export function DealsList() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-
-  // Bank logos mapping
-  const bankLogos: Record<string, string> = {
-    SBERBANK: "https://cdn.brandfetch.io/sberbank.ru/logo/theme/dark/h/64/w/64",
-    TBANK: "https://cdn.brandfetch.io/tbank.ru/logo/theme/dark/h/64/w/64",
-    VTB: "https://cdn.brandfetch.io/vtb.com/logo/theme/dark/h/64/w/64",
-    ALFABANK:
-      "https://cdn.brandfetch.io/alfabank.com/logo/theme/dark/h/64/w/64",
-    RAIFFEISEN:
-      "https://cdn.brandfetch.io/raiffeisen.ru/logo/theme/dark/h/64/w/64",
-    OPEN: "https://cdn.brandfetch.io/open.ru/logo/theme/dark/h/64/w/64",
-    GAZPROMBANK:
-      "https://cdn.brandfetch.io/gazprombank.ru/logo/theme/dark/h/64/w/64",
-    ROSBANK: "https://cdn.brandfetch.io/rosbank.ru/logo/theme/dark/h/64/w/64",
-  };
 
   const router = useRouter();
   const setFinancials = useTraderStore((state) => state.setFinancials);
@@ -363,7 +389,6 @@ export function DealsList() {
       console.error("Failed to fetch profile:", error);
     }
   };
-
 
   const getFilteredTransactions = () => {
     let filtered = transactions;
@@ -688,21 +713,24 @@ export function DealsList() {
             placeholder="Поиск по ID, ФИО, банку, сумме..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 border border-gray-300 rounded-lg"
+            className="pl-10 border h-12 border-gray-300 rounded-lg"
           />
         </div>
 
         {/* Filters */}
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="default" className="gap-2">
+            <Button
+              variant="outline"
+              size="default"
+              className="gap-2 h-12 px-6"
+            >
               <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-              Фильтры
+              Не выбраны
               {(filterStatus !== "all" ||
                 filterAmount.exact ||
                 filterAmount.min ||
                 filterAmount.max ||
-                filterDevice !== "all" ||
                 filterRequisite !== "all" ||
                 filterDateFrom ||
                 filterDateTo) && (
@@ -713,69 +741,105 @@ export function DealsList() {
                       filterAmount.exact ||
                         filterAmount.min ||
                         filterAmount.max,
-                      filterDevice !== "all",
                       filterRequisite !== "all",
                       filterDateFrom || filterDateTo,
                     ].filter(Boolean).length
                   }
                 </Badge>
               )}
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-colors",
+                  filtersOpen ? "text-[#006039]" : "text-gray-400",
+                )}
+              />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-96">
+          <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
             <div className="space-y-4">
-              <h4 className="font-medium text-sm">Фильтры</h4>
+              <h4 className="font-medium text-">Параметры поиска</h4>
 
               {/* Status Filter */}
               <div className="space-y-2">
-                <Label className="text-sm">Статусы</Label>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Статус платежа</Label>
+                </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="w-full justify-between"
+                      size="default"
+                      className="w-full justify-between h-12"
                     >
-                      {filterStatus === "all"
-                        ? "Все сделки"
-                        : filterStatus === "not_credited"
-                          ? "Не зачисленные сделки"
-                          : filterStatus === "credited"
-                            ? "Зачисленные сделки"
-                            : "Сделки выполняются"}
+                      <span className={"text-[#006039]"}>
+                        {filterStatus === "all"
+                          ? "Все сделки"
+                          : filterStatus === "not_credited"
+                            ? "Не зачисленные сделки"
+                            : filterStatus === "credited"
+                              ? "Зачисленные сделки"
+                              : "Сделки выполняются"}
+                      </span>
                       <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-0" align="start">
+                  <PopoverContent
+                    className="w-[465px]  p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input placeholder="Поиск статуса" className="pl-9" />
+                      </div>
+                    </div>
                     <div className="max-h-64 overflow-auto">
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterStatus === "all" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterStatus("all")}
                       >
                         Все сделки
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterStatus === "not_credited" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterStatus("not_credited")}
                       >
                         Не зачисленные сделки
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterStatus === "credited" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterStatus("credited")}
                       >
                         Зачисленные сделки
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterStatus === "in_progress" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterStatus("in_progress")}
                       >
                         Сделки выполняются
@@ -787,67 +851,92 @@ export function DealsList() {
 
               {/* Amount Filter */}
               <div className="space-y-2">
-                <Label className="text-sm">Сумма зачисление</Label>
-                <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-[#006039]" />
+                    <Label className="text-sm">Сумма зачисления</Label>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       className={cn(
                         "text-sm font-medium transition-colors",
-                        filterAmountType === "range" ? "text-[#006039]" : "text-gray-500 hover:text-gray-700"
-                      )}
-                      onClick={() => setFilterAmountType("range")}
-                    >
-                      Диапазон
-                    </button>
-                    <span className="text-gray-400">/</span>
-                    <button
-                      className={cn(
-                        "text-sm font-medium transition-colors",
-                        filterAmountType === "exact" ? "text-[#006039]" : "text-gray-500 hover:text-gray-700"
+                        filterAmountType === "exact"
+                          ? "text-[#006039]"
+                          : "text-gray-500 hover:text-gray-700",
                       )}
                       onClick={() => setFilterAmountType("exact")}
                     >
                       Точное значение
                     </button>
+                    <span className="text-gray-400">/</span>
+                    <button
+                      className={cn(
+                        "text-sm font-medium transition-colors",
+                        filterAmountType === "range"
+                          ? "text-[#006039]"
+                          : "text-gray-500 hover:text-gray-700",
+                      )}
+                      onClick={() => setFilterAmountType("range")}
+                    >
+                      Диапазон
+                    </button>
                   </div>
+                </div>
+                <div className="space-y-3">
                   {filterAmountType === "exact" ? (
-                    <Input
-                      type="number"
-                      placeholder="Введите сумму"
-                      value={filterAmount.exact}
-                      onChange={(e) =>
-                        setFilterAmount({
-                          ...filterAmount,
-                          exact: e.target.value,
-                        })
-                      }
-                    />
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        placeholder="Сумма"
+                        value={filterAmount.exact}
+                        onChange={(e) =>
+                          setFilterAmount({
+                            ...filterAmount,
+                            exact: e.target.value,
+                          })
+                        }
+                        className="h-12"
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                        RUB
+                      </span>
+                    </div>
                   ) : (
                     <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="От"
-                        value={filterAmount.min}
-                        onChange={(e) =>
-                          setFilterAmount({
-                            ...filterAmount,
-                            min: e.target.value,
-                          })
-                        }
-                        className="flex-1"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="До"
-                        value={filterAmount.max}
-                        onChange={(e) =>
-                          setFilterAmount({
-                            ...filterAmount,
-                            max: e.target.value,
-                          })
-                        }
-                        className="flex-1"
-                      />
+                      <div className="relative flex-1">
+                        <Input
+                          type="number"
+                          placeholder="Сумма, от"
+                          value={filterAmount.min}
+                          onChange={(e) =>
+                            setFilterAmount({
+                              ...filterAmount,
+                              min: e.target.value,
+                            })
+                          }
+                          className="flex-1 h-12"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                          RUB
+                        </span>
+                      </div>
+                      <div className="relative flex-1">
+                        <Input
+                          type="number"
+                          placeholder="Сумма, до"
+                          value={filterAmount.max}
+                          onChange={(e) =>
+                            setFilterAmount({
+                              ...filterAmount,
+                              max: e.target.value,
+                            })
+                          }
+                          className="flex-1 h-12"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                          RUB
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -855,49 +944,142 @@ export function DealsList() {
 
               {/* Device Filter */}
               <div className="space-y-2">
-                <Label className="text-sm">Устройства</Label>
+                <div className="flex items-center gap-2">
+                  <Smartphone className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Устройства</Label>
+                </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="w-full justify-between"
+                      size="default"
+                      className="w-full justify-between h-12"
                     >
-                      {filterDevice === "all"
-                        ? "Все устройства"
-                        : transactions.find((t) => t.deviceId === filterDevice)
-                          ? "Chrome на Windows"
-                          : "Все устройства"}
+                      <span className={"text-[#006039]"}>
+                        {filterDevice === "all"
+                          ? "Все устройства"
+                          : filterDevice === "1"
+                            ? "Основное устройство"
+                            : "Резервное устройство"}
+                      </span>
                       <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-0" align="start">
+                  <PopoverContent
+                    className="w-[465px] p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input placeholder="Поиск устройств" className="pl-9" />
+                      </div>
+                    </div>
                     <div className="max-h-64 overflow-auto">
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterDevice === "all" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterDevice("all")}
                       >
-                        Все устройства
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg
+                              className="h-4 w-4 text-gray-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+                              />
+                            </svg>
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">Все устройства</div>
+                            <div className="text-sm text-gray-500">
+                              Не фильтровать по устройству
+                            </div>
+                          </div>
+                        </div>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterDevice === "1" && "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterDevice("1")}
                       >
-                        <Smartphone className="mr-2 h-4 w-4 text-[#006039]" />
-                        Chrome на Windows
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg
+                              className="h-4 w-4 text-gray-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+                              />
+                            </svg>
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">
+                              Основное устройство
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              device-id-1
+                            </div>
+                          </div>
+                        </div>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterDevice === "2" && "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterDevice("2")}
                       >
-                        <Smartphone className="mr-2 h-4 w-4 text-[#006039]" />
-                        Safari на iPhone
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg
+                              className="h-4 w-4 text-gray-600"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"
+                              />
+                            </svg>
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">
+                              Резервное устройство
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              device-id-2
+                            </div>
+                          </div>
+                        </div>
                       </Button>
                     </div>
                   </PopoverContent>
@@ -906,49 +1088,111 @@ export function DealsList() {
 
               {/* Requisite Filter */}
               <div className="space-y-2">
-                <Label className="text-sm">Реквизиты</Label>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Реквизиты</Label>
+                </div>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="w-full justify-between"
+                      size="default"
+                      className="w-full justify-between h-12"
                     >
-                      {filterRequisite === "all"
-                        ? "Все реквизиты"
-                        : filterRequisite === "1"
-                          ? "Основная карта"
-                          : "Резервная карта"}
+                      <span className={"text-[#006039]"}>
+                        {filterRequisite === "all"
+                          ? "Все реквизиты"
+                          : filterRequisite === "1"
+                            ? "Основная карта"
+                            : "Резервная карта"}
+                      </span>
                       <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-0" align="start">
+                  <PopoverContent
+                    className="w-[465px]  p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Поиск реквизитов"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
                     <div className="max-h-64 overflow-auto">
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterRequisite === "all" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterRequisite("all")}
                       >
-                        Все реквизиты
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">Все реквизиты</div>
+                            <div className="text-sm text-gray-500">
+                              Не фильтровать по реквизитам
+                            </div>
+                          </div>
+                        </div>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterRequisite === "1" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterRequisite("1")}
                       >
-                        <CreditCard className="mr-2 h-4 w-4 text-[#006039]" />
-                        Основная карта (Сбербанк)
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">
+                              Основная карта (Сбербанк)
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              requisite-id-1
+                            </div>
+                          </div>
+                        </div>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 hover:text-[#006039]",
+                          filterRequisite === "2" &&
+                            "text-[#006039] bg-green-50",
+                        )}
                         onClick={() => setFilterRequisite("2")}
                       >
-                        <CreditCard className="mr-2 h-4 w-4 text-[#006039]" />
-                        Резервная карта (Тинькофф)
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">
+                              Резервная карта (Тинькофф)
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              requisite-id-2
+                            </div>
+                          </div>
+                        </div>
                       </Button>
                     </div>
                   </PopoverContent>
@@ -957,34 +1201,230 @@ export function DealsList() {
 
               {/* Date Range */}
               <div className="space-y-2">
-                <Label className="text-sm">Дата создания</Label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Дата создания платежа</Label>
+                </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Label
-                      htmlFor="date-from"
-                      className="text-xs text-gray-500"
-                    >
-                      От
-                    </Label>
-                    <Input
-                      id="date-from"
-                      type="date"
-                      value={filterDateFrom}
-                      onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="mt-1"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between h-12 text-left font-normal"
+                        >
+                          <span
+                            className={
+                              filterDateFrom ? "text-black" : "text-gray-500"
+                            }
+                          >
+                            {filterDateFrom ? `${filterDateFrom} 00:00` : "От"}
+                          </span>
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <div className="p-4">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-7 gap-1 text-sm">
+                              <div className="text-center font-medium text-gray-500">
+                                Пн
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Вт
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Ср
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Чт
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Пт
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Сб
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Вс
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                              {Array.from({ length: 35 }, (_, i) => {
+                                const date = new Date(2024, 0, i - 6);
+                                const isSelected =
+                                  filterDateFrom ===
+                                  date.toISOString().split("T")[0];
+                                return (
+                                  <Button
+                                    key={i}
+                                    variant={isSelected ? "default" : "ghost"}
+                                    size="sm"
+                                    className={cn(
+                                      "h-8 w-8 p-0 font-normal",
+                                      isSelected &&
+                                        "bg-[#006039] text-white hover:bg-[#006039]",
+                                    )}
+                                    onClick={() =>
+                                      setFilterDateFrom(
+                                        date.toISOString().split("T")[0],
+                                      )
+                                    }
+                                  >
+                                    {date.getDate()}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-sm">Время</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="number"
+                                  placeholder="Час"
+                                  min="0"
+                                  max="23"
+                                  className="flex-1 h-12"
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Мин"
+                                  min="0"
+                                  max="59"
+                                  className="flex-1 h-12"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-12"
+                                onClick={() => setFilterDateFrom("")}
+                              >
+                                Сбросить
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="flex-1 h-12 bg-[#006039] hover:bg-[#006039]/90"
+                              >
+                                Применить
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="flex-1">
-                    <Label htmlFor="date-to" className="text-xs text-gray-500">
-                      До
-                    </Label>
-                    <Input
-                      id="date-to"
-                      type="date"
-                      value={filterDateTo}
-                      onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="mt-1"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between h-12 text-left font-normal"
+                        >
+                          <span
+                            className={
+                              filterDateTo ? "text-black" : "text-gray-500"
+                            }
+                          >
+                            {filterDateTo ? `${filterDateTo} 23:59` : "До"}
+                          </span>
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <div className="p-4">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-7 gap-1 text-sm">
+                              <div className="text-center font-medium text-gray-500">
+                                Пн
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Вт
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Ср
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Чт
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Пт
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Сб
+                              </div>
+                              <div className="text-center font-medium text-gray-500">
+                                Вс
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                              {Array.from({ length: 35 }, (_, i) => {
+                                const date = new Date(2024, 0, i - 6);
+                                const isSelected =
+                                  filterDateTo ===
+                                  date.toISOString().split("T")[0];
+                                return (
+                                  <Button
+                                    key={i}
+                                    variant={isSelected ? "default" : "ghost"}
+                                    size="sm"
+                                    className={cn(
+                                      "h-8 w-8 p-0 font-normal",
+                                      isSelected &&
+                                        "bg-[#006039] text-white hover:bg-[#006039]",
+                                    )}
+                                    onClick={() =>
+                                      setFilterDateTo(
+                                        date.toISOString().split("T")[0],
+                                      )
+                                    }
+                                  >
+                                    {date.getDate()}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-sm">Время</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  type="number"
+                                  placeholder="Час"
+                                  min="0"
+                                  max="23"
+                                  className="flex-1 h-12"
+                                />
+                                <Input
+                                  type="number"
+                                  placeholder="Мин"
+                                  min="0"
+                                  max="59"
+                                  className="flex-1 h-12"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 h-12"
+                                onClick={() => setFilterDateTo("")}
+                              >
+                                Сбросить
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="flex-1 h-12 bg-[#006039] hover:bg-[#006039]/90"
+                              >
+                                Применить
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>
@@ -994,7 +1434,7 @@ export function DealsList() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 h-12"
                   onClick={() => {
                     setFilterStatus("all");
                     setFilterAmount({ exact: "", min: "", max: "" });
@@ -1009,7 +1449,7 @@ export function DealsList() {
                 </Button>
                 <Button
                   size="sm"
-                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90"
+                  className="flex-1 h-12 bg-green-100 hover:bg-green-200 transition-colors duration-150 text-green-500"
                   onClick={() => setFiltersOpen(false)}
                 >
                   Применить фильтры
@@ -1022,46 +1462,51 @@ export function DealsList() {
         {/* Sort */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="default" className="gap-2">
+            <Button
+              variant="outline"
+              size="default"
+              className="gap-2 h-12 px-6"
+            >
               <ArrowUpDown className="h-4 w-4 text-[#006039]" />
               Сортировка
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-56">
+          <PopoverContent align="end" className="w-auto" sideOffset={5}>
             <div className="space-y-2">
-              <h4 className="font-medium text-sm">Сортировать</h4>
+              <h4 className="font-medium text-base">Сортировать</h4>
               <div className="space-y-1">
                 <Button
                   variant={sortBy === "newest" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
+                  size="default"
+                  className="w-full justify-start h-12"
                   onClick={() => setSortBy("newest")}
                 >
                   Сначала новые
                 </Button>
                 <Button
                   variant={sortBy === "oldest" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
+                  size="default"
+                  className="w-full justify-start h-12"
                   onClick={() => setSortBy("oldest")}
                 >
                   Сначала старые
                 </Button>
                 <Button
                   variant={sortBy === "amount_desc" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
+                  size="default"
+                  className="w-full justify-start h-12"
                   onClick={() => setSortBy("amount_desc")}
                 >
-                  Сумма по убыванию
+                  По убыванию суммы
                 </Button>
                 <Button
                   variant={sortBy === "amount_asc" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start"
+                  size="default"
+                  className="w-full justify-start h-12"
                   onClick={() => setSortBy("amount_asc")}
                 >
-                  Сумма по возрастанию
+                  По возрастанию суммы
                 </Button>
               </div>
             </div>
@@ -1081,6 +1526,11 @@ export function DealsList() {
               const getStatusIcon = () => {
                 switch (transaction.status) {
                   case "CREATED":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-blue-600" />
+                      </div>
+                    );
                   case "IN_PROGRESS":
                     return (
                       <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -1191,16 +1641,7 @@ export function DealsList() {
                     <div className="w-64 flex-shrink-0">
                       <div className="flex items-center gap-3">
                         {transaction.requisites?.bankType &&
-                          bankLogos[transaction.requisites.bankType] && (
-                            <img
-                              src={bankLogos[transaction.requisites.bankType]}
-                              alt={transaction.requisites.bankType}
-                              className="h-16 w-16 rounded object-contain flex-shrink-0"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          )}
+                          getBankIcon(transaction.requisites.bankType)}
                         <div className="flex-1">
                           <div className="text-sm font-medium text-gray-900">
                             {transaction.requisites?.cardNumber || "—"}
@@ -1274,7 +1715,7 @@ export function DealsList() {
       >
         <DialogPortal>
           <DialogOverlay />
-          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-3xl">
+          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-3xl">
             {/* Hidden DialogTitle for accessibility */}
             <DialogTitle className="sr-only">
               {showRequisiteDetails
@@ -1489,9 +1930,9 @@ export function DealsList() {
                           variant="ghost"
                           className="w-full p-3 h-auto justify-between hover:bg-gray-50 -mx-3"
                           onClick={() => {
-                            if (selectedTransaction.requisites?.id) {
+                            if (selectedTransaction.deviceId) {
                               router.push(
-                                `/trader/devices/${selectedTransaction.requisites.id}`,
+                                `/trader/devices/${selectedTransaction.deviceId}`,
                               );
                             } else {
                               toast.error("ID устройства не найден");
@@ -1560,19 +2001,11 @@ export function DealsList() {
                   {/* Requisite Header */}
                   <div className="px-6 py-6 text-center border-b">
                     <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
-                      {selectedTransaction.requisites?.bankType &&
-                        bankLogos[selectedTransaction.requisites.bankType] && (
-                          <img
-                            src={
-                              bankLogos[selectedTransaction.requisites.bankType]
-                            }
-                            alt={selectedTransaction.requisites.bankType}
-                            className="h-14 w-14 rounded object-contain"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                        )}
+                      {selectedTransaction.requisites?.bankType && (
+                        <div className="scale-125">
+                          {getBankIcon(selectedTransaction.requisites.bankType)}
+                        </div>
+                      )}
                     </div>
                     <h3 className="text-lg font-semibold mb-1">
                       {selectedTransaction.clientName}
@@ -1739,27 +2172,34 @@ export function DealsList() {
           onOpenChange={setShowRequisiteInfoModal}
           requisite={{
             id: selectedTransaction.requisites?.id || selectedTransaction.id,
-            bankType: selectedTransaction.requisites?.bankType || selectedTransaction.assetOrBank,
-            cardNumber: selectedTransaction.requisites?.cardNumber || "2200 0000 0000 0000",
-            recipientName: selectedTransaction.requisites?.recipientName || selectedTransaction.clientName,
+            bankType:
+              selectedTransaction.requisites?.bankType ||
+              selectedTransaction.assetOrBank,
+            cardNumber:
+              selectedTransaction.requisites?.cardNumber ||
+              "2200 0000 0000 0000",
+            recipientName:
+              selectedTransaction.requisites?.recipientName ||
+              selectedTransaction.clientName,
             phoneNumber: "+7 900 000 00 00",
             accountNumber: "40817810490069500347",
-            status: selectedTransaction.status === "READY" ? "active" : "inactive",
+            status:
+              selectedTransaction.status === "READY" ? "active" : "inactive",
             device: {
               id: "device-123",
-              name: "Рабочее устройство"
+              name: "Рабочее устройство",
             },
             stats: {
               turnover24h: selectedTransaction.amount || 0,
               deals24h: 1,
               profit24h: selectedTransaction.calculatedCommission || 0,
-              conversion24h: 95
+              conversion24h: 95,
             },
             verifications: {
               cardNumber: false,
               accountNumber: false,
-              phoneNumber: true
-            }
+              phoneNumber: true,
+            },
           }}
         />
       )}

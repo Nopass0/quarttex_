@@ -38,6 +38,7 @@ import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useTraderFinancials } from "@/hooks/use-trader-financials"
 import { toast } from "sonner"
 import { Shield } from "lucide-react"
+import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal"
 
 interface NavItem {
   title: string
@@ -106,11 +107,6 @@ const traderNavItems: NavItem[] = [
     title: "Папки",
     href: "/trader/folders",
     icon: Folder,
-  },
-  {
-    title: "Telegram",
-    href: "/trader/telegram",
-    icon: Send,
   },
 ]
 
@@ -275,6 +271,7 @@ export function Sidebar({ variant }: SidebarProps) {
   const router = useRouter()
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [telegramModalOpen, setTelegramModalOpen] = useState(false)
   
   const traderLogout = useTraderAuth((state) => state.logout)
   const adminAuth = useAdminAuth()
@@ -500,6 +497,19 @@ export function Sidebar({ variant }: SidebarProps) {
                   <span className="font-medium">Скачать APK</span>
                 </Button>
               </div>
+              
+              {/* Telegram Connect Button */}
+              <div className="p-3 bg-gradient-to-r from-blue-500/10 to-blue-400/5 rounded-lg border border-blue-500/20">
+                <p className="text-xs text-gray-600 mb-2">Получайте уведомления в Telegram</p>
+                <Button
+                  variant="outline"
+                  className="w-full justify-center gap-2 border-blue-500 text-blue-600 hover:bg-blue-50"
+                  onClick={() => setTelegramModalOpen(true)}
+                >
+                  <Send className="h-5 w-5" />
+                  <span className="font-medium">Подключить уведомления в Telegram</span>
+                </Button>
+              </div>
             </div>
           )}
         </nav>
@@ -567,6 +577,14 @@ export function Sidebar({ variant }: SidebarProps) {
             </nav>
           </div>
         </div>
+      )}
+      
+      {/* Telegram Connect Modal */}
+      {variant === "trader" && (
+        <TelegramConnectModal
+          open={telegramModalOpen}
+          onOpenChange={setTelegramModalOpen}
+        />
       )}
     </>
   )

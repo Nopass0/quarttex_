@@ -36,6 +36,45 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Функция для получения квадратных SVG логотипов банков
+const getBankIcon = (bankType: string) => {
+  const bankLogos: Record<string, string> = {
+    SBERBANK: "/bank-logos/sberbank.svg",
+    TBANK: "/bank-logos/tbank.svg",
+    ALFABANK: "/bank-logos/alfabank.svg",
+    VTB: "/bank-logos/vtb.svg",
+    RAIFFEISEN: "/bank-logos/raiffeisen.svg",
+    GAZPROMBANK: "/bank-logos/gazprombank.svg",
+    POCHTABANK: "/bank-logos/pochtabank.svg",
+    PROMSVYAZBANK: "/bank-logos/psb.svg",
+    SOVCOMBANK: "/bank-logos/sovcombank.svg",
+    SPBBANK: "/bank-logos/bspb.svg",
+    ROSSELKHOZBANK: "/bank-logos/rshb.svg",
+    OTKRITIE: "/bank-logos/otkritie.svg",
+    URALSIB: "/bank-logos/uralsib.svg",
+    MKB: "/bank-logos/mkb.svg",
+    MTSBANK: "/bank-logos/psb.svg",
+    OZONBANK: "/bank-logos/psb.svg",
+    AKBARS: "/bank-logos/akbars.svg",
+    DEFAULT: "/bank-logos/sberbank.svg"
+  };
+
+  const logoPath = bankLogos[bankType] || bankLogos.DEFAULT;
+  
+  return (
+    <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center p-1">
+      <img 
+        src={logoPath} 
+        alt={bankType}
+        className="w-full h-full object-contain"
+        onError={(e) => {
+          e.currentTarget.src = "/bank-logos/sberbank.svg";
+        }}
+      />
+    </div>
+  );
+};
+
 interface FinanceStats {
   deals: {
     amount: number;
@@ -90,7 +129,81 @@ export default function TraderDashboardPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [disputes, setDisputes] = useState<any[]>([]);
-  const [recentDeals, setRecentDeals] = useState<any[]>([]);
+  // Моковые данные для сделок
+  const mockRecentDeals = [
+    {
+      id: "mock_1",
+      numericId: 1450,
+      amount: 83.5,
+      currency: "RUB",
+      status: "READY",
+      clientName: "Кузнецов Алексей",
+      createdAt: new Date().toISOString(),
+      requisites: {
+        bankType: "SBERBANK",
+        cardNumber: "4276 **** **** 1234",
+        recipientName: "Кузнецов Алексей"
+      }
+    },
+    {
+      id: "mock_2", 
+      numericId: 1451,
+      amount: 1184.2,
+      currency: "RUB",
+      status: "IN_PROGRESS",
+      clientName: "Соколова Иван",
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      requisites: {
+        bankType: "TBANK",
+        cardNumber: "5536 **** **** 5678",
+        recipientName: "Соколова Иван"
+      }
+    },
+    {
+      id: "mock_3",
+      numericId: 1452,
+      amount: 653.1,
+      currency: "RUB", 
+      status: "CREATED",
+      clientName: "Васильева Дмитрий",
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+      requisites: {
+        bankType: "VTB",
+        cardNumber: "4277 **** **** 9012",
+        recipientName: "Васильева Дмитрий"
+      }
+    },
+    {
+      id: "mock_4",
+      numericId: 1453,
+      amount: 675.8,
+      currency: "RUB", 
+      status: "DISPUTE",
+      clientName: "Смирнова Татьяна",
+      createdAt: new Date(Date.now() - 10800000).toISOString(),
+      requisites: {
+        bankType: "ALFABANK",
+        cardNumber: "5477 **** **** 3456",
+        recipientName: "Смирнова Татьяна"
+      }
+    },
+    {
+      id: "mock_5",
+      numericId: 1454,
+      amount: 72.4,
+      currency: "RUB", 
+      status: "EXPIRED",
+      clientName: "Волков Ольга",
+      createdAt: new Date(Date.now() - 14400000).toISOString(),
+      requisites: {
+        bankType: "GAZPROMBANK",
+        cardNumber: "5555 **** **** 7890",
+        recipientName: "Волков Ольга"
+      }
+    }
+  ];
+
+  const [recentDeals, setRecentDeals] = useState<any[]>(mockRecentDeals);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -109,6 +222,12 @@ export default function TraderDashboardPage() {
 
       const dealsData = transactionsResponse.transactions || [];
       const disputesData = []; // Mock data since no disputes endpoint exists
+      
+      console.log('Dashboard data:', { 
+        transactionsResponse, 
+        dealsData: dealsData.length, 
+        devicesData: devicesData.devices?.length || 0 
+      });
 
       // Calculate finance stats based on period
       const now = new Date();
@@ -189,14 +308,22 @@ export default function TraderDashboardPage() {
 
       setDevices(devicesData.devices?.slice(0, 5) || []);
       setDisputes(disputesData.slice(0, 5));
-      setRecentDeals(dealsData.slice(0, 10));
+      
+      // Объединяем реальные данные с моковыми или используем только моковые
+      const combinedDeals = dealsData.length > 0 ? dealsData.slice(0, 10) : mockRecentDeals;
+      setRecentDeals(combinedDeals);
+      
+      console.log('Recent deals set:', combinedDeals);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       // Set mock data on error
       setEvents(mockEvents);
       setDevices([]);
       setDisputes([]);
-      setRecentDeals([]);
+      
+      // Используем предустановленные моковые данные
+      setRecentDeals(mockRecentDeals);
+      console.log('Set mock recent deals on error:', mockRecentDeals);
     } finally {
       setLoading(false);
     }
@@ -476,39 +603,27 @@ export default function TraderDashboardPage() {
                     Нет сделок
                   </Card>
                 ) : (
-                  recentDeals.slice(0, 5).map((deal) => (
+                  <>
+                    {console.log('Rendering recent deals:', recentDeals.length)}
+                    {recentDeals.slice(0, 10).map((deal) => (
                     <Link key={deal.id} href={`/trader/deals?id=${deal.id}`}>
                       <div className="border-b border-gray-100 p-3 hover:bg-gray-50 transition-colors cursor-pointer">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center",
-                                deal.status === "READY"
-                                  ? "bg-green-100"
-                                  : deal.status === "IN_PROGRESS"
-                                    ? "bg-blue-100"
-                                    : "bg-red-100",
-                              )}
-                            >
-                              {deal.status === "READY" ? (
-                                <CheckCircle className="h-4 w-4 text-green-600" />
-                              ) : deal.status === "IN_PROGRESS" ? (
-                                <Clock className="h-4 w-4 text-blue-600" />
-                              ) : (
-                                <X className="h-4 w-4 text-red-600" />
-                              )}
-                            </div>
+                            {deal.requisites?.bankType ? 
+                              getBankIcon(deal.requisites.bankType) :
+                              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                <Building2 className="h-4 w-4 text-gray-500" />
+                              </div>
+                            }
                             <div>
                               <p className="text-sm font-medium">
-                                {deal.status === "READY"
-                                  ? "Платеж зачислен"
-                                  : deal.status === "IN_PROGRESS"
-                                    ? "В процессе"
-                                    : "Платеж не зачислен"}
+                                Сделка #{deal.numericId}
                               </p>
                               <p className="text-xs text-gray-500">
-                                Создан:{" "}
+                                {deal.requisites?.bankType || "Неизвестный банк"} • {deal.clientName}
+                              </p>
+                              <p className="text-xs text-gray-500">
                                 {format(
                                   new Date(deal.createdAt),
                                   "d MMMM yyyy 'г.', в HH:mm",
@@ -524,11 +639,31 @@ export default function TraderDashboardPage() {
                             <p className="text-xs text-gray-500">
                               {(deal.amount * 100).toFixed(0)} RUB
                             </p>
+                            <Badge
+                              variant={deal.status === "READY" ? "default" : "secondary"}
+                              className={cn(
+                                "text-xs mt-1",
+                                deal.status === "READY" && "bg-green-100 text-green-700 border-green-200",
+                                deal.status === "IN_PROGRESS" && "bg-blue-100 text-blue-700 border-blue-200",
+                                deal.status === "CREATED" && "bg-yellow-100 text-yellow-700 border-yellow-200",
+                                deal.status === "EXPIRED" && "bg-red-100 text-red-700 border-red-200",
+                                deal.status === "CANCELED" && "bg-gray-100 text-gray-700 border-gray-200",
+                                deal.status === "DISPUTE" && "bg-orange-100 text-orange-700 border-orange-200"
+                              )}
+                            >
+                              {deal.status === "READY" ? "Готово" :
+                               deal.status === "IN_PROGRESS" ? "В работе" :
+                               deal.status === "CREATED" ? "Ожидает" :
+                               deal.status === "EXPIRED" ? "Истекло" :
+                               deal.status === "CANCELED" ? "Отменено" :
+                               deal.status === "DISPUTE" ? "Спор" : deal.status}
+                            </Badge>
                           </div>
                         </div>
                       </div>
                     </Link>
-                  ))
+                    ))}
+                  </>
                 )}
               </div>
             </section>

@@ -71,6 +71,13 @@ export default (app: Elysia) =>
                 recipientName: true,
                 cardNumber: true,
                 bankType: true,
+                deviceId: true,
+                device: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -92,10 +99,15 @@ export default (app: Elysia) =>
           // Рассчитываем профит на основе скорректированного курса
           const profit = traderRate !== null ? tx.amount / traderRate : null;
           
+          // Извлекаем информацию об устройстве
+          const device = tx.requisites?.device;
+          
           return {
             ...tx,
             rate: traderRate,
             profit,
+            deviceId: device?.id || tx.requisites?.deviceId || null,
+            deviceName: device?.name || null,
             createdAt: tx.createdAt.toISOString(),
             updatedAt: tx.updatedAt.toISOString(),
             expired_at: tx.expired_at.toISOString(),
@@ -179,6 +191,8 @@ export default (app: Elysia) =>
                   }),
                   t.Null(),
                 ]),
+                deviceId: t.Union([t.String(), t.Null()]),
+                deviceName: t.Union([t.String(), t.Null()]),
               }),
             ),
             pagination: t.Object({

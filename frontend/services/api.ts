@@ -243,6 +243,19 @@ export const traderApi = {
     const response = await traderApiInstance.post(`/trader/payouts/${id}/confirm`, data)
     return response.data
   },
+  // Telegram integration
+  generateTelegramLinkCode: async () => {
+    const response = await traderApiInstance.post('/trader/telegram/generate-link-code')
+    return response.data
+  },
+  checkTelegramConnection: async () => {
+    const response = await traderApiInstance.get('/trader/telegram/check-connection')
+    return response.data
+  },
+  disconnectTelegram: async () => {
+    const response = await traderApiInstance.post('/trader/telegram/disconnect')
+    return response.data
+  },
 }
 
 // Merchant API instance with interceptors

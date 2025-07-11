@@ -45,32 +45,31 @@ async function main() {
       return;
     }
 
-
-    // Create 20 test transactions with various statuses
+    // Create IN_PROGRESS transactions
     const transactionsToCreate = [];
-    const banks = ["Тинькофф", "Сбербанк", "ВТБ", "Альфа-Банк", "Газпромбанк"];
-    const statuses = ["READY", "IN_PROGRESS", "IN_PROGRESS", "IN_PROGRESS", "CREATED", "CANCELED", "DISPUTE", "MILK", "EXPIRED"];
+    const banks = ["SBERBANK", "TBANK", "VTB", "ALFABANK", "RAIFFEISEN"];
+    const clientNames = [
+      "Иван Петров",
+      "Мария Сидорова", 
+      "Алексей Козлов",
+      "Елена Новикова",
+      "Дмитрий Соколов",
+      "Ольга Васильева",
+      "Сергей Михайлов",
+      "Анна Федорова"
+    ];
     
-    for (let i = 1; i <= 20; i++) {
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const amount = Math.floor(Math.random() * 50000) + 5000; // 5,000 - 55,000
-      const createdAt = new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)); // Random date within last 7 days
+    // Create 8 IN_PROGRESS transactions
+    for (let i = 1; i <= 8; i++) {
+      const amount = Math.floor(Math.random() * 30000) + 10000; // 10,000 - 40,000
+      const createdAt = new Date(Date.now() - Math.floor(Math.random() * 20 * 60 * 1000)); // Within last 20 minutes
+      const rate = 94 + Math.random() * 4; // Rate between 94-98
       
-      let updatedAt = createdAt;
-      let completedAt = null;
-      
-      if (status === "READY") {
-        completedAt = new Date(createdAt.getTime() + Math.floor(Math.random() * 60 * 60 * 1000)); // 0-60 minutes after creation
-        updatedAt = completedAt;
-      } else if (status === "IN_PROGRESS") {
-        updatedAt = new Date(createdAt.getTime() + Math.floor(Math.random() * 30 * 60 * 1000)); // 0-30 minutes after creation
-      }
-
       transactionsToCreate.push({
         merchantId: merchant.id,
         amount: amount,
         assetOrBank: banks[Math.floor(Math.random() * banks.length)],
-        orderId: `ORDER-${Date.now()}-${i}`,
+        orderId: `ORDER-PROGRESS-${Date.now()}-${i}`,
         currency: "RUB",
         userId: trader.id,
         traderId: trader.id,
@@ -78,49 +77,43 @@ async function main() {
         callbackUri: "https://example.com/callback",
         successUri: "https://example.com/success",
         failUri: "https://example.com/fail",
-        clientName: trader.name,
-        status: status,
-        type: "IN", // All test transactions are incoming
+        clientName: clientNames[Math.floor(Math.random() * clientNames.length)],
+        status: "IN_PROGRESS",
+        type: "IN",
         bankDetailId: bankDetail.id,
         commission: amount * 0.02, // 2% commission
-        rate: 100,
+        rate: rate,
+        frozenUsdtAmount: amount / rate, // Calculate frozen USDT
         methodId: "cmcxvoyte0000ik1sdgdw36ub", // Using c2c method ID
-        expired_at: new Date(createdAt.getTime() + 30 * 60 * 1000), // 30 minutes expiry
-        acceptedAt: status !== "CREATED" && status !== "EXPIRED" ? new Date(createdAt.getTime() + 5 * 60 * 1000) : null,
+        expired_at: new Date(Date.now() + (30 - i * 2) * 60 * 1000), // Varying expiry times
+        acceptedAt: new Date(createdAt.getTime() + 2 * 60 * 1000), // Accepted 2 minutes after creation
         createdAt: createdAt,
-        updatedAt: updatedAt
+        updatedAt: new Date()
       });
     }
-
-    // Clear old transactions for this trader
-    const deletedCount = await db.transaction.deleteMany({
-      where: {
-        userId: trader.id
-      }
-    });
-    console.log(`✅ Deleted ${deletedCount.count} old transactions`);
 
     // Create new transactions
     const createdTransactions = await db.transaction.createMany({
       data: transactionsToCreate
     });
 
-    console.log(`✅ Created ${createdTransactions.count} new test transactions`);
+    console.log(`✅ Created ${createdTransactions.count} new IN_PROGRESS test transactions`);
 
-    // Update trader balance based on completed transactions
-    const completedAmount = transactionsToCreate
-      .filter(t => t.status === "READY")
-      .reduce((sum, t) => sum + t.amount, 0);
+    // Update frozen balance for trader
+    const totalFrozenUsdt = transactionsToCreate.reduce((sum, t) => sum + t.frozenUsdtAmount, 0);
+    const totalFrozenRub = transactionsToCreate.reduce((sum, t) => sum + t.amount, 0);
 
     await db.user.update({
       where: { id: trader.id },
       data: {
-        profitFromDeals: completedAmount * 0.02, // 2% profit
-        balanceRub: { increment: completedAmount * 0.02 }
+        frozenUsdt: { increment: totalFrozenUsdt },
+        frozenRub: { increment: totalFrozenRub }
       }
     });
 
-    console.log(`✅ Updated trader balance with ${(completedAmount * 0.02).toFixed(2)} RUB profit`);
+    console.log(`✅ Updated trader frozen balance:`);
+    console.log(`   Frozen USDT: +${totalFrozenUsdt.toFixed(2)}`);
+    console.log(`   Frozen RUB: +${totalFrozenRub.toFixed(2)}`);
 
     // Show summary
     const summary = await db.transaction.groupBy({
