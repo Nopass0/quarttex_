@@ -20,15 +20,26 @@ import {
   ArrowDownRight,
   QrCode,
   Shield,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { traderApi } from "@/lib/api/trader"
+import QRCode from "react-qr-code"
 
 interface DepositDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+interface DepositSettings {
+  address: string
+  minAmount: number
+  confirmationsRequired: number
+  expiryMinutes: number
+  network: string
 }
 
 export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
@@ -36,26 +47,53 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
   const [amount, setAmount] = useState("")
   const [step, setStep] = useState(1)
   const [showQR, setShowQR] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [depositSettings, setDepositSettings] = useState<DepositSettings | null>(null)
   
-  const depositAddress = "TXYZabcdef1234567890ABCDEFGHIJKLMNOPQRST"
-  const minAmount = 10
+  useEffect(() => {
+    if (open) {
+      fetchDepositSettings()
+    }
+  }, [open])
+  
+  const fetchDepositSettings = async () => {
+    try {
+      const response = await traderApi.get("/deposits/settings")
+      setDepositSettings(response.data.data)
+    } catch (error) {
+      toast.error("Не удалось загрузить настройки депозита")
+    }
+  }
   
   const handleCopyAddress = () => {
-    navigator.clipboard.writeText(depositAddress)
-    setCopiedAddress(true)
-    toast.success("Адрес скопирован в буфер обмена")
-    setTimeout(() => setCopiedAddress(false), 3000)
+    if (depositSettings) {
+      navigator.clipboard.writeText(depositSettings.address)
+      setCopiedAddress(true)
+      toast.success("Адрес скопирован в буфер обмена")
+      setTimeout(() => setCopiedAddress(false), 3000)
+    }
   }
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (step === 1) {
-      if (!amount || parseFloat(amount) < minAmount) {
-        toast.error(`Минимальная сумма пополнения: ${minAmount} USDT`)
+      if (!amount || !depositSettings || parseFloat(amount) < depositSettings.minAmount) {
+        toast.error(`Минимальная сумма пополнения: ${depositSettings?.minAmount || 10} USDT`)
         return
       }
       setStep(2)
     } else if (step === 2) {
-      setStep(3)
+      setLoading(true)
+      try {
+        await traderApi.post("/deposits", {
+          amountUSDT: parseFloat(amount)
+        })
+        setStep(3)
+        toast.success("Заявка на пополнение создана")
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || "Не удалось создать заявку")
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -120,7 +158,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="pr-16"
-                    min={minAmount}
+                    min={depositSettings?.minAmount || 10}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
                     USDT
@@ -132,10 +170,10 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 <div className="flex items-start gap-3">
                   <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-800">
-                    <p>• Минимальная сумма: {minAmount} USDT</p>
-                    <p>• Сеть: TRC-20 (Tron)</p>
-                    <p>• Комиссия сети оплачивается отправителем</p>
-                    <p>• Зачисление: 1-10 минут</p>
+                    <p>• Минимальная сумма: {depositSettings?.minAmount || 10} USDT</p>
+                    <p>• Сеть: {depositSettings?.network || "TRC-20"}</p>
+                    <p>• Требуется подтверждений: {depositSettings?.confirmationsRequired || 3}</p>
+                    <p>• Время на отправку: {depositSettings?.expiryMinutes || 60} минут</p>
                   </div>
                 </div>
               </Card>
@@ -165,7 +203,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 <Label>Адрес для пополнения</Label>
                 <div className="mt-2 flex items-center gap-2">
                   <div className="flex-1 p-3 bg-gray-50 rounded-lg font-mono text-sm break-all">
-                    {depositAddress}
+                    {depositSettings?.address || "Loading..."}
                   </div>
                   <Button
                     size="icon"
@@ -193,16 +231,24 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 </Button>
                 <Button
                   onClick={handleNextStep}
+                  disabled={loading}
                   className="flex-1 bg-[#006039] hover:bg-[#006039]/90 text-white"
                 >
-                  Отправил
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Создание заявки...
+                    </>
+                  ) : (
+                    "Отправил"
+                  )}
                 </Button>
               </div>
 
-              {showQR && (
+              {showQR && depositSettings && (
                 <Card className="p-4 text-center">
-                  <div className="w-32 h-32 bg-gray-200 rounded-lg mx-auto mb-2 flex items-center justify-center">
-                    <QrCode className="h-12 w-12 text-gray-400" />
+                  <div className="bg-white p-4 rounded-lg mx-auto mb-2 inline-block">
+                    <QRCode value={depositSettings.address} size={150} />
                   </div>
                   <div className="text-sm text-gray-600">
                     QR-код для удобного копирования адреса
@@ -215,7 +261,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                   <Shield className="h-4 w-4 text-orange-600 shrink-0 mt-0.5" />
                   <div className="text-sm text-orange-800">
                     <p className="font-medium mb-1">Важно!</p>
-                    <p>• Отправляйте только USDT по сети TRC-20</p>
+                    <p>• Отправляйте только USDT по сети {depositSettings?.network || "TRC-20"}</p>
                     <p>• Средства с других сетей будут потеряны</p>
                     <p>• Проверьте адрес перед отправкой</p>
                   </div>

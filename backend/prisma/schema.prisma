@@ -77,6 +77,7 @@ model User {
   folders                Folder[]
   withdrawalDisputes     WithdrawalDispute[]
   dealDisputes           DealDispute[]
+  depositRequests        DepositRequest[]
 }
 
 model Session {
@@ -379,6 +380,24 @@ model BalanceTopUp {
   createdAt   DateTime           @default(now())
   processedAt DateTime?
   user        User               @relation(fields: [userId], references: [id])
+}
+
+model DepositRequest {
+  id            String              @id @default(cuid())
+  traderId      String
+  amountUSDT    Float
+  address       String
+  status        DepositStatus       @default(PENDING)
+  txHash        String?
+  confirmations Int                 @default(0)
+  createdAt     DateTime            @default(now())
+  confirmedAt   DateTime?
+  processedAt   DateTime?
+  trader        User                @relation(fields: [traderId], references: [id])
+  
+  @@index([traderId])
+  @@index([status])
+  @@index([txHash])
 }
 
 model RateSetting {
@@ -894,6 +913,14 @@ enum BalanceTopUpStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum DepositStatus {
+  PENDING
+  CHECKING
+  CONFIRMED
+  FAILED
+  EXPIRED
 }
 
 enum ServiceStatus {
