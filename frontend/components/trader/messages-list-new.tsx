@@ -142,7 +142,7 @@ export function MessagesListNew() {
           m.packageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
           m.deviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (m.amount && m.amount.toString().includes(searchQuery))
+          (m.amount && m.amount.toString().includes(searchQuery)),
       );
     }
 
@@ -171,9 +171,13 @@ export function MessagesListNew() {
     filtered = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "newest":
-          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+          return (
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
         case "oldest":
-          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+          return (
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
         case "amount_desc":
           return (b.amount || 0) - (a.amount || 0);
         case "amount_asc":
@@ -189,7 +193,9 @@ export function MessagesListNew() {
   const filteredMessages = getFilteredMessages();
 
   const formatDateTime = (timestamp: string) => {
-    return format(new Date(timestamp), "d MMMM yyyy 'г., в' HH:mm", { locale: ru });
+    return format(new Date(timestamp), "d MMMM yyyy 'г., в' HH:mm", {
+      locale: ru,
+    });
   };
 
   const getMessageIcon = () => (
@@ -217,36 +223,8 @@ export function MessagesListNew() {
       {/* Header with user info */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Сообщения</h1>
-        
+
         <div className="flex items-center gap-4">
-          {/* Team/User toggle */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === "team" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("team")}
-              className={cn(
-                "gap-2",
-                viewMode === "team" && "bg-[#006039] hover:bg-[#006039]/90"
-              )}
-            >
-              <Users className="h-4 w-4" />
-              Команда
-            </Button>
-            <Button
-              variant={viewMode === "user" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("user")}
-              className={cn(
-                "gap-2",
-                viewMode === "user" && "bg-[#006039] hover:bg-[#006039]/90"
-              )}
-            >
-              <User className="h-4 w-4" />
-              Пользователь
-            </Button>
-          </div>
-          
           <TraderHeader />
         </div>
       </div>
@@ -267,7 +245,11 @@ export function MessagesListNew() {
         {/* Filters */}
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="default" className="gap-2 h-12 px-6">
+            <Button
+              variant="outline"
+              size="default"
+              className="gap-2 h-12 px-6"
+            >
               <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
               Не выбраны
               {(filterStatus !== "all" ||
@@ -287,7 +269,7 @@ export function MessagesListNew() {
               <ChevronDown
                 className={cn(
                   "h-4 w-4 transition-colors",
-                  filtersOpen ? "text-[#006039]" : "text-gray-400"
+                  filtersOpen ? "text-[#006039]" : "text-gray-400",
                 )}
               />
             </Button>
@@ -313,24 +295,29 @@ export function MessagesListNew() {
                         {filterStatus === "all"
                           ? "Все сообщения"
                           : filterStatus === "processed"
-                          ? "Обработанные"
-                          : filterStatus === "danger"
-                          ? "Без реквизита"
-                          : filterStatus === "warning"
-                          ? "Без сделки"
-                          : "Новые"}
+                            ? "Обработанные"
+                            : filterStatus === "danger"
+                              ? "Без реквизита"
+                              : filterStatus === "warning"
+                                ? "Без сделки"
+                                : "Новые"}
                       </span>
                       <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[465px] p-0" align="start" sideOffset={5}>
+                  <PopoverContent
+                    className="w-[465px] p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
                     <div className="max-h-64 overflow-auto">
                       <Button
                         variant="ghost"
                         size="default"
                         className={cn(
                           "w-full justify-start h-12",
-                          filterStatus === "all" && "text-[#006039] bg-green-50"
+                          filterStatus === "all" &&
+                            "text-[#006039] bg-green-50",
                         )}
                         onClick={() => setFilterStatus("all")}
                       >
@@ -341,7 +328,8 @@ export function MessagesListNew() {
                         size="default"
                         className={cn(
                           "w-full justify-start h-12",
-                          filterStatus === "processed" && "text-[#006039] bg-green-50"
+                          filterStatus === "processed" &&
+                            "text-[#006039] bg-green-50",
                         )}
                         onClick={() => setFilterStatus("processed")}
                       >
@@ -352,7 +340,8 @@ export function MessagesListNew() {
                         size="default"
                         className={cn(
                           "w-full justify-start h-12",
-                          filterStatus === "danger" && "text-[#006039] bg-green-50"
+                          filterStatus === "danger" &&
+                            "text-[#006039] bg-green-50",
                         )}
                         onClick={() => setFilterStatus("danger")}
                       >
@@ -363,7 +352,8 @@ export function MessagesListNew() {
                         size="default"
                         className={cn(
                           "w-full justify-start h-12",
-                          filterStatus === "warning" && "text-[#006039] bg-green-50"
+                          filterStatus === "warning" &&
+                            "text-[#006039] bg-green-50",
                         )}
                         onClick={() => setFilterStatus("warning")}
                       >
@@ -374,7 +364,8 @@ export function MessagesListNew() {
                         size="default"
                         className={cn(
                           "w-full justify-start h-12",
-                          filterStatus === "new" && "text-[#006039] bg-green-50"
+                          filterStatus === "new" &&
+                            "text-[#006039] bg-green-50",
                         )}
                         onClick={() => setFilterStatus("new")}
                       >
@@ -402,7 +393,11 @@ export function MessagesListNew() {
                       <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[465px] p-0" align="start" sideOffset={5}>
+                  <PopoverContent
+                    className="w-[465px] p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
                     <div className="p-2 border-b">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -415,7 +410,8 @@ export function MessagesListNew() {
                         size="default"
                         className={cn(
                           "w-full justify-start h-12",
-                          filterDevice === "all" && "text-[#006039] bg-green-50"
+                          filterDevice === "all" &&
+                            "text-[#006039] bg-green-50",
                         )}
                         onClick={() => setFilterDevice("all")}
                       >
@@ -490,7 +486,11 @@ export function MessagesListNew() {
         {/* Sort */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="default" className="gap-2 h-12 px-6">
+            <Button
+              variant="outline"
+              size="default"
+              className="gap-2 h-12 px-6"
+            >
               <ArrowUpDown className="h-4 w-4 text-[#006039]" />
               Сортировка
               <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -552,7 +552,7 @@ export function MessagesListNew() {
                   key={message.id}
                   className={cn(
                     "p-4 hover:shadow-md transition-all duration-300 cursor-pointer",
-                    message.isNew && "flash-once"
+                    message.isNew && "flash-once",
                   )}
                   onClick={() => setSelectedMessage(message)}
                 >
@@ -696,24 +696,33 @@ export function MessagesListNew() {
                     </div>
 
                     {/* Device info */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                            <Smartphone className="h-5 w-5 text-[#006039]" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">
-                              {selectedMessage.deviceName}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {selectedMessage.deviceModel} • {selectedMessage.deviceId?.slice(0, 8)}...
-                            </p>
-                          </div>
+                    <Button
+                      variant="outline"
+                      className="w-full p-4 h-auto justify-between hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        if (selectedMessage.deviceId) {
+                          router.push(`/trader/devices/${selectedMessage.deviceId}`);
+                        } else {
+                          toast.error("ID устройства не найден");
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
+                          <Smartphone className="h-5 w-5 text-[#006039]" />
                         </div>
-                        <ChevronDown className="h-5 w-5 text-[#006039] -rotate-90" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium">
+                            {selectedMessage.deviceName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {selectedMessage.deviceModel} •{" "}
+                            {selectedMessage.deviceId?.slice(0, 8)}...
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                      <ChevronDown className="h-5 w-5 text-[#006039] -rotate-90" />
+                    </Button>
 
                     {/* Amount if exists */}
                     {selectedMessage.amount && selectedMessage.amount > 0 && (
