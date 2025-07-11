@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { ProtectedRoute } from "@/components/auth/protected-route"
-import { AuthLayout } from "@/components/layouts/auth-layout"
-import { MessagesList } from "@/components/trader/messages-list"
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { AuthLayout } from "@/components/layouts/auth-layout";
+import { MessagesListNew } from "@/components/trader/messages-list-new";
 
 export default function MessagesPage() {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute variant="trader">
       <AuthLayout variant="trader">
-        <MessagesList />
+        <MessagesListNew />
       </AuthLayout>
     </ProtectedRoute>
-  )
+  );
 }
