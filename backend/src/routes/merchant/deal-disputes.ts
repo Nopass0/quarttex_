@@ -1,14 +1,14 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
 import { merchantGuard } from "@/middleware/merchantGuard";
-import { DisputeSenderType } from "@prisma/client";
+import { DisputeSenderType, Status } from "@prisma/client";
 import crypto from "crypto";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
-import { disputeEvents } from "../websocket/disputes";
+import { dealDisputeEvents } from "../websocket/deal-disputes";
 
-const UPLOAD_DIR = join(process.cwd(), "uploads", "disputes");
+const UPLOAD_DIR = join(process.cwd(), "uploads", "deal-disputes");
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_FILES = 10;
 
@@ -17,39 +17,39 @@ if (!existsSync(UPLOAD_DIR)) {
   await mkdir(UPLOAD_DIR, { recursive: true });
 }
 
-export const disputesRoutes = new Elysia({ prefix: "/disputes" })
+export const dealDisputesRoutes = new Elysia({ prefix: "/deal-disputes" })
   .use(merchantGuard())
   
-  // Create a new dispute for a payout
-  .post("/payout/:payoutId", async ({ merchant, params, body, set }) => {
+  // Create a new dispute for a deal
+  .post("/deal/:dealId", async ({ merchant, params, body, set }) => {
     try {
       const { message, files } = body;
       
-      // Check if payout exists and belongs to merchant
-      const payout = await db.payout.findFirst({
+      // Check if deal exists and belongs to merchant
+      const deal = await db.transaction.findFirst({
         where: {
-          id: params.payoutId,
+          id: params.dealId,
           merchantId: merchant.id,
           status: {
-            in: ["IN_PROGRESS", "CONFIRMED"]
+            in: [Status.IN_PROGRESS, Status.READY]
           }
         }
       });
 
-      if (!payout) {
+      if (!deal) {
         set.status = 404;
-        return { error: "Payout not found or not eligible for dispute" };
+        return { error: "Deal not found or not eligible for dispute" };
       }
 
-      if (!payout.traderId) {
+      if (!deal.traderId) {
         set.status = 400;
-        return { error: "Payout has no assigned trader" };
+        return { error: "Deal has no assigned trader" };
       }
 
       // Check if dispute already exists
-      const existingDispute = await db.withdrawalDispute.findFirst({
+      const existingDispute = await db.dealDispute.findFirst({
         where: {
-          payoutId: payout.id,
+          dealId: deal.id,
           status: {
             in: ["OPEN", "IN_PROGRESS"]
           }
@@ -58,7 +58,7 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
 
       if (existingDispute) {
         set.status = 400;
-        return { error: "Dispute already exists for this payout" };
+        return { error: "Dispute already exists for this deal" };
       }
 
       // Process uploaded files
@@ -85,7 +85,7 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
 
           uploadedFiles.push({
             filename: file.name,
-            url: `/uploads/disputes/${filename}`,
+            url: `/uploads/deal-disputes/${filename}`,
             size: file.size,
             mimeType: file.type
           });
@@ -93,11 +93,11 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
       }
 
       // Create dispute with initial message
-      const dispute = await db.withdrawalDispute.create({
+      const dispute = await db.dealDispute.create({
         data: {
-          payoutId: payout.id,
+          dealId: deal.id,
           merchantId: merchant.id,
-          traderId: payout.traderId,
+          traderId: deal.traderId,
           messages: {
             create: {
               senderId: merchant.id,
@@ -115,18 +115,22 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
               attachments: true
             }
           },
-          payout: true
+          deal: {
+            include: {
+              method: true
+            }
+          }
         }
       });
 
-      // Update payout status
-      await db.payout.update({
-        where: { id: payout.id },
-        data: { status: "DISPUTE" }
+      // Update transaction status
+      await db.transaction.update({
+        where: { id: deal.id },
+        data: { status: Status.DISPUTE }
       });
 
-      // Send WebSocket event dispute:new
-      disputeEvents.notifyNewDispute(payout.traderId, dispute);
+      // Send WebSocket event
+      dealDisputeEvents.notifyNewDispute(deal.traderId, dispute);
       
       // TODO: Send push notification to trader
 
@@ -135,9 +139,9 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
         dispute
       };
     } catch (error) {
-      console.error("Failed to create dispute:", error);
+      console.error("Failed to create deal dispute:", error);
       set.status = 500;
-      return { error: "Failed to create dispute" };
+      return { error: "Failed to create deal dispute" };
     }
   }, {
     body: t.Object({
@@ -160,13 +164,17 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
       };
 
       const [disputes, total] = await Promise.all([
-        db.withdrawalDispute.findMany({
+        db.dealDispute.findMany({
           where,
           skip,
           take: limitNum,
           orderBy: { createdAt: 'desc' },
           include: {
-            payout: true,
+            deal: {
+              include: {
+                method: true
+              }
+            },
             trader: {
               select: {
                 id: true,
@@ -183,7 +191,7 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
             }
           }
         }),
-        db.withdrawalDispute.count({ where })
+        db.dealDispute.count({ where })
       ]);
 
       return {
@@ -197,8 +205,8 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
         }
       };
     } catch (error) {
-      console.error("Failed to get disputes:", error);
-      throw new Error("Failed to get disputes");
+      console.error("Failed to get deal disputes:", error);
+      throw new Error("Failed to get deal disputes");
     }
   }, {
     query: t.Object({
@@ -211,13 +219,19 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
   // Get single dispute with messages
   .get("/:disputeId", async ({ merchant, params }) => {
     try {
-      const dispute = await db.withdrawalDispute.findFirst({
+      const dispute = await db.dealDispute.findFirst({
         where: {
           id: params.disputeId,
           merchantId: merchant.id
         },
         include: {
-          payout: true,
+          deal: {
+            include: {
+              method: true,
+              requisites: true,
+              receipts: true
+            }
+          },
           trader: {
             select: {
               id: true,
@@ -243,8 +257,8 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
         data: dispute
       };
     } catch (error) {
-      console.error("Failed to get dispute:", error);
-      throw new Error("Failed to get dispute");
+      console.error("Failed to get deal dispute:", error);
+      throw new Error("Failed to get deal dispute");
     }
   })
   
@@ -254,7 +268,7 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
       const { message, files } = body;
       
       // Check if dispute exists and merchant can send messages
-      const dispute = await db.withdrawalDispute.findFirst({
+      const dispute = await db.dealDispute.findFirst({
         where: {
           id: params.disputeId,
           merchantId: merchant.id,
@@ -293,7 +307,7 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
 
           uploadedFiles.push({
             filename: file.name,
-            url: `/uploads/disputes/${filename}`,
+            url: `/uploads/deal-disputes/${filename}`,
             size: file.size,
             mimeType: file.type
           });
@@ -301,7 +315,7 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
       }
 
       // Create message
-      const newMessage = await db.withdrawalDisputeMessage.create({
+      const newMessage = await db.dealDisputeMessage.create({
         data: {
           disputeId: dispute.id,
           senderId: merchant.id,
@@ -317,13 +331,13 @@ export const disputesRoutes = new Elysia({ prefix: "/disputes" })
       });
 
       // Update dispute timestamp
-      await db.withdrawalDispute.update({
+      await db.dealDispute.update({
         where: { id: dispute.id },
         data: { updatedAt: new Date() }
       });
 
-      // Send WebSocket event dispute:reply
-      disputeEvents.notifyReply(dispute.id, newMessage, DisputeSenderType.MERCHANT);
+      // Send WebSocket event
+      dealDisputeEvents.notifyReply(dispute.id, newMessage, DisputeSenderType.MERCHANT);
       
       // TODO: Send push notification to trader
 

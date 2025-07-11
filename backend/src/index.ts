@@ -3,8 +3,9 @@ import { swagger } from "@elysiajs/swagger";
 import { jwt } from "@elysiajs/jwt";
 import { cors } from "@elysiajs/cors";
 import { ip } from "elysia-ip";
-import { staticPlugin } from "@elysiajs/static";
 import { JWTHandler } from "@/utils/types";
+import { readFile } from "fs/promises";
+import { existsSync } from "fs";
 
 import { loggerMiddleware } from "@/middleware/logger";
 import { adminGuard } from "@/middleware/adminGuard";
@@ -19,12 +20,13 @@ import appDownloadRoutes from "@/routes/public/app-download";
 import supportRoutes from "@/routes/support";
 import payoutWebSocketRoutes from "@/routes/websocket/payouts";
 import { disputeWebSocketRoutes } from "@/routes/websocket/disputes";
+import { dealDisputeWebSocketRoutes } from "@/routes/websocket/deal-disputes";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";
 import { BaseService } from "@/services/BaseService";
 import { serviceRegistry } from "@/services/ServiceRegistry";
-import { join } from "node:path"; // ← нужно для join()
+import { join } from "node:path";
 import { MASTER_KEY, ADMIN_KEY, parseAdminIPs } from "@/utils/constants";
 import { merchantGuard } from "./middleware/merchantGuard";
 import { db } from "@/db";
@@ -152,10 +154,33 @@ const app = new Elysia({ prefix: "/api" })
     serviceRegistry,
   }))
   .use(ip())
-  .use(staticPlugin({
-    assets: "uploads",
-    prefix: "/uploads"
-  }))
+  // Custom static file serving for uploads
+  .get("/uploads/*", async ({ params, set }) => {
+    const filepath = params["*"];
+    const fullPath = join(process.cwd(), "uploads", filepath);
+    
+    if (!existsSync(fullPath)) {
+      set.status = 404;
+      return "File not found";
+    }
+    
+    try {
+      const file = await readFile(fullPath);
+      
+      // Set appropriate content type based on extension
+      const ext = fullPath.split('.').pop()?.toLowerCase();
+      if (ext === 'jpg' || ext === 'jpeg') set.headers['content-type'] = 'image/jpeg';
+      else if (ext === 'png') set.headers['content-type'] = 'image/png';
+      else if (ext === 'pdf') set.headers['content-type'] = 'application/pdf';
+      else if (ext === 'zip') set.headers['content-type'] = 'application/zip';
+      else set.headers['content-type'] = 'application/octet-stream';
+      
+      return file;
+    } catch (error) {
+      set.status = 500;
+      return "Error reading file";
+    }
+  })
   .use(cors({
     origin: true, // Разрешаем все origins в dev режиме
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -237,7 +262,8 @@ const app = new Elysia({ prefix: "/api" })
   .group("/support", (app) => app.use(supportRoutes))
   .use(agentRoutes)
   .use(payoutWebSocketRoutes)
-  .use(disputeWebSocketRoutes);
+  .use(disputeWebSocketRoutes)
+  .use(dealDisputeWebSocketRoutes);
 
 // Register all service endpoints
 for (const serviceApp of serviceApps) {

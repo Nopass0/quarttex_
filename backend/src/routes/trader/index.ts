@@ -9,6 +9,7 @@ import messagesRoutes from "./messages";
 import telegramRoutes from "./telegram";
 import foldersRoutes from "./folders";
 import disputesRoutes from "./disputes";
+import dealDisputesRoutes from "./deal-disputes";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
@@ -53,6 +54,7 @@ export default (app: Elysia) =>
     .use(telegramRoutes)
     .use(foldersRoutes)
     .use(disputesRoutes)
+    .use(dealDisputesRoutes)
     .use(traderPayoutsApi)
     .get(
       "/methods",

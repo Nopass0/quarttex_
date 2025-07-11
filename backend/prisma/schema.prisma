@@ -76,6 +76,7 @@ model User {
   WalletCreationRequest  WalletCreationRequest[]
   folders                Folder[]
   withdrawalDisputes     WithdrawalDispute[]
+  dealDisputes           DealDispute[]
 }
 
 model Session {
@@ -129,6 +130,7 @@ model Merchant {
   traderMerchants    TraderMerchant[]
   Transaction        Transaction[]
   withdrawalDisputes WithdrawalDispute[]
+  dealDisputes       DealDispute[]
 }
 
 model Method {
@@ -203,6 +205,7 @@ model Transaction {
   method               Method              @relation(fields: [methodId], references: [id])
   settlement           MerchantSettlement? @relation(fields: [settlementId], references: [id])
   trader               User?               @relation("TraderTransactions", fields: [traderId], references: [id])
+  dealDispute          DealDispute?
 }
 
 model Receipt {
@@ -725,6 +728,66 @@ enum DisputeSenderType {
   MERCHANT
   TRADER
   ADMIN
+}
+
+// Deal Dispute Models
+model DealDispute {
+  id           String                    @id @default(uuid())
+  dealId       String                    @unique
+  merchantId   String
+  traderId     String
+  status       DealDisputeStatus         @default(OPEN)
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  resolvedAt   DateTime?
+  resolution   String?
+  
+  deal         Transaction               @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  merchant     Merchant                  @relation(fields: [merchantId], references: [id])
+  trader       User                      @relation(fields: [traderId], references: [id])
+  messages     DealDisputeMessage[]
+  
+  @@index([dealId])
+  @@index([merchantId])
+  @@index([traderId])
+  @@index([status])
+}
+
+model DealDisputeMessage {
+  id           String                    @id @default(uuid())
+  disputeId    String
+  senderId     String
+  senderType   DisputeSenderType
+  message      String
+  createdAt    DateTime                  @default(now())
+  
+  dispute      DealDispute               @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  attachments  DealDisputeFile[]
+  
+  @@index([disputeId])
+  @@index([senderId])
+}
+
+model DealDisputeFile {
+  id           String                    @id @default(uuid())
+  messageId    String
+  filename     String
+  url          String
+  size         Int
+  mimeType     String
+  createdAt    DateTime                  @default(now())
+  
+  message      DealDisputeMessage        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@index([messageId])
+}
+
+enum DealDisputeStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED_SUCCESS
+  RESOLVED_FAIL
+  CANCELLED
 }
 
 enum AdminRole {

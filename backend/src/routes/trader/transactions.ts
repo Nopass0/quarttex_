@@ -36,6 +36,17 @@ export default (app: Elysia) =>
           where.type = query.type as TransactionType;
         }
 
+        // Фильтрация по наличию споров
+        if (query.hasDispute === 'true') {
+          where.dealDispute = {
+            isNot: null
+          };
+        } else if (query.hasDispute === 'false') {
+          where.dealDispute = {
+            is: null
+          };
+        }
+
         // Получаем транзакции с пагинацией
         console.log(`[Trader API] Поиск транзакций для трейдера ${trader.id}, условия:`, where);
         const transactions = await db.transaction.findMany({
@@ -80,6 +91,14 @@ export default (app: Elysia) =>
                 },
               },
             },
+            dealDispute: {
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
           },
         });
 
@@ -112,6 +131,11 @@ export default (app: Elysia) =>
             updatedAt: tx.updatedAt.toISOString(),
             expired_at: tx.expired_at.toISOString(),
             acceptedAt: tx.acceptedAt ? tx.acceptedAt.toISOString() : null,
+            dealDispute: tx.dealDispute ? {
+              ...tx.dealDispute,
+              createdAt: tx.dealDispute.createdAt.toISOString(),
+              updatedAt: tx.dealDispute.updatedAt.toISOString(),
+            } : null,
           };
         });
 
@@ -133,6 +157,7 @@ export default (app: Elysia) =>
           limit: t.Optional(t.String()),
           status: t.Optional(t.String()),
           type: t.Optional(t.String()),
+          hasDispute: t.Optional(t.String()),
         }),
         response: {
           200: t.Object({
@@ -193,6 +218,15 @@ export default (app: Elysia) =>
                 ]),
                 deviceId: t.Union([t.String(), t.Null()]),
                 deviceName: t.Union([t.String(), t.Null()]),
+                dealDispute: t.Union([
+                  t.Object({
+                    id: t.String(),
+                    status: t.String(),
+                    createdAt: t.String(),
+                    updatedAt: t.String(),
+                  }),
+                  t.Null(),
+                ]),
               }),
             ),
             pagination: t.Object({
@@ -239,6 +273,14 @@ export default (app: Elysia) =>
                 updatedAt: true,
               },
             },
+            dealDispute: {
+              include: {
+                messages: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
           },
         });
 
@@ -275,6 +317,15 @@ export default (app: Elysia) =>
             phoneNumber: transaction.requisites.phoneNumber || "",
             createdAt: transaction.requisites.createdAt.toISOString(),
             updatedAt: transaction.requisites.updatedAt.toISOString(),
+          } : null,
+          dealDispute: transaction.dealDispute ? {
+            ...transaction.dealDispute,
+            createdAt: transaction.dealDispute.createdAt.toISOString(),
+            updatedAt: transaction.dealDispute.updatedAt.toISOString(),
+            messages: transaction.dealDispute.messages.map(msg => ({
+              ...msg,
+              createdAt: msg.createdAt.toISOString(),
+            })),
           } : null,
         };
       },
