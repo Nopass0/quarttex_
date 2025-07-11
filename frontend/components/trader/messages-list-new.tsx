@@ -214,35 +214,40 @@ export function MessagesListNew() {
 
   return (
     <div className="space-y-6">
-      {/* Header with buttons */}
+      {/* Header with user info */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Сообщения</h1>
         
-        <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "team" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("team")}
-            className={cn(
-              "gap-2",
-              viewMode === "team" && "bg-[#006039] hover:bg-[#006039]/90"
-            )}
-          >
-            <Users className="h-4 w-4" />
-            Команда
-          </Button>
-          <Button
-            variant={viewMode === "user" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("user")}
-            className={cn(
-              "gap-2",
-              viewMode === "user" && "bg-[#006039] hover:bg-[#006039]/90"
-            )}
-          >
-            <User className="h-4 w-4" />
-            Пользователь
-          </Button>
+        <div className="flex items-center gap-4">
+          {/* Team/User toggle */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "team" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("team")}
+              className={cn(
+                "gap-2",
+                viewMode === "team" && "bg-[#006039] hover:bg-[#006039]/90"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              Команда
+            </Button>
+            <Button
+              variant={viewMode === "user" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("user")}
+              className={cn(
+                "gap-2",
+                viewMode === "user" && "bg-[#006039] hover:bg-[#006039]/90"
+              )}
+            >
+              <User className="h-4 w-4" />
+              Пользователь
+            </Button>
+          </div>
+          
+          <TraderHeader />
         </div>
       </div>
 
@@ -592,18 +597,18 @@ export function MessagesListNew() {
                     </div>
 
                     {/* Amount badge */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 w-32">
                       {message.amount && message.amount > 0 ? (
                         <Badge
                           variant="outline"
-                          className="px-4 py-2 text-sm font-bold border rounded-xl bg-green-50 text-green-600 border-green-200"
+                          className="px-4 py-2 text-sm font-bold border rounded-xl bg-green-50 text-green-600 border-green-200 w-full text-center justify-center"
                         >
                           {message.amount.toLocaleString("ru-RU")} RUB
                         </Badge>
                       ) : (
                         <Badge
                           variant="outline"
-                          className="px-4 py-2 text-sm font-medium border rounded-xl"
+                          className="px-4 py-2 text-sm font-medium border rounded-xl bg-gray-100 text-gray-600 border-gray-200 w-full text-center justify-center"
                         >
                           0 RUB
                         </Badge>
