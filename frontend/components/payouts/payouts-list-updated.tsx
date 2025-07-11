@@ -286,7 +286,7 @@ export function PayoutsList() {
       let status: string | undefined;
       switch (activeTab) {
         case "active":
-          status = "ACTIVE";
+          status = "ACTIVE,CREATED";
           break;
         case "check":
           status = "CHECKING";
@@ -420,9 +420,9 @@ export function PayoutsList() {
       if (!payout) return;
       
       // TODO: Implement file upload when backend endpoint is ready
-      // For now, use mock proof URLs
+      // For now, use mock proof URLs with proper URL format
       const mockProofUrls = proofFiles.map((file, index) => 
-        `proof_${Date.now()}_${index}_${file.name}`
+        `https://example.com/proof_${Date.now()}_${index}_${file.name}`
       );
       
       const response = await payoutApi.confirmPayout(payout.uuid, mockProofUrls);

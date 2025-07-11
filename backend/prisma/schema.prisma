@@ -78,6 +78,8 @@ model User {
   withdrawalDisputes     WithdrawalDispute[]
   dealDisputes           DealDispute[]
   depositRequests        DepositRequest[]
+  withdrawalRequests     WithdrawalRequest[]
+  messages               Message[]
 }
 
 model Session {
@@ -335,22 +337,29 @@ model WalletCreationRequest {
 }
 
 model Device {
-  id            String         @id @default(cuid())
-  name          String
-  energy        Float?
-  ethernetSpeed Float?
-  isOnline      Boolean?
-  token         String?        @unique
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  emulated      Boolean        @default(false)
-  lastActiveAt  DateTime?
-  userId        String
-  bankDetails   BankDetail[]
-  user          User           @relation(fields: [userId], references: [id])
-  notifications Notification[]
+  id               String         @id @default(cuid())
+  name             String
+  energy           Float?
+  ethernetSpeed    Float?
+  isOnline         Boolean?
+  token            String?        @unique
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  emulated         Boolean        @default(false)
+  lastActiveAt     DateTime?
+  userId           String
+  // Push notification tokens
+  fcmToken         String?        // Firebase Cloud Messaging token
+  webPushEndpoint  String?        // Web Push endpoint
+  webPushP256dh    String?        // Web Push public key
+  webPushAuth      String?        // Web Push auth secret
+  pushEnabled      Boolean        @default(true)
+  bankDetails      BankDetail[]
+  user             User           @relation(fields: [userId], references: [id])
+  notifications    Notification[]
 
   @@index([emulated, isOnline])
+  @@index([userId, pushEnabled])
 }
 
 model Notification {
@@ -398,6 +407,26 @@ model DepositRequest {
   @@index([traderId])
   @@index([status])
   @@index([txHash])
+}
+
+model WithdrawalRequest {
+  id              String                @id @default(cuid())
+  traderId        String
+  amountUSDT      Float
+  balanceType     WithdrawalBalanceType
+  walletAddress   String
+  network         String                @default("TRC-20")
+  status          WithdrawalStatus      @default(PENDING)
+  adminId         String?
+  rejectionReason String?
+  txHash          String?
+  processedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  trader          User                  @relation(fields: [traderId], references: [id])
+  
+  @@index([traderId])
+  @@index([status])
+  @@index([balanceType])
 }
 
 model RateSetting {
@@ -620,6 +649,7 @@ model Payout {
   feePercent           Float             @default(0)
   cancelReasonCode     String?
   externalReference    String?
+  sumToWriteOffUSDT    Float?
   merchant             Merchant          @relation(fields: [merchantId], references: [id])
   trader               User?             @relation("TraderPayouts", fields: [traderId], references: [id])
   rateAudits           PayoutRateAudit[]
@@ -923,6 +953,22 @@ enum DepositStatus {
   EXPIRED
 }
 
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum WithdrawalBalanceType {
+  TRUST           // ТРАСТ баланс
+  COMPENSATION    // Компенсация выплат
+  PROFIT_DEALS    // Прибыль с приема
+  PROFIT_PAYOUTS  // Прибыль с выплат
+  REFERRAL        // Реферальный баланс
+}
+
 enum ServiceStatus {
   RUNNING
   STOPPED
@@ -970,4 +1016,62 @@ enum PayoutStatus {
 enum PayoutDirection {
   IN
   OUT
+}
+
+// Message models
+model Message {
+  id              String            @id @default(cuid())
+  traderId        String
+  subject         String
+  content         String
+  type            MessageType       @default(SYSTEM)
+  priority        MessagePriority   @default(NORMAL)
+  isRead          Boolean           @default(false)
+  isStarred       Boolean           @default(false)
+  metadata        Json?
+  relatedEntityId String?           // ID of related transaction, payout, etc.
+  relatedEntity   String?           // Type of related entity
+  createdAt       DateTime          @default(now())
+  readAt          DateTime?
+  
+  trader          User              @relation(fields: [traderId], references: [id])
+  attachments     MessageAttachment[]
+  
+  @@index([traderId, isRead])
+  @@index([traderId, createdAt(sort: Desc)])
+  @@index([relatedEntityId, relatedEntity])
+}
+
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  messageId   String
+  filename    String
+  url         String
+  size        Int
+  mimeType    String
+  createdAt   DateTime @default(now())
+  
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@index([messageId])
+}
+
+enum MessageType {
+  SYSTEM              // System notifications
+  TRANSACTION         // Transaction related
+  PAYOUT             // Payout related  
+  ACCOUNT            // Account updates
+  SECURITY           // Security alerts
+  DISPUTE            // Dispute notifications
+  DEPOSIT            // Deposit notifications
+  WITHDRAWAL         // Withdrawal notifications
+  DEVICE             // Device notifications
+  ANNOUNCEMENT       // General announcements
+}
+
+enum MessagePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }

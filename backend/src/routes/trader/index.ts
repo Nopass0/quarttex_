@@ -11,9 +11,13 @@ import foldersRoutes from "./folders";
 import disputesRoutes from "./disputes";
 import dealDisputesRoutes from "./deal-disputes";
 import depositsRoutes from "./deposits";
+import { traderWithdrawalsRoutes } from "./withdrawals";
+import { traderMessagesRoutes } from "./trader-messages";
+import { financeRoutes } from "./finance";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
+import { dashboardRoutes } from "@/api/trader/dashboard";
 
 /**
  * Маршруты для трейдера
@@ -57,7 +61,11 @@ export default (app: Elysia) =>
     .use(disputesRoutes)
     .use(dealDisputesRoutes)
     .use(depositsRoutes)
+    .use(traderWithdrawalsRoutes)
+    .use(traderMessagesRoutes)
+    .use(financeRoutes)
     .use(traderPayoutsApi)
+    .use(dashboardRoutes)
     .get(
       "/methods",
       async () => {
@@ -107,6 +115,7 @@ export default (app: Elysia) =>
       async ({ trader }) => {
         return {
           id: trader.id,
+          numericId: trader.numericId,
           email: trader.email,
           name: trader.name || trader.email,
           balanceUsdt: trader.balanceUsdt || 0,
@@ -128,6 +137,7 @@ export default (app: Elysia) =>
         response: {
           200: t.Object({
             id: t.String(),
+            numericId: t.Number(),
             email: t.String(),
             name: t.String(),
             balanceUsdt: t.Number(),

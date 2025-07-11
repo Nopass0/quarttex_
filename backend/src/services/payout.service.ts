@@ -369,6 +369,83 @@ export class PayoutService {
   }
   
   /**
+   * Cancel payout with files and reason code (returns to pool)
+   */
+  async cancelPayoutWithFiles(
+    payoutId: string,
+    traderId: string,
+    reason: string,
+    reasonCode?: string,
+    files?: string[]
+  ) {
+    const payout = await db.payout.findUnique({
+      where: { id: payoutId },
+      include: { merchant: true },
+    });
+    
+    if (!payout) {
+      throw new Error("Payout not found");
+    }
+    
+    if (payout.traderId !== traderId) {
+      throw new Error("Unauthorized");
+    }
+    
+    if (!["ACTIVE", "CHECKING"].includes(payout.status)) {
+      throw new Error("Cannot cancel payout in current status");
+    }
+    
+    // Return payout to pool and unfreeze trader balance
+    const updates: Prisma.PrismaPromise<any>[] = [
+      db.payout.update({
+        where: { id: payoutId },
+        data: {
+          status: "CREATED",
+          traderId: null,
+          acceptedAt: null,
+          confirmedAt: null,
+          cancelReason: reason,
+          cancelReasonCode: reasonCode,
+          disputeFiles: files || [],
+          disputeMessage: reason,
+        },
+      }),
+      db.user.update({
+        where: { id: traderId },
+        data: {
+          frozenPayoutBalance: { decrement: payout.total },
+          payoutBalance: { increment: payout.total },
+        },
+      }),
+    ];
+    
+    const [updatedPayout] = await db.$transaction(updates);
+    
+    // Send webhook to merchant
+    if (payout.merchantWebhookUrl) {
+      await this.sendMerchantWebhook(updatedPayout, "returned_to_pool");
+    }
+    
+    // Broadcast WebSocket update - payout returned to pool
+    broadcastPayoutUpdate(
+      updatedPayout.id,
+      "CREATED",
+      updatedPayout,
+      payout.merchantId,
+      undefined // No trader anymore
+    );
+    
+    // Send notifications
+    const telegramService = this.getTelegramService();
+    if (telegramService) {
+      await telegramService.notifyTraderPayoutStatusChange(traderId, updatedPayout, "CANCELLED");
+      await telegramService.notifyMerchantPayoutStatus(updatedPayout.merchantId, updatedPayout, "RETURNED");
+    }
+    
+    return updatedPayout;
+  }
+
+  /**
    * Cancel payout
    */
   async cancelPayout(

@@ -1,5 +1,6 @@
 import Elysia, { t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
+import { payoutAccountingService } from "../../services/payout-accounting.service";
 import { db } from "../../db";
 import { validateFileUrls } from "../../middleware/fileUploadValidation";
 
@@ -67,7 +68,7 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, trader, set }) => {
 
       try {
-        const payout = await payoutService.acceptPayout(params.id, trader.id);
+        const payout = await payoutAccountingService.acceptPayoutWithAccounting(params.id, trader.id);
         return {
           success: true,
           payout: {
@@ -134,11 +135,21 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, body, trader, set }) => {
 
       try {
-        const payout = await payoutService.cancelPayout(
+        // Validate files if provided
+        if (body.files && body.files.length > 0) {
+          const validation = validateFileUrls(body.files);
+          if (!validation.valid) {
+            set.status = 400;
+            return { error: validation.error };
+          }
+        }
+        
+        const payout = await payoutAccountingService.cancelPayoutWithAccounting(
           params.id,
           trader.id,
           body.reason,
-          false
+          body.reasonCode,
+          body.files || []
         );
         return {
           success: true,
@@ -158,6 +169,8 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
       }),
       body: t.Object({
         reason: t.String({ minLength: 5 }),
+        reasonCode: t.Optional(t.String()),
+        files: t.Optional(t.Array(t.String(), { maxItems: 10 })),
       }),
     }
   )

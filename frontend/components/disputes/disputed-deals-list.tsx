@@ -54,6 +54,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TraderHeader } from "@/components/trader/trader-header"
+import { DisputeDetailDialog } from "@/components/disputes/dispute-detail-dialog"
 
 interface Transaction {
   id: string
@@ -98,6 +99,8 @@ export function DisputedDealsList() {
   const [filterDateTo, setFilterDateTo] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filterDisputeStatus, setFilterDisputeStatus] = useState("all")
+  const [showDisputeDialog, setShowDisputeDialog] = useState(false)
+  const [selectedDispute, setSelectedDispute] = useState<any>(null)
   
   const bankLogos: Record<string, string> = {
     "Сбербанк": "https://cdn.brandfetch.io/sberbank.ru/logo/theme/dark/h/64/w/64",
@@ -986,7 +989,7 @@ export function DisputedDealsList() {
                       </div>
 
                       {/* Dispute Status Badge */}
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 flex items-center gap-2">
                         <Badge 
                           variant="outline" 
                           className={cn(
@@ -997,6 +1000,29 @@ export function DisputedDealsList() {
                           <AlertCircle className="h-3 w-3 mr-1" />
                           {getDisputeStatusText(transaction.disputeStatus)}
                         </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDispute({
+                              id: transaction.id,
+                              type: "deal",
+                              status: transaction.disputeStatus === "open" ? "OPEN" : 
+                                     transaction.disputeStatus === "in_review" ? "IN_PROGRESS" :
+                                     transaction.disputeStatus === "resolved" ? "RESOLVED_SUCCESS" : "RESOLVED_FAIL",
+                              amount: transaction.amount,
+                              currency: transaction.currency,
+                              transactionId: transaction.numericId,
+                              reason: transaction.disputeReason,
+                              createdAt: transaction.createdAt,
+                              merchantName: transaction.merchantName
+                            });
+                            setShowDisputeDialog(true);
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
                       </div>
 
                     </div>
@@ -1196,6 +1222,13 @@ export function DisputedDealsList() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dispute Detail Dialog */}
+      <DisputeDetailDialog
+        open={showDisputeDialog}
+        onOpenChange={setShowDisputeDialog}
+        dispute={selectedDispute}
+      />
     </div>
   )
 }

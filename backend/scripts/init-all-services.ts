@@ -17,6 +17,7 @@ const services = [
   { name: 'PayoutWatcherService', displayName: 'Payout Watcher Service', description: 'Watches payout status changes', enabled: false },
   { name: 'DeviceEmulatorService', displayName: 'Device Emulator Service', description: 'Emulates device behavior for testing', enabled: false },
   { name: 'PayoutEmulatorService', displayName: 'Payout Emulator Service', description: 'Emulates payout processing for testing', enabled: false },
+  { name: 'PayoutRedistributionService', displayName: 'Payout Redistribution Service', description: 'Redistributes unassigned payouts to available traders', enabled: true },
 ];
 
 async function initializeServices() {

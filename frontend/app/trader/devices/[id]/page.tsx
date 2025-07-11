@@ -67,6 +67,7 @@ import { cn } from "@/lib/utils";
 import QRCode from "qrcode";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
 
 interface DeviceData {
   id: string;
@@ -108,10 +109,11 @@ export default function DeviceDetailsPage() {
   const router = useRouter();
   const [device, setDevice] = useState<DeviceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("sms");
+  const [activeTab, setActiveTab] = useState("messages");
   const [messages, setMessages] = useState<Message[]>([]);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
 
   useEffect(() => {
     fetchDevice();
@@ -463,6 +465,7 @@ export default function DeviceDetailsPage() {
                   <Button
                     size="sm"
                     className="bg-[#006039] hover:bg-[#006039]/90"
+                    onClick={() => setShowAddRequisiteDialog(true)}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
                     Добавить
@@ -508,129 +511,189 @@ export default function DeviceDetailsPage() {
 
           {/* Tabs Section */}
           <Card>
-            <Tabs defaultValue="sms" className="w-full">
+            <Tabs defaultValue="messages" className="w-full">
               <div className="border-b">
                 <TabsList className="h-12 p-0 bg-transparent rounded-none w-full justify-start">
                   <TabsTrigger
-                    value="sms"
+                    value="messages"
                     className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
-                    SMS
+                    Сообщения
                   </TabsTrigger>
                   <TabsTrigger
-                    value="push"
+                    value="events"
                     className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
                   >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Push-уведомления
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="calls"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Звонки
+                    <Clock className="h-4 w-4 mr-2" />
+                    События
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <TabsContent value="sms" className="p-6 space-y-4">
-                {messages.filter((m) => m.type === "sms").length === 0 ? (
+              <TabsContent value="messages" className="p-6 space-y-4">
+                {messages.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Нет SMS сообщений</p>
+                    <p>Нет сообщений</p>
                   </div>
                 ) : (
-                  messages
-                    .filter((m) => m.type === "sms")
-                    .map((message) => (
-                      <div
-                        key={message.id}
-                        className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold">
-                                {message.sender}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {message.status === "delivered"
-                                  ? "Доставлено"
-                                  : "Прочитано"}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-gray-700">
-                              {message.content}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-2">
-                              {format(
-                                new Date(message.timestamp),
-                                "d MMMM yyyy 'в' HH:mm",
-                                { locale: ru },
-                              )}
-                            </p>
+                  messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            {message.type === "sms" && (
+                              <MessageSquare className="h-4 w-4 text-gray-500" />
+                            )}
+                            {message.type === "push" && (
+                              <MessageCircle className="h-4 w-4 text-gray-500" />
+                            )}
+                            {message.type === "call" && (
+                              <Users className="h-4 w-4 text-gray-500" />
+                            )}
+                            <span className="font-semibold">
+                              {message.sender}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {message.type === "sms" && "SMS"}
+                              {message.type === "push" && "Push"}
+                              {message.type === "call" && "Звонок"}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {message.status === "delivered"
+                                ? "Доставлено"
+                                : "Прочитано"}
+                            </Badge>
                           </div>
-                          <Button variant="ghost" size="icon" className="ml-4">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+                          <p className="text-sm text-gray-700">
+                            {message.content}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {format(
+                              new Date(message.timestamp),
+                              "d MMMM yyyy 'в' HH:mm",
+                              { locale: ru },
+                            )}
+                          </p>
                         </div>
+                        <Button variant="ghost" size="icon" className="ml-4">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
                       </div>
-                    ))
+                    </div>
+                  ))
                 )}
               </TabsContent>
 
-              <TabsContent value="push" className="p-6 space-y-4">
-                {messages.filter((m) => m.type === "push").length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Нет push-уведомлений</p>
-                  </div>
-                ) : (
-                  messages
-                    .filter((m) => m.type === "push")
-                    .map((message) => (
-                      <div
-                        key={message.id}
-                        className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold">
-                                {message.sender}
-                              </span>
-                              <Badge variant="outline" className="text-xs">
-                                {message.status === "delivered"
-                                  ? "Доставлено"
-                                  : "Прочитано"}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-gray-700">
-                              {message.content}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-2">
-                              {format(
-                                new Date(message.timestamp),
-                                "d MMMM yyyy 'в' HH:mm",
-                                { locale: ru },
-                              )}
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="icon" className="ml-4">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+              <TabsContent value="events" className="p-6 space-y-4">
+                <div className="space-y-4">
+                  {/* Device Status Events */}
+                  {device.isOnline && (
+                    <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-full">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-green-900">
+                            Устройство в сети
+                          </p>
+                          <p className="text-sm text-green-700">
+                            Активно и готово к работе
+                          </p>
+                        </div>
+                        <span className="text-xs text-green-600">
+                          {format(new Date(), "HH:mm")}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!device.isOnline && device.lastSeen && (
+                    <div className="border rounded-lg p-4 bg-red-50 border-red-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-100 rounded-full">
+                          <WifiOff className="h-5 w-5 text-red-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-red-900">
+                            Устройство не в сети
+                          </p>
+                          <p className="text-sm text-red-700">
+                            Последний раз в сети: {format(new Date(device.lastSeen), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+                          </p>
                         </div>
                       </div>
-                    ))
-                )}
-              </TabsContent>
+                    </div>
+                  )}
 
-              <TabsContent value="calls" className="p-6">
-                <div className="text-center py-12 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>Нет звонков</p>
+                  {/* Battery Status */}
+                  {(device.energy || device.batteryLevel) && (device.energy || device.batteryLevel) < 20 && (
+                    <div className="border rounded-lg p-4 bg-orange-50 border-orange-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 rounded-full">
+                          <Battery className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-orange-900">
+                            Низкий заряд батареи
+                          </p>
+                          <p className="text-sm text-orange-700">
+                            Текущий уровень: {device.energy || device.batteryLevel}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Last Health Check */}
+                  {device.lastHealthCheck && (
+                    <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gray-100 rounded-full">
+                          <Shield className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">
+                            Проверка безопасности
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Последняя проверка выполнена
+                          </p>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(device.lastHealthCheck), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Device Creation */}
+                  <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gray-100 rounded-full">
+                        <Smartphone className="h-5 w-5 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          Устройство добавлено
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Начало работы с системой
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {format(new Date(device.createdAt), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -681,6 +744,14 @@ export default function DeviceDetailsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Add Requisite Dialog */}
+        <AddRequisiteDialog
+          open={showAddRequisiteDialog}
+          onOpenChange={setShowAddRequisiteDialog}
+          deviceId={device?.id}
+          onSuccess={fetchDevice}
+        />
       </AuthLayout>
     </ProtectedRoute>
   );

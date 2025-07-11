@@ -40,6 +40,10 @@ import metricsRoutes from "@/routes/admin/metrics";
 import payoutEmulatorRoutes from "@/routes/admin/payout-emulator";
 import { adminPayoutsRoutes } from "@/routes/admin/payouts";
 import { telegramSettingsRoutes } from "@/routes/admin/telegram-settings";
+import { adminWithdrawalsRoutes } from "@/routes/admin/withdrawals";
+import { merchantEmulatorApi } from "@/api/admin/merchant-emulator";
+import depositsRoutes from "@/routes/admin/deposits";
+import systemConfigRoutes from "@/routes/admin/system-config";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
 
@@ -112,6 +116,10 @@ export default (app: Elysia) =>
     .use(payoutEmulatorRoutes)
     .use(adminPayoutsRoutes)
     .use(telegramSettingsRoutes)
+    .use(adminWithdrawalsRoutes)
+    .use(merchantEmulatorApi)
+    .use(depositsRoutes)
+    .use(systemConfigRoutes)
     .group("", (a) => metricsRoutes(a))
 
     /* ───────────────── enums ───────────────── */

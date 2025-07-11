@@ -59,6 +59,11 @@ interface Message {
   currency?: string;
   status: "processed" | "warning" | "danger" | "new";
   isNew?: boolean;
+  type?: string;
+  title?: string;
+  application?: string;
+  isRead?: boolean;
+  metadata?: any;
 }
 
 const mockMessages: Message[] = [
@@ -117,8 +122,8 @@ const mockMessages: Message[] = [
 ];
 
 export function MessagesListNew() {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -131,17 +136,78 @@ export function MessagesListNew() {
 
   const router = useRouter();
 
+  const fetchMessages = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch devices and their notifications
+      const devicesResponse = await traderApi.getDevices();
+      const devicesData = devicesResponse.data || devicesResponse || [];
+      
+      let allMessages: Message[] = [];
+      
+      // Fetch notifications from all devices
+      if (Array.isArray(devicesData)) {
+        const messagePromises = devicesData.map(async (device: any) => {
+          try {
+            const deviceResponse = await traderApi.getDevice(device.id);
+            const deviceData = deviceResponse.data || deviceResponse || {};
+            const notifications = deviceData.recentNotifications || [];
+            
+            return Array.isArray(notifications) ? notifications.map((notification: any) => ({
+              id: notification.id || `${device.id}-${Date.now()}`,
+              numericId: parseInt(notification.id?.slice(-8) || '0', 16),
+              packageName: notification.application || 'Unknown App',
+              text: notification.message || notification.text || '',
+              timestamp: notification.createdAt || new Date().toISOString(),
+              deviceId: device.id,
+              deviceName: device.name,
+              deviceModel: device.model || 'Unknown Model',
+              amount: notification.metadata?.amount || 0,
+              currency: 'RUB',
+              status: notification.isRead ? 'processed' : 'new',
+              isNew: !notification.isRead,
+              type: notification.type,
+              title: notification.title,
+              application: notification.application,
+              isRead: notification.isRead,
+              metadata: notification.metadata
+            })) : [];
+          } catch (error) {
+            console.error(`Failed to fetch notifications for device ${device.id}:`, error);
+            return [];
+          }
+        });
+        
+        const results = await Promise.all(messagePromises);
+        allMessages = results.flat();
+      }
+      
+      setMessages(allMessages);
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+      toast.error('Не удалось загрузить сообщения');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+
   const getFilteredMessages = () => {
     let filtered = messages;
 
     // Search filter
     if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (m) =>
           m.numericId.toString().includes(searchQuery) ||
-          m.packageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.deviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (m.packageName || '').toLowerCase().includes(searchLower) ||
+          (m.text || '').toLowerCase().includes(searchLower) ||
+          (m.deviceName || '').toLowerCase().includes(searchLower) ||
           (m.amount && m.amount.toString().includes(searchQuery)),
       );
     }

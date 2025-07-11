@@ -457,21 +457,31 @@ export default (app: Elysia) =>
           });
         }
 
-        // Разрешено только менять IN_PROGRESS на READY
+        // Разрешено менять IN_PROGRESS на READY и READY на COMPLETED
         if (
-          transaction.status !== Status.IN_PROGRESS ||
-          body.status !== Status.READY
+          (transaction.status === Status.IN_PROGRESS && body.status === Status.READY) ||
+          (transaction.status === Status.READY && body.status === Status.COMPLETED)
         ) {
+          // Allowed transitions
+        } else {
           return error(400, {
             error:
-              "Можно установить статус 'Готово' только для транзакций 'В процессе'",
+              "Можно установить статус 'Готово' для транзакций 'В процессе' или 'Завершено' для транзакций 'Готово'",
           });
         }
 
         // Обновляем статус транзакции
+        const updateData: any = { status: body.status };
+        
+        if (body.status === Status.READY) {
+          updateData.acceptedAt = new Date();
+        } else if (body.status === Status.COMPLETED) {
+          updateData.completedAt = new Date();
+        }
+        
         const updatedTransaction = await db.transaction.update({
           where: { id: params.id },
-          data: { status: body.status, acceptedAt: new Date() },
+          data: updateData,
         });
 
         // If IN transaction moved to READY, handle freezing and merchant balance
@@ -561,6 +571,29 @@ export default (app: Elysia) =>
           await db.user.update({
             where: { id: trader.id },
             data: { trustBalance: { decrement: deduct } },
+          });
+        }
+
+        // If transaction moved to COMPLETED, handle final accounting
+        if (body.status === Status.COMPLETED) {
+          await db.$transaction(async (prisma) => {
+            // Add trader commission/profit for completed transaction
+            const method = await prisma.method.findUnique({
+              where: { id: transaction.methodId },
+            });
+            
+            if (method && transaction.type === TransactionType.IN) {
+              const commissionAmount = (transaction.amount * method.commissionPayin) / 100;
+              
+              // Add profit to trader
+              await prisma.user.update({
+                where: { id: trader.id },
+                data: {
+                  profitFromDeals: { increment: commissionAmount },
+                  balanceUsdt: { increment: commissionAmount / (transaction.rate || 90) }
+                }
+              });
+            }
           });
         }
 

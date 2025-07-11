@@ -56,6 +56,9 @@ import { TraderHeader } from "@/components/trader/trader-header";
 import { DepositDialog } from "@/components/finances/deposit-dialog";
 import { WithdrawalDialog } from "@/components/finances/withdrawal-dialog";
 import { cn } from "@/lib/utils";
+import { traderApi } from "@/services/api";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 
 interface AccountOperation {
   id: string;
@@ -173,13 +176,53 @@ export function FinancesMain() {
   const [activeTab, setActiveTab] = useState("operations");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [operations, setOperations] = useState<AccountOperation[]>([]);
+  const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [dateRange, setDateRange] = useState("month");
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const [withdrawalBalanceType, setWithdrawalBalanceType] = useState<string | undefined>();
   const financials = useTraderFinancials();
 
-  const filteredOperations = mockOperations.filter((op) => {
+  useEffect(() => {
+    fetchFinanceData();
+  }, [filterType, filterStatus, dateRange]);
+
+  const fetchFinanceData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch operations
+      const operationsResponse = await traderApi.getFinanceOperations({
+        filter: filterType,
+        page: 1,
+        limit: 50
+      });
+      
+      if (operationsResponse?.operations) {
+        setOperations(operationsResponse.operations);
+      }
+      
+      // Fetch deposit requests
+      const depositsResponse = await traderApi.getDepositRequests({
+        page: 1,
+        limit: 20
+      });
+      
+      if (depositsResponse?.requests) {
+        setDepositRequests(depositsResponse.requests);
+      }
+    } catch (error) {
+      console.error("Error fetching finance data:", error);
+      toast.error("Не удалось загрузить финансовые операции");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredOperations = operations.filter((op) => {
     if (filterType !== "all" && op.type !== filterType) return false;
     if (filterStatus !== "all" && op.status !== filterStatus) return false;
     if (
@@ -326,7 +369,10 @@ export function FinancesMain() {
               <Button
                 size="sm"
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
-                onClick={() => setWithdrawalDialogOpen(true)}
+                onClick={() => {
+                  setWithdrawalBalanceType("COMPENSATION");
+                  setWithdrawalDialogOpen(true);
+                }}
               >
                 <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
@@ -350,7 +396,10 @@ export function FinancesMain() {
               <Button
                 size="sm"
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
-                onClick={() => setWithdrawalDialogOpen(true)}
+                onClick={() => {
+                  setWithdrawalBalanceType("PROFIT_DEALS");
+                  setWithdrawalDialogOpen(true);
+                }}
               >
                 <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
@@ -380,7 +429,10 @@ export function FinancesMain() {
               <Button
                 size="sm"
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
-                onClick={() => setWithdrawalDialogOpen(true)}
+                onClick={() => {
+                  setWithdrawalBalanceType("PROFIT_PAYOUTS");
+                  setWithdrawalDialogOpen(true);
+                }}
               >
                 <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
@@ -410,7 +462,10 @@ export function FinancesMain() {
               <Button
                 size="sm"
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 text-gray-700 h-7 px-2"
-                onClick={() => setWithdrawalDialogOpen(true)}
+                onClick={() => {
+                  setWithdrawalBalanceType("REFERRAL");
+                  setWithdrawalDialogOpen(true);
+                }}
               >
                 <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
                 Вывод средств
@@ -701,6 +756,7 @@ export function FinancesMain() {
       <WithdrawalDialog
         open={withdrawalDialogOpen}
         onOpenChange={setWithdrawalDialogOpen}
+        defaultBalanceType={withdrawalBalanceType}
       />
     </div>
   );

@@ -2,13 +2,13 @@
 
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { AuthLayout } from "@/components/layouts/auth-layout"
-import { DisputedDealsList } from "@/components/disputes/disputed-deals-list"
+import { DisputesListEnhanced } from "@/components/disputes/disputes-list-enhanced"
 
 export default function TraderDisputesDealsPage() {
   return (
     <ProtectedRoute variant="trader">
       <AuthLayout variant="trader">
-        <DisputedDealsList />
+        <DisputesListEnhanced userType="trader" />
       </AuthLayout>
     </ProtectedRoute>
   )

@@ -93,7 +93,7 @@ export function TraderHeader() {
                 <User className="h-4 w-4 text-[#006039]" />
               </div>
               <span className="text-gray-700 font-medium">
-                #{traderProfile?.numericId || "0000"}
+                #{traderProfile?.numericId?.toString().padStart(4, "0") || "0000"}
               </span>
             </div>
             <ChevronDown className="h-4 w-4 text-[#006039]" />

@@ -234,6 +234,11 @@ const merchantNavItems: NavItem[] = [
     icon: BarChart3,
   },
   {
+    title: "Споры",
+    href: "/merchant/disputes",
+    icon: AlertCircle,
+  },
+  {
     title: "API документация",
     icon: BookOpen,
     children: [
@@ -435,7 +440,7 @@ export function Sidebar({ variant }: SidebarProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Баланс</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-semibold">{((financials.trustBalance || 0) - (financials.frozenUsdt || 0)).toFixed(2)}</span>
+                    <span className="text-sm font-semibold">{Math.max(0, (financials.trustBalance || 0) - (financials.frozenUsdt || 0)).toFixed(2)}</span>
                     <span className="text-xs font-medium text-[#006039]">USDT</span>
                   </div>
                 </div>
@@ -512,7 +517,7 @@ export function Sidebar({ variant }: SidebarProps) {
                   onClick={() => setTelegramModalOpen(true)}
                 >
                   <Send className="h-5 w-5" />
-                  <span className="font-medium">Подключить уведомления в Telegram</span>
+                  <span className="font-medium">Подключить ТГ</span>
                 </Button>
               </div>
             </div>

@@ -226,6 +226,13 @@ export const traderApi = {
     const response = await traderApiInstance.post('/trader/devices/unlink', { deviceId, bankDetailId })
     return response.data
   },
+  // Dashboard endpoint
+  getDashboard: async (period?: 'today' | 'week' | 'month' | 'year') => {
+    const response = await traderApiInstance.get('/trader/dashboard', {
+      params: period ? { period } : undefined
+    })
+    return response.data
+  },
   // Payouts endpoints
   getPayouts: async (params?: { page?: number; limit?: number; status?: string }) => {
     const response = await traderApiInstance.get('/trader/payouts', { params })
@@ -304,6 +311,40 @@ export const traderApi = {
   },
   resolveDispute: async (disputeId: string, data: { status: string; resolution: string }) => {
     const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/resolve`, data)
+    return response.data
+  },
+  // Finance endpoints
+  getFinanceOperations: async (params?: { page?: number; limit?: number; filter?: string }) => {
+    const response = await traderApiInstance.get('/trader/finance/operations', { params })
+    return response.data
+  },
+  getDepositRequests: async (params?: { page?: number; limit?: number }) => {
+    const response = await traderApiInstance.get('/trader/finance/deposit-requests', { params })
+    return response.data
+  },
+  getWithdrawalRequests: async (params?: { page?: number; limit?: number }) => {
+    const response = await traderApiInstance.get('/trader/finance/withdrawal-requests', { params })
+    return response.data
+  },
+  // Deposit endpoints
+  getDepositSettings: async () => {
+    const response = await traderApiInstance.get('/trader/deposits/settings')
+    return response.data
+  },
+  createDepositRequest: async (data: { amountUSDT: number }) => {
+    const response = await traderApiInstance.post('/trader/deposits', data)
+    return response.data
+  },
+  getDeposits: async (params?: { page?: number; limit?: number; status?: string }) => {
+    const response = await traderApiInstance.get('/trader/deposits', { params })
+    return response.data
+  },
+  getDeposit: async (id: string) => {
+    const response = await traderApiInstance.get(`/trader/deposits/${id}`)
+    return response.data
+  },
+  getDepositStats: async () => {
+    const response = await traderApiInstance.get('/trader/deposits/stats')
     return response.data
   },
 }
@@ -504,6 +545,28 @@ export const adminApi = {
   },
   restartTelegramService: async () => {
     const response = await adminApiInstance.post('/admin/telegram-settings/restart-service')
+    return response.data
+  },
+  // System config
+  getSystemConfig: async () => {
+    const response = await adminApiInstance.get('/admin/system-config')
+    return response.data
+  },
+  updateSystemConfig: async (key: string, value: string) => {
+    const response = await adminApiInstance.post('/admin/system-config', { key, value })
+    return response.data
+  },
+  // Deposit management
+  getDepositRequests: async (params?: { status?: string }) => {
+    const response = await adminApiInstance.get('/admin/deposits', { params })
+    return response.data
+  },
+  confirmDeposit: async (depositId: string, txHash: string) => {
+    const response = await adminApiInstance.post(`/admin/deposits/${depositId}/confirm`, { txHash })
+    return response.data
+  },
+  rejectDeposit: async (depositId: string, reason: string) => {
+    const response = await adminApiInstance.post(`/admin/deposits/${depositId}/reject`, { reason })
     return response.data
   },
 }

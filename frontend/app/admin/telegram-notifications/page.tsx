@@ -42,9 +42,15 @@ export default function TelegramNotificationsPage() {
     setLoading(true);
     try {
       const response = await adminApi.getTelegramSettings();
-      const data = response.data;
-      setSettings(data);
-      setOriginalSettings(data);
+      // Handle both response.data and direct response
+      const data = response.data || response;
+      const settingsData = {
+        botLink: data.botLink || "",
+        botUsername: data.botUsername || "",
+        botToken: data.botToken || "",
+      };
+      setSettings(settingsData);
+      setOriginalSettings(settingsData);
     } catch (error) {
       console.error("Failed to fetch telegram settings:", error);
       toast.error("Не удалось загрузить настройки Telegram");

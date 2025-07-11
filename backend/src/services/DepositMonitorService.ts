@@ -3,33 +3,31 @@ import { db } from "@/db";
 import { DepositStatus } from "@prisma/client";
 
 export default class DepositMonitorService extends BaseService {
-  private checkInterval: Timer | null = null;
   private readonly INTERVAL_MS = 60000; // Check every minute
   private readonly TRON_API_KEY = Bun.env.TRON_API_KEY || "";
   private readonly TRON_API_URL = "https://api.trongrid.io";
+  public readonly autoStart = true;
+
+  constructor() {
+    super();
+    this.interval = this.INTERVAL_MS;
+  }
 
   protected async onStart(): Promise<void> {
-    this.logger.info("Deposit Monitor Service starting", { interval: this.INTERVAL_MS });
+    await this.logInfo("Deposit Monitor Service starting", { interval: this.INTERVAL_MS });
     
-    // Start periodic checks
-    this.checkInterval = setInterval(() => {
-      this.checkPendingDeposits().catch(error => {
-        this.logger.error("Error checking pending deposits", { error });
-      });
-    }, this.INTERVAL_MS);
-
     // Run initial check
     await this.checkPendingDeposits();
     
-    this.logger.info("Deposit Monitor Service started successfully");
+    await this.logInfo("Deposit Monitor Service started successfully");
+  }
+
+  protected async tick(): Promise<void> {
+    await this.checkPendingDeposits();
   }
 
   protected async onStop(): Promise<void> {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-      this.checkInterval = null;
-    }
-    this.logger.info("Deposit Monitor Service stopped");
+    await this.logInfo("Deposit Monitor Service stopped");
   }
 
   private async checkPendingDeposits(): Promise<void> {
@@ -46,7 +44,7 @@ export default class DepositMonitorService extends BaseService {
         }
       });
 
-      this.logger.debug(`Checking ${pendingDeposits.length} pending deposits`);
+      await this.logDebug(`Checking ${pendingDeposits.length} pending deposits`);
 
       // Get deposit settings
       const [walletAddress, confirmationsRequired, expiryMinutes] = await Promise.all([
@@ -56,7 +54,7 @@ export default class DepositMonitorService extends BaseService {
       ]);
 
       if (!walletAddress) {
-        this.logger.error("Deposit wallet address not configured");
+        await this.logError("Deposit wallet address not configured");
         return;
       }
 
@@ -95,11 +93,11 @@ export default class DepositMonitorService extends BaseService {
             }
           }
         } catch (error) {
-          this.logger.error(`Error checking deposit ${deposit.id}`, { error });
+          await this.logError(`Error checking deposit ${deposit.id}`, { error });
         }
       }
     } catch (error) {
-      this.logger.error("Error in checkPendingDeposits", { error });
+      await this.logError("Error in checkPendingDeposits", { error });
     }
   }
 
@@ -163,7 +161,7 @@ export default class DepositMonitorService extends BaseService {
       });
     });
 
-    this.logger.info(`Deposit ${deposit.id} confirmed, added ${deposit.amountUSDT} USDT to trader ${deposit.trader.email}`);
+    await this.logInfo(`Deposit ${deposit.id} confirmed, added ${deposit.amountUSDT} USDT to trader ${deposit.trader.email}`);
   }
 
   private async expireDeposit(depositId: string): Promise<void> {
@@ -183,7 +181,7 @@ export default class DepositMonitorService extends BaseService {
       }
     });
 
-    this.logger.info(`Deposit ${depositId} expired`);
+    await this.logInfo(`Deposit ${depositId} expired`);
   }
 
   // Real TRON API implementation (commented out for demo)
@@ -206,7 +204,7 @@ export default class DepositMonitorService extends BaseService {
       const data = await response.json();
       return data.data || [];
     } catch (error) {
-      this.logger.error("Error fetching TRON transactions", { error });
+      await this.logError("Error fetching TRON transactions", { error });
       return [];
     }
   }

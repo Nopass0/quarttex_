@@ -198,11 +198,12 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                     {transaction.orderId || '-'}
                   </TableCell>
                   <TableCell>
-                    {transaction.status === 'READY' && transaction.type === 'IN' && (
+                    {(transaction.status === 'READY' || transaction.status === 'IN_PROGRESS') && transaction.type === 'IN' && (
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenDispute(transaction.id)}
+                        title="Открыть спор по транзакции"
                       >
                         <AlertCircle className="h-4 w-4 mr-1 text-[#006039]" />
                         Спор

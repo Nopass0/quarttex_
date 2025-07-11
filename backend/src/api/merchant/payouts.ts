@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
+import { payoutAccountingService } from "../../services/payout-accounting.service";
 import { db } from "../../db";
 import type { PayoutStatus } from "@prisma/client";
 import { validateFileUrls } from "../../middleware/fileUploadValidation";
@@ -149,7 +150,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       }
       
       try {
-        const payout = await payoutService.approvePayout(params.id, merchant.id);
+        const payout = await payoutAccountingService.completePayoutWithAccounting(params.id, merchant.id);
         return {
           success: true,
           payout: {

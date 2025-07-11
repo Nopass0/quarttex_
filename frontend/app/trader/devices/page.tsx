@@ -289,7 +289,7 @@ export default function DevicesPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute requiredRole="trader">
+      <ProtectedRoute variant="trader">
         <AuthLayout variant="trader">
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-[#006039]" />
@@ -300,7 +300,7 @@ export default function DevicesPage() {
   }
 
   return (
-    <ProtectedRoute requiredRole="trader">
+    <ProtectedRoute variant="trader">
       <AuthLayout variant="trader">
         <div className="space-y-6">
           {/* Header */}

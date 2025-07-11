@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { merchantGuard } from "@/middleware/merchantGuard";
+import { merchantSessionGuard } from "@/middleware/merchantSessionGuard";
 import { DisputeSenderType } from "@prisma/client";
 import crypto from "crypto";
 import { writeFile, mkdir } from "fs/promises";
@@ -18,7 +18,7 @@ if (!existsSync(UPLOAD_DIR)) {
 }
 
 export const disputesRoutes = new Elysia({ prefix: "/disputes" })
-  .use(merchantGuard())
+  .use(merchantSessionGuard())
   
   // Create a new dispute for a payout
   .post("/payout/:payoutId", async ({ merchant, params, body, set }) => {

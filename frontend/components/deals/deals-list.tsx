@@ -231,6 +231,27 @@ export function DealsList() {
     }
   };
 
+  const manualCloseTransaction = async (transactionId: string) => {
+    try {
+      await traderApi.updateTransactionStatus(transactionId, "COMPLETED");
+      toast.success("Сделка закрыта вручную");
+
+      // Update the transaction status locally
+      setTransactions((prev) =>
+        prev.map((tx) =>
+          tx.id === transactionId ? { ...tx, status: "COMPLETED" } : tx,
+        ),
+      );
+
+      setSelectedTransaction(null);
+
+      // Refresh both transactions and profile to update profit
+      await Promise.all([fetchTransactions(), fetchTraderProfile()]);
+    } catch (error) {
+      toast.error("Не удалось закрыть сделку");
+    }
+  };
+
   // Infinite scroll handler
   useEffect(() => {
     const handleScroll = () => {
@@ -1961,19 +1982,28 @@ export function DealsList() {
                   {/* Action Button */}
                   <div className="px-6 pb-6">
                     {selectedTransaction.status === "READY" ? (
-                      <div className="text-center">
-                        <p className="text-sm text-gray-500 mb-3">
-                          Сделка подтверждена{" "}
+                      <div className="text-center space-y-3">
+                        <p className="text-sm text-gray-500">
+                          Сделка готова к закрытию{" "}
                           <span className="text-blue-600 cursor-pointer hover:underline">
                             спором
                           </span>
                         </p>
-                        <Button
-                          className="w-full bg-[#006039] hover:bg-[#006039]/90"
-                          onClick={() => setSelectedTransaction(null)}
-                        >
-                          Закрыть
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            className="w-full bg-green-600 hover:bg-green-700"
+                            onClick={() => manualCloseTransaction(selectedTransaction.id)}
+                          >
+                            Закрыть сделку вручную
+                          </Button>
+                          <Button
+                            className="w-full"
+                            variant="outline"
+                            onClick={() => setSelectedTransaction(null)}
+                          >
+                            Отмена
+                          </Button>
+                        </div>
                       </div>
                     ) : selectedTransaction.status === "IN_PROGRESS" ? (
                       <Button

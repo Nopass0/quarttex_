@@ -119,9 +119,12 @@ export function FoldersList() {
   const fetchRequisites = async () => {
     try {
       const response = await traderApi.getRequisites()
-      setAvailableRequisites(response.bankDetails || [])
+      // Handle both possible response formats
+      const requisites = response.bankDetails || response.data || response || []
+      setAvailableRequisites(Array.isArray(requisites) ? requisites : [])
     } catch (error) {
       console.error("Failed to fetch requisites:", error)
+      toast.error("Не удалось загрузить реквизиты")
     }
   }
 
