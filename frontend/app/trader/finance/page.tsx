@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useUserStore } from "@/store/userStore";
+import { useTraderStore } from "@/stores/trader";
 import { formatCurrency } from "@/lib/utils";
 import { Wallet, History, Plus } from "lucide-react";
 import { DepositsTab } from "@/components/finance/deposits-tab";
@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function FinancePage() {
   const router = useRouter();
-  const { user } = useUserStore();
+  const { trader } = useTraderStore();
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
@@ -30,7 +30,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(user?.trustBalance || 0, "USDT")}
+              {formatCurrency(trader?.trustBalance || 0, "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               Доступно для торговли
@@ -45,7 +45,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(user?.frozenUsdt || 0, "USDT")}
+              {formatCurrency(trader?.frozenUsdt || 0, "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               В активных сделках
@@ -60,7 +60,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency((user?.trustBalance || 0) + (user?.frozenUsdt || 0), "USDT")}
+              {formatCurrency((trader?.trustBalance || 0) + (trader?.frozenUsdt || 0), "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               Сумма всех средств

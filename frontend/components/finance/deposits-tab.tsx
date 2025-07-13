@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Copy, Plus, Loader2, AlertCircle, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { traderApi } from "@/lib/api/trader";
+import { traderApi } from "@/services/api";
 import QRCode from "react-qr-code";
 
 interface DepositSettings {
@@ -37,7 +37,6 @@ interface DepositRequest {
 }
 
 export function DepositsTab() {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [depositSettings, setDepositSettings] = useState<DepositSettings | null>(null);
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
@@ -62,11 +61,7 @@ export function DepositsTab() {
       const response = await traderApi.get("/deposits/settings");
       setDepositSettings(response.data.data);
     } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить настройки депозита",
-        variant: "destructive"
-      });
+      toast.error("Не удалось загрузить настройки депозита");
     }
   };
 
@@ -75,11 +70,7 @@ export function DepositsTab() {
       const response = await traderApi.get("/deposits");
       setDepositRequests(response.data.data);
     } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить заявки на пополнение",
-        variant: "destructive"
-      });
+      toast.error("Не удалось загрузить заявки на пополнение");
     }
   };
 
@@ -94,20 +85,12 @@ export function DepositsTab() {
 
   const handleCreateDeposit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Ошибка",
-        description: "Введите корректную сумму",
-        variant: "destructive"
-      });
+      toast.error("Введите корректную сумму");
       return;
     }
 
     if (depositSettings && parseFloat(amount) < depositSettings.minAmount) {
-      toast({
-        title: "Ошибка",
-        description: `Минимальная сумма пополнения ${depositSettings.minAmount} USDT`,
-        variant: "destructive"
-      });
+      toast.error(`Минимальная сумма пополнения ${depositSettings.minAmount} USDT`);
       return;
     }
 
@@ -117,21 +100,14 @@ export function DepositsTab() {
         amountUSDT: parseFloat(amount)
       });
 
-      toast({
-        title: "Успешно",
-        description: "Заявка на пополнение создана"
-      });
+      toast.success("Заявка на пополнение создана");
 
       setAmount("");
       setShowDepositDialog(false);
       fetchDepositRequests();
       fetchStats();
     } catch (error: any) {
-      toast({
-        title: "Ошибка",
-        description: error.response?.data?.error || "Не удалось создать заявку",
-        variant: "destructive"
-      });
+      toast.error(error.response?.data?.error || "Не удалось создать заявку");
     } finally {
       setLoading(false);
     }
@@ -140,16 +116,9 @@ export function DepositsTab() {
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast({
-        title: "Скопировано",
-        description: "Адрес скопирован в буфер обмена"
-      });
+      toast.success("Адрес скопирован в буфер обмена");
     } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось скопировать адрес",
-        variant: "destructive"
-      });
+      toast.error("Не удалось скопировать адрес");
     }
   };
 

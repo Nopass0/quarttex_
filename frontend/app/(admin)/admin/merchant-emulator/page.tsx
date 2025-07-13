@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Loader2, Send, Package, BarChart3, History } from "lucide-react";
-import api from "@/lib/api";
+import { adminApi } from "@/services/api";
 
 interface Merchant {
   id: string;
@@ -56,7 +56,6 @@ export default function MerchantEmulatorPage() {
   const [stats, setStats] = useState<Statistics | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("single");
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchMerchants();
@@ -71,7 +70,7 @@ export default function MerchantEmulatorPage() {
 
   const fetchMerchants = async () => {
     try {
-      const { data } = await api.get("/admin/merchant-emulator/merchants");
+      const { data } = await adminApi.get("/merchant-emulator/merchants");
       if (data.success) {
         setMerchants(data.merchants);
         if (data.merchants.length > 0 && !selectedMerchant) {
@@ -90,18 +89,14 @@ export default function MerchantEmulatorPage() {
   const fetchLogs = async () => {
     setLogsLoading(true);
     try {
-      const { data } = await api.get("/admin/merchant-emulator/logs", {
+      const { data } = await adminApi.get("/admin/merchant-emulator/logs", {
         params: { limit: 50 },
       });
       if (data.success) {
         setLogs(data.logs);
       }
     } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить логи",
-        variant: "destructive",
-      });
+      toast.error("Не удалось загрузить логи");
     } finally {
       setLogsLoading(false);
     }
@@ -109,7 +104,7 @@ export default function MerchantEmulatorPage() {
 
   const fetchStats = async () => {
     try {
-      const { data } = await api.get("/admin/merchant-emulator/stats");
+      const { data } = await adminApi.get("/admin/merchant-emulator/stats");
       if (data.success) {
         setStats(data.stats);
       }
@@ -124,7 +119,7 @@ export default function MerchantEmulatorPage() {
 
     setLoading(true);
     try {
-      const { data } = await api.post("/admin/merchant-emulator/generate", {
+      const { data } = await adminApi.post("/admin/merchant-emulator/generate", {
         merchantToken: merchant.token,
         type: transactionType,
         amount: amount ? parseInt(amount) : undefined,
@@ -132,20 +127,13 @@ export default function MerchantEmulatorPage() {
       });
 
       if (data.success) {
-        toast({
-          title: "Успешно",
-          description: `${transactionType === "deal" ? "Сделка" : "Вывод"} создан успешно`,
-        });
+        toast.success(`${transactionType === "deal" ? "Сделка" : "Вывод"} создан успешно`);
         fetchStats();
       } else {
         throw new Error(data.error);
       }
     } catch (error: any) {
-      toast({
-        title: "Ошибка",
-        description: error.response?.data?.error || "Не удалось создать транзакцию",
-        variant: "destructive",
-      });
+      toast.error(error.response?.data?.error || "Не удалось создать транзакцию");
     } finally {
       setLoading(false);
     }
@@ -154,7 +142,7 @@ export default function MerchantEmulatorPage() {
   const handleBatchGeneration = async () => {
     setLoading(true);
     try {
-      const { data } = await api.post("/admin/merchant-emulator/batch", {
+      const { data } = await adminApi.post("/admin/merchant-emulator/batch", {
         merchantId: selectedMerchant,
         transactionType,
         count: parseInt(batchCount),
@@ -164,20 +152,13 @@ export default function MerchantEmulatorPage() {
       });
 
       if (data.success) {
-        toast({
-          title: "Пакет создан",
-          description: `Успешно: ${data.successful}, Ошибок: ${data.failed}`,
-        });
+        toast.success(`Пакет создан. Успешно: ${data.successful}, Ошибок: ${data.failed}`);
         fetchStats();
       } else {
         throw new Error(data.error);
       }
     } catch (error: any) {
-      toast({
-        title: "Ошибка",
-        description: error.response?.data?.error || "Не удалось создать пакет",
-        variant: "destructive",
-      });
+      toast.error(error.response?.data?.error || "Не удалось создать пакет");
     } finally {
       setLoading(false);
     }
