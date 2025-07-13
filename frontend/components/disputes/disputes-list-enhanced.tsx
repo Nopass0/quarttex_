@@ -497,7 +497,7 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold">Спор #{dispute.transactionNumericId}</h3>
+                      <h3 className="font-semibold">Спор {dispute.transactionNumericId}</h3>
                       <Badge className={cn("border", statusConfig?.color)}>
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {statusConfig?.label}
@@ -610,7 +610,7 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>
-              Спор #{selectedDispute?.transactionNumericId}
+              Спор {selectedDispute?.transactionNumericId}
             </DialogTitle>
           </DialogHeader>
 

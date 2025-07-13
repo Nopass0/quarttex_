@@ -170,7 +170,7 @@ export function TransactionsList({ filters }: TransactionsListProps) {
             ) : (
               transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
-                  <TableCell className="font-mono">#{transaction.numericId}</TableCell>
+                  <TableCell className="font-mono">${transaction.numericId}</TableCell>
                   <TableCell>
                     <Badge variant={transaction.type === 'IN' ? 'default' : 'secondary'}>
                       {transaction.type === 'IN' ? 'Входящая' : 'Исходящая'}

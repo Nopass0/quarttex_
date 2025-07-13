@@ -177,7 +177,7 @@ export function CancelPayoutDialog({
             Отмена выплаты
           </DialogTitle>
           <DialogDescription>
-            Укажите причину отмены выплаты #{payoutId}
+            Укажите причину отмены выплаты ${payoutId}
           </DialogDescription>
         </DialogHeader>
 

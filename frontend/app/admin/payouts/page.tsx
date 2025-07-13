@@ -189,7 +189,7 @@ export default function AdminPayoutsPage() {
       <Dialog open={!!selectedPayout} onOpenChange={() => setSelectedPayout(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Детали выплаты #{selectedPayout.numericId}</DialogTitle>
+            <DialogTitle>Детали выплаты ${selectedPayout.numericId}</DialogTitle>
             <DialogDescription>Полная информация о выплате</DialogDescription>
           </DialogHeader>
           
@@ -217,7 +217,7 @@ export default function AdminPayoutsPage() {
               <div>
                 <Label className="text-gray-600">Трейдер</Label>
                 <p className="font-medium">
-                  {selectedPayout.trader ? `#${selectedPayout.trader.numericId}` : 'Не назначен'}
+                  {selectedPayout.trader ? `${selectedPayout.trader.numericId}` : 'Не назначен'}
                 </p>
               </div>
             </div>
@@ -358,7 +358,7 @@ export default function AdminPayoutsPage() {
               {action === 'approve' ? 'Одобрить выплату' : 'Отклонить выплату'}
             </DialogTitle>
             <DialogDescription>
-              Выплата #{payout.numericId} на сумму {formatAmount(payout.amount)} ₽
+              {payout.numericId} на сумму {formatAmount(payout.amount)} ₽
             </DialogDescription>
           </DialogHeader>
           
@@ -411,7 +411,7 @@ export default function AdminPayoutsPage() {
           {payouts.map((payout) => (
             <TableRow key={payout.id}>
               <TableCell className="font-mono">
-                #{payout.numericId}
+                ${payout.numericId}
               </TableCell>
               <TableCell>
                 {payout.merchant?.name || 'N/A'}
@@ -419,7 +419,7 @@ export default function AdminPayoutsPage() {
               <TableCell>
                 {payout.trader ? (
                   <span className="font-mono">
-                    #{payout.trader.numericId}
+                    {payout.trader.numericId}
                   </span>
                 ) : (
                   <span className="text-gray-500">Не назначен</span>

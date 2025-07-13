@@ -20,6 +20,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
   .get(
     "/",
     async ({ trader }) => {
+      console.log(`[Devices API] Getting devices for trader: ${trader.id}`)
       const devices = await db.device.findMany({
         where: { userId: trader.id },
         include: {
@@ -29,6 +30,11 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
           }
         },
         orderBy: { createdAt: 'desc' }
+      })
+      
+      console.log(`[Devices API] Found ${devices.length} devices for trader ${trader.id}`)
+      devices.forEach(device => {
+        console.log(`  - Device: ${device.name} (${device.id})`)
       })
 
       return devices.map(device => ({
@@ -111,7 +117,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         traderDevices.forEach(d => {
           console.log(`  - ${d.name}: ${d.id}`)
         })
-        throw new Error("Device not found")
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       // Calculate turnover for each bank detail
@@ -192,6 +201,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
   .post(
     "/",
     async ({ trader, body }) => {
+      console.log(`[Devices API] Creating device "${body.name}" for trader: ${trader.id}`)
       const token = randomBytes(32).toString('hex')
       
       const device = await db.device.create({
@@ -202,6 +212,8 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
           isOnline: false
         }
       })
+      
+      console.log(`[Devices API] Created device: ${device.id} (${device.name})`)
 
       return {
         id: device.id,
@@ -233,7 +245,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
 
       if (!device) {
-        throw new Error("Device not found")
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       const newToken = randomBytes(32).toString('hex')
@@ -277,7 +292,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
 
       if (!device || !bankDetail) {
-        throw new Error("Device or bank detail not found")
+        return new Response(JSON.stringify({ error: "Device or bank detail not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       await db.device.update({
@@ -315,7 +333,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
 
       if (!device) {
-        throw new Error("Device not found")
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       await db.device.update({
@@ -353,7 +374,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
 
       if (!device) {
-        throw new Error("Device not found")
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       await db.device.delete({
@@ -383,7 +407,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
 
       if (!device) {
-        throw new Error("Device not found")
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       const updated = await db.device.update({
@@ -422,7 +449,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
 
       if (!device) {
-        throw new Error("Device not found")
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
 
       const updated = await db.device.update({
@@ -459,7 +489,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       const deviceToken = headers['x-device-token']
       
       if (!deviceToken) {
-        throw new Error("Device token required")
+        return new Response(JSON.stringify({ error: "Device token required" }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
       
       const device = await db.device.findFirst({
@@ -467,7 +500,10 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       })
       
       if (!device) {
-        throw new Error("Invalid device token")
+        return new Response(JSON.stringify({ error: "Invalid device token" }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        })
       }
       
       // Update device status

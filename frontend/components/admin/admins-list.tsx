@@ -255,16 +255,17 @@ export function AdminsList() {
           <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="w-full overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto">
+            <Table>
             <TableCaption>Список всех администраторов системы</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[100px]">ID</TableHead>
-                <TableHead className="min-w-[300px]">Токен</TableHead>
-                <TableHead className="min-w-[150px]">Роль</TableHead>
-                <TableHead className="min-w-[140px]">Дата создания</TableHead>
-                <TableHead className="min-w-[100px]">Действия</TableHead>
+                <TableHead>ID</TableHead>
+                <TableHead>Токен</TableHead>
+                <TableHead>Роль</TableHead>
+                <TableHead>Дата создания</TableHead>
+                <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -329,6 +330,7 @@ export function AdminsList() {
               })}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
 

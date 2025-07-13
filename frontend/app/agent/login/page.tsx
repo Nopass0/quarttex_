@@ -42,15 +42,15 @@ export default function AgentLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0f0f0f] px-4">
+      <Card className="w-full max-w-md bg-white dark:bg-[#29382f] border-gray-200 dark:border-[#29382f]">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <Logo size="lg" />
           </div>
           <div>
-            <CardTitle className="text-2xl text-center">Вход для агентов</CardTitle>
-            <CardDescription className="text-center mt-2">
+            <CardTitle className="text-2xl text-center text-gray-900 dark:text-[#eeeeee]">Вход для агентов</CardTitle>
+            <CardDescription className="text-center mt-2 text-gray-600 dark:text-gray-400">
               Введите ваш email и пароль для входа в личный кабинет
             </CardDescription>
           </div>
@@ -60,7 +60,7 @@ export default function AgentLoginPage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#006039]" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
                 <Input
                   id="email"
                   type="email"
@@ -76,7 +76,7 @@ export default function AgentLoginPage() {
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#006039]" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
                 <Input
                   id="password"
                   type="password"
@@ -91,7 +91,7 @@ export default function AgentLoginPage() {
 
             <Button
               type="submit"
-              className="w-full bg-[#006039] hover:bg-[#005030]"
+              className="w-full bg-[#006039] hover:bg-[#004d2e] dark:bg-[#2d6a42] dark:hover:bg-[#236035]"
               disabled={isLoading}
             >
               {isLoading ? 'Вход...' : 'Войти'}

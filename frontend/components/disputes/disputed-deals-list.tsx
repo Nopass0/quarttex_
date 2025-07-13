@@ -1044,7 +1044,7 @@ export function DisputedDealsList() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl">
-                Сделка #{selectedTransaction?.numericId}
+                {selectedTransaction?.numericId}
               </DialogTitle>
               <Button
                 variant="ghost"

@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 import { adminApi } from "@/services/api";
 import { toast } from "sonner";
 import { Save, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { AuthLayout } from "@/components/layouts/auth-layout";
 
 interface TelegramSettings {
   botLink: string;
@@ -135,20 +137,26 @@ export default function TelegramNotificationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
+      <ProtectedRoute variant="admin">
+        <AuthLayout variant="admin">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        </AuthLayout>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Telegram-уведомления</h1>
-        <p className="text-muted-foreground mt-2">
-          Настройки бота для отправки уведомлений в Telegram
-        </p>
-      </div>
+    <ProtectedRoute variant="admin">
+      <AuthLayout variant="admin">
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">Telegram-уведомления</h1>
+            <p className="text-muted-foreground mt-1">
+              Настройки бота для отправки уведомлений в Telegram
+            </p>
+          </div>
 
       <Card>
         <CardHeader>
@@ -254,6 +262,8 @@ export default function TelegramNotificationsPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+        </div>
+      </AuthLayout>
+    </ProtectedRoute>
   );
 }

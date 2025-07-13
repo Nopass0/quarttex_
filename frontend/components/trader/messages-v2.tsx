@@ -364,7 +364,7 @@ export function TraderMessagesV2() {
                                   <DollarSign />
                                 </div>
                                 <div className={styles.fieldContent}>
-                                  <div className={styles.fieldText}>Транзакция #{message.transaction.id}</div>
+                                  <div className={styles.fieldText}>Транзакция ${message.transaction.id}</div>
                                   <div className={styles.fieldDescription}>
                                     Статус: {message.transaction.status === 'completed' ? 'Завершена' : 'В обработке'}
                                   </div>

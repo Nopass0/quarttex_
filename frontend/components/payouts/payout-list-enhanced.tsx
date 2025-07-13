@@ -160,7 +160,7 @@ export function PayoutListEnhanced({ payouts, onRefresh }: PayoutListEnhancedPro
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold">Выплата #{payout.id}</h3>
+                    <h3 className="font-semibold">Выплата ${payout.id}</h3>
                     <Badge className={config?.color}>
                       <Icon className="h-3 w-3 mr-1" />
                       {config?.label}
@@ -273,7 +273,7 @@ export function PayoutListEnhanced({ payouts, onRefresh }: PayoutListEnhancedPro
         <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Детали выплаты #{selectedPayout.id}</DialogTitle>
+              <DialogTitle>Детали выплаты ${selectedPayout.id}</DialogTitle>
               <DialogDescription>
                 Полная информация о выплате
               </DialogDescription>

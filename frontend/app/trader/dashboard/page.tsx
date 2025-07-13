@@ -229,73 +229,75 @@ export default function TraderDashboardPage() {
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">Главная</h1>
+            <h1 className="text-2xl font-semibold dark:text-[#eeeeee]">Главная</h1>
             <TraderHeader />
           </div>
 
           {/* Finance Section */}
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Финансовая статистика</h2>
+            <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] py-4 -mx-6 px-6 shadow-sm dark:shadow-none dark:border-b dark:border-gray-800">
+              <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium dark:text-[#eeeeee]">Финансовая статистика</h2>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
                     {periodLabels[period]}
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setPeriod("today")}>
+                <DropdownMenuContent className="dark:bg-[#29382f] dark:border-gray-700">
+                  <DropdownMenuItem onClick={() => setPeriod("today")} className="dark:hover:bg-[#29382f]/50">
                     За сегодня
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setPeriod("week")}>
+                  <DropdownMenuItem onClick={() => setPeriod("week")} className="dark:hover:bg-[#29382f]/50">
                     За неделю
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setPeriod("month")}>
+                  <DropdownMenuItem onClick={() => setPeriod("month")} className="dark:hover:bg-[#29382f]/50">
                     За месяц
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setPeriod("year")}>
+                  <DropdownMenuItem onClick={() => setPeriod("year")} className="dark:hover:bg-[#29382f]/50">
                     За год
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
 
             {loading ? (
               <FinanceStatsSkeleton />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="p-6">
+                <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">Сделки</p>
-                      <p className="text-2xl font-semibold">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Сделки</p>
+                      <p className="text-2xl font-semibold dark:text-[#eeeeee]">
                         {dashboardData?.financialStats.deals.count || 0}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-500">Объем</p>
-                      <p className="text-lg font-medium">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Объем</p>
+                      <p className="text-lg font-medium dark:text-[#eeeeee]">
                         {(dashboardData?.financialStats.deals.amount || 0).toFixed(2)} USDT
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         ≈ {(dashboardData?.financialStats.deals.amountRub || 0).toFixed(0)} ₽
                       </p>
                     </div>
                   </div>
                 </Card>
 
-                <Card className="p-6">
+                <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-500">Прибыль</p>
-                      <p className="text-2xl font-semibold text-[#006039]">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Прибыль</p>
+                      <p className="text-2xl font-semibold text-[#006039] dark:text-[#2d6a42]">
                         {(dashboardData?.financialStats.profit.amount || 0).toFixed(2)} USDT
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-500">В рублях</p>
-                      <p className="text-lg font-medium">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">В рублях</p>
+                      <p className="text-lg font-medium dark:text-[#eeeeee]">
                         ≈ {(dashboardData?.financialStats.profit.amountRub || 0).toFixed(0)} ₽
                       </p>
                     </div>
@@ -346,7 +348,7 @@ export default function TraderDashboardPage() {
                             )}
                             <div>
                               <p className="text-sm font-semibold text-gray-900">
-                                Сделка #{deal.numericId}
+                                {deal.numericId}
                               </p>
                               <p className="text-sm text-gray-600">
                                 {deal.requisites?.bankType || "Неизвестный банк"} • {deal.clientName}
@@ -422,7 +424,7 @@ export default function TraderDashboardPage() {
                               </div>
                               <div>
                                 <p className="text-sm font-semibold text-gray-900">
-                                  {dispute.type === "withdrawal" ? "Выплата" : "Сделка"} #{dispute.entityId}
+                                  {dispute.entityId}
                                 </p>
                                 <p className="text-sm text-gray-600">
                                   {dispute.reason}

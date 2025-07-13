@@ -541,7 +541,7 @@ export function PayoutsList() {
                     copyToClipboard(payout.id.toString(), "ID");
                   }}
                 >
-                  #{payout.id}
+                  {payout.id}
                 </div>
                 <button
                   className="p-0.5 hover:bg-gray-100 rounded transition-colors"
@@ -828,7 +828,7 @@ export function PayoutsList() {
                     <User className="h-4 w-4 text-[#006039]" />
                   </div>
                   <span className="text-gray-700 font-medium">
-                    #{traderProfile?.numericId || "0000"}
+                    ${traderProfile?.numericId || "0000"}
                   </span>
                 </div>
                 <ChevronDown className="h-4 w-4 text-[#006039]" />
@@ -847,8 +847,8 @@ export function PayoutsList() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white px-6 py-4">
+      {/* Filters - Sticky */}
+      <div className="sticky top-0 z-10 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-end gap-3">
           {/* Balance block first */}
           <div className="bg-gray-100 rounded-lg px-5 h-12 flex flex-col justify-center min-w-[180px] mr-auto">
@@ -1216,7 +1216,7 @@ export function PayoutsList() {
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center gap-2">
-                <span>Детали выплаты #{selectedPayout?.id}</span>
+                <span>Детали выплаты ${selectedPayout?.id}</span>
                 {selectedPayout && (
                   <button
                     className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -1510,7 +1510,7 @@ export function PayoutsList() {
                     </div>
                     <div>
                       <span className="text-gray-500">ID транзакции:</span>
-                      <p className="font-medium">#{payout.id}</p>
+                      <p className="font-medium">${payout.id}</p>
                     </div>
                   </div>
                 </div>

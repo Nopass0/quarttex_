@@ -166,10 +166,10 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 </div>
               </div>
 
-              <Card className="p-4 border-blue-200 bg-blue-50/50">
+              <Card className="p-4 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
                 <div className="flex items-start gap-3">
-                  <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-800">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-800 dark:text-blue-300">
                     <p>• Минимальная сумма: {depositSettings?.minAmount || 10} USDT</p>
                     <p>• Сеть: {depositSettings?.network || "TRC-20"}</p>
                     <p>• Требуется подтверждений: {depositSettings?.confirmationsRequired || 3}</p>
@@ -180,7 +180,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
 
               <Button 
                 onClick={handleNextStep}
-                className="w-full bg-[#006039] hover:bg-[#006039]/90 text-white"
+                className="w-full bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white"
               >
                 Продолжить
               </Button>
@@ -202,7 +202,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
               <div>
                 <Label>Адрес для пополнения</Label>
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="flex-1 p-3 bg-gray-50 rounded-lg font-mono text-sm break-all">
+                  <div className="flex-1 p-3 bg-gray-50 dark:bg-[#0f0f0f] rounded-lg font-mono text-sm break-all dark:text-[#eeeeee]">
                     {depositSettings?.address || "Loading..."}
                   </div>
                   <Button
@@ -232,7 +232,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 <Button
                   onClick={handleNextStep}
                   disabled={loading}
-                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90 text-white"
+                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white"
                 >
                   {loading ? (
                     <>
@@ -256,10 +256,10 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 </Card>
               )}
 
-              <Card className="p-4 border-orange-200 bg-orange-50/50">
+              <Card className="p-4 border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-900/20">
                 <div className="flex items-start gap-3">
-                  <Shield className="h-4 w-4 text-orange-600 shrink-0 mt-0.5" />
-                  <div className="text-sm text-orange-800">
+                  <Shield className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-orange-800 dark:text-orange-300">
                     <p className="font-medium mb-1">Важно!</p>
                     <p>• Отправляйте только USDT по сети {depositSettings?.network || "TRC-20"}</p>
                     <p>• Средства с других сетей будут потеряны</p>
@@ -305,7 +305,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 </Button>
                 <Button
                   onClick={handleReset}
-                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90 text-white"
+                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white"
                 >
                   Новое пополнение
                 </Button>

@@ -36,7 +36,7 @@ export function ServerCheck({ children }: ServerCheckProps) {
 
   if (isChecking) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
+      <div className="fixed inset-0 flex items-center justify-center bg-background" suppressHydrationWarning>
         <div className="text-center space-y-4">
           <Logo size="xl" />
           <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ export function ServerCheck({ children }: ServerCheckProps) {
 
   if (isServerDown) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
+      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800" suppressHydrationWarning>
         <div className="text-center space-y-6 max-w-md p-8 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
           <Logo size="xl" variant="uppercase" />
           <div className="space-y-4">

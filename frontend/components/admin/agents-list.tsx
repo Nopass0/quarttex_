@@ -264,18 +264,19 @@ export function AgentsList() {
           <RefreshCw className="h-8 w-8 animate-spin text-[#006039]" />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="w-full overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto">
+            <Table>
             <TableCaption>Список всех агентов в системе</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px]">Агент</TableHead>
-                <TableHead className="min-w-[100px]">Комиссия</TableHead>
-                <TableHead className="min-w-[100px]">Трейдеры</TableHead>
-                <TableHead className="min-w-[120px]">Заработано</TableHead>
-                <TableHead className="min-w-[200px]">TRC-20 кошелек</TableHead>
-                <TableHead className="min-w-[140px]">Дата регистрации</TableHead>
-                <TableHead className="min-w-[60px]">Действия</TableHead>
+                <TableHead>Агент</TableHead>
+                <TableHead>Комиссия</TableHead>
+                <TableHead>Трейдеры</TableHead>
+                <TableHead>Заработано</TableHead>
+                <TableHead>TRC-20 кошелек</TableHead>
+                <TableHead>Дата регистрации</TableHead>
+                <TableHead>Действия</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -352,6 +353,7 @@ export function AgentsList() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
 

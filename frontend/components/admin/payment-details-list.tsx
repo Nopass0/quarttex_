@@ -568,7 +568,7 @@ export function PaymentDetailsList() {
                           <TableCell>
                             <div>
                               <div className="font-mono text-sm">{payment.orderId}</div>
-                              <div className="text-xs text-gray-500">#{payment.numericId}</div>
+                              <div className="text-xs text-gray-500">${payment.numericId}</div>
                             </div>
                           </TableCell>
                         )}

@@ -541,7 +541,7 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
                       transactions.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell className="font-mono text-sm">
-                            #{transaction.id.slice(0, 8)}
+                            ${transaction.id.slice(0, 8)}
                           </TableCell>
                           <TableCell>{transaction.clientName}</TableCell>
                           <TableCell className="font-medium">

@@ -5,6 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+
 export function formatAmount(amount: number): string {
   return new Intl.NumberFormat('ru-RU', {
     minimumFractionDigits: 0,

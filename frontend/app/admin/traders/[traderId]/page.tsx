@@ -959,7 +959,7 @@ function TraderProfileContent() {
               <TableBody>
                 {withdrawalHistory.length > 0 ? withdrawalHistory.map((withdrawal) => (
                   <TableRow key={withdrawal.id}>
-                    <TableCell className="font-mono text-sm">#{withdrawal.numericId}</TableCell>
+                    <TableCell className="font-mono text-sm">{withdrawal.numericId}</TableCell>
                     <TableCell>{new Date(withdrawal.createdAt).toLocaleString('ru-RU')}</TableCell>
                     <TableCell>
                       {withdrawal.acceptedAt ? new Date(withdrawal.acceptedAt).toLocaleString('ru-RU') : '-'}

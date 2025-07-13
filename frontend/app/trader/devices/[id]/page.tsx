@@ -34,6 +34,7 @@ import {
   WifiOff,
   Wifi,
   Battery,
+  Activity,
   Loader2,
   MessageSquare,
   Hash,
@@ -114,6 +115,7 @@ export default function DeviceDetailsPage() {
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
+  const [serverError, setServerError] = useState(false);
 
   useEffect(() => {
     fetchDevice();
@@ -155,6 +157,7 @@ export default function DeviceDetailsPage() {
   const fetchDevice = async () => {
     try {
       setLoading(true);
+      setServerError(false);
       const deviceData = await traderApi.getDevice(params.id as string);
       setDevice(deviceData);
 
@@ -200,21 +203,120 @@ export default function DeviceDetailsPage() {
       } catch (msgError) {
         console.error("Error fetching messages:", msgError);
       }
-    } catch (error) {
-      console.error("Error fetching device:", error);
-      toast.error("Не удалось загрузить данные устройства");
-      router.push("/trader/devices");
+    } catch (error: any) {
+      // Only log unexpected errors (server errors), not client errors like 404
+      if (!error.response || error.response.status >= 500) {
+        console.error("Error fetching device:", error);
+      }
+      
+      // Provide more specific error messages
+      if (error.response?.status === 404) {
+        toast.error("Устройство не найдено");
+        router.push("/trader/devices");
+        return;
+      } else if (error.response?.status === 401) {
+        toast.error("Ошибка авторизации. Войдите в систему снова");
+      } else if (error.response?.status === 403) {
+        toast.error("У вас нет доступа к этому устройству");
+      } else if (error.response?.status === 500) {
+        console.error("Server error details:", error.response?.data);
+        
+        // Handle specific 500 error cases
+        if (error.response?.data === "Device not found" || 
+            error.response?.data?.error === "Device not found" ||
+            error.response?.data?.message === "Device not found") {
+          toast.error("Устройство не найдено");
+          router.push("/trader/devices");
+          return;
+        }
+        
+        toast.error("Ошибка сервера. Проверьте логи бэкенда для подробностей");
+        // Don't redirect on other 500 errors, show error state instead
+        setDevice(null);
+        setServerError(true);
+        return;
+      } else if (error.response?.data?.error) {
+        toast.error(error.response.data.error);
+      } else if (error.message) {
+        toast.error(`Ошибка: ${error.message}`);
+      } else {
+        toast.error("Не удалось загрузить данные устройства");
+      }
+      
+      // Only redirect for client errors (4xx)
+      if (error.response?.status && error.response.status < 500) {
+        router.push("/trader/devices");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading || !device) {
+  if (loading) {
     return (
       <ProtectedRoute variant="trader">
         <AuthLayout variant="trader">
           <div className="flex items-center justify-center h-96">
             <Loader2 className="h-8 w-8 animate-spin text-[#006039]" />
+          </div>
+        </AuthLayout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (serverError || !device) {
+    return (
+      <ProtectedRoute variant="trader">
+        <AuthLayout variant="trader">
+          <div className="flex flex-col items-center justify-center h-96 space-y-4">
+            <div className="text-center space-y-4">
+              <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/20 mx-auto w-fit">
+                <WifiOff className="h-12 w-12 text-red-600 dark:text-[#c64444]" />
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-[#eeeeee]">
+                Ошибка загрузки устройства
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 max-w-md">
+                {serverError 
+                  ? "Произошла ошибка на сервере. Проверьте подключение к базе данных и логи бэкенда."
+                  : "Не удалось загрузить данные устройства. Попробуйте обновить страницу."}
+              </p>
+              <div className="flex gap-3 justify-center pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/trader/devices")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  К списку устройств
+                </Button>
+                <Button
+                  className="bg-[#006039] hover:bg-[#004d2e] dark:bg-[#2d6a42] dark:hover:bg-[#236035]"
+                  onClick={() => {
+                    setServerError(false);
+                    fetchDevice();
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Попробовать снова
+                </Button>
+              </div>
+              {serverError && (
+                <div className="mt-6 p-4 bg-gray-100 dark:bg-[#29382f]/30 rounded-lg max-w-2xl text-left">
+                  <p className="text-sm font-medium text-gray-900 dark:text-[#eeeeee] mb-2">
+                    Возможные причины ошибки:
+                  </p>
+                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                    <li>База данных недоступна или не запущена</li>
+                    <li>Ошибка в схеме базы данных (проверьте миграции Prisma)</li>
+                    <li>Проблема с моделью Device в Prisma schema</li>
+                    <li>Ошибка в эндпоинте /api/trader/devices/:id</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">
+                    Проверьте консоль браузера и логи сервера для подробной информации
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </AuthLayout>
       </ProtectedRoute>
@@ -293,57 +395,57 @@ export default function DeviceDetailsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Phone Mockup */}
             <div className="lg:col-span-1">
-              <Card className="p-1 border-none">
+              <Card className="p-1 border-none dark:bg-[#29382f]/30">
                 <div className="relative mx-auto w-[280px] h-[560px]">
                   {/* Phone Frame */}
-                  <div className="absolute inset-0 bg-gray-900 rounded-[40px] border-[6px] border-gray-800">
+                  <div className="absolute inset-0 bg-gray-900 dark:bg-black rounded-[40px] border-[6px] border-gray-800 dark:border-gray-900">
                     {/* Side Buttons */}
                     {/* Volume Buttons */}
-                    <div className="absolute -right-[9px] top-[120px] w-[6px] h-[40px] bg-gray-700 rounded-l-sm" />
-                    <div className="absolute -right-[9px] top-[180px] w-[6px] h-[40px] bg-gray-700 rounded-l-sm" />
+                    <div className="absolute -right-[9px] top-[120px] w-[6px] h-[40px] bg-gray-700 dark:bg-gray-800 rounded-l-sm" />
+                    <div className="absolute -right-[9px] top-[180px] w-[6px] h-[40px] bg-gray-700 dark:bg-gray-800 rounded-l-sm" />
                     {/* Power Button */}
-                    <div className="absolute -right-[9px] top-[230px] w-[6px] h-[60px] bg-gray-700 rounded-r-sm" />
+                    <div className="absolute -right-[9px] top-[230px] w-[6px] h-[60px] bg-gray-700 dark:bg-gray-800 rounded-r-sm" />
 
                     {/* Screen */}
-                    <div className="absolute inset-[3px] bg-white rounded-[37px] overflow-hidden">
+                    <div className="absolute inset-[3px] bg-white dark:bg-[#1a1a1a] rounded-[37px] overflow-hidden">
                       {/* Status Bar */}
-                      <div className="bg-white px-4 py-2 flex justify-between items-center text-xs">
-                        <span className="font-medium">
+                      <div className="bg-white dark:bg-[#0f0f0f] px-4 py-2 flex justify-between items-center text-xs">
+                        <span className="font-medium dark:text-[#eeeeee]">
                           {new Date().toLocaleTimeString("ru-RU", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </span>
                         <div className="flex items-center gap-1">
-                          <Signal className="w-3 h-3" />
+                          <Signal className="w-3 h-3 dark:text-[#eeeeee]" />
                           {device.isOnline ? (
-                            <Wifi className="w-3 h-3" />
+                            <Wifi className="w-3 h-3 dark:text-[#eeeeee]" />
                           ) : (
-                            <WifiOff className="w-3 h-3 text-gray-400" />
+                            <WifiOff className="w-3 h-3 text-gray-400 dark:text-gray-600" />
                           )}
-                          <Battery className="w-4 h-3" />
-                          <span className="text-[10px] font-medium">
-                            {device.energy || device.batteryLevel || 0}%
+                          <Battery className="w-4 h-3 dark:text-[#eeeeee]" />
+                          <span className="text-[10px] font-medium dark:text-[#eeeeee]">
+                            {Math.round(device.energy || device.batteryLevel || 0)}%
                           </span>
                         </div>
                       </div>
 
                       {/* App Content */}
-                      <div className="p-4 h-full bg-gray-50 flex flex-col">
+                      <div className="p-4 h-full bg-gray-50 dark:bg-[#0f0f0f] flex flex-col">
                         <div className="flex justify-center h-full flex-col items-center">
                           <Logo size="lg" />
                           {device.isOnline ? (
                             <>
-                              <div className="mt-10 p-4 rounded-full bg-green-100">
-                                <Globe className="w-10 h-10  text-green-500" />
+                              <div className="mt-10 p-4 rounded-full bg-green-100 dark:bg-green-900/30">
+                                <Globe className="w-10 h-10 text-green-500 dark:text-[#2d6a42]" />
                               </div>
                             </>
                           ) : (
                             <>
-                              <div className="mt-10 p-4 rounded-full bg-red-100">
-                                <GlobeLock className="w-10 h-10 text-red-500" />
+                              <div className="mt-10 p-4 rounded-full bg-red-100 dark:bg-red-900/30">
+                                <GlobeLock className="w-10 h-10 text-red-500 dark:text-[#c64444]" />
                               </div>
-                              <p className="font-semibold text-[16px] mt-2">
+                              <p className="font-semibold text-[16px] mt-2 dark:text-[#eeeeee]">
                                 Ошибка подключения
                               </p>
                             </>
@@ -351,27 +453,27 @@ export default function DeviceDetailsPage() {
                         </div>
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center mt-24">
-                            <h3 className="font-semibold">{device.name}</h3>
+                            <h3 className="font-semibold dark:text-[#eeeeee]">{device.name}</h3>
                             <div className="text-sm font-bold  mt-2">
                               {device.isOnline ? (
                                 <>
-                                  <p className="text-green-500 bg-green-200 rounded-md px-4 py-2 uppercase">
+                                  <p className="text-green-500 dark:text-green-300 bg-green-200 dark:bg-green-900/30 rounded-md px-4 py-2 uppercase">
                                     В работе
                                   </p>
                                 </>
                               ) : (
                                 <>
-                                  <p className="text-gray-500 bg-gray-200 rounded-md px-4 py-2 uppercase">
+                                  <p className="text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-800/50 rounded-md px-4 py-2 uppercase">
                                     Устройство не в работе
                                   </p>
                                 </>
                               )}
                             </div>
                             {device.isOnline && (
-                              <div className="mt-4 space-y-2 text-xs text-gray-600">
+                              <div className="mt-4 space-y-2 text-xs text-gray-600 dark:text-gray-400">
                                 <p>
                                   Батарея:{" "}
-                                  {device.energy || device.batteryLevel || 0}%
+                                  {Math.round(device.energy || device.batteryLevel || 0)}%
                                 </p>
                                 <p>Сеть: {device.ethernetSpeed || 0} Mbps</p>
                               </div>
@@ -389,71 +491,86 @@ export default function DeviceDetailsPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Info Cards */}
               <div className="grid grid-cols-2 gap-4">
-                <Card className="p-6">
+                {/* Device Info Card */}
+                <Card className="p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
-                    <Smartphone className="h-5 w-5 text-[#006039]" />
+                    <Smartphone className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
                     <Badge
                       className={
                         device.isOnline
-                          ? "bg-green-100 text-green-700 border-0"
-                          : "bg-gray-100 text-gray-700 border-0"
+                          ? "bg-green-100 text-green-700 border-0 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-gray-100 text-gray-700 border-0 dark:bg-gray-800 dark:text-gray-400"
                       }
                     >
                       {device.isOnline ? "Онлайн" : "Офлайн"}
                     </Badge>
                   </div>
-                  <h3 className="font-semibold mb-1">{device.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    {device.model || device.os || "Неизвестная модель"}
+                  <h2 className="text-xl font-bold mb-2 dark:text-[#eeeeee]">{device.name}</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    Серийный номер: {device.id}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    № SIM-карты: {device.simNumber || "Не указан"}
                   </p>
                 </Card>
 
-                <Card className="p-6">
+                {/* Status Card */}
+                <Card className="p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
-                    <Globe className="h-5 w-5 text-[#006039]" />
-                    <span className="text-sm text-gray-500">Сеть</span>
+                    <Activity className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Статус</span>
                   </div>
-                  <h3 className="font-semibold mb-1">
-                    {device.ip || "192.168.1.1"}
+                  <h3 className="text-lg font-bold mb-2 dark:text-[#eeeeee]">
+                    {device.isOnline ? "В работе" : "Не в работе"}
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    {device.browser || "Chrome"} • {device.os || "Android"}
+                  <Badge 
+                    className={cn(
+                      "w-full justify-center py-2",
+                      device.isOnline 
+                        ? "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" 
+                        : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/50 dark:text-gray-400 dark:border-gray-700"
+                    )}
+                  >
+                    {device.isOnline ? "Активно" : "Остановлено"}
+                  </Badge>
+                </Card>
+
+                {/* WiFi Status Card */}
+                <Card className="p-6 dark:bg-[#29382f]/30">
+                  <div className="flex items-center justify-between mb-4">
+                    {device.isOnline ? (
+                      <Wifi className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
+                    ) : (
+                      <WifiOff className="h-5 w-5 text-gray-500 dark:text-gray-500" />
+                    )}
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Wi-Fi</span>
+                  </div>
+                  <h3 className="text-lg font-bold mb-2 dark:text-[#eeeeee]">
+                    {device.isOnline ? "Подключено" : "Отключено"}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {device.isOnline && device.ethernetSpeed 
+                      ? `Скорость: ${device.ethernetSpeed} Mbps` 
+                      : device.isOnline 
+                        ? "Стабильное соединение"
+                        : "Нет соединения"}
                   </p>
                 </Card>
 
-                <Card className="p-6">
+                {/* SIM Card Info Card */}
+                <Card className="p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
-                    <Battery className="h-5 w-5 text-[#006039]" />
-                    <span className="text-sm text-gray-500">Батарея</span>
+                    <Globe className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Сеть</span>
                   </div>
-                  <h3 className="font-semibold mb-1">
-                    {device.energy || device.batteryLevel || 0}%
+                  <h3 className="font-semibold mb-1 dark:text-[#eeeeee]">
+                    SIM-карта
                   </h3>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-[#006039] h-2 rounded-full"
-                      style={{
-                        width: `${device.energy || device.batteryLevel || 0}%`,
-                      }}
-                    />
-                  </div>
-                </Card>
-
-                <Card className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Shield className="h-5 w-5 text-[#006039]" />
-                    <span className="text-sm text-gray-500">Безопасность</span>
-                  </div>
-                  <h3 className="font-semibold mb-1">
-                    {device.isTrusted ? "Доверенное" : "Не проверено"}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Последняя проверка:{" "}
-                    {device.lastHealthCheck
-                      ? format(new Date(device.lastHealthCheck), "dd.MM.yyyy", {
-                          locale: ru,
-                        })
-                      : "Никогда"}
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    Номер: {device.simNumber || "+7 (XXX) XXX-XX-XX"}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Оператор: {device.networkInfo || "МТС"}
                   </p>
                 </Card>
               </div>
@@ -479,15 +596,15 @@ export default function DeviceDetailsPage() {
                       {device.linkedBankDetails.map((req: any) => (
                         <div
                           key={req.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg"
                         >
                           <div className="flex items-center gap-3">
-                            <CreditCard className="h-5 w-5 text-gray-600" />
+                            <CreditCard className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                             <div>
-                              <p className="font-medium">
+                              <p className="font-medium dark:text-[#eeeeee]">
                                 **** {req.cardNumber?.slice(-4) || "0000"}
                               </p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
                                 {req.bankType} • {req.recipientName}
                               </p>
                             </div>
@@ -500,8 +617,8 @@ export default function DeviceDetailsPage() {
                     </div>
                   </ScrollArea>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <CreditCard className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <CreditCard className="h-8 w-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                     <p className="text-sm">Нет привязанных реквизитов</p>
                   </div>
                 )}
@@ -531,64 +648,124 @@ export default function DeviceDetailsPage() {
                 </TabsList>
               </div>
 
-              <TabsContent value="messages" className="p-6 space-y-4">
+              <TabsContent value="messages" className="p-6 space-y-3">
                 {messages.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                     <p>Нет сообщений</p>
                   </div>
                 ) : (
-                  messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            {message.type === "sms" && (
-                              <MessageSquare className="h-4 w-4 text-gray-500" />
+                  messages.map((message) => {
+                    // Determine message styling based on content
+                    const isBank = message.sender?.toLowerCase().includes('bank') || 
+                                  message.sender?.toLowerCase().includes('сбер') ||
+                                  message.sender?.toLowerCase().includes('тинькофф') ||
+                                  message.sender?.toLowerCase().includes('альфа');
+                    const isAmount = message.content.match(/\d+[\s,.]?\d*\s*(руб|RUB|₽)/i);
+                    const iconColor = isBank ? "primary" : message.type === "push" ? "accent" : "warning";
+                    
+                    return (
+                      <div
+                        key={message.id}
+                        className="block hover:bg-gray-50 dark:hover:bg-[#29382f]/30 transition-colors rounded-lg"
+                      >
+                        <div className="p-4">
+                          <div className="flex items-start gap-4">
+                            {/* Icon */}
+                            <div className={cn(
+                              "p-2.5 rounded-lg flex items-center justify-center flex-shrink-0",
+                              iconColor === "primary" && "bg-blue-100 dark:bg-blue-900/30",
+                              iconColor === "accent" && "bg-purple-100 dark:bg-purple-900/30",
+                              iconColor === "warning" && "bg-yellow-100 dark:bg-yellow-900/30"
+                            )}>
+                              {message.type === "sms" && (
+                                <MessageSquare className={cn(
+                                  "h-5 w-5",
+                                  iconColor === "primary" && "text-blue-600 dark:text-blue-400",
+                                  iconColor === "accent" && "text-purple-600 dark:text-purple-400",
+                                  iconColor === "warning" && "text-yellow-600 dark:text-yellow-400"
+                                )} />
+                              )}
+                              {message.type === "push" && (
+                                <MessageCircle className={cn(
+                                  "h-5 w-5",
+                                  iconColor === "primary" && "text-blue-600 dark:text-blue-400",
+                                  iconColor === "accent" && "text-purple-600 dark:text-purple-400",
+                                  iconColor === "warning" && "text-yellow-600 dark:text-yellow-400"
+                                )} />
+                              )}
+                              {message.type === "call" && (
+                                <Users className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                              )}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={cn(
+                                  "font-medium text-sm",
+                                  iconColor === "primary" && "text-gray-900 dark:text-[#eeeeee]",
+                                  iconColor === "accent" && "text-purple-600 dark:text-purple-400",
+                                  iconColor === "warning" && "text-yellow-600 dark:text-yellow-400"
+                                )}>
+                                  {message.sender}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {format(new Date(message.timestamp), "HH:mm")}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                                {message.content}
+                              </p>
+                              
+                              {/* Amount or device info */}
+                              {isAmount && (
+                                <div className="flex items-center gap-3 mt-3">
+                                  <div className="p-1.5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                    <DollarSign className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
+                                      {isAmount[0]}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      Сумма операции
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {!isAmount && (
+                                <div className="flex items-center gap-3 mt-3">
+                                  <div className="p-1.5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                    <Smartphone className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
+                                      {device.name}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {message.type === "sms" ? "SMS сообщение" : "Push уведомление"}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Status or amount on the right */}
+                            {isAmount && (
+                              <span className={cn(
+                                "text-sm font-semibold ml-auto flex-shrink-0",
+                                iconColor === "primary" && "text-gray-900 dark:text-[#eeeeee]"
+                              )}>
+                                {isAmount[0]}
+                              </span>
                             )}
-                            {message.type === "push" && (
-                              <MessageCircle className="h-4 w-4 text-gray-500" />
-                            )}
-                            {message.type === "call" && (
-                              <Users className="h-4 w-4 text-gray-500" />
-                            )}
-                            <span className="font-semibold">
-                              {message.sender}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {message.type === "sms" && "SMS"}
-                              {message.type === "push" && "Push"}
-                              {message.type === "call" && "Звонок"}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {message.status === "delivered"
-                                ? "Доставлено"
-                                : "Прочитано"}
-                            </Badge>
                           </div>
-                          <p className="text-sm text-gray-700">
-                            {message.content}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            {format(
-                              new Date(message.timestamp),
-                              "d MMMM yyyy 'в' HH:mm",
-                              { locale: ru },
-                            )}
-                          </p>
                         </div>
-                        <Button variant="ghost" size="icon" className="ml-4">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </TabsContent>
 
@@ -596,20 +773,20 @@ export default function DeviceDetailsPage() {
                 <div className="space-y-4">
                   {/* Device Status Events */}
                   {device.isOnline && (
-                    <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                    <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-full">
-                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                          <CheckCircle className="h-5 w-5 text-green-600 dark:text-[#2d6a42]" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-green-900">
+                          <p className="font-medium text-green-900 dark:text-green-100">
                             Устройство в сети
                           </p>
-                          <p className="text-sm text-green-700">
+                          <p className="text-sm text-green-700 dark:text-green-300">
                             Активно и готово к работе
                           </p>
                         </div>
-                        <span className="text-xs text-green-600">
+                        <span className="text-xs text-green-600 dark:text-green-400">
                           {format(new Date(), "HH:mm")}
                         </span>
                       </div>
@@ -617,16 +794,16 @@ export default function DeviceDetailsPage() {
                   )}
                   
                   {!device.isOnline && device.lastSeen && (
-                    <div className="border rounded-lg p-4 bg-red-50 border-red-200">
+                    <div className="border rounded-lg p-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-100 rounded-full">
-                          <WifiOff className="h-5 w-5 text-red-600" />
+                        <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                          <WifiOff className="h-5 w-5 text-red-600 dark:text-[#c64444]" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-red-900">
+                          <p className="font-medium text-red-900 dark:text-red-100">
                             Устройство не в сети
                           </p>
-                          <p className="text-sm text-red-700">
+                          <p className="text-sm text-red-700 dark:text-red-300">
                             Последний раз в сети: {format(new Date(device.lastSeen), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
                           </p>
                         </div>
@@ -636,17 +813,17 @@ export default function DeviceDetailsPage() {
 
                   {/* Battery Status */}
                   {(device.energy || device.batteryLevel) && (device.energy || device.batteryLevel) < 20 && (
-                    <div className="border rounded-lg p-4 bg-orange-50 border-orange-200">
+                    <div className="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 rounded-full">
-                          <Battery className="h-5 w-5 text-orange-600" />
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-full">
+                          <Battery className="h-5 w-5 text-orange-600 dark:text-orange-500" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-orange-900">
+                          <p className="font-medium text-orange-900 dark:text-orange-100">
                             Низкий заряд батареи
                           </p>
-                          <p className="text-sm text-orange-700">
-                            Текущий уровень: {device.energy || device.batteryLevel}%
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            Текущий уровень: {Math.round(device.energy || device.batteryLevel || 0)}%
                           </p>
                         </div>
                       </div>
@@ -655,20 +832,20 @@ export default function DeviceDetailsPage() {
 
                   {/* Last Health Check */}
                   {device.lastHealthCheck && (
-                    <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-[#29382f]/30 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 rounded-full">
-                          <Shield className="h-5 w-5 text-gray-600" />
+                        <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full">
+                          <Shield className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium">
+                          <p className="font-medium dark:text-[#eeeeee]">
                             Проверка безопасности
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
                             Последняя проверка выполнена
                           </p>
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-500">
                           {format(new Date(device.lastHealthCheck), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
                         </span>
                       </div>
@@ -676,20 +853,20 @@ export default function DeviceDetailsPage() {
                   )}
 
                   {/* Device Creation */}
-                  <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div className="border dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-[#29382f]/30 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gray-100 rounded-full">
-                        <Smartphone className="h-5 w-5 text-gray-600" />
+                      <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full">
+                        <Smartphone className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium">
+                        <p className="font-medium dark:text-[#eeeeee]">
                           Устройство добавлено
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           Начало работы с системой
                         </p>
                       </div>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-500">
                         {format(new Date(device.createdAt), "d MMMM yyyy 'в' HH:mm", { locale: ru })}
                       </span>
                     </div>

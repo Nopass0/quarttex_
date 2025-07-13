@@ -74,6 +74,7 @@ interface Device {
   createdAt: string;
   linkedBankDetails: number;
   status?: "working" | "stopped" | "unregistered";
+  simNumber?: string;
 }
 
 // Mock devices with more realistic data
@@ -173,10 +174,28 @@ export default function DevicesPage() {
     try {
       console.log("Fetching devices from API...");
       const response = await traderApi.getDevices();
-      console.log("Devices API response:", response);
+      console.log("Raw API response:", response);
+      console.log("Response type:", typeof response);
+      console.log("Is array?", Array.isArray(response));
 
+      // Ensure response is an array before mapping
+      let devicesList = [];
+      if (Array.isArray(response)) {
+        devicesList = response;
+      } else if (response && Array.isArray(response.data)) {
+        devicesList = response.data;
+      } else if (response && typeof response === 'object') {
+        // If response is an object but not an array, try to find the devices array
+        console.log("Response keys:", Object.keys(response));
+        devicesList = [];
+      } else {
+        devicesList = [];
+      }
+      
+      console.log("Devices list to process:", devicesList);
+      
       // Map the API response to our Device interface
-      const mappedDevices: Device[] = response.map((device: any) => ({
+      const mappedDevices: Device[] = devicesList.map((device: any) => ({
         id: device.id,
         name: device.name,
         token: device.token,
@@ -190,13 +209,12 @@ export default function DevicesPage() {
         status: device.isOnline ? "working" : "stopped",
       }));
 
+      console.log("Mapped devices:", mappedDevices);
       setDevices(mappedDevices);
-      console.log("Devices loaded:", mappedDevices);
     } catch (error) {
       console.error("Failed to fetch devices:", error);
       toast.error("Не удалось загрузить устройства");
-      // Fallback to mock devices if API fails
-      setDevices(mockDevices);
+      setDevices([]);
     } finally {
       setLoading(false);
     }
@@ -204,17 +222,25 @@ export default function DevicesPage() {
 
   const createDevice = async () => {
     try {
+      console.log("Creating device:", deviceForm.name);
+      
+      // Call the real API
+      const createdDevice = await traderApi.createDevice({ name: deviceForm.name });
+      console.log("Device created:", createdDevice);
+
+      // Map the response to our interface
       const newDevice: Device = {
-        id: Date.now().toString(),
-        name: deviceForm.name,
-        token: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: createdDevice.id,
+        name: createdDevice.name,
+        token: createdDevice.token,
         isOnline: false,
-        isRegistered: false,
+        isRegistered: true,
         linkedBankDetails: 0,
-        status: "unregistered",
-        createdAt: new Date().toISOString(),
+        status: "stopped",
+        createdAt: createdDevice.createdAt,
       };
 
+      // Add to devices list
       setDevices([newDevice, ...devices]);
       setDeviceDialogOpen(false);
       setDeviceForm({ name: "" });
@@ -239,6 +265,9 @@ export default function DevicesPage() {
 
       setDeviceTokenDialogOpen(true);
       toast.success("Устройство создано");
+      
+      // Refresh the devices list
+      await fetchDevices();
     } catch (error) {
       console.error("Error creating device:", error);
       toast.error("Не удалось создать устройство");
@@ -268,9 +297,21 @@ export default function DevicesPage() {
         description: "Пройдите регистрацию в мобильном приложении",
         badge: {
           text: "Без регистрации",
-          className: "bg-red-50 text-red-600 border-red-200",
+          className: "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
         },
-        iconColor: "text-red-500",
+        iconColor: "text-red-500 dark:text-red-400",
+      };
+    }
+
+    if (device.isOnline || device.status === "working") {
+      return {
+        title: `Реквизиты: ${device.linkedBankDetails}`,
+        description: device.lastSeen ? `Последняя активность: ${device.lastSeen}` : "Активно",
+        badge: {
+          text: "В работе",
+          className: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+        },
+        iconColor: "text-gray-600 dark:text-gray-400",
       };
     }
 
@@ -281,9 +322,9 @@ export default function DevicesPage() {
         : "Остановлено",
       badge: {
         text: "Не в работе",
-        className: "bg-orange-50 text-orange-600 border-orange-200",
+        className: "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/50 dark:text-gray-400 dark:border-gray-700",
       },
-      iconColor: "text-orange-500",
+      iconColor: "text-gray-500 dark:text-gray-500",
     };
   };
 
@@ -305,7 +346,7 @@ export default function DevicesPage() {
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Устройства</h1>
+            <h1 className="text-3xl font-bold">Устройства ({devices.length})</h1>
             <Button
               onClick={() => setDeviceDialogOpen(true)}
               style={{ backgroundColor: "#006039", color: "white" }}
@@ -439,6 +480,7 @@ export default function DevicesPage() {
 
           {/* Devices List */}
           <div className="space-y-3">
+            {console.log("Rendering devices:", sortedDevices)}
             {sortedDevices.map((device) => {
               const statusInfo = getDeviceStatusInfo(device);
 
@@ -458,7 +500,11 @@ export default function DevicesPage() {
                       <div
                         className={cn(
                           "p-3 rounded-lg",
-                          device.isRegistered ? "bg-orange-100" : "bg-red-100",
+                          device.isRegistered 
+                            ? (device.isOnline || device.status === "working" 
+                              ? "bg-gray-100 dark:bg-gray-800" 
+                              : "bg-gray-50 dark:bg-gray-900/50")
+                            : "bg-red-100 dark:bg-red-900/20",
                         )}
                       >
                         <Smartphone

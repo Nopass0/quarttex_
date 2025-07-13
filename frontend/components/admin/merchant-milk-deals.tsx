@@ -372,7 +372,7 @@ export function MerchantMilkDeals({ merchantId }: MerchantMilkDealsProps) {
                             <TableCell>
                               <div>
                                 <div className="font-mono text-sm">{deal.orderId}</div>
-                                <div className="text-xs text-gray-500">#{deal.numericId}</div>
+                                <div className="text-xs text-gray-500">${deal.numericId}</div>
                               </div>
                             </TableCell>
                             <TableCell>

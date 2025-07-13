@@ -305,7 +305,7 @@ export function DisputedDealsListStyled() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold">Сделка #{dispute.numericId}</h3>
+                      <h3 className="font-semibold">{dispute.numericId}</h3>
                       <Badge className={cn("border", statusConfig?.color)}>
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {statusConfig?.label}

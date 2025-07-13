@@ -252,9 +252,19 @@ export function TransactionsList() {
       })
       if (!response.ok) throw new Error('Failed to fetch merchants')
       const data = await response.json()
-      setMerchants(data.data)
+      
+      // Ensure data exists and has the expected structure
+      if (!data || typeof data !== 'object') {
+        console.warn('Invalid merchants data structure:', data)
+        setMerchants([])
+        return
+      }
+      
+      const merchantsList = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
+      setMerchants(merchantsList)
     } catch (error) {
       console.error('Failed to fetch merchants:', error)
+      setMerchants([])
     }
   }
 
@@ -267,9 +277,20 @@ export function TransactionsList() {
       })
       if (!response.ok) throw new Error('Failed to fetch traders')
       const data = await response.json()
-      setTraders(data.data.filter((user: any) => user.trader))
+      
+      // Ensure data exists and has the expected structure
+      if (!data || typeof data !== 'object') {
+        console.warn('Invalid traders data structure:', data)
+        setTraders([])
+        return
+      }
+      
+      const tradersList = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
+      const filteredTraders = tradersList.filter((user: any) => user && user.trader)
+      setTraders(filteredTraders)
     } catch (error) {
       console.error('Failed to fetch traders:', error)
+      setTraders([])
     }
   }
 
@@ -301,12 +322,28 @@ export function TransactionsList() {
       if (!response.ok) throw new Error('Failed to fetch transactions')
       const data = await response.json()
       
+      // Ensure data exists and has the expected structure
+      if (!data || typeof data !== 'object') {
+        console.warn('Invalid transactions data structure:', data)
+        setTransactions([])
+        setMeta({ total: 0, page: 1, limit: 20, totalPages: 0 })
+        return
+      }
+      
       // Mark new transactions
+      const transactionsList = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
+      const metaData = data.meta || { total: 0, page: 1, limit: 20, totalPages: 0 }
+      
       setTransactions(currentTransactions => {
-        const existingIds = new Set(currentTransactions.map(t => t.id))
+        // Ensure currentTransactions is an array
+        const safeCurrentTransactions = Array.isArray(currentTransactions) ? currentTransactions : []
+        const existingIds = new Set(safeCurrentTransactions.map(t => t.id))
         const newTransactions: Transaction[] = []
         
-        const updatedData = data.data.map((tx: Transaction) => {
+        // Ensure transactionsList is an array
+        const safeTransactionsList = Array.isArray(transactionsList) ? transactionsList : []
+        
+        const updatedData = safeTransactionsList.map((tx: Transaction) => {
           if (!existingIds.has(tx.id) && !isLoading) {
             // New transaction - mark it and add to list
             newTransactions.push(tx)
@@ -318,23 +355,29 @@ export function TransactionsList() {
         // Show toast for new transactions
         if (newTransactions.length > 0 && !isLoading) {
           newTransactions.forEach(tx => {
-            toast.success(`Новая транзакция #${tx.orderId}`, {
+            toast.success(`Новая транзакция ${tx.orderId}`, {
               description: `${tx.amount.toLocaleString('ru-RU')} ₽ от ${tx.clientName}`
             })
           })
           
           // Remove "new" flag after animation
           setTimeout(() => {
-            setTransactions(prev => prev.map(tx => ({ ...tx, isNew: false })))
+            setTransactions(prev => {
+              const safePrev = Array.isArray(prev) ? prev : []
+              return safePrev.map(tx => ({ ...tx, isNew: false }))
+            })
           }, 500)
         }
         
         return updatedData
       })
       
-      setMeta(data.meta)
+      setMeta(metaData)
     } catch (error) {
+      console.error('Failed to fetch transactions:', error)
       toast.error('Не удалось загрузить список транзакций')
+      setTransactions([])
+      setMeta({ total: 0, page: 1, limit: 20, totalPages: 0 })
     } finally {
       setIsLoading(false)
     }

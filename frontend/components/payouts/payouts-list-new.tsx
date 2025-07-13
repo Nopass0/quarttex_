@@ -655,7 +655,7 @@ export function PayoutsList() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
                         <h3 className="font-semibold">
-                          Выплата #{payout.numericId}
+                          Выплата ${payout.numericId}
                         </h3>
                         <Badge className={cn("border", statusConfig[payout.status]?.color)}>
                           {statusConfig[payout.status]?.label}
@@ -746,7 +746,7 @@ export function PayoutsList() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Выплата #{selectedPayout?.numericId}
+              Выплата ${selectedPayout?.numericId}
             </DialogTitle>
             <DialogDescription>
               Детальная информация о выплате

@@ -195,7 +195,7 @@ export default function TraderPayoutSettingsPage() {
                     {filteredTraders.map((trader) => (
                       <TableRow key={trader.id}>
                         <TableCell className="font-mono">
-                          #{trader.numericId}
+                          {trader.numericId}
                         </TableCell>
                         <TableCell>{trader.email}</TableCell>
                         <TableCell>
@@ -246,7 +246,7 @@ export default function TraderPayoutSettingsPage() {
               <DialogHeader>
                 <DialogTitle>Изменить лимит выплат</DialogTitle>
                 <DialogDescription>
-                  Трейдер: {selectedTrader?.email} (#{selectedTrader?.numericId})
+                  Трейдер: {selectedTrader?.email} ({selectedTrader?.numericId})
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">

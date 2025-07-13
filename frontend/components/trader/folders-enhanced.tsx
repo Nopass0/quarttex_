@@ -41,6 +41,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useUrlModal } from "@/hooks/use-url-modal"
 
 interface Requisite {
   id: string
@@ -66,8 +67,20 @@ export function FoldersEnhanced() {
   const [folders, setFolders] = useState<Folder[]>([])
   const [requisites, setRequisites] = useState<Requisite[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
+  const createFolderModal = useUrlModal({
+    modalName: "create-folder",
+    onClose: () => {
+      setNewFolderName("")
+      setSelectedRequisites([])
+    }
+  })
+  
+  const editFolderModal = useUrlModal({
+    modalName: "edit-folder",
+    onClose: () => {
+      setSelectedFolder(null)
+    }
+  })
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null)
   const [newFolderName, setNewFolderName] = useState("")
   const [selectedRequisites, setSelectedRequisites] = useState<string[]>([])
@@ -149,9 +162,7 @@ export function FoldersEnhanced() {
       
       setFolders([...folders, newFolder])
       toast.success("Папка создана")
-      setShowCreateDialog(false)
-      setNewFolderName("")
-      setSelectedRequisites([])
+      createFolderModal.close()
     } catch (error) {
       toast.error("Не удалось создать папку")
     }
@@ -222,10 +233,10 @@ export function FoldersEnhanced() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Папки реквизитов</h1>
+        <h1 className="text-2xl font-semibold dark:text-[#eeeeee]">Папки реквизитов</h1>
         <Button
-          onClick={() => setShowCreateDialog(true)}
-          className="bg-[#006039] hover:bg-[#006039]/90"
+          onClick={() => createFolderModal.open()}
+          className="bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90"
         >
           <Plus className="h-4 w-4 mr-2" />
           Создать папку
@@ -235,10 +246,10 @@ export function FoldersEnhanced() {
       {/* Folders List */}
       <div className="space-y-4">
         {folders.length === 0 ? (
-          <Card className="p-8 text-center text-gray-500">
-            <Folder className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>Нет созданных папок</p>
-            <p className="text-sm mt-2">Создайте папку для группировки реквизитов</p>
+          <Card className="p-8 text-center text-gray-500 dark:text-gray-400 dark:bg-[#29382f] dark:border-gray-700">
+            <Folder className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+            <p className="dark:text-gray-400">Нет созданных папок</p>
+            <p className="text-sm mt-2 dark:text-gray-500">Создайте папку для группировки реквизитов</p>
           </Card>
         ) : (
           folders.map((folder) => {
@@ -247,38 +258,39 @@ export function FoldersEnhanced() {
             const totalCount = folder.requisites.length
 
             return (
-              <Card key={folder.id} className="overflow-hidden">
+              <Card key={folder.id} className="overflow-hidden dark:bg-[#29382f] dark:border-gray-700">
                 <Collapsible open={isExpanded} onOpenChange={() => toggleFolder(folder.id)}>
-                  <CollapsibleTrigger className="w-full">
-                    <div className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-3">
+                  <div className="p-4 hover:bg-gray-50 dark:hover:bg-[#29382f]/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <CollapsibleTrigger className="flex items-center gap-3 flex-1 text-left">
                         {isExpanded ? (
                           <>
-                            <FolderOpen className="h-6 w-6 text-[#006039]" />
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                            <FolderOpen className="h-6 w-6 text-[#006039] dark:text-[#2d6a42]" />
+                            <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                           </>
                         ) : (
                           <>
-                            <Folder className="h-6 w-6 text-[#006039]" />
-                            <ChevronRight className="h-4 w-4 text-gray-500" />
+                            <Folder className="h-6 w-6 text-[#006039] dark:text-[#2d6a42]" />
+                            <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                           </>
                         )}
-                        <div className="text-left">
-                          <h3 className="font-semibold">{folder.title}</h3>
-                          <p className="text-sm text-gray-500">
+                        <div>
+                          <h3 className="font-semibold dark:text-[#eeeeee]">{folder.title}</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
                             {totalCount} реквизитов • {activeCount} активных
                           </p>
                         </div>
-                      </div>
+                      </CollapsibleTrigger>
                       
-                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleToggleAllRequisites(folder.id, true)}
                           disabled={activeCount === totalCount}
+                          className="dark:border-gray-600 dark:hover:bg-[#29382f]/50"
                         >
-                          <PlayCircle className="h-4 w-4 mr-1 text-green-600" />
+                          <PlayCircle className="h-4 w-4 mr-1 text-green-600 dark:text-green-500" />
                           Запустить все
                         </Button>
                         <Button
@@ -286,8 +298,9 @@ export function FoldersEnhanced() {
                           size="sm"
                           onClick={() => handleToggleAllRequisites(folder.id, false)}
                           disabled={activeCount === 0}
+                          className="dark:border-gray-600 dark:hover:bg-[#29382f]/50"
                         >
-                          <PauseCircle className="h-4 w-4 mr-1 text-red-600" />
+                          <PauseCircle className="h-4 w-4 mr-1 text-red-600 dark:text-red-500" />
                           Остановить все
                         </Button>
                         <Button
@@ -295,8 +308,9 @@ export function FoldersEnhanced() {
                           size="sm"
                           onClick={() => {
                             setSelectedFolder(folder)
-                            setShowEditDialog(true)
+                            editFolderModal.open()
                           }}
+                          className="dark:hover:bg-[#29382f]/50"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -304,31 +318,32 @@ export function FoldersEnhanced() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteFolder(folder.id)}
+                          className="dark:hover:bg-[#29382f]/50"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-red-500 dark:text-red-400" />
                         </Button>
                       </div>
                     </div>
-                  </CollapsibleTrigger>
+                  </div>
                   
                   <CollapsibleContent>
-                    <div className="border-t">
+                    <div className="border-t dark:border-gray-700">
                       {folder.requisites.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
+                        <div className="p-4 text-center text-gray-500 dark:text-gray-400">
                           <p>В папке нет реквизитов</p>
                         </div>
                       ) : (
-                        <div className="divide-y">
+                        <div className="divide-y dark:divide-gray-700">
                           {folder.requisites.map((requisite) => (
-                            <div key={requisite.id} className="p-4 hover:bg-gray-50">
+                            <div key={requisite.id} className="p-4 hover:bg-gray-50 dark:hover:bg-[#29382f]/30">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                  <CreditCard className="h-5 w-5 text-gray-400" />
+                                  <CreditCard className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                                   <div>
-                                    <div className="font-medium">
+                                    <div className="font-medium dark:text-[#eeeeee]">
                                       {requisite.cardNumber}
                                     </div>
-                                    <div className="text-sm text-gray-500">
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
                                       {requisite.bankType} • {requisite.recipientName}
                                     </div>
                                   </div>
@@ -336,10 +351,10 @@ export function FoldersEnhanced() {
                                 
                                 <div className="flex items-center gap-4">
                                   <div className="text-right">
-                                    <div className="text-sm">
+                                    <div className="text-sm dark:text-[#eeeeee]">
                                       Оборот: {(requisite.dailyTurnover || 0).toLocaleString()} / {(requisite.dailyLimit || 0).toLocaleString()} ₽
                                     </div>
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
                                       За месяц: {(requisite.monthlyTurnover || 0).toLocaleString()} / {(requisite.monthlyLimit || 0).toLocaleString()} ₽
                                     </div>
                                   </div>
@@ -348,7 +363,9 @@ export function FoldersEnhanced() {
                                     variant={requisite.isActive ? "success" : "secondary"}
                                     className={cn(
                                       "min-w-[80px] justify-center",
-                                      requisite.isActive ? "bg-green-100 text-green-800" : ""
+                                      requisite.isActive 
+                                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
+                                        : "dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
                                     )}
                                   >
                                     {requisite.isActive ? "Активен" : "Выключен"}
@@ -375,20 +392,20 @@ export function FoldersEnhanced() {
 
       {/* Unassigned Requisites */}
       {getUnassignedRequisites().length > 0 && (
-        <Card className="p-4">
+        <Card className="p-4 dark:bg-[#29382f] dark:border-gray-700">
           <div className="flex items-center gap-2 mb-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600" />
-            <h3 className="font-semibold">Реквизиты без папки</h3>
+            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500" />
+            <h3 className="font-semibold dark:text-[#eeeeee]">Реквизиты без папки</h3>
           </div>
           <div className="space-y-2">
             {getUnassignedRequisites().map((requisite) => (
-              <div key={requisite.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={requisite.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#29382f]/50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <CreditCard className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm">{requisite.cardNumber}</span>
-                  <span className="text-sm text-gray-500">{requisite.bankType}</span>
+                  <CreditCard className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <span className="text-sm dark:text-[#eeeeee]">{requisite.cardNumber}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{requisite.bankType}</span>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">
                   Не назначен
                 </Badge>
               </div>
@@ -398,38 +415,39 @@ export function FoldersEnhanced() {
       )}
 
       {/* Create Folder Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
+      <Dialog open={createFolderModal.isOpen} onOpenChange={createFolderModal.setOpen}>
+        <DialogContent className="dark:bg-[#29382f] dark:border-gray-700">
           <DialogHeader>
-            <DialogTitle>Создать папку</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="dark:text-[#eeeeee]">Создать папку</DialogTitle>
+            <DialogDescription className="dark:text-gray-400">
               Создайте папку для группировки реквизитов
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div>
-              <Label htmlFor="folder-name">Название папки</Label>
+              <Label htmlFor="folder-name" className="dark:text-[#eeeeee]">Название папки</Label>
               <Input
                 id="folder-name"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="Например, Основные карты"
+                className="dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
               />
             </div>
             
             <div>
-              <Label>Выберите реквизиты</Label>
-              <div className="border rounded-lg max-h-60 overflow-y-auto p-3 space-y-2">
+              <Label className="dark:text-[#eeeeee]">Выберите реквизиты</Label>
+              <div className="border dark:border-gray-600 rounded-lg max-h-60 overflow-y-auto p-3 space-y-2 dark:bg-[#0f0f0f]">
                 {requisites.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                     Нет доступных реквизитов
                   </p>
                 ) : (
                   requisites.map((requisite) => (
                     <label
                       key={requisite.id}
-                      className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-[#29382f]/30 rounded cursor-pointer"
                     >
                       <Checkbox
                         checked={selectedRequisites.includes(requisite.id)}
@@ -440,11 +458,12 @@ export function FoldersEnhanced() {
                             setSelectedRequisites(selectedRequisites.filter(id => id !== requisite.id))
                           }
                         }}
+                        className="dark:border-gray-600 dark:data-[state=checked]:bg-[#2d6a42] dark:data-[state=checked]:border-[#2d6a42]"
                       />
-                      <CreditCard className="h-4 w-4 text-gray-400" />
+                      <CreditCard className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">{requisite.cardNumber}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-sm font-medium dark:text-[#eeeeee]">{requisite.cardNumber}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           {requisite.bankType} • {requisite.recipientName}
                         </div>
                       </div>
@@ -456,16 +475,16 @@ export function FoldersEnhanced() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowCreateDialog(false)
-              setNewFolderName("")
-              setSelectedRequisites([])
-            }}>
+            <Button 
+              variant="outline" 
+              onClick={() => createFolderModal.close()}
+              className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50"
+            >
               Отмена
             </Button>
             <Button
               onClick={handleCreateFolder}
-              className="bg-[#006039] hover:bg-[#006039]/90"
+              className="bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90"
               disabled={!newFolderName.trim() || selectedRequisites.length === 0}
             >
               Создать

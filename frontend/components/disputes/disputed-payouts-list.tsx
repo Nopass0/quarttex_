@@ -544,7 +544,7 @@ export function DisputedPayoutsList() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold">
-                        Выплата #{payout.numericId}
+                        {payout.numericId}
                       </h3>
                       <Badge className={cn("border", disputeStatusConfig[payout.disputeStatus]?.color)}>
                         {disputeStatusConfig[payout.disputeStatus]?.label}
@@ -607,7 +607,7 @@ export function DisputedPayoutsList() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Спор по выплате #{selectedPayout?.numericId}
+              Спор по выплате ${selectedPayout?.numericId}
             </DialogTitle>
             <DialogDescription>
               Детальная информация о спорной выплате

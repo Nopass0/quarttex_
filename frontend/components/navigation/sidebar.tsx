@@ -39,6 +39,7 @@ import { useTraderFinancials } from "@/hooks/use-trader-financials"
 import { toast } from "sonner"
 import { Shield } from "lucide-react"
 import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal"
+import { ThemeSwitcher } from "@/components/ui/theme-toggle"
 
 interface NavItem {
   title: string
@@ -361,8 +362,8 @@ export function Sidebar({ variant }: SidebarProps) {
           }}
           className={cn(
             "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200",
-            "text-gray-800 hover:text-gray-950 font-semibold",
-            isActive ? "bg-[#006039]/10 text-[#006039] font-medium border-l-4 border-[#006039] -ml-[1px]" : "hover:bg-gray-50",
+            "text-gray-800 hover:text-gray-950 font-semibold dark:text-[#eeeeee] dark:hover:text-[#eeeeee]",
+            isActive ? "bg-[#006039]/10 text-[#006039] font-medium border-l-4 border-[#006039] -ml-[1px] dark:bg-[#2d6a42]/10 dark:text-[#2d6a42] dark:border-[#2d6a42]" : "hover:bg-gray-50 dark:hover:bg-[#29382f]/20",
             level > 0 && "pl-12"
           )}
         >
@@ -370,7 +371,7 @@ export function Sidebar({ variant }: SidebarProps) {
             "flex items-center justify-center w-5 h-5",
             isActive && "text-[#006039]"
           )}>
-            <item.icon className="h-5 w-5 text-[#006039]" />
+            <item.icon className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
           </div>
           <span className="flex-1 text-left text-sm font-semibold">{item.title}</span>
           {hasChildren && (
@@ -394,28 +395,28 @@ export function Sidebar({ variant }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="h-screen w-64 sticky top-0 bg-white border-r border-gray-100 flex flex-col">
-        <div className="p-6 border-b border-gray-100">
+      <div className="h-screen w-64 sticky top-0 bg-white dark:bg-[#0f0f0f] border-r border-gray-100 dark:border-[#29382f] flex flex-col">
+        <div className="p-6 border-b border-gray-100 dark:border-[#29382f]">
           <div className="flex flex-col items-start">
             <Logo size="md" />
             {variant === "admin" && (
-              <span className="text-xs text-gray-500 mt-2">Админ-панель</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">Админ-панель</span>
             )}
             {variant === "agent" && (
-              <span className="text-xs text-gray-500 mt-2">Кабинет агента</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">Кабинет агента</span>
             )}
             {variant === "merchant" && (
-              <span className="text-xs text-gray-500 mt-2">Кабинет мерчанта</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">Кабинет мерчанта</span>
             )}
           </div>
         </div>
         
         {variant === "agent" && agent && (
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 dark:border-[#29382f]">
             <div className="space-y-1">
-              <div className="text-sm font-medium">{agent.name}</div>
-              <div className="text-xs text-gray-500">{agent.email}</div>
-              <div className="text-xs text-[#006039] font-medium">
+              <div className="text-sm font-medium dark:text-[#eeeeee]">{agent.name}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{agent.email}</div>
+              <div className="text-xs text-[#006039] dark:text-[#2d6a42] font-medium">
                 Комиссия: {agent.commissionRate}%
               </div>
             </div>
@@ -423,10 +424,10 @@ export function Sidebar({ variant }: SidebarProps) {
         )}
         
         {variant === "merchant" && merchant.merchantName && (
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 dark:border-[#29382f]">
             <div className="space-y-1">
-              <div className="text-sm font-medium">{merchant.merchantName}</div>
-              <div className="text-xs text-gray-500">ID: {merchant.merchantId}</div>
+              <div className="text-sm font-medium dark:text-[#eeeeee]">{merchant.merchantName}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">ID: {merchant.merchantId}</div>
             </div>
           </div>
         )}
@@ -436,9 +437,9 @@ export function Sidebar({ variant }: SidebarProps) {
           {variant === "trader" && financials && (
             <div className="mt-6 space-y-3 px-3">
               {/* Баланс */}
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Баланс</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Баланс</span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold">{Math.max(0, (financials.trustBalance || 0) - (financials.frozenUsdt || 0)).toFixed(2)}</span>
                     <span className="text-xs font-medium text-[#006039]">USDT</span>
@@ -458,9 +459,9 @@ export function Sidebar({ variant }: SidebarProps) {
               </div>
               
               {/* Депозит */}
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Депозит</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Депозит</span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold">{(financials.deposit || 0).toFixed(2)}</span>
                     <span className="text-xs font-medium text-[#006039]">USDT</span>
@@ -469,9 +470,9 @@ export function Sidebar({ variant }: SidebarProps) {
               </div>
               
               {/* Общая прибыль */}
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Прибыль</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Прибыль</span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold text-[#006039]">
                       +{((financials.profitFromDeals || 0) + (financials.profitFromPayouts || 0)).toFixed(2)}
@@ -524,21 +525,22 @@ export function Sidebar({ variant }: SidebarProps) {
           )}
         </nav>
         
-        {/* Logout Button */}
-        <div className="p-4 border-t border-gray-100">
+        {/* Theme Switcher and Logout Button */}
+        <div className="p-4 border-t border-gray-100 dark:border-[#29382f] space-y-2">
+          <ThemeSwitcher />
           <Button
             variant="ghost"
-            className="w-full justify-start text-gray-800 hover:text-gray-950 font-semibold hover:bg-gray-50"
+            className="w-full justify-start text-gray-800 hover:text-gray-950 font-semibold hover:bg-gray-50 dark:text-gray-200 dark:hover:text-gray-50 dark:hover:bg-gray-800"
             onClick={handleLogout}
           >
-            <LogOut className="h-5 w-5 mr-3 text-[#006039]" />
+            <LogOut className="h-5 w-5 mr-3 text-[#006039] dark:text-green-400" />
             <span className="text-sm font-semibold">Выход</span>
           </Button>
         </div>
       </div>
       
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white dark:bg-[#0f0f0f] dark:border-[#29382f]">
         <div className="flex items-center justify-around p-2">
           {navItems.slice(0, 4).map((item) => (
             <button
@@ -554,7 +556,7 @@ export function Sidebar({ variant }: SidebarProps) {
                 pathname === item.href && "text-[#006039]"
               )}
             >
-              <item.icon className="h-5 w-5 text-[#006039]" />
+              <item.icon className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
               <span className="text-xs">{item.title}</span>
             </button>
           ))}
@@ -570,7 +572,7 @@ export function Sidebar({ variant }: SidebarProps) {
       
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-white">
+        <div className="md:hidden fixed inset-0 z-50 bg-white dark:bg-[#0f0f0f]">
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-4 border-b">
               <Logo size="md" />

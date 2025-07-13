@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/popover'
 import { Search, UserPlus, Trash2, Ban, CheckCircle, Copy, RefreshCw, MoreHorizontal } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
-import { formatAmount } from '@/lib/utils'
+import { formatAmount, API_URL } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
@@ -96,7 +96,7 @@ export function TradersList() {
   const fetchTraders = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
+      const response = await fetch(`${API_URL}/admin/users`, {
         headers: {
           'x-admin-key': adminToken || '',
         },
@@ -120,7 +120,7 @@ export function TradersList() {
   const handleCreateTrader = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/create-user`, {
+      const response = await fetch(`${API_URL}/admin/create-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -137,9 +137,25 @@ export function TradersList() {
         }),
       })
       
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create trader')
+      if (!response.ok && response.status !== 201) {
+        let errorMessage = 'Failed to create trader'
+        try {
+          const contentType = response.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            const error = await response.json()
+            errorMessage = error.error || error.message || errorMessage
+          } else {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`
+          }
+        } catch (e) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+        throw new Error(errorMessage)
+      }
+      
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned invalid response format')
       }
       
       const data = await response.json()
@@ -169,7 +185,7 @@ export function TradersList() {
     
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/update-user`, {
+      const response = await fetch(`${API_URL}/admin/update-user`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +226,7 @@ export function TradersList() {
     
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/delete-user`, {
+      const response = await fetch(`${API_URL}/admin/delete-user`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +249,7 @@ export function TradersList() {
   const handleToggleBlock = async (trader: Trader) => {
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/update-user`, {
+      const response = await fetch(`${API_URL}/admin/update-user`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -289,7 +305,7 @@ export function TradersList() {
     
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/regenerate-password`, {
+      const response = await fetch(`${API_URL}/admin/regenerate-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -420,24 +436,25 @@ export function TradersList() {
           <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableCaption>Список всех трейдеров в системе</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[200px]">Трейдер</TableHead>
-                <TableHead className="min-w-[120px]">Баланс</TableHead>
-                <TableHead className="min-w-[120px]">Депозит</TableHead>
-                <TableHead className="min-w-[120px]">Оборот</TableHead>
-                <TableHead className="min-w-[100px]">Реквизиты</TableHead>
-                <TableHead className="min-w-[140px]">Заморожено</TableHead>
-                <TableHead className="min-w-[160px]">Прибыль</TableHead>
-                <TableHead className="min-w-[120px]">Статус</TableHead>
-                <TableHead className="min-w-[150px]">Агент и команда</TableHead>
-                <TableHead className="min-w-[140px]">Дата регистрации</TableHead>
-                <TableHead className="min-w-[60px]">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
+        <div className="w-full overflow-hidden rounded-lg border">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableCaption>Список всех трейдеров в системе</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">Трейдер</TableHead>
+                  <TableHead className="w-[100px]">Баланс</TableHead>
+                  <TableHead className="w-[100px]">Депозит</TableHead>
+                  <TableHead className="w-[100px]">Оборот</TableHead>
+                  <TableHead className="w-[80px]">Реквизиты</TableHead>
+                  <TableHead className="w-[120px]">Заморожено</TableHead>
+                  <TableHead className="w-[140px]">Прибыль</TableHead>
+                  <TableHead className="w-[100px]">Статус</TableHead>
+                  <TableHead className="w-[130px]">Агент и команда</TableHead>
+                  <TableHead className="w-[120px]">Дата регистрации</TableHead>
+                  <TableHead className="w-[60px]">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {filteredTraders.map((trader) => (
                 <TableRow 
@@ -569,6 +586,7 @@ export function TradersList() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
 

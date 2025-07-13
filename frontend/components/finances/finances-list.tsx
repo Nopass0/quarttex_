@@ -10,13 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  UrlDialog,
+  UrlDialogContent,
+  UrlDialogDescription,
+  UrlDialogFooter,
+  UrlDialogHeader,
+  UrlDialogTitle
+} from "@/components/ui/url-dialog"
 import { 
   Table, 
   TableBody, 
@@ -48,6 +48,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TraderHeader } from "@/components/trader/trader-header"
+import { useUrlModal } from "@/hooks/use-url-modal"
 
 interface Transaction {
   id: string
@@ -78,7 +79,17 @@ export function FinancesList() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("all")
-  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
+  const withdrawModal = useUrlModal({
+    modalName: "withdraw",
+    onClose: () => {
+      // Reset form state when closing
+      setWithdrawAmount("")
+      setSelectedWallet("")
+      setIsAddingNewWallet(false)
+      setNewWalletName("")
+      setNewWalletAddress("")
+    }
+  })
   const [financeStats, setFinanceStats] = useState({
     availableBalance: 0,
     todayEarnings: 0,
@@ -164,9 +175,7 @@ export function FinancesList() {
     }
     
     toast.success(`Заявка на вывод ${amount} USDT создана`)
-    setWithdrawDialogOpen(false)
-    setWithdrawAmount("")
-    setSelectedWallet("")
+    withdrawModal.close()
   }
   
   const handleAddWallet = () => {
@@ -191,19 +200,19 @@ export function FinancesList() {
   
   const getStatusBadge = (status: string) => {
     const statusConfig: any = {
-      CREATED: { label: "Создана", color: "bg-blue-50 text-blue-600 border-blue-200" },
-      IN_PROGRESS: { label: "В процессе", color: "bg-yellow-50 text-yellow-600 border-yellow-200" },
-      READY: { label: "Готово", color: "bg-[#006039]/10 text-[#006039] border-[#006039]/20" },
-      EXPIRED: { label: "Истекло", color: "bg-red-50 text-red-600 border-red-200" },
-      DISPUTE: { label: "Спор", color: "bg-purple-50 text-purple-600 border-purple-200" },
-      CANCELED: { label: "Отменено", color: "bg-gray-50 text-gray-600 border-gray-200" },
+      CREATED: { label: "Создана", color: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" },
+      IN_PROGRESS: { label: "В процессе", color: "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" },
+      READY: { label: "Готово", color: "bg-[#006039]/10 text-[#006039] border-[#006039]/20 dark:bg-[#2d6a42]/20 dark:text-[#2d6a42] dark:border-[#2d6a42]/30" },
+      EXPIRED: { label: "Истекло", color: "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" },
+      DISPUTE: { label: "Спор", color: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800" },
+      CANCELED: { label: "Отменено", color: "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700" },
     }
     const config = statusConfig[status] || statusConfig.CREATED
     return config
   }
   
   const getTypeBadge = (type: string) => {
-    return type === "IN" ? "bg-[#006039]/10 text-[#006039]" : "bg-red-50 text-red-600"
+    return type === "IN" ? "bg-[#006039]/10 text-[#006039] dark:bg-[#2d6a42]/20 dark:text-[#2d6a42]" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
   }
   
   const filteredTransactions = transactions.filter(tx => {
@@ -228,64 +237,64 @@ export function FinancesList() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Финансы</h1>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">Финансы</h1>
         
         <TraderHeader />
       </div>
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
+        <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">БАЛАНС КОШЕЛЬКА</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">БАЛАНС КОШЕЛЬКА</span>
             <Button 
               variant="link" 
-              className="text-[#006039] p-0 h-auto text-sm"
-              onClick={() => setWithdrawDialogOpen(true)}
+              className="text-[#006039] dark:text-[#2d6a42] p-0 h-auto text-sm"
+              onClick={() => withdrawModal.open()}
             >
               Вывести средства
             </Button>
           </div>
-          <div className="text-2xl font-bold">{financeStats.availableBalance.toLocaleString('ru-RU')} {financeStats.currency}</div>
+          <div className="text-2xl font-bold dark:text-[#eeeeee]">{financeStats.availableBalance.toLocaleString('ru-RU')} {financeStats.currency}</div>
         </Card>
         
-        <Card className="p-6">
+        <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">ЗАРАБОТАНО СЕГОДНЯ</span>
-            <span className="text-xs text-gray-500">за {format(new Date(), "d MMMM", { locale: ru })}</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">ЗАРАБОТАНО СЕГОДНЯ</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">за {format(new Date(), "d MMMM", { locale: ru })}</span>
           </div>
-          <div className="text-2xl font-bold">{financeStats.todayEarnings.toLocaleString('ru-RU')} {financeStats.currency}</div>
+          <div className="text-2xl font-bold dark:text-[#eeeeee]">{financeStats.todayEarnings.toLocaleString('ru-RU')} {financeStats.currency}</div>
         </Card>
         
-        <Card className="p-6">
+        <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600">ПРИБЫЛЬ</span>
-            <span className="text-xs text-gray-500">за все время</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">ПРИБЫЛЬ</span>
+            <span className="text-xs text-gray-500 dark:text-gray-500">за все время</span>
           </div>
-          <div className="text-2xl font-bold text-[#006039]">+{financeStats.totalProfit.toLocaleString('ru-RU')} {financeStats.currency}</div>
+          <div className="text-2xl font-bold text-[#006039] dark:text-[#2d6a42]">+{financeStats.totalProfit.toLocaleString('ru-RU')} {financeStats.currency}</div>
         </Card>
       </div>
       
       {/* Filters */}
-      <Card className="p-4">
+      <Card className="p-4 dark:bg-[#29382f] dark:border-gray-700">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
               <Input
                 placeholder="Поиск по ID транзакции"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
               />
             </div>
           </div>
           
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
               <SelectValue placeholder="Статус" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
               <SelectItem value="all">Все статусы</SelectItem>
               <SelectItem value="CREATED">Создано</SelectItem>
               <SelectItem value="IN_PROGRESS">В процессе</SelectItem>
@@ -297,11 +306,11 @@ export function FinancesList() {
           </Select>
           
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[180px]">
-              <Calendar className="mr-2 h-4 w-4 text-[#006039]" />
+            <SelectTrigger className="w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
+              <Calendar className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
               <SelectValue placeholder="Период" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
               <SelectItem value="all">Все время</SelectItem>
               <SelectItem value="today">Сегодня</SelectItem>
               <SelectItem value="week">Эта неделя</SelectItem>
@@ -309,37 +318,37 @@ export function FinancesList() {
             </SelectContent>
           </Select>
           
-          <Button variant="outline">
-            <Filter className="mr-2 h-4 w-4 text-[#006039]" />
+          <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
+            <Filter className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
             Фильтры
           </Button>
           
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4 text-[#006039]" />
+          <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
+            <Download className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
             Экспорт
           </Button>
         </div>
       </Card>
       
       {/* Transactions Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden dark:bg-[#29382f] dark:border-gray-700">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-              <TableHead className="font-medium text-gray-600">ID</TableHead>
-              <TableHead className="font-medium text-gray-600">Дата</TableHead>
-              <TableHead className="font-medium text-gray-600">Тип</TableHead>
-              <TableHead className="font-medium text-gray-600">Метод</TableHead>
-              <TableHead className="font-medium text-gray-600">Сумма</TableHead>
-              <TableHead className="font-medium text-gray-600">Статус</TableHead>
-              <TableHead className="font-medium text-gray-600">Мерчант</TableHead>
-              <TableHead className="font-medium text-gray-600 text-right">Действия</TableHead>
+            <TableRow className="bg-gray-50/50 hover:bg-gray-50/50 dark:bg-[#0f0f0f] dark:hover:bg-[#0f0f0f]">
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">ID</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">Дата</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">Тип</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">Метод</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">Сумма</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">Статус</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400">Мерчант</TableHead>
+              <TableHead className="font-medium text-gray-600 dark:text-gray-400 text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-gray-500">
+                <TableCell colSpan={8} className="text-center py-12 text-gray-500 dark:text-gray-400">
                   Транзакции не найдены
                 </TableCell>
               </TableRow>
@@ -347,11 +356,11 @@ export function FinancesList() {
               filteredTransactions.map((transaction) => {
                 const statusInfo = getStatusBadge(transaction.status)
                 return (
-                  <TableRow key={transaction.id} className="hover:bg-gray-50/50">
-                    <TableCell className="font-mono text-sm">
-                      #{transaction.numericId}
+                  <TableRow key={transaction.id} className="hover:bg-gray-50/50 dark:hover:bg-[#29382f]/30">
+                    <TableCell className="font-mono text-sm dark:text-[#eeeeee]">
+                      ${transaction.numericId}
                     </TableCell>
-                    <TableCell className="text-sm text-gray-600">
+                    <TableCell className="text-sm text-gray-600 dark:text-gray-400">
                       {format(new Date(transaction.createdAt), "dd.MM.yyyy HH:mm")}
                     </TableCell>
                     <TableCell>
@@ -374,10 +383,10 @@ export function FinancesList() {
                             }}
                           />
                         )}
-                        <span className="text-sm">{transaction.method?.name || "—"}</span>
+                        <span className="text-sm dark:text-[#eeeeee]">{transaction.method?.name || "—"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium text-sm">
+                    <TableCell className="font-medium text-sm dark:text-[#eeeeee]">
                       {transaction.amount.toLocaleString('ru-RU')} {transaction.currency || "RUB"}
                     </TableCell>
                     <TableCell>
@@ -388,7 +397,7 @@ export function FinancesList() {
                         {statusInfo.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-sm dark:text-[#eeeeee]">
                       {transaction.merchant?.name || "—"}
                     </TableCell>
                     <TableCell className="text-right">
@@ -397,14 +406,14 @@ export function FinancesList() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 dark:hover:bg-[#29382f]/50"
                           >
-                            <MoreVertical className="h-4 w-4 text-[#006039]" />
+                            <MoreVertical className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4 text-[#006039]" />
+                        <DropdownMenuContent align="end" className="w-48 dark:bg-[#29382f] dark:border-gray-700">
+                          <DropdownMenuItem className="dark:hover:bg-[#29382f]/50">
+                            <Eye className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
                             Подробнее
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -418,21 +427,21 @@ export function FinancesList() {
         </Table>
         
         {filteredTransactions.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 text-sm text-gray-600">
+          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
             Показано {filteredTransactions.length} из {transactions.length} записей
           </div>
         )}
       </Card>
       
       {/* Withdraw Dialog */}
-      <Dialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Вывод средств</DialogTitle>
-            <DialogDescription>
+      <UrlDialog modalName="withdraw">
+        <UrlDialogContent className="max-w-md">
+          <UrlDialogHeader>
+            <UrlDialogTitle>Вывод средств</UrlDialogTitle>
+            <UrlDialogDescription>
               Выберите кошелек USDT TRC20 для вывода средств
-            </DialogDescription>
-          </DialogHeader>
+            </UrlDialogDescription>
+          </UrlDialogHeader>
           <div className="space-y-4">
             {!isAddingNewWallet ? (
               <>
@@ -514,15 +523,15 @@ export function FinancesList() {
               </>
             )}
           </div>
-          <DialogFooter>
+          <UrlDialogFooter>
             {!isAddingNewWallet ? (
               <>
-                <Button variant="outline" onClick={() => setWithdrawDialogOpen(false)}>
+                <Button variant="outline" onClick={() => withdrawModal.close()}>
                   Отмена
                 </Button>
                 <Button 
                   onClick={handleWithdraw}
-                  className="bg-[#006039] hover:bg-[#006039]/90"
+                  className="bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90"
                   disabled={!selectedWallet || !withdrawAmount}
                 >
                   <WalletIcon className="mr-2 h-4 w-4" />
@@ -543,16 +552,16 @@ export function FinancesList() {
                 </Button>
                 <Button 
                   onClick={handleAddWallet}
-                  className="bg-[#006039] hover:bg-[#006039]/90"
+                  className="bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90"
                   disabled={!newWalletName || !newWalletAddress}
                 >
                   Добавить кошелек
                 </Button>
               </>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </UrlDialogFooter>
+        </UrlDialogContent>
+      </UrlDialog>
     </div>
   )
 }

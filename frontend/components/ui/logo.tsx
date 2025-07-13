@@ -29,16 +29,16 @@ export function Logo({ size = "md", variant = "full", className }: LogoProps) {
 
   if (variant === "mini") {
     return (
-      <div className={cn("flex items-center justify-center", iconSize, className)}>
-        <span className={cn("font-bold text-[#006039]", textSize)}>$</span>
+      <div className={cn("flex items-center justify-center", iconSize, className)} suppressHydrationWarning>
+        <span className={cn("font-bold text-[#006039] dark:text-[#2d6a42]", textSize)}>$</span>
       </div>
     )
   }
 
   return (
-    <div className={cn("flex items-center font-bold tracking-tight", textSize, className)}>
+    <div className={cn("flex items-center font-bold tracking-tight dark:text-[#eeeeee]", textSize, className)} suppressHydrationWarning>
       <span>CHA</span>
-      <span className="text-[#006039] mx-0.5" style={{ fontSize: '1.1em', letterSpacing: '0.05em' }}>$</span>
+      <span className="text-[#006039] dark:text-[#2d6a42] mx-0.5" style={{ fontSize: '1.1em', letterSpacing: '0.05em' }}>$</span>
       <span>E</span>
     </div>
   )

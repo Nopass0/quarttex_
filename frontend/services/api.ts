@@ -33,13 +33,19 @@ traderApiInstance.interceptors.response.use(
       console.error('Network error - cannot connect to API server at:', API_URL)
       console.error('Make sure the backend is running on port 3000')
     } else if (error.response) {
-      console.error('Trader API error:', error.response.status, error.response.data)
-      if (error.response.status === 401 || error.response.status === 403) {
+      // Only log unexpected errors (500s and other server errors)
+      // 4xx errors like 404, 401, 403 are often expected and handled by components
+      if (error.response.status >= 500) {
+        console.error('Trader API server error:', error.response.status, error.response.data)
+      } else if (error.response.status === 401 || error.response.status === 403) {
+        // Only log auth errors if they're not expected
+        console.warn('Trader API auth error:', error.response.status)
         useTraderAuth.getState().logout()
         if (typeof window !== 'undefined') {
           window.location.href = '/trader/login'
         }
       }
+      // Don't log 404s and other client errors as they're often expected
     } else {
       console.error('Trader API request error:', error.message)
     }
@@ -125,7 +131,10 @@ export const traderApi = {
   },
   // Devices endpoints
   getDevices: async () => {
+    console.log('Sending devices request with token:', useTraderAuth.getState().token?.substring(0, 10) + '...')
     const response = await traderApiInstance.get('/trader/devices')
+    console.log('Devices response status:', response.status)
+    console.log('Devices response data:', response.data)
     return response.data
   },
   getDevice: async (id: string) => {
@@ -133,7 +142,9 @@ export const traderApi = {
     return response.data
   },
   createDevice: async (data: { name: string }) => {
+    console.log('Creating device with data:', data)
     const response = await traderApiInstance.post('/trader/devices', data)
+    console.log('Create device response:', response.data)
     return response.data
   },
   regenerateDeviceToken: async (id: string) => {
@@ -187,43 +198,6 @@ export const traderApi = {
   // Messages endpoints
   getMessages: async (params?: any) => {
     const response = await traderApiInstance.get('/trader/messages', { params })
-    return response.data
-  },
-  // Devices endpoints
-  getDevices: async () => {
-    const response = await traderApiInstance.get('/trader/devices')
-    return response.data
-  },
-  getDevice: async (id: string) => {
-    const response = await traderApiInstance.get(`/trader/devices/${id}`)
-    return response.data
-  },
-  createDevice: async (data: { name: string }) => {
-    const response = await traderApiInstance.post('/trader/devices', data)
-    return response.data
-  },
-  regenerateDeviceToken: async (id: string) => {
-    const response = await traderApiInstance.post(`/trader/devices/${id}/regenerate-token`)
-    return response.data
-  },
-  deleteDevice: async (id: string) => {
-    const response = await traderApiInstance.delete(`/trader/devices/${id}`)
-    return response.data
-  },
-  stopDevice: async (id: string) => {
-    const response = await traderApiInstance.patch(`/trader/devices/${id}/stop`)
-    return response.data
-  },
-  startDevice: async (id: string) => {
-    const response = await traderApiInstance.patch(`/trader/devices/${id}/start`)
-    return response.data
-  },
-  linkDeviceToBankDetail: async (deviceId: string, bankDetailId: string) => {
-    const response = await traderApiInstance.post('/trader/devices/link', { deviceId, bankDetailId })
-    return response.data
-  },
-  unlinkDeviceFromBankDetail: async (deviceId: string, bankDetailId: string) => {
-    const response = await traderApiInstance.post('/trader/devices/unlink', { deviceId, bankDetailId })
     return response.data
   },
   // Dashboard endpoint

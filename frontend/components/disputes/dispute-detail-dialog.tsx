@@ -221,7 +221,7 @@ export function DisputeDetailDialog({
       <DialogContent className="max-w-3xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
-            Спор #{dispute.type === "deal" ? dispute.transactionId : dispute.payoutId}
+            Спор ${dispute.type === "deal" ? dispute.transactionId : dispute.payoutId}
           </DialogTitle>
           <DialogDescription>
             <div className="flex items-center gap-4 mt-2">

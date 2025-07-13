@@ -43,6 +43,9 @@ import {
   User,
   Package,
   MoreHorizontal,
+  Building2,
+  CreditCard,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -121,6 +124,83 @@ const mockMessages: Message[] = [
   },
 ];
 
+const AVAILABLE_BANKS = [
+  { code: "SBER", name: "Сбербанк" },
+  { code: "TINK", name: "Тинькофф" },
+  { code: "VTB", name: "ВТБ" },
+  { code: "ALFA", name: "Альфа-Банк" },
+  { code: "GAZPROM", name: "Газпромбанк" },
+  { code: "OZON", name: "Ozon банк" },
+  { code: "RAIFF", name: "Райффайзен" },
+  { code: "POCHTA", name: "Почта Банк" },
+  { code: "RSHB", name: "Россельхозбанк" },
+  { code: "MTS", name: "МТС Банк" },
+  { code: "PSB", name: "ПСБ" },
+  { code: "SOVCOM", name: "Совкомбанк" },
+  { code: "URALSIB", name: "Уралсиб" },
+  { code: "MKB", name: "МКБ" },
+  { code: "ROSBANK", name: "Росбанк" },
+  { code: "OTKRITIE", name: "Открытие" },
+  { code: "AVANGARD", name: "Авангард" },
+  { code: "ZENIT", name: "Зенит" },
+  { code: "AKBARS", name: "Ак Барс" },
+  { code: "SBP", name: "СБП" }
+];
+
+const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
+  const bankLogos: Record<string, string> = {
+    SBERBANK: "/bank-logos/sberbank.svg",
+    SBER: "/bank-logos/sberbank.svg",
+    TBANK: "/bank-logos/tbank.svg",
+    TINKOFF: "/bank-logos/tinkoff.svg",
+    TINK: "/bank-logos/tinkoff.svg",
+    VTB: "/bank-logos/vtb.svg",
+    ALFABANK: "/bank-logos/alfabank.svg",
+    ALFA: "/bank-logos/alfabank.svg",
+    GAZPROMBANK: "/bank-logos/gazprombank.svg",
+    GAZPROM: "/bank-logos/gazprombank.svg",
+    OZONBANK: "/bank-logos/ozon.svg",
+    OZON: "/bank-logos/ozon.svg",
+    RAIFFEISENBANK: "/bank-logos/raiffeisen.svg",
+    RAIFF: "/bank-logos/raiffeisen.svg",
+    POCHTABANK: "/bank-logos/pochtabank.svg",
+    POCHTA: "/bank-logos/pochtabank.svg",
+    RSHB: "/bank-logos/rshb.svg",
+    ROSSELKHOZBANK: "/bank-logos/rshb.svg",
+    MTS: "/bank-logos/mts.svg",
+    MTSBANK: "/bank-logos/mts.svg",
+    PSB: "/bank-logos/psb.svg",
+    SOVCOMBANK: "/bank-logos/sovcombank.svg",
+    SOVCOM: "/bank-logos/sovcombank.svg",
+    URALSIB: "/bank-logos/uralsib.svg",
+    MKB: "/bank-logos/mkb.svg",
+    ROSBANK: "/bank-logos/rosbank.svg",
+    OTKRITIE: "/bank-logos/otkritie.svg",
+    OPENBANK: "/bank-logos/otkritie.svg",
+    AVANGARD: "/bank-logos/avangard.svg",
+    ZENIT: "/bank-logos/zenit.svg",
+    AKBARS: "/bank-logos/akbars.svg",
+    SBP: "/bank-logos/sbp.svg",
+  };
+
+  const sizeClasses = size === "sm" ? "w-8 h-8" : "w-10 h-10";
+  const logoPath = bankLogos[bankType?.toUpperCase()];
+
+  if (!logoPath) {
+    return (
+      <div className={`${sizeClasses} rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center`}>
+        <CreditCard className="w-5 h-5 text-gray-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${sizeClasses} rounded-lg bg-white border border-gray-200 flex items-center justify-center overflow-hidden`}>
+      <img src={logoPath} alt={bankType} className="w-full h-full object-contain p-1" />
+    </div>
+  );
+};
+
 export function MessagesListNew() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +213,17 @@ export function MessagesListNew() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [viewMode, setViewMode] = useState<"team" | "user">("team");
+  
+  // New filter states
+  const [devices, setDevices] = useState<any[]>([]);
+  const [deviceSearch, setDeviceSearch] = useState("");
+  const [filterMethod, setFilterMethod] = useState("all");
+  const [methods, setMethods] = useState<any[]>([]);
+  const [methodSearch, setMethodSearch] = useState("");
+  const [filterBank, setFilterBank] = useState("all");
+  const [bankSearch, setBankSearch] = useState("");
+  const [filterAmountType, setFilterAmountType] = useState<"all" | "exact" | "range">("all");
+  const [filterAmount, setFilterAmount] = useState({ exact: "", min: "", max: "" });
 
   const router = useRouter();
 
@@ -192,8 +283,28 @@ export function MessagesListNew() {
     }
   };
 
+  const fetchDevices = async () => {
+    try {
+      const response = await traderApi.getDevices();
+      setDevices(response.devices || response || []);
+    } catch (error) {
+      console.error("Failed to fetch devices:", error);
+    }
+  };
+
+  const fetchMethods = async () => {
+    try {
+      const response = await traderApi.getMethods();
+      setMethods(response.methods || response || []);
+    } catch (error) {
+      console.error("Failed to fetch methods:", error);
+    }
+  };
+
   useEffect(() => {
     fetchMessages();
+    fetchDevices();
+    fetchMethods();
   }, []);
 
   const getFilteredMessages = () => {
@@ -220,6 +331,34 @@ export function MessagesListNew() {
     // Device filter
     if (filterDevice !== "all") {
       filtered = filtered.filter((m) => m.deviceId === filterDevice);
+    }
+
+    // Method filter
+    if (filterMethod !== "all") {
+      // Filter by method - this would need to be mapped from message metadata
+      filtered = filtered.filter((m) => m.metadata?.methodId === filterMethod);
+    }
+
+    // Bank filter
+    if (filterBank !== "all") {
+      // Filter by bank - extract from package name or metadata
+      filtered = filtered.filter((m) => {
+        const packageLower = (m.packageName || '').toLowerCase();
+        const bankLower = filterBank.toLowerCase();
+        return packageLower.includes(bankLower) || m.metadata?.bankType === filterBank;
+      });
+    }
+
+    // Amount filter
+    if (filterAmountType !== "all") {
+      if (filterAmountType === "exact" && filterAmount.exact) {
+        const exactAmount = parseFloat(filterAmount.exact);
+        filtered = filtered.filter((m) => m.amount === exactAmount);
+      } else if (filterAmountType === "range") {
+        const minAmount = filterAmount.min ? parseFloat(filterAmount.min) : 0;
+        const maxAmount = filterAmount.max ? parseFloat(filterAmount.max) : Infinity;
+        filtered = filtered.filter((m) => (m.amount || 0) >= minAmount && (m.amount || 0) <= maxAmount);
+      }
     }
 
     // Date filter
@@ -320,6 +459,9 @@ export function MessagesListNew() {
               Не выбраны
               {(filterStatus !== "all" ||
                 filterDevice !== "all" ||
+                filterMethod !== "all" ||
+                filterBank !== "all" ||
+                filterAmountType !== "all" ||
                 filterDateFrom ||
                 filterDateTo) && (
                 <Badge className="ml-1 bg-[#006039] text-white">
@@ -327,6 +469,9 @@ export function MessagesListNew() {
                     [
                       filterStatus !== "all",
                       filterDevice !== "all",
+                      filterMethod !== "all",
+                      filterBank !== "all",
+                      filterAmountType !== "all",
                       filterDateFrom || filterDateTo,
                     ].filter(Boolean).length
                   }
@@ -381,9 +526,9 @@ export function MessagesListNew() {
                         variant="ghost"
                         size="default"
                         className={cn(
-                          "w-full justify-start h-12",
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
                           filterStatus === "all" &&
-                            "text-[#006039] bg-green-50",
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
                         )}
                         onClick={() => setFilterStatus("all")}
                       >
@@ -393,9 +538,9 @@ export function MessagesListNew() {
                         variant="ghost"
                         size="default"
                         className={cn(
-                          "w-full justify-start h-12",
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
                           filterStatus === "processed" &&
-                            "text-[#006039] bg-green-50",
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
                         )}
                         onClick={() => setFilterStatus("processed")}
                       >
@@ -405,9 +550,9 @@ export function MessagesListNew() {
                         variant="ghost"
                         size="default"
                         className={cn(
-                          "w-full justify-start h-12",
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
                           filterStatus === "danger" &&
-                            "text-[#006039] bg-green-50",
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
                         )}
                         onClick={() => setFilterStatus("danger")}
                       >
@@ -417,9 +562,9 @@ export function MessagesListNew() {
                         variant="ghost"
                         size="default"
                         className={cn(
-                          "w-full justify-start h-12",
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
                           filterStatus === "warning" &&
-                            "text-[#006039] bg-green-50",
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
                         )}
                         onClick={() => setFilterStatus("warning")}
                       >
@@ -429,9 +574,9 @@ export function MessagesListNew() {
                         variant="ghost"
                         size="default"
                         className={cn(
-                          "w-full justify-start h-12",
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
                           filterStatus === "new" &&
-                            "text-[#006039] bg-green-50",
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
                         )}
                         onClick={() => setFilterStatus("new")}
                       >
@@ -467,7 +612,12 @@ export function MessagesListNew() {
                     <div className="p-2 border-b">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input placeholder="Поиск устройств" className="pl-9" />
+                        <Input 
+                          placeholder="Поиск устройств" 
+                          className="pl-9" 
+                          value={deviceSearch}
+                          onChange={(e) => setDeviceSearch(e.target.value)}
+                        />
                       </div>
                     </div>
                     <div className="max-h-64 overflow-auto">
@@ -475,9 +625,9 @@ export function MessagesListNew() {
                         variant="ghost"
                         size="default"
                         className={cn(
-                          "w-full justify-start h-12",
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
                           filterDevice === "all" &&
-                            "text-[#006039] bg-green-50",
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
                         )}
                         onClick={() => setFilterDevice("all")}
                       >
@@ -493,6 +643,36 @@ export function MessagesListNew() {
                           </div>
                         </div>
                       </Button>
+                      {devices
+                        .filter((device) => 
+                          !deviceSearch || 
+                          device.name?.toLowerCase().includes(deviceSearch.toLowerCase()) ||
+                          device.id?.toLowerCase().includes(deviceSearch.toLowerCase())
+                        )
+                        .map((device) => (
+                          <Button
+                            key={device.id}
+                            variant="ghost"
+                            size="default"
+                            className={cn(
+                              "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                              filterDevice === device.id && "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                            )}
+                            onClick={() => setFilterDevice(device.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Smartphone className="h-4 w-4 text-gray-600" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium">{device.name}</div>
+                                <div className="text-sm text-gray-500">
+                                  {device.isOnline ? "Онлайн" : "Оффлайн"} • ID: {device.id.slice(0, 8)}...
+                                </div>
+                              </div>
+                            </div>
+                          </Button>
+                        ))}
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -522,6 +702,299 @@ export function MessagesListNew() {
                 </div>
               </div>
 
+              {/* Method Filter */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Метод оплаты</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      className="w-full justify-between h-12"
+                    >
+                      <span className="text-[#006039]">
+                        {filterMethod === "all" ? "Все методы" : methods.find(m => m.id === filterMethod)?.name || filterMethod}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[465px] p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Поиск методов"
+                          className="pl-9"
+                          value={methodSearch}
+                          onChange={(e) => setMethodSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-auto">
+                      <Button
+                        variant="ghost"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                          filterMethod === "all" &&
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                        )}
+                        onClick={() => setFilterMethod("all")}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">Все методы</div>
+                            <div className="text-sm text-gray-500">
+                              Не фильтровать по методу оплаты
+                            </div>
+                          </div>
+                        </div>
+                      </Button>
+                      {methods
+                        .filter((method) => 
+                          !methodSearch || 
+                          method.name?.toLowerCase().includes(methodSearch.toLowerCase()) ||
+                          method.type?.toLowerCase().includes(methodSearch.toLowerCase())
+                        )
+                        .map((method) => {
+                          const bankType = method.type?.toUpperCase() || method.name?.toUpperCase().replace(/\s+/g, '') || '';
+                          
+                          return (
+                            <Button
+                              key={method.id}
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterMethod === method.id && "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                              )}
+                              onClick={() => setFilterMethod(method.id)}
+                            >
+                              <div className="flex items-center gap-3">
+                                {bankType ? getBankIcon(bankType, "sm") : <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center"><Building2 className="h-4 w-4 text-gray-600" /></div>}
+                                <div className="text-left">
+                                  <div className="font-medium">{method.name}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {method.description || `Перевод через ${method.name}`}
+                                  </div>
+                                </div>
+                              </div>
+                            </Button>
+                          );
+                        })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Bank Filter */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Банк</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      className="w-full justify-between h-12"
+                    >
+                      <span className="text-[#006039]">
+                        {filterBank === "all" ? "Все банки" : AVAILABLE_BANKS.find(b => b.code === filterBank)?.name || filterBank}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[465px] p-0"
+                    align="start"
+                    sideOffset={5}
+                  >
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Поиск банков"
+                          className="pl-9"
+                          value={bankSearch}
+                          onChange={(e) => setBankSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-auto">
+                      <Button
+                        variant="ghost"
+                        size="default"
+                        className={cn(
+                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                          filterBank === "all" &&
+                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                        )}
+                        onClick={() => setFilterBank("all")}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium">Все банки</div>
+                            <div className="text-sm text-gray-500">
+                              Не фильтровать по банку
+                            </div>
+                          </div>
+                        </div>
+                      </Button>
+                      {AVAILABLE_BANKS
+                        .filter((bank) => 
+                          !bankSearch || 
+                          bank.name.toLowerCase().includes(bankSearch.toLowerCase()) ||
+                          bank.code.toLowerCase().includes(bankSearch.toLowerCase())
+                        )
+                        .map((bank) => (
+                          <Button
+                            key={bank.code}
+                            variant="ghost"
+                            size="default"
+                            className={cn(
+                              "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                              filterBank === bank.code && "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                            )}
+                            onClick={() => setFilterBank(bank.code)}
+                          >
+                            <div className="flex items-center gap-3">
+                              {getBankIcon(bank.code, "sm")}
+                              <div className="text-left">
+                                <div className="font-medium">{bank.name}</div>
+                              </div>
+                            </div>
+                          </Button>
+                        ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Amount Filter */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-[#006039]" />
+                  <Label className="text-sm">Сумма</Label>
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      className="w-full justify-between h-12"
+                    >
+                      <span className="text-[#006039]">
+                        {filterAmountType === "all"
+                          ? "Любая сумма"
+                          : filterAmountType === "exact"
+                            ? `Точно ${filterAmount.exact || "..."} ₽`
+                            : `От ${filterAmount.min || "..."} до ${filterAmount.max || "..."} ₽`}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[465px] p-3"
+                    align="start"
+                    sideOffset={5}
+                  >
+                    <div className="space-y-4">
+                      <div className="flex gap-2">
+                        <Button
+                          variant={filterAmountType === "all" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setFilterAmountType("all")}
+                          className={cn(
+                            filterAmountType === "all" && "bg-[#006039] hover:bg-[#005030]"
+                          )}
+                        >
+                          Любая
+                        </Button>
+                        <Button
+                          variant={filterAmountType === "exact" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setFilterAmountType("exact")}
+                          className={cn(
+                            filterAmountType === "exact" && "bg-[#006039] hover:bg-[#005030]"
+                          )}
+                        >
+                          Точная
+                        </Button>
+                        <Button
+                          variant={filterAmountType === "range" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setFilterAmountType("range")}
+                          className={cn(
+                            filterAmountType === "range" && "bg-[#006039] hover:bg-[#005030]"
+                          )}
+                        >
+                          Диапазон
+                        </Button>
+                      </div>
+
+                      {filterAmountType === "exact" && (
+                        <div>
+                          <Label>Точная сумма</Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={filterAmount.exact}
+                            onChange={(e) =>
+                              setFilterAmount({ ...filterAmount, exact: e.target.value })
+                            }
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
+
+                      {filterAmountType === "range" && (
+                        <div className="space-y-3">
+                          <div>
+                            <Label>От</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={filterAmount.min}
+                              onChange={(e) =>
+                                setFilterAmount({ ...filterAmount, min: e.target.value })
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label>До</Label>
+                            <Input
+                              type="number"
+                              placeholder="100000"
+                              value={filterAmount.max}
+                              onChange={(e) =>
+                                setFilterAmount({ ...filterAmount, max: e.target.value })
+                              }
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex gap-2 pt-2">
                 <Button
@@ -531,6 +1004,10 @@ export function MessagesListNew() {
                   onClick={() => {
                     setFilterStatus("all");
                     setFilterDevice("all");
+                    setFilterMethod("all");
+                    setFilterBank("all");
+                    setFilterAmountType("all");
+                    setFilterAmount({ exact: "", min: "", max: "" });
                     setFilterDateFrom("");
                     setFilterDateTo("");
                   }}
@@ -605,7 +1082,7 @@ export function MessagesListNew() {
       </div>
 
       {/* Messages List in ScrollArea */}
-      <ScrollArea className="h-[600px] pr-4">
+      <ScrollArea className="h-[calc(100vh-300px)] pr-4">
         <div className="space-y-3">
           {filteredMessages.length === 0 ? (
             <Card className="p-12 text-center text-gray-500">
@@ -729,7 +1206,7 @@ export function MessagesListNew() {
                     </div>
 
                     <h2 className="text-lg font-semibold mb-1">
-                      Сообщение #{selectedMessage.numericId}
+                      Сообщение ${selectedMessage.numericId}
                     </h2>
                     <p className="text-sm text-gray-500 mb-4">
                       {selectedMessage.packageName}

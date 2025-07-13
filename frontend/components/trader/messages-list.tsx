@@ -485,7 +485,7 @@ export function MessagesList() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Сообщение #{selectedMessage?.numericId}</DialogTitle>
+            <DialogTitle>Сообщение ${selectedMessage?.numericId}</DialogTitle>
             <DialogDescription>
               {selectedMessage && formatTime(selectedMessage.timestamp)}
             </DialogDescription>

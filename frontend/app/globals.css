@@ -28,6 +28,14 @@
     color: #006039;
     transition: all 0.2s ease;
   }
+
+  /* Dark mode hover effect */
+  .dark button:not(.bg-\[\#006039\]):hover,
+  .dark a:not(.bg-\[\#006039\]):hover,
+  .dark [role="button"]:not(.bg-\[\#006039\]):hover {
+    background-color: #29382f;
+    color: #eeeeee;
+  }
   
   /* Special case for green buttons - darker green on hover */
   .bg-\[\#006039\] {
@@ -45,6 +53,11 @@
   tbody tr:hover {
     background-color: rgba(0, 96, 57, 0.05);
     transition: background-color 0.2s ease;
+  }
+
+  /* Dark mode table row hover */
+  .dark tbody tr:hover {
+    background-color: #29382f;
   }
   
   /* Card hover effect */
@@ -79,6 +92,22 @@
     border-color: rgba(0, 96, 57, 0.5);
     outline: 2px solid rgba(0, 96, 57, 0.1);
     outline-offset: 2px;
+  }
+
+  /* Dark mode input styles */
+  .dark input,
+  .dark textarea,
+  .dark select {
+    background-color: #29382f !important;
+    border-color: #29382f !important;
+    color: #eeeeee !important;
+  }
+
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    border-color: #2d6a42 !important;
+    outline-color: rgba(45, 106, 66, 0.3) !important;
   }
   
   /* Switch and checkbox hover */
@@ -119,33 +148,33 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 160 100% 18.8%; /* #006039 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 160 40% 20%; /* Slightly lighter green for dark mode */
-    --accent-foreground: 160 50% 80%; /* Light green text for dark mode */
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 160 100% 25%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 160 100% 25%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 30% 15%;
-    --sidebar-accent-foreground: 160 100% 70%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 160 100% 25%;
+    --background: 0 0% 5.88%; /* #0f0f0f */
+    --foreground: 0 0% 93.33%; /* #eeeeee */
+    --card: 138 12.5% 19.8%; /* #29382f */
+    --card-foreground: 0 0% 93.33%; /* #eeeeee */
+    --popover: 138 12.5% 19.8%; /* #29382f */
+    --popover-foreground: 0 0% 93.33%; /* #eeeeee */
+    --primary: 146 40% 30%; /* #2d6a42 */
+    --primary-foreground: 0 0% 93.33%; /* #eeeeee */
+    --secondary: 138 12.5% 19.8%; /* #29382f */
+    --secondary-foreground: 0 0% 93.33%; /* #eeeeee */
+    --muted: 138 12.5% 19.8%; /* #29382f */
+    --muted-foreground: 0 0% 73%; /* lighter eeeeee */
+    --accent: 146 40% 35%; /* slightly lighter #2d6a42 */
+    --accent-foreground: 0 0% 93.33%; /* #eeeeee */
+    --destructive: 0 51% 52%; /* #c64444 */
+    --destructive-foreground: 0 0% 93.33%; /* #eeeeee */
+    --border: 138 12.5% 25%; /* lighter #29382f */
+    --input: 138 12.5% 25%; /* lighter #29382f */
+    --ring: 146 40% 30%; /* #2d6a42 */
+    --sidebar-background: 0 0% 5.88%; /* #0f0f0f */
+    --sidebar-foreground: 0 0% 93.33%; /* #eeeeee */
+    --sidebar-primary: 146 40% 30%; /* #2d6a42 */
+    --sidebar-primary-foreground: 0 0% 93.33%; /* #eeeeee */
+    --sidebar-accent: 138 12.5% 19.8%; /* #29382f */
+    --sidebar-accent-foreground: 146 40% 40%; /* lighter #2d6a42 */
+    --sidebar-border: 138 12.5% 25%; /* lighter #29382f */
+    --sidebar-ring: 146 40% 30%; /* #2d6a42 */
   }
 }
 
@@ -193,6 +222,76 @@
 
 .fade-in {
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Dark mode specific styles */
+.dark {
+  /* Ensure text is readable in dark mode */
+  color: #eeeeee;
+}
+
+/* Dark mode card styles */
+.dark .bg-gray-50 {
+  background-color: #29382f;
+}
+
+.dark .bg-gray-100 {
+  background-color: #29382f;
+}
+
+.dark .border-gray-100 {
+  border-color: #29382f;
+}
+
+.dark .border-gray-200 {
+  border-color: #29382f;
+}
+
+.dark .text-gray-500 {
+  color: #bbbbbb;
+}
+
+.dark .text-gray-600 {
+  color: #bbbbbb;
+}
+
+.dark .text-gray-700 {
+  color: #eeeeee;
+}
+
+.dark .text-gray-800 {
+  color: #eeeeee;
+}
+
+.dark .text-gray-900 {
+  color: #eeeeee;
+}
+
+/* Dark mode green button */
+.dark .bg-\[\#006039\] {
+  background-color: #2d6a42;
+}
+
+.dark .bg-\[\#006039\]:hover,
+.dark .hover\:bg-\[\#006039\]\/90:hover {
+  background-color: #3a8755;
+}
+
+.dark .text-\[\#006039\] {
+  color: #2d6a42;
+}
+
+/* Dark mode destructive/red */
+.dark .text-red-600 {
+  color: #c64444;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(198, 68, 68, 0.1);
+}
+
+.dark .border-red-200 {
+  border-color: rgba(198, 68, 68, 0.3);
 }
 
 @keyframes fadeIn {
