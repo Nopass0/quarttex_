@@ -498,7 +498,7 @@ export function PayoutsList() {
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer mb-4 h-[100px] relative overflow-hidden"
+          className="bg-card rounded-lg border border-border hover:bg-accent transition-colors cursor-pointer mb-4 min-h-[100px] max-xl:h-auto relative overflow-hidden"
           onClick={() => {
             // Only show details for accepted payouts
             if (payout.status !== "created") {
@@ -510,15 +510,15 @@ export function PayoutsList() {
           {showTimer && (
             <div className="absolute left-0 top-0 bottom-0 w-2 bg-red-500" />
           )}
-          <div className="grid grid-cols-[40px_60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center h-full px-5 py-5">
+          <div className="grid grid-cols-[40px_60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center h-full px-5 py-5 max-xl:grid-cols-1 max-xl:gap-2 max-xl:h-auto">
             {/* Timer Text */}
-            <div className="text-xs font-medium text-red-600">
+            <div className="text-xs font-medium text-red-600 max-xl:text-center max-xl:text-lg max-xl:mb-2">
               {showTimer ? formatRemainingTime(payout.expire_at) : ""}
             </div>
             
             {/* Icon */}
-            <div className="flex items-center justify-center">
-              <div className="w-12 h-12 bg-gray-50 rounded-lg shadow-sm flex items-center justify-center">
+            <div className="flex items-center justify-center max-xl:hidden">
+              <div className="w-12 h-12 bg-muted rounded-lg shadow-sm flex items-center justify-center">
                 {payout.isCard ? (
                   <CreditCard className="h-7 w-7 text-gray-700" />
                 ) : (
@@ -532,7 +532,7 @@ export function PayoutsList() {
             </div>
 
             {/* ID and Date */}
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 max-xl:text-center">
               <div className="flex items-center gap-1">
                 <div
                   className="font-medium text-base hover:text-blue-600"
@@ -575,8 +575,8 @@ export function PayoutsList() {
             </div>
 
             {/* Requisites */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gray-50 rounded-lg shadow-sm flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-3 max-xl:justify-center max-xl:text-center">
+              <div className="w-12 h-12 bg-muted rounded-lg shadow-sm flex items-center justify-center flex-shrink-0">
                 {isNotAccepted ? (
                   <div className="text-gray-400 text-lg font-bold">?</div>
                 ) : bankLogos[payout.bank] ? (
@@ -624,7 +624,7 @@ export function PayoutsList() {
             </div>
 
             {/* Amount */}
-            <div className="space-y-1">
+            <div className="space-y-1 max-xl:text-center">
               {isNotAccepted ? (
                 <>
                   <div className="font-medium text-base text-gray-400">
@@ -664,7 +664,7 @@ export function PayoutsList() {
             </div>
 
             {/* Total */}
-            <div className="space-y-1">
+            <div className="space-y-1 max-xl:text-center">
               {isNotAccepted ? (
                 <>
                   <div className="font-medium text-base text-gray-400">
@@ -687,7 +687,7 @@ export function PayoutsList() {
             </div>
 
             {/* Rate */}
-            <div className="font-semibold text-base">
+            <div className="font-semibold text-base max-xl:text-center">
               {isNotAccepted ? (
                 <span className="text-gray-400">••••</span>
               ) : (
@@ -704,6 +704,7 @@ export function PayoutsList() {
             </div>
 
             {/* Status */}
+            <div className="max-xl:flex max-xl:justify-center">
             {payout.status === "created" ? (
               <Button
                 size="sm"
@@ -763,6 +764,7 @@ export function PayoutsList() {
                 <span>{getStatusText(payout)}</span>
               </Badge>
             )}
+            </div>
           </div>
         </div>
       </ContextMenuTrigger>
@@ -799,9 +801,9 @@ export function PayoutsList() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 pb-4 bg-white">
+      <div className="flex items-center justify-between p-6 pb-4 bg-card">
         <h1 className="text-2xl font-semibold">Выплаты</h1>
         <div className="flex items-center gap-4">
           {/* Team toggle switch */}
@@ -848,10 +850,10 @@ export function PayoutsList() {
       </div>
 
       {/* Filters - Sticky */}
-      <div className="sticky top-0 z-10 bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-end gap-3">
+      <div className="sticky top-0 z-10 bg-card px-6 py-4 shadow-sm">
+        <div className="flex items-end gap-3 max-xl:flex-wrap max-xl:gap-y-2">
           {/* Balance block first */}
-          <div className="bg-gray-100 rounded-lg px-5 h-12 flex flex-col justify-center min-w-[180px] mr-auto">
+          <div className="bg-muted rounded-lg px-5 h-12 flex flex-col justify-center min-w-[180px] mr-auto max-xl:mr-0 max-xl:w-full max-xl:order-1">
             <div className="text-xs text-gray-600">Баланс</div>
             <div className="text-lg font-semibold leading-tight">
               {payoutBalance.available.toLocaleString("ru-RU")} ₽
@@ -859,13 +861,13 @@ export function PayoutsList() {
           </div>
 
           {/* Traffic Type */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Выбор типа трафика:</label>
+          <div className="flex flex-col gap-1 max-xl:w-full max-xl:order-2">
+            <label className="text-xs text-muted-foreground">Выбор типа трафика:</label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-12 justify-between w-[200px]"
+                  className="h-12 justify-between w-[200px] max-xl:w-full"
                 >
                   <span className="flex items-center gap-2">
                     {selectedTrafficType.length === 0 ? (
@@ -930,13 +932,13 @@ export function PayoutsList() {
           </div>
 
           {/* SBP Banks */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Выбор банков СБП:</label>
+          <div className="flex flex-col gap-1 max-xl:w-full max-xl:order-3">
+            <label className="text-xs text-muted-foreground">Выбор банков СБП:</label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-12 justify-between w-[250px]"
+                  className="h-12 justify-between w-[250px] max-xl:w-full"
                 >
                   <span className="flex items-center gap-2">
                     {selectedBanks.length === 0 ? (
@@ -992,15 +994,15 @@ export function PayoutsList() {
           </div>
 
           {/* Card Banks */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">
+          <div className="flex flex-col gap-1 max-xl:w-full max-xl:order-4">
+            <label className="text-xs text-muted-foreground">
               Выбор банков по картам:
             </label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-12 justify-between w-[250px]"
+                  className="h-12 justify-between w-[250px] max-xl:w-full"
                 >
                   <span className="flex items-center gap-2">
                     {selectedCardBanks.length === 0 ? (
@@ -1063,8 +1065,8 @@ export function PayoutsList() {
           </div>
 
           {/* Balance Input */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Баланс</label>
+          <div className="flex flex-col gap-1 max-xl:w-full max-xl:order-5">
+            <label className="text-xs text-muted-foreground">Баланс</label>
             <div className="flex items-center gap-2">
               <Input
                 placeholder="0.00"
@@ -1087,7 +1089,7 @@ export function PayoutsList() {
       {/* Content with Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
         {/* Tabs Header */}
-        <div className="bg-white px-6 pb-4">
+        <div className="bg-card px-6 pb-4">
           <TabsList className="h-12 p-1">
             <TabsTrigger value="all" className="h-10 px-6">
               Все
@@ -1114,8 +1116,30 @@ export function PayoutsList() {
         <div className="flex-1 flex flex-col overflow-hidden">
         {activeTab === "all" && (
           <>
+          {/* Mobile Search - Only visible on small screens */}
+          <div className="xl:hidden bg-card px-6 py-3 border-b">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Поиск по ID..."
+                  value={searchId}
+                  onChange={(e) => setSearchId(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="flex-1">
+                <Input
+                  placeholder="Поиск реквизитов..."
+                  value={searchRequisites}
+                  onChange={(e) => setSearchRequisites(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+          </div>
+          
           {/* Column Headers */}
-          <div className="grid grid-cols-[40px_60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-gray-600 bg-white border-b">
+          <div className="grid grid-cols-[40px_60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center px-6 py-3 text-sm font-medium text-muted-foreground bg-card border-b max-xl:hidden">
             <div></div>
             <div></div>
             <div className="flex items-center gap-2">
