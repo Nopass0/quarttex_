@@ -576,25 +576,9 @@ export default (app: Elysia) =>
 
         // If transaction moved to COMPLETED, handle final accounting
         if (body.status === Status.COMPLETED) {
-          await db.$transaction(async (prisma) => {
-            // Add trader commission/profit for completed transaction
-            const method = await prisma.method.findUnique({
-              where: { id: transaction.methodId },
-            });
-            
-            if (method && transaction.type === TransactionType.IN) {
-              const commissionAmount = (transaction.amount * method.commissionPayin) / 100;
-              
-              // Add profit to trader
-              await prisma.user.update({
-                where: { id: trader.id },
-                data: {
-                  profitFromDeals: { increment: commissionAmount },
-                  balanceUsdt: { increment: commissionAmount / (transaction.rate || 90) }
-                }
-              });
-            }
-          });
+          // For IN transactions, profit is already added at READY status
+          // For OUT transactions, we might need additional handling
+          // Currently, no additional accounting needed at COMPLETED status
         }
 
         const hook = await notifyByStatus({
