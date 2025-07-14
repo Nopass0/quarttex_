@@ -749,6 +749,176 @@ export default (app: Elysia) =>
       }
     )
 
+    /* ─────────── POST /admin/transactions/test/in ─────────── */
+    .post(
+      '/test/in',
+      async ({ body, set, error }) => {
+        try {
+          // Ищем тестового мерчанта
+          const testMerchant = await db.merchant.findFirst({
+            where: { name: 'test' }
+          })
+
+          if (!testMerchant) {
+            return error(404, { error: 'Тестовый мерчант не найден. Сначала создайте мерчанта с именем "test"' })
+          }
+
+          // Проверяем метод
+          const method = await db.method.findUnique({
+            where: { id: body.methodId }
+          })
+          if (!method || !method.isEnabled) {
+            return error(404, { error: 'Метод не найден или неактивен' })
+          }
+
+          // Генерируем дефолтные значения если не указаны
+          const amount = body.amount || Math.floor(Math.random() * 9000) + 1000
+          const rate = body.rate || (95 + Math.random() * 10)
+          const orderId = body.orderId || `TEST_IN_${Date.now()}_${Math.random().toString(36).substring(7)}`
+          const expired_at = body.expired_at || new Date(Date.now() + 3600000).toISOString()
+          const userIp = body.userIp || `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+          const callbackUri = body.callbackUri || ''
+
+          // Делаем запрос от имени тестового мерчанта
+          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3001'}/api`
+          const response = await fetch(`${baseUrl}/merchant/transactions/in`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-merchant-api-key': testMerchant.token
+            },
+            body: JSON.stringify({
+              amount,
+              orderId,
+              methodId: body.methodId,
+              rate,
+              expired_at,
+              userIp,
+              callbackUri
+            })
+          })
+
+          if (response.ok) {
+            const transaction = await response.json()
+            set.status = 201
+            return { success: true, transaction }
+          } else {
+            const errorData = await response.json()
+            return error(response.status, errorData)
+          }
+        } catch (e: any) {
+          return error(500, { error: 'Ошибка создания тестовой транзакции', details: e.message })
+        }
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Создать тестовую IN транзакцию от имени тестового мерчанта' },
+        headers: AuthHeaderSchema,
+        body: t.Object({
+          methodId: t.String({ description: 'ID метода платежа' }),
+          amount: t.Optional(t.Number({ description: 'Сумма транзакции (по умолчанию случайная)' })),
+          rate: t.Optional(t.Number({ description: 'Курс USDT/RUB (по умолчанию случайный)' })),
+          orderId: t.Optional(t.String({ description: 'ID заказа (по умолчанию генерируется)' })),
+          expired_at: t.Optional(t.String({ description: 'Дата истечения ISO (по умолчанию через час)' })),
+          userIp: t.Optional(t.String({ description: 'IP пользователя (по умолчанию случайный)' })),
+          callbackUri: t.Optional(t.String({ description: 'URL для колбэков' }))
+        }),
+        response: {
+          201: t.Object({
+            success: t.Boolean(),
+            transaction: t.Any()
+          }),
+          404: ErrorSchema,
+          500: ErrorSchema
+        }
+      }
+    )
+
+    /* ─────────── POST /admin/transactions/test/out ─────────── */
+    .post(
+      '/test/out',
+      async ({ body, set, error }) => {
+        try {
+          // Ищем тестового мерчанта
+          const testMerchant = await db.merchant.findFirst({
+            where: { name: 'test' }
+          })
+
+          if (!testMerchant) {
+            return error(404, { error: 'Тестовый мерчант не найден. Сначала создайте мерчанта с именем "test"' })
+          }
+
+          // Проверяем метод
+          const method = await db.method.findUnique({
+            where: { id: body.methodId }
+          })
+          if (!method || !method.isEnabled) {
+            return error(404, { error: 'Метод не найден или неактивен' })
+          }
+
+          // Генерируем дефолтные значения если не указаны
+          const amount = body.amount || Math.floor(Math.random() * 9000) + 1000
+          const rate = body.rate || (95 + Math.random() * 10)
+          const orderId = body.orderId || `TEST_OUT_${Date.now()}_${Math.random().toString(36).substring(7)}`
+          const expired_at = body.expired_at || new Date(Date.now() + 3600000).toISOString()
+          const userIp = body.userIp || `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+          const callbackUri = body.callbackUri || ''
+
+          // Делаем запрос от имени тестового мерчанта
+          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3001'}/api`
+          const response = await fetch(`${baseUrl}/merchant/transactions/out`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-merchant-api-key': testMerchant.token
+            },
+            body: JSON.stringify({
+              amount,
+              orderId,
+              methodId: body.methodId,
+              rate,
+              expired_at,
+              userIp,
+              callbackUri
+            })
+          })
+
+          if (response.ok) {
+            const transaction = await response.json()
+            set.status = 201
+            return { success: true, transaction }
+          } else {
+            const errorData = await response.json()
+            return error(response.status, errorData)
+          }
+        } catch (e: any) {
+          return error(500, { error: 'Ошибка создания тестовой транзакции', details: e.message })
+        }
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Создать тестовую OUT транзакцию от имени тестового мерчанта' },
+        headers: AuthHeaderSchema,
+        body: t.Object({
+          methodId: t.String({ description: 'ID метода платежа' }),
+          amount: t.Optional(t.Number({ description: 'Сумма транзакции (по умолчанию случайная)' })),
+          rate: t.Optional(t.Number({ description: 'Курс USDT/RUB (по умолчанию случайный)' })),
+          orderId: t.Optional(t.String({ description: 'ID заказа (по умолчанию генерируется)' })),
+          expired_at: t.Optional(t.String({ description: 'Дата истечения ISO (по умолчанию через час)' })),
+          userIp: t.Optional(t.String({ description: 'IP пользователя (по умолчанию случайный)' })),
+          callbackUri: t.Optional(t.String({ description: 'URL для колбэков' }))
+        }),
+        response: {
+          201: t.Object({
+            success: t.Boolean(),
+            transaction: t.Any()
+          }),
+          404: ErrorSchema,
+          500: ErrorSchema
+        }
+      }
+    )
+
     /* ─────────── DELETE /admin/transactions/delete ─────────── */
     .delete(
       '/delete',

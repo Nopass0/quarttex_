@@ -7,8 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
   DialogContent,
@@ -18,6 +16,8 @@ import {
 import { toast } from "sonner"
 import { traderApi } from "@/services/api"
 import { formatAmount } from "@/lib/utils"
+import { useTraderAuth } from "@/stores/auth"
+import { DisputeChatEnhanced } from "@/components/disputes/dispute-chat-enhanced"
 import { 
   Loader2, 
   AlertCircle,
@@ -26,30 +26,14 @@ import {
   XCircle,
   MessageSquare,
   Search,
-  Filter,
-  Calendar,
-  ChevronDown,
-  DollarSign,
   RefreshCw,
-  FileText,
-  Send,
-  Paperclip,
-  X as XIcon,
-  Image,
-  Download,
-  User,
-  Shield,
   Building2,
   Eye,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  User
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -133,6 +117,7 @@ interface DisputesListEnhancedProps {
 }
 
 export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
+  const { user, token } = useTraderAuth()
   const [disputes, setDisputes] = useState<Dispute[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
@@ -147,9 +132,6 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null)
   const [showMessagesDialog, setShowMessagesDialog] = useState(false)
   const [messages, setMessages] = useState<DisputeMessage[]>([])
-  const [newMessage, setNewMessage] = useState("")
-  const [attachments, setAttachments] = useState<File[]>([])
-  const [sendingMessage, setSendingMessage] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
 
   useEffect(() => {
@@ -159,63 +141,41 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
   const fetchDisputes = async () => {
     try {
       setLoading(true)
-      // Mock data for demonstration
-      const mockDisputes: Dispute[] = [
-        {
-          id: "1",
-          uuid: "dispute-uuid-1",
-          transactionId: "tx1",
-          transactionNumericId: 10001,
-          amount: 15000,
-          currency: "RUB",
-          status: "OPEN",
-          reason: "payment_not_received",
-          description: "Клиент утверждает что оплатил, но платеж не поступил",
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          updatedAt: new Date(Date.now() - 3600000).toISOString(),
-          traderName: "Иван Петров",
-          merchantName: "Test Merchant",
-          methodName: "Сбербанк C2C",
-          orderId: "ORDER-001"
-        },
-        {
-          id: "2",
-          uuid: "dispute-uuid-2",
-          transactionId: "tx2",
-          transactionNumericId: 10002,
-          amount: 8500,
-          currency: "RUB",
-          status: "IN_PROGRESS",
-          reason: "incorrect_amount",
-          description: "Получена сумма 7500 вместо 8500",
-          createdAt: new Date(Date.now() - 7200000).toISOString(),
-          updatedAt: new Date(Date.now() - 3600000).toISOString(),
-          traderName: "Анна Смирнова",
-          merchantName: "Test Merchant",
-          methodName: "Тинькофф C2C",
-          orderId: "ORDER-002"
-        },
-        {
-          id: "3",
-          uuid: "dispute-uuid-3",
-          transactionId: "tx3",
-          transactionNumericId: 10003,
-          amount: 22000,
-          currency: "RUB",
-          status: "RESOLVED_SUCCESS",
-          reason: "technical_error",
-          description: "Платеж завис в системе банка",
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          updatedAt: new Date(Date.now() - 43200000).toISOString(),
-          traderName: "Михаил Козлов",
-          merchantName: "Test Merchant",
-          methodName: "ВТБ C2C",
-          orderId: "ORDER-003"
-        }
-      ]
       
-      setDisputes(mockDisputes)
-      setHasMore(false)
+      const params: any = {
+        page,
+        limit: pageSize,
+      }
+      
+      if (filterStatus !== "all") {
+        params.status = filterStatus
+      }
+      
+      const response = await traderApi.getDealDisputes(params)
+      
+      if (response.data) {
+        const mappedDisputes: Dispute[] = response.data.map((dispute: any) => ({
+          id: dispute.id,
+          uuid: dispute.id,
+          transactionId: dispute.dealId,
+          transactionNumericId: dispute.deal?.numericId || 0,
+          amount: dispute.deal?.amount || 0,
+          currency: "RUB",
+          status: dispute.status,
+          reason: dispute.reason || "unknown",
+          description: dispute.messages?.[0]?.message || "Спор создан",
+          createdAt: dispute.createdAt,
+          updatedAt: dispute.updatedAt,
+          traderName: dispute.deal?.trader?.user?.name || "—",
+          merchantName: dispute.merchant?.name || "—",
+          methodName: dispute.deal?.method?.name || "—",
+          orderId: dispute.deal?.orderId || undefined,
+          messages: dispute.messages || []
+        }))
+        
+        setDisputes(mappedDisputes)
+        setHasMore(mappedDisputes.length === pageSize)
+      }
     } catch (error) {
       console.error("Error fetching disputes:", error)
       toast.error("Не удалось загрузить споры")
@@ -227,45 +187,30 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
   const fetchMessages = async (disputeId: string) => {
     try {
       setLoadingMessages(true)
-      // Mock messages
-      const mockMessages: DisputeMessage[] = [
-        {
-          id: "msg1",
-          senderId: "merchant123",
-          senderType: "MERCHANT",
-          senderName: "Test Merchant",
-          message: "Платеж не был получен на счет. Прошу предоставить подтверждение оплаты.",
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: "msg2",
-          senderId: "trader123",
-          senderType: "TRADER",
-          senderName: "Иван Петров",
-          message: "Платеж был отправлен. Прикладываю скриншот из банковского приложения.",
-          createdAt: new Date(Date.now() - 3000000).toISOString(),
-          attachments: [
-            {
-              id: "file1",
-              filename: "payment_screenshot.png",
-              url: "https://example.com/payment_screenshot.png",
-              size: 245678,
-              mimeType: "image/png",
-              uploadedBy: "trader123",
-              uploadedAt: new Date(Date.now() - 3000000).toISOString()
-            }
-          ]
-        },
-        {
-          id: "msg3",
-          senderId: "admin123",
-          senderType: "ADMIN",
-          senderName: "Администратор",
-          message: "Спор принят на рассмотрение. Ожидайте решения в течение 24 часов.",
-          createdAt: new Date(Date.now() - 1800000).toISOString(),
-        }
-      ]
-      setMessages(mockMessages)
+      
+      const response = await traderApi.getDealDispute(disputeId)
+      
+      if (response.data && response.data.messages) {
+        const mappedMessages: DisputeMessage[] = response.data.messages.map((msg: any) => ({
+          id: msg.id,
+          senderId: msg.senderId,
+          senderType: msg.senderType,
+          senderName: msg.sender?.name || msg.senderType,
+          message: msg.message,
+          createdAt: msg.createdAt,
+          attachments: msg.attachments?.map((att: any) => ({
+            id: att.id,
+            filename: att.filename,
+            url: att.url,
+            size: att.size,
+            mimeType: att.mimeType,
+            uploadedBy: att.uploadedBy,
+            uploadedAt: att.createdAt
+          })) || []
+        }))
+        
+        setMessages(mappedMessages)
+      }
     } catch (error) {
       console.error("Error fetching messages:", error)
       toast.error("Не удалось загрузить сообщения")
@@ -280,90 +225,13 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
     await fetchMessages(dispute.id)
   }
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (files) {
-      const newFiles = Array.from(files).filter(file => {
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error(`Файл ${file.name} слишком большой. Максимум 10MB`)
-          return false
-        }
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
-        if (!allowedTypes.includes(file.type)) {
-          toast.error(`Файл ${file.name} имеет неподдерживаемый формат`)
-          return false
-        }
-        return true
-      })
-      setAttachments([...attachments, ...newFiles])
-    }
-  }
-
-  const removeAttachment = (index: number) => {
-    setAttachments(attachments.filter((_, i) => i !== index))
-  }
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() && attachments.length === 0) {
-      toast.error("Введите сообщение или прикрепите файл")
-      return
-    }
-
-    if (!selectedDispute) return
-
-    try {
-      setSendingMessage(true)
-      
-      // Simulate sending message
-      const newMsg: DisputeMessage = {
-        id: `msg${Date.now()}`,
-        senderId: userType === "trader" ? "trader123" : "merchant123",
-        senderType: userType === "trader" ? "TRADER" : "MERCHANT",
-        senderName: userType === "trader" ? "Вы" : "Вы",
-        message: newMessage,
-        createdAt: new Date().toISOString(),
-        attachments: attachments.map((file, index) => ({
-          id: `file${Date.now()}_${index}`,
-          filename: file.name,
-          url: URL.createObjectURL(file),
-          size: file.size,
-          mimeType: file.type,
-          uploadedBy: userType === "trader" ? "trader123" : "merchant123",
-          uploadedAt: new Date().toISOString()
-        }))
-      }
-      
-      setMessages([...messages, newMsg])
-      toast.success("Сообщение отправлено")
-      setNewMessage("")
-      setAttachments([])
-    } catch (error) {
-      console.error("Error sending message:", error)
-      toast.error("Не удалось отправить сообщение")
-    } finally {
-      setSendingMessage(false)
-    }
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
-
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return Image
-    return FileText
-  }
 
   const filteredDisputes = disputes.filter(dispute => {
     // Tab filtering
     if (activeTab !== "all") {
       if (activeTab === "open" && dispute.status !== "OPEN") return false
       if (activeTab === "in_progress" && dispute.status !== "IN_PROGRESS") return false
-      if (activeTab === "resolved" && !dispute.status.startsWith("RESOLVED")) return false
+      if (activeTab === "resolved" && !["RESOLVED_SUCCESS", "RESOLVED_FAIL"].includes(dispute.status)) return false
       if (activeTab === "cancelled" && dispute.status !== "CANCELLED") return false
     }
 
@@ -469,7 +337,7 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
           <TabsTrigger value="resolved">
             Решенные
             <Badge variant="secondary" className="ml-2">
-              {disputes.filter(d => d.status.startsWith("RESOLVED")).length}
+              {disputes.filter(d => ["RESOLVED_SUCCESS", "RESOLVED_FAIL"].includes(d.status)).length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="cancelled">
@@ -556,7 +424,7 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(`/trader/deals/${dispute.transactionId}`, '_blank')}
+                      onClick={() => window.open(`/trader/transactions/${dispute.transactionId}`, '_blank')}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Сделка
@@ -607,194 +475,70 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
 
       {/* Messages Dialog */}
       <Dialog open={showMessagesDialog} onOpenChange={setShowMessagesDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>
-              Спор {selectedDispute?.transactionNumericId}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="grid grid-cols-3 gap-6 h-[calc(90vh-120px)]">
-            {/* Messages Section */}
-            <div className="col-span-2 flex flex-col">
-              <ScrollArea className="flex-1 border rounded-lg p-4 mb-4">
-                {loadingMessages ? (
-                  <div className="flex items-center justify-center h-40">
-                    <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {messages.map((message) => {
-                      const isMerchant = message.senderType === "MERCHANT"
-                      const isAdmin = message.senderType === "ADMIN"
-                      const isTrader = message.senderType === "TRADER"
-                      const isCurrentUser = (userType === "trader" && isTrader) || (userType === "merchant" && isMerchant)
-
-                      return (
-                        <div
-                          key={message.id}
-                          className={cn(
-                            "flex gap-3",
-                            isCurrentUser && "flex-row-reverse"
-                          )}
-                        >
-                          <div className={cn(
-                            "p-2 rounded-full",
-                            isMerchant && "bg-purple-100",
-                            isAdmin && "bg-gray-100",
-                            isTrader && "bg-green-100"
-                          )}>
-                            {isMerchant && <Building2 className="h-4 w-4 text-purple-600" />}
-                            {isAdmin && <Shield className="h-4 w-4 text-gray-600" />}
-                            {isTrader && <User className="h-4 w-4 text-green-600" />}
-                          </div>
-                          
-                          <div className={cn(
-                            "flex-1 space-y-2",
-                            isCurrentUser && "items-end"
-                          )}>
-                            <div className={cn(
-                              "rounded-lg p-3 max-w-[80%]",
-                              isMerchant && "bg-purple-50 text-purple-900",
-                              isAdmin && "bg-gray-50 text-gray-900",
-                              isTrader && "bg-green-50 text-green-900",
-                              isCurrentUser && "ml-auto"
-                            )}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-medium">{message.senderName}</span>
-                                <span className="text-xs text-gray-500">
-                                  {format(new Date(message.createdAt), "HH:mm")}
-                                </span>
-                              </div>
-                              <p className="text-sm">{message.message}</p>
-                              
-                              {message.attachments && message.attachments.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                  {message.attachments.map((attachment) => {
-                                    const FileIcon = getFileIcon(attachment.mimeType)
-                                    return (
-                                      <a
-                                        key={attachment.id}
-                                        href={attachment.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 p-2 rounded bg-white/50 hover:bg-white/80 transition-colors"
-                                      >
-                                        <FileIcon className="h-4 w-4" />
-                                        <span className="text-xs flex-1 truncate">
-                                          {attachment.filename}
-                                        </span>
-                                        <span className="text-xs text-gray-500">
-                                          {formatFileSize(attachment.size)}
-                                        </span>
-                                        <Download className="h-3 w-3" />
-                                      </a>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </ScrollArea>
-
-              {/* Input area */}
-              {selectedDispute && (selectedDispute.status === "OPEN" || selectedDispute.status === "IN_PROGRESS") ? (
-                <div className="space-y-3">
-                  {attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {attachments.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg text-sm"
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span className="truncate max-w-[150px]">{file.name}</span>
-                          <button
-                            onClick={() => removeAttachment(index)}
-                            className="text-gray-500 hover:text-gray-700"
-                          >
-                            <XIcon className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <Textarea
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Введите сообщение..."
-                        className="pr-10 min-h-[80px]"
-                        disabled={sendingMessage}
-                      />
-                      <label className="absolute bottom-2 right-2 cursor-pointer">
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/*,.pdf"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                          disabled={sendingMessage}
-                        />
-                        <Paperclip className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                      </label>
-                    </div>
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={sendingMessage || (!newMessage.trim() && attachments.length === 0)}
-                      className="bg-[#006039] hover:bg-[#006039]/90"
-                    >
-                      {sendingMessage ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  <p>Спор закрыт</p>
-                </div>
-              )}
-            </div>
-
-            {/* Files Section */}
-            <div className="col-span-1 border rounded-lg p-4">
-              <h3 className="font-semibold mb-4">Файлы спора</h3>
-              <ScrollArea className="h-[calc(100%-2rem)]">
-                <div className="space-y-2">
-                  {messages.flatMap(msg => msg.attachments || []).map((file) => {
-                    const FileIcon = getFileIcon(file.mimeType)
-                    return (
-                      <a
-                        key={file.id}
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <FileIcon className="h-8 w-8 text-[#006039]" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{file.filename}</p>
-                          <p className="text-xs text-gray-500">
-                            {formatFileSize(file.size)} • {format(new Date(file.uploadedAt), "d MMM 'в' HH:mm", { locale: ru })}
-                          </p>
-                        </div>
-                        <Download className="h-4 w-4 text-gray-400" />
-                      </a>
-                    )
-                  })}
-                </div>
-              </ScrollArea>
-            </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <div className="h-[90vh]">
+            {loadingMessages ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : selectedDispute ? (
+              <DisputeChatEnhanced
+                disputeId={selectedDispute.id}
+                messages={messages}
+                userType={userType}
+                userId={user?.id || ""}
+                token={token}
+                onSendMessage={async (message, files) => {
+                  const formData = new FormData();
+                  formData.append("message", message);
+                  files.forEach(file => formData.append("files", file));
+                  
+                  const response = await traderApi.sendDealDisputeMessage(selectedDispute.id, formData);
+                  
+                  if (response.data) {
+                    const newMsg: DisputeMessage = {
+                      id: response.data.id,
+                      senderId: response.data.senderId,
+                      senderType: response.data.senderType,
+                      senderName: "Вы",
+                      message: response.data.message,
+                      createdAt: response.data.createdAt,
+                      attachments: response.data.attachments?.map((att: any) => ({
+                        id: att.id,
+                        filename: att.filename,
+                        url: att.url,
+                        size: att.size,
+                        mimeType: att.mimeType,
+                        uploadedBy: att.uploadedBy,
+                        uploadedAt: att.createdAt
+                      })) || []
+                    };
+                    
+                    setMessages([...messages, newMsg]);
+                    toast.success("Сообщение отправлено");
+                  }
+                }}
+                onNewMessage={(message) => {
+                  // Add new message received via WebSocket
+                  setMessages(prevMessages => {
+                    // Check if message already exists
+                    const exists = prevMessages.some(m => m.id === message.id);
+                    if (!exists) {
+                      return [...prevMessages, message];
+                    }
+                    return prevMessages;
+                  });
+                }}
+                isActive={["OPEN", "IN_PROGRESS"].includes(selectedDispute.status)}
+                disputeInfo={{
+                  transactionId: selectedDispute.transactionNumericId.toString(),
+                  amount: selectedDispute.amount,
+                  status: selectedDispute.status,
+                  merchantName: selectedDispute.merchantName,
+                  traderName: selectedDispute.traderName
+                }}
+              />
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

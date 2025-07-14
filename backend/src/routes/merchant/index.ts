@@ -32,6 +32,9 @@ export default (app: Elysia) =>
     // Защищенные маршруты API документации (с merchantSessionGuard)
     .group("/api-docs", (app) => app.use(apiDocsRoutes))
     
+    // Deal dispute routes (с merchantSessionGuard)
+    .use(dealDisputesRoutes)
+    
     // Основные API маршруты (с merchantGuard для API ключа)
     .use(merchantGuard())
     
@@ -40,7 +43,6 @@ export default (app: Elysia) =>
     
     // Dispute routes
     .use(disputesRoutes)
-    .use(dealDisputesRoutes)
 
     /* ──────── GET /merchant/connect ──────── */
     .get(
@@ -900,6 +902,312 @@ export default (app: Elysia) =>
 
         tags: ["merchant"],
         detail: { summary: "Создание транзакции (IN/OUT) с авто-подбором реквизита для IN" },
+      },
+    )
+
+    /* ──────── POST /merchant/transactions/in ──────── */
+    .post(
+      "/transactions/in",
+      async ({ body, merchant, set, error }) => {
+        // Генерируем значения по умолчанию
+        const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
+        
+        // Проверяем метод
+        const method = await db.method.findUnique({
+          where: { id: body.methodId },
+        });
+        if (!method || !method.isEnabled) {
+          return error(404, { error: "Метод не найден или неактивен" });
+        }
+
+        // Проверяем доступ мерчанта к методу
+        const mm = await db.merchantMethod.findUnique({
+          where: {
+            merchantId_methodId: {
+              merchantId: merchant.id,
+              methodId: method.id,
+            },
+          },
+        });
+        if (!mm || !mm.isEnabled) {
+          return error(404, { error: "Метод недоступен мерчанту" });
+        }
+
+        // Проверяем сумму
+        if (body.amount < method.minPayin || body.amount > method.maxPayin) {
+          return error(400, { error: "Сумма вне допустимого диапазона" });
+        }
+
+        // Проверяем уникальность orderId
+        const duplicate = await db.transaction.findFirst({
+          where: { merchantId: merchant.id, orderId: body.orderId },
+        });
+        if (duplicate) {
+          return error(409, { error: "Транзакция с таким orderId уже существует" });
+        }
+
+        // Подбираем реквизит (упрощенная логика из старого эндпоинта)
+        const pool = await db.bankDetail.findMany({
+          where: {
+            isArchived: false,
+            methodType: method.type,
+            user: { banned: false },
+          },
+          orderBy: { updatedAt: "asc" },
+          include: { user: true },
+        });
+
+        let chosen = null;
+        for (const bd of pool) {
+          if (body.amount < bd.minAmount || body.amount > bd.maxAmount) continue;
+          if (body.amount < bd.user.minAmountPerRequisite || body.amount > bd.user.maxAmountPerRequisite) continue;
+          
+          // Здесь можно добавить проверку лимитов и интервалов как в старом эндпоинте
+          chosen = bd;
+          break;
+        }
+
+        if (!chosen) {
+          return error(409, { error: "NO_REQUISITE" });
+        }
+
+        // Создаем транзакцию
+        const tx = await db.transaction.create({
+          data: {
+            merchantId: merchant.id,
+            amount: body.amount,
+            assetOrBank: `${chosen.bankType}: ${chosen.cardNumber}`,
+            orderId: body.orderId,
+            methodId: method.id,
+            currency: "RUB",
+            userId: `user_${Date.now()}`,
+            userIp: body.userIp || null,
+            callbackUri: body.callbackUri || "",
+            successUri: "",
+            failUri: "",
+            type: TransactionType.IN,
+            expired_at: expired_at,
+            commission: 0,
+            clientName: `user_${Date.now()}`,
+            status: Status.IN_PROGRESS,
+            rate: body.rate,
+            isMock: false,
+            bankDetailId: chosen.id,
+            traderId: chosen.userId,
+          },
+          include: {
+            method: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                type: true,
+                currency: true,
+                commissionPayin: true,
+              },
+            },
+          },
+        });
+
+        const crypto = tx.rate && tx.method && typeof tx.method.commissionPayin === 'number'
+          ? (tx.amount / tx.rate) * (1 - tx.method.commissionPayin / 100)
+          : null;
+
+        set.status = 201;
+        return {
+          id: tx.id,
+          numericId: tx.numericId,
+          amount: tx.amount,
+          crypto,
+          status: tx.status,
+          traderId: tx.traderId,
+          requisites: {
+            id: chosen.id,
+            bankType: chosen.bankType,
+            cardNumber: chosen.cardNumber,
+            recipientName: chosen.recipientName,
+            traderName: chosen.user.name,
+          },
+          createdAt: tx.createdAt.toISOString(),
+          updatedAt: tx.updatedAt.toISOString(),
+          expired_at: tx.expired_at.toISOString(),
+          method: tx.method,
+        };
+      },
+      {
+        headers: t.Object({ "x-merchant-api-key": t.String() }),
+        body: t.Object({
+          amount: t.Number({ description: "Сумма транзакции в рублях" }),
+          orderId: t.String({ description: "Уникальный ID заказа от мерчанта" }),
+          methodId: t.String({ description: "ID метода платежа" }),
+          rate: t.Number({ description: "Курс USDT/RUB" }),
+          expired_at: t.String({ description: "ISO дата истечения транзакции" }),
+          userIp: t.Optional(t.String({ description: "IP адрес пользователя" })),
+          callbackUri: t.Optional(t.String({ description: "URL для callback уведомлений" })),
+        }),
+        response: {
+          201: t.Object({
+            id: t.String(),
+            numericId: t.Number(),
+            amount: t.Number(),
+            crypto: t.Union([t.Number(), t.Null()]),
+            status: t.Enum(Status),
+            traderId: t.String(),
+            requisites: t.Object({
+              id: t.String(),
+              bankType: t.Enum(BankType),
+              cardNumber: t.String(),
+              recipientName: t.String(),
+              traderName: t.String(),
+            }),
+            createdAt: t.String(),
+            updatedAt: t.String(),
+            expired_at: t.String(),
+            method: t.Object({
+              id: t.String(),
+              code: t.String(),
+              name: t.String(),
+              type: t.Enum(MethodType),
+              currency: t.Enum(Currency),
+            }),
+          }),
+          400: t.Object({ error: t.String() }),
+          404: t.Object({ error: t.String() }),
+          409: t.Object({ error: t.String() }),
+        },
+        tags: ["merchant"],
+        detail: { summary: "Создание входящей транзакции (IN)" },
+      },
+    )
+
+    /* ──────── POST /merchant/transactions/out ──────── */
+    .post(
+      "/transactions/out",
+      async ({ body, merchant, set, error }) => {
+        // Генерируем значения по умолчанию
+        const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
+        
+        // Проверяем метод
+        const method = await db.method.findUnique({
+          where: { id: body.methodId },
+        });
+        if (!method || !method.isEnabled) {
+          return error(404, { error: "Метод не найден или неактивен" });
+        }
+
+        // Проверяем доступ мерчанта к методу
+        const mm = await db.merchantMethod.findUnique({
+          where: {
+            merchantId_methodId: {
+              merchantId: merchant.id,
+              methodId: method.id,
+            },
+          },
+        });
+        if (!mm || !mm.isEnabled) {
+          return error(404, { error: "Метод недоступен мерчанту" });
+        }
+
+        // Проверяем сумму для OUT транзакций
+        if (body.amount < method.minPayout || body.amount > method.maxPayout) {
+          return error(400, { error: "Сумма вне допустимого диапазона" });
+        }
+
+        // Проверяем уникальность orderId
+        const duplicate = await db.transaction.findFirst({
+          where: { merchantId: merchant.id, orderId: body.orderId },
+        });
+        if (duplicate) {
+          return error(409, { error: "Транзакция с таким orderId уже существует" });
+        }
+
+        // Создаем OUT транзакцию
+        const tx = await db.transaction.create({
+          data: {
+            merchantId: merchant.id,
+            amount: body.amount,
+            assetOrBank: "",
+            orderId: body.orderId,
+            methodId: method.id,
+            currency: "RUB",
+            userId: `user_${Date.now()}`,
+            userIp: body.userIp || null,
+            callbackUri: body.callbackUri || "",
+            successUri: "",
+            failUri: "",
+            type: TransactionType.OUT,
+            expired_at: expired_at,
+            commission: 0,
+            clientName: `user_${Date.now()}`,
+            status: Status.IN_PROGRESS,
+            rate: body.rate,
+            isMock: false,
+          },
+          include: {
+            method: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                type: true,
+                currency: true,
+              },
+            },
+          },
+        });
+
+        set.status = 201;
+        return {
+          id: tx.id,
+          numericId: tx.numericId,
+          amount: tx.amount,
+          crypto: null,
+          status: tx.status,
+          traderId: null,
+          requisites: null,
+          createdAt: tx.createdAt.toISOString(),
+          updatedAt: tx.updatedAt.toISOString(),
+          expired_at: tx.expired_at.toISOString(),
+          method: tx.method,
+        };
+      },
+      {
+        headers: t.Object({ "x-merchant-api-key": t.String() }),
+        body: t.Object({
+          amount: t.Number({ description: "Сумма транзакции в рублях" }),
+          orderId: t.String({ description: "Уникальный ID заказа от мерчанта" }),
+          methodId: t.String({ description: "ID метода платежа" }),
+          rate: t.Number({ description: "Курс USDT/RUB" }),
+          expired_at: t.String({ description: "ISO дата истечения транзакции" }),
+          userIp: t.Optional(t.String({ description: "IP адрес пользователя" })),
+          callbackUri: t.Optional(t.String({ description: "URL для callback уведомлений" })),
+        }),
+        response: {
+          201: t.Object({
+            id: t.String(),
+            numericId: t.Number(),
+            amount: t.Number(),
+            crypto: t.Null(),
+            status: t.Enum(Status),
+            traderId: t.Null(),
+            requisites: t.Null(),
+            createdAt: t.String(),
+            updatedAt: t.String(),
+            expired_at: t.String(),
+            method: t.Object({
+              id: t.String(),
+              code: t.String(),
+              name: t.String(),
+              type: t.Enum(MethodType),
+              currency: t.Enum(Currency),
+            }),
+          }),
+          400: t.Object({ error: t.String() }),
+          404: t.Object({ error: t.String() }),
+          409: t.Object({ error: t.String() }),
+        },
+        tags: ["merchant"],
+        detail: { summary: "Создание исходящей транзакции (OUT)" },
       },
     )
 

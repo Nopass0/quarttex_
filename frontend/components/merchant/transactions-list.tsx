@@ -17,6 +17,7 @@ import { formatAmount, formatDate } from '@/lib/utils'
 import { RefreshCw, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
 import { useMerchantAuth } from '@/stores/merchant-auth'
 import { toast } from 'sonner'
+import { CreateDisputeDialog } from '@/components/merchant/create-dispute-dialog'
 
 type Transaction = {
   id: string
@@ -81,6 +82,10 @@ export function TransactionsList({ filters }: TransactionsListProps) {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const pageSize = 50
+  
+  // Dispute dialog state
+  const [showDisputeDialog, setShowDisputeDialog] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
 
   const fetchTransactions = useCallback(async () => {
     try {
@@ -126,8 +131,16 @@ export function TransactionsList({ filters }: TransactionsListProps) {
     fetchTransactions()
   }, [fetchTransactions])
 
-  const handleOpenDispute = (transactionId: string) => {
-    router.push(`/merchant/transactions/${transactionId}/dispute`)
+  const handleOpenDispute = (transaction: Transaction) => {
+    setSelectedTransaction(transaction)
+    setShowDisputeDialog(true)
+  }
+  
+  const handleDisputeSuccess = () => {
+    setShowDisputeDialog(false)
+    setSelectedTransaction(null)
+    fetchTransactions() // Refresh transactions
+    router.push('/merchant/disputes') // Navigate to disputes page
   }
 
   return (
@@ -198,11 +211,13 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                     {transaction.orderId || '-'}
                   </TableCell>
                   <TableCell>
-                    {(transaction.status === 'READY' || transaction.status === 'IN_PROGRESS') && transaction.type === 'IN' && (
+                    {(transaction.status === 'READY' || transaction.status === 'IN_PROGRESS') && 
+                     transaction.type === 'IN' && 
+                     transaction.trader && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleOpenDispute(transaction.id)}
+                        onClick={() => handleOpenDispute(transaction)}
                         title="Открыть спор по транзакции"
                       >
                         <AlertCircle className="h-4 w-4 mr-1 text-[#006039]" />
@@ -244,6 +259,14 @@ export function TransactionsList({ filters }: TransactionsListProps) {
           </TableCaption>
         </Table>
       </div>
+      
+      {/* Dispute Dialog */}
+      <CreateDisputeDialog
+        open={showDisputeDialog}
+        onOpenChange={setShowDisputeDialog}
+        transaction={selectedTransaction}
+        onSuccess={handleDisputeSuccess}
+      />
     </div>
   )
 }

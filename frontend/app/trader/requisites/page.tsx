@@ -103,16 +103,15 @@ export default function TraderRequisitesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRequisites, setSelectedRequisites] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
-  const [filter, setFilter] = useState<"all" | "active" | "archived">("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [methods, setMethods] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [addingRequisite, setAddingRequisite] = useState(false);
-  const [sortOrder, setSortOrder] = useState<
-    "newest" | "oldest" | "name" | "amount"
-  >("newest");
-  const [filterBank, setFilterBank] = useState<string>("all");
-  const [filterPaymentSystem, setFilterPaymentSystem] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "stopped" | "blocked">("all");
+  const [filterDevice, setFilterDevice] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [deviceSearch, setDeviceSearch] = useState("");
   const [selectedRequisiteForInfo, setSelectedRequisiteForInfo] =
     useState<Requisite | null>(null);
 
@@ -284,21 +283,18 @@ export default function TraderRequisitesPage() {
           .includes(searchQuery.toLowerCase()) ||
         (requisite.phoneNumber && requisite.phoneNumber.includes(searchQuery));
 
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "active" && !requisite.isArchived) ||
-        (filter === "archived" && requisite.isArchived);
+      const matchesStatus =
+        filterStatus === "all" ||
+        (filterStatus === "active" && !requisite.isArchived && requisite.hasDevice && requisite.device?.isOnline) ||
+        (filterStatus === "stopped" && (!requisite.hasDevice || !requisite.device?.isOnline) && !requisite.isArchived) ||
+        (filterStatus === "blocked" && requisite.isArchived);
 
-      const matchesBank =
-        filterBank === "all" || requisite.bankType === filterBank;
+      const matchesDevice =
+        filterDevice === "all" ||
+        (filterDevice === "none" && !requisite.hasDevice) ||
+        (requisite.device && requisite.device.id === filterDevice);
 
-      const matchesPaymentSystem =
-        filterPaymentSystem === "all" ||
-        detectPaymentSystem(requisite.cardNumber) === filterPaymentSystem;
-
-      return (
-        matchesSearch && matchesFilter && matchesBank && matchesPaymentSystem
-      );
+      return matchesSearch && matchesStatus && matchesDevice;
     })
     .sort((a, b) => {
       switch (sortOrder) {
@@ -310,10 +306,6 @@ export default function TraderRequisitesPage() {
           return (
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           );
-        case "name":
-          return a.recipientName.localeCompare(b.recipientName);
-        case "amount":
-          return b.totalDeals - a.totalDeals;
         default:
           return 0;
       }
@@ -400,127 +392,271 @@ export default function TraderRequisitesPage() {
             <TraderHeader />
           </div>
 
-          {/* Filters and Actions */}
-          <Card className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#006039]" />
-                  <Input
-                    placeholder="Поиск по номеру или имени..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Parameters Filter */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="gap-2">
-                      <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-                      Параметры поиска
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80">
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Статус</Label>
-                        <Select
-                          value={filter}
-                          onValueChange={(value: any) => setFilter(value)}
-                        >
-                          <SelectTrigger className="w-full mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Все реквизиты</SelectItem>
-                            <SelectItem value="active">Активные</SelectItem>
-                            <SelectItem value="archived">Архивные</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Банк</Label>
-                        <Select
-                          value={filterBank}
-                          onValueChange={setFilterBank}
-                        >
-                          <SelectTrigger className="w-full mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Все банки</SelectItem>
-                            <SelectItem value="SBERBANK">Сбербанк</SelectItem>
-                            <SelectItem value="TBANK">Т-Банк</SelectItem>
-                            <SelectItem value="VTB">ВТБ</SelectItem>
-                            <SelectItem value="ALFABANK">Альфа-Банк</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Платежная система</Label>
-                        <Select
-                          value={filterPaymentSystem}
-                          onValueChange={setFilterPaymentSystem}
-                        >
-                          <SelectTrigger className="w-full mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Все системы</SelectItem>
-                            <SelectItem value="mir">МИР</SelectItem>
-                            <SelectItem value="visa">Visa</SelectItem>
-                            <SelectItem value="mastercard">
-                              Mastercard
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                {/* Sort Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2">
-                      <ArrowUpDown className="h-4 w-4 text-[#006039]" />
-                      Сортировка
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => setSortOrder("newest")}
-                      className={sortOrder === "newest" ? "bg-gray-100" : ""}
-                    >
-                      Сначала новые
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setSortOrder("oldest")}
-                      className={sortOrder === "oldest" ? "bg-gray-100" : ""}
-                    >
-                      Сначала старые
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setSortOrder("name")}
-                      className={sortOrder === "name" ? "bg-gray-100" : ""}
-                    >
-                      По имени
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => setSortOrder("amount")}
-                      className={sortOrder === "amount" ? "bg-gray-100" : ""}
-                    >
-                      По сумме сделок
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          {/* Search and Filters - Sticky */}
+          <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-4 -mx-6 px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
+            <div className="flex gap-2">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
+                <Input
+                  placeholder="Поиск по номеру, имени, устройству..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 border h-12 border-gray-300 dark:border-[#29382f] rounded-lg"
+                />
               </div>
 
-              {selectedRequisites.length > 0 && (
+              {/* Filters */}
+              <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    className="gap-2 h-12 px-6"
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
+                    Не выбраны
+                    {(filterStatus !== "all" || filterDevice !== "all") && (
+                      <Badge className="ml-1 bg-[#006039] text-white">
+                        {[
+                          filterStatus !== "all",
+                          filterDevice !== "all",
+                        ].filter(Boolean).length}
+                      </Badge>
+                    )}
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 transition-colors",
+                        filtersOpen ? "text-[#006039]" : "text-gray-400"
+                      )}
+                    />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-">Параметры поиска</h4>
+
+                    {/* Status Filter */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-[#006039]" />
+                        <Label className="text-sm">Статус реквизитов</Label>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="default"
+                            className="w-full justify-between h-12"
+                          >
+                            <span className="text-[#006039]">
+                              {filterStatus === "all"
+                                ? "Все реквизиты"
+                                : filterStatus === "active"
+                                  ? "В работе"
+                                  : filterStatus === "stopped"
+                                    ? "Остановлен"
+                                    : "Заблокирован"}
+                            </span>
+                            <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[465px] p-0" align="start" sideOffset={5}>
+                          <div className="max-h-64 overflow-auto">
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterStatus === "all" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterStatus("all")}
+                            >
+                              Все реквизиты
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterStatus === "active" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterStatus("active")}
+                            >
+                              В работе
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterStatus === "stopped" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterStatus("stopped")}
+                            >
+                              Остановлен
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterStatus === "blocked" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterStatus("blocked")}
+                            >
+                              Заблокирован
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Device Filter */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 text-[#006039]" />
+                        <Label className="text-sm">Устройство</Label>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="default"
+                            className="w-full justify-between h-12"
+                          >
+                            <span className="text-[#006039]">
+                              {filterDevice === "all"
+                                ? "Все устройства"
+                                : filterDevice === "none"
+                                  ? "Без устройства"
+                                  : devices.find(d => d.id === filterDevice)?.name || "Выберите устройство"}
+                            </span>
+                            <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[465px] p-0" align="start" sideOffset={5}>
+                          <div className="p-2 border-b">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                              <Input
+                                placeholder="Поиск устройства"
+                                value={deviceSearch}
+                                onChange={(e) => setDeviceSearch(e.target.value)}
+                                className="pl-9"
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-64 overflow-auto">
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterDevice === "all" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterDevice("all")}
+                            >
+                              Все устройства
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterDevice === "none" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterDevice("none")}
+                            >
+                              Без устройства
+                            </Button>
+                            {devices
+                              .filter(device => 
+                                device.name.toLowerCase().includes(deviceSearch.toLowerCase())
+                              )
+                              .map((device) => (
+                                <Button
+                                  key={device.id}
+                                  variant="ghost"
+                                  size="default"
+                                  className={cn(
+                                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                    filterDevice === device.id &&
+                                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                                  )}
+                                  onClick={() => setFilterDevice(device.id)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Smartphone className="h-4 w-4" />
+                                    <span>{device.name}</span>
+                                    {device.isOnline && (
+                                      <div className="w-2 h-2 bg-green-500 rounded-full" />
+                                    )}
+                                  </div>
+                                </Button>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-12"
+                        onClick={() => {
+                          setFilterStatus("all");
+                          setFilterDevice("all");
+                          setDeviceSearch("");
+                        }}
+                      >
+                        Сбросить все
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-12 bg-[#006039] hover:bg-[#006039]/90"
+                        onClick={() => setFiltersOpen(false)}
+                      >
+                        Применить фильтры
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Sort Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2 h-12 px-6">
+                    <ArrowUpDown className="h-4 w-4 text-[#006039]" />
+                    {sortOrder === "newest" ? "Сначала новые" : "Сначала старые"}
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSortOrder("newest")}>
+                    Сначала новые
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
+                    Сначала старые
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Bulk Actions */}
+          {selectedRequisites.length > 0 && (
+            <Card className="p-4">
+              <div className="flex justify-between items-center">
                 <div className="flex gap-2">
                   <Select value={bulkAction} onValueChange={setBulkAction}>
                     <SelectTrigger className="w-[200px]">
@@ -556,9 +692,9 @@ export default function TraderRequisitesPage() {
                     Применить
                   </Button>
                 </div>
-              )}
-            </div>
-          </Card>
+              </div>
+            </Card>
+          )}
 
           {/* Requisites List */}
           <div className="space-y-3">
@@ -570,55 +706,56 @@ export default function TraderRequisitesPage() {
               const paymentSystem = detectPaymentSystem(requisite.cardNumber);
 
               return (
-                <Card
-                  key={requisite.id}
-                  className="p-4 hover:shadow-md transition-all duration-300 cursor-pointer border-gray-100"
-                  onClick={() => setSelectedRequisiteForInfo(requisite)}
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Checkbox */}
-                    <Checkbox
-                      checked={selectedRequisites.includes(requisite.id)}
-                      onCheckedChange={() => toggleSelect(requisite.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex-shrink-0"
-                    />
+                <div key={requisite.id} className="relative">
+                  {/* Checkbox - positioned outside card */}
+                  <Checkbox
+                    checked={selectedRequisites.includes(requisite.id)}
+                    onCheckedChange={() => toggleSelect(requisite.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 flex-shrink-0"
+                  />
 
-                    {/* Bank Logo */}
-                    <div className="flex-shrink-0">
-                      <Image
-                        src={`/bank-logos/${getBankLogo(requisite.bankType)}`}
-                        alt={requisite.bankType}
-                        width={32}
-                        height={32}
-                        className="object-contain"
-                      />
-                    </div>
-
-                    {/* Requisite Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900">
-                        {requisite.recipientName}
+                  <Card
+                    className="pl-12 pr-4 py-4 hover:shadow-md transition-all duration-300 cursor-pointer border-gray-100"
+                    onClick={() => setSelectedRequisiteForInfo(requisite)}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Bank Logo */}
+                      <div className="flex-shrink-0">
+                        <Image
+                          src={`/bank-logos/${getBankLogo(requisite.bankType)}`}
+                          alt={requisite.bankType}
+                          width={32}
+                          height={32}
+                          className="object-contain"
+                        />
                       </div>
-                      {requisite.device && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Smartphone className="h-3.5 w-3.5 text-green-600" />
-                          <span className="text-sm text-green-600">
-                            {requisite.device.name}
-                          </span>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Payment System and Card */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {paymentSystem !== "unknown" && (
-                        <PaymentSystemIcon system={paymentSystem} />
-                      )}
-                      <span className="font-semibold text-gray-900">
-                        {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
-                      </span>
-                    </div>
+                      {/* Requisite Info + Card Number */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <div className="font-medium text-gray-900">
+                            {requisite.recipientName}
+                          </div>
+                          {requisite.device && (
+                            <div className="flex items-center gap-1.5">
+                              <Smartphone className="h-3.5 w-3.5 text-green-600" />
+                              <span className="text-sm text-green-600">
+                                {requisite.device.name}
+                              </span>
+                            </div>
+                          )}
+                          {/* Card Number - moved closer to name/device */}
+                          <div className="flex items-center gap-2">
+                            {paymentSystem !== "unknown" && (
+                              <PaymentSystemIcon system={paymentSystem} />
+                            )}
+                            <span className="font-semibold text-gray-900">
+                              {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
                     {/* Success Rate */}
                     <div className="flex-shrink-0">
@@ -636,22 +773,23 @@ export default function TraderRequisitesPage() {
                       </div>
                     </div>
 
-                    {/* Status */}
-                    <div className="flex-shrink-0">
-                      {!requisite.isArchived &&
-                      requisite.hasDevice &&
-                      requisite.device?.isOnline ? (
-                        <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
-                          В работе
-                        </div>
-                      ) : (
-                        <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
-                          Выключен реквизит
-                        </div>
-                      )}
+                      {/* Status */}
+                      <div className="flex-shrink-0">
+                        {!requisite.isArchived &&
+                        requisite.hasDevice &&
+                        requisite.device?.isOnline ? (
+                          <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
+                            В работе
+                          </div>
+                        ) : (
+                          <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
+                            Выключен реквизит
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                </div>
               );
             })}
           </div>

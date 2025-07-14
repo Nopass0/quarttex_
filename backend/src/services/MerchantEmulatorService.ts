@@ -399,8 +399,9 @@ export class MerchantEmulatorService extends BaseService {
       const successUri = `${baseUrl}/service/merchantemulatorservice/callback/${successToken}`;
       const failUri = `${baseUrl}/service/merchantemulatorservice/callback/${failToken}`;
 
-      // Создаем транзакцию через API
-      const response = await fetch(`${baseUrl}/merchant/transactions/create`, {
+      // Создаем транзакцию через новый API (используем endpoint в зависимости от типа)
+      const endpoint = type === TransactionType.IN ? 'in' : 'out';
+      const response = await fetch(`${baseUrl}/merchant/transactions/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -413,10 +414,7 @@ export class MerchantEmulatorService extends BaseService {
           rate,
           expired_at,
           userIp,
-          type,
-          callbackUri,
-          successUri,
-          failUri
+          callbackUri
         })
       });
 

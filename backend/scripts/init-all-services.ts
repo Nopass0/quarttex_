@@ -18,6 +18,7 @@ const services = [
   { name: 'DeviceEmulatorService', displayName: 'Device Emulator Service', description: 'Emulates device behavior for testing', enabled: false },
   { name: 'PayoutEmulatorService', displayName: 'Payout Emulator Service', description: 'Emulates payout processing for testing', enabled: false },
   { name: 'PayoutRedistributionService', displayName: 'Payout Redistribution Service', description: 'Redistributes unassigned payouts to available traders', enabled: true },
+  { name: 'CallbackService', displayName: 'Callback Service', description: 'Sends webhook callbacks to merchants for completed transactions', enabled: true },
 ];
 
 async function initializeServices() {

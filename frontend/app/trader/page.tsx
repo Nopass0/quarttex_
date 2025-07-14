@@ -10,7 +10,7 @@ export default function TraderRootPage() {
   
   useEffect(() => {
     if (token) {
-      router.push("/trader/deals")
+      router.push("/trader/dashboard")
     } else {
       router.push("/trader/login")
     }

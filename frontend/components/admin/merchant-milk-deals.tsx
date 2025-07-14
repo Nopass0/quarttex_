@@ -202,47 +202,47 @@ export function MerchantMilkDeals({ merchantId }: MerchantMilkDealsProps) {
     <div className="space-y-6">
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Всего проблемных</CardTitle>
+            <CardTitle className="text-base font-medium dark:text-white">Всего проблемных</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{statistics.total}</p>
+            <p className="text-2xl font-bold dark:text-white">{statistics.total}</p>
           </CardContent>
         </Card>
-        <Card className="border-red-200">
+        <Card className="border-red-200 dark:border-red-900 dark:bg-gray-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-red-600">Ошибка провайдера</CardTitle>
-            <CardDescription className="text-xs">Клиент не оплатил</CardDescription>
+            <CardTitle className="text-base font-medium text-red-600 dark:text-red-400">Ошибка провайдера</CardTitle>
+            <CardDescription className="text-xs dark:text-gray-400">Клиент не оплатил</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-600">{statistics.failProvider}</p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">{statistics.failProvider}</p>
           </CardContent>
         </Card>
-        <Card className="border-orange-200">
+        <Card className="border-orange-200 dark:border-orange-900 dark:bg-gray-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-orange-600">Ошибка агрегатора</CardTitle>
-            <CardDescription className="text-xs">Реквизиты выданы, не оплачены</CardDescription>
+            <CardTitle className="text-base font-medium text-orange-600 dark:text-orange-400">Ошибка агрегатора</CardTitle>
+            <CardDescription className="text-xs dark:text-gray-400">Реквизиты выданы, не оплачены</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-orange-600">{statistics.failAggregator}</p>
+            <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{statistics.failAggregator}</p>
           </CardContent>
         </Card>
-        <Card className="border-green-200">
+        <Card className="border-green-200 dark:border-green-900 dark:bg-gray-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-green-600">Прочие</CardTitle>
-            <CardDescription className="text-xs">Другие проблемные платежи</CardDescription>
+            <CardTitle className="text-base font-medium text-green-600 dark:text-green-400">Прочие</CardTitle>
+            <CardDescription className="text-xs dark:text-gray-400">Другие проблемные платежи</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">{statistics.success}</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{statistics.success}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="dark:bg-gray-800 dark:border-gray-700">
         <CardHeader>
-          <CardTitle className="text-lg">Фильтры</CardTitle>
+          <CardTitle className="text-lg dark:text-white">Фильтры</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

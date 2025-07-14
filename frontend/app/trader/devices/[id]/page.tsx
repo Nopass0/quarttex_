@@ -61,6 +61,12 @@ import {
   MoreVertical,
   Globe2,
   GlobeLock,
+  Scale,
+  Building2,
+  Search,
+  Filter,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -116,6 +122,10 @@ export default function DeviceDetailsPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
   const [serverError, setServerError] = useState(false);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [messageFilter, setMessageFilter] = useState("all");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [disputes, setDisputes] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDevice();
@@ -628,7 +638,7 @@ export default function DeviceDetailsPage() {
 
           {/* Tabs Section */}
           <Card>
-            <Tabs defaultValue="messages" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="border-b">
                 <TabsList className="h-12 p-0 bg-transparent rounded-none w-full justify-start">
                   <TabsTrigger
@@ -637,6 +647,20 @@ export default function DeviceDetailsPage() {
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Сообщения
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="deals"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Сделки
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="disputes"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
+                  >
+                    <Scale className="h-4 w-4 mr-2" />
+                    Споры
                   </TabsTrigger>
                   <TabsTrigger
                     value="events"
@@ -648,14 +672,54 @@ export default function DeviceDetailsPage() {
                 </TabsList>
               </div>
 
-              <TabsContent value="messages" className="p-6 space-y-3">
-                {messages.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                    <p>Нет сообщений</p>
+              <TabsContent value="messages" className="p-0">
+                {/* Messages Search and Filters */}
+                <div className="p-6 pb-4 border-b">
+                  <div className="flex gap-2 mb-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        placeholder="Поиск сообщений..."
+                        value={messageSearch}
+                        onChange={(e) => setMessageSearch(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <select
+                      value={messageFilter}
+                      onChange={(e) => setMessageFilter(e.target.value)}
+                      className="px-4 py-2 border rounded-md bg-white dark:bg-gray-800"
+                    >
+                      <option value="all">Все сообщения</option>
+                      <option value="sms">SMS</option>
+                      <option value="push">Push уведомления</option>
+                      <option value="call">Звонки</option>
+                    </select>
                   </div>
-                ) : (
-                  messages.map((message) => {
+                </div>
+                
+                <div className="p-6 pt-4 space-y-3">
+                  {messages
+                    .filter(message => {
+                      const matchesSearch = message.content.toLowerCase().includes(messageSearch.toLowerCase()) ||
+                                          message.sender.toLowerCase().includes(messageSearch.toLowerCase());
+                      const matchesFilter = messageFilter === "all" || message.type === messageFilter;
+                      return matchesSearch && matchesFilter;
+                    })
+                    .length === 0 ? (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                      <p>Нет сообщений</p>
+                    </div>
+                  ) : (
+                    messages
+                      .filter(message => {
+                        const matchesSearch = message.content.toLowerCase().includes(messageSearch.toLowerCase()) ||
+                                            message.sender.toLowerCase().includes(messageSearch.toLowerCase());
+                        const matchesFilter = messageFilter === "all" || message.type === messageFilter;
+                        return matchesSearch && matchesFilter;
+                      })
+                      .map((message) => {
                     // Determine message styling based on content
                     const isBank = message.sender?.toLowerCase().includes('bank') || 
                                   message.sender?.toLowerCase().includes('сбер') ||
@@ -767,6 +831,23 @@ export default function DeviceDetailsPage() {
                     );
                   })
                 )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="deals" className="p-6">
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                  <p>Сделки для этого устройства</p>
+                  <p className="text-sm mt-2">Здесь будут отображаться все сделки, обработанные через это устройство</p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="disputes" className="p-6">
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <Scale className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                  <p>Споры для этого устройства</p>
+                  <p className="text-sm mt-2">Здесь будут отображаться все споры, связанные с этим устройством</p>
+                </div>
               </TabsContent>
 
               <TabsContent value="events" className="p-6 space-y-4">

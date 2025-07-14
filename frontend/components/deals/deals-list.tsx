@@ -58,9 +58,11 @@ import {
   Building2,
   SlidersHorizontal,
   CheckCircle2,
+  Scale,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RequisiteInfoModal } from "@/components/requisites/requisite-info-modal";
+import { CustomCalendarPopover } from "@/components/ui/custom-calendar-popover";
 
 // Функция для получения квадратных SVG логотипов банков
 const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
@@ -97,7 +99,7 @@ const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
 
   if (logoPath) {
     return (
-      <div className={`${sizeClasses} rounded-lg bg-white border border-gray-200 flex items-center justify-center p-1`}>
+      <div className={`${sizeClasses} rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-1`}>
         <img
           src={logoPath}
           alt={bankType}
@@ -218,8 +220,8 @@ export function DealsList() {
   const [filterDevice, setFilterDevice] = useState("all");
   const [filterRequisite, setFilterRequisite] = useState("all");
   const [filterMethod, setFilterMethod] = useState("all");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
+  const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [, forceUpdate] = useState(0); // Force component re-render for countdown
   const [showRequisiteDetails, setShowRequisiteDetails] = useState(false);
@@ -417,10 +419,10 @@ export function DealsList() {
 
       // Add date filters
       if (filterDateFrom) {
-        params.dateFrom = filterDateFrom;
+        params.dateFrom = filterDateFrom.toISOString().split('T')[0];
       }
       if (filterDateTo) {
-        params.dateTo = filterDateTo;
+        params.dateTo = filterDateTo.toISOString().split('T')[0];
       }
 
       // Add search query
@@ -627,8 +629,7 @@ export function DealsList() {
 
     // Date filter
     if (filterDateFrom) {
-      const fromDate = new Date(filterDateFrom);
-      filtered = filtered.filter((t) => new Date(t.createdAt) >= fromDate);
+      filtered = filtered.filter((t) => new Date(t.createdAt) >= filterDateFrom);
     }
     if (filterDateTo) {
       const toDate = new Date(filterDateTo);
@@ -1409,224 +1410,18 @@ export function DealsList() {
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between h-12 text-left font-normal"
-                        >
-                          <span
-                            className={
-                              filterDateFrom ? "text-black" : "text-gray-500"
-                            }
-                          >
-                            {filterDateFrom ? `${filterDateFrom} 00:00` : "От"}
-                          </span>
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <div className="p-4">
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-7 gap-1 text-sm">
-                              <div className="text-center font-medium text-gray-500">
-                                Пн
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Вт
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Ср
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Чт
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Пт
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Сб
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Вс
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-7 gap-1">
-                              {Array.from({ length: 35 }, (_, i) => {
-                                const date = new Date(2024, 0, i - 6);
-                                const isSelected =
-                                  filterDateFrom ===
-                                  date.toISOString().split("T")[0];
-                                return (
-                                  <Button
-                                    key={i}
-                                    variant={isSelected ? "default" : "ghost"}
-                                    size="sm"
-                                    className={cn(
-                                      "h-8 w-8 p-0 font-normal",
-                                      isSelected &&
-                                        "bg-[#006039] text-white hover:bg-[#006039]",
-                                    )}
-                                    onClick={() =>
-                                      setFilterDateFrom(
-                                        date.toISOString().split("T")[0],
-                                      )
-                                    }
-                                  >
-                                    {date.getDate()}
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm">Время</Label>
-                              <div className="flex gap-2">
-                                <Input
-                                  type="number"
-                                  placeholder="Час"
-                                  min="0"
-                                  max="23"
-                                  className="flex-1 h-12"
-                                />
-                                <Input
-                                  type="number"
-                                  placeholder="Мин"
-                                  min="0"
-                                  max="59"
-                                  className="flex-1 h-12"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 h-12"
-                                onClick={() => setFilterDateFrom("")}
-                              >
-                                Сбросить
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="flex-1 h-12 bg-[#006039] hover:bg-[#006039]/90"
-                              >
-                                Применить
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    <CustomCalendarPopover
+                      value={filterDateFrom}
+                      onChange={setFilterDateFrom}
+                      placeholder="От"
+                    />
                   </div>
                   <div className="flex-1">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between h-12 text-left font-normal"
-                        >
-                          <span
-                            className={
-                              filterDateTo ? "text-black" : "text-gray-500"
-                            }
-                          >
-                            {filterDateTo ? `${filterDateTo} 23:59` : "До"}
-                          </span>
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <div className="p-4">
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-7 gap-1 text-sm">
-                              <div className="text-center font-medium text-gray-500">
-                                Пн
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Вт
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Ср
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Чт
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Пт
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Сб
-                              </div>
-                              <div className="text-center font-medium text-gray-500">
-                                Вс
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-7 gap-1">
-                              {Array.from({ length: 35 }, (_, i) => {
-                                const date = new Date(2024, 0, i - 6);
-                                const isSelected =
-                                  filterDateTo ===
-                                  date.toISOString().split("T")[0];
-                                return (
-                                  <Button
-                                    key={i}
-                                    variant={isSelected ? "default" : "ghost"}
-                                    size="sm"
-                                    className={cn(
-                                      "h-8 w-8 p-0 font-normal",
-                                      isSelected &&
-                                        "bg-[#006039] text-white hover:bg-[#006039]",
-                                    )}
-                                    onClick={() =>
-                                      setFilterDateTo(
-                                        date.toISOString().split("T")[0],
-                                      )
-                                    }
-                                  >
-                                    {date.getDate()}
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-sm">Время</Label>
-                              <div className="flex gap-2">
-                                <Input
-                                  type="number"
-                                  placeholder="Час"
-                                  min="0"
-                                  max="23"
-                                  className="flex-1 h-12"
-                                />
-                                <Input
-                                  type="number"
-                                  placeholder="Мин"
-                                  min="0"
-                                  max="59"
-                                  className="flex-1 h-12"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 h-12"
-                                onClick={() => setFilterDateTo("")}
-                              >
-                                Сбросить
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="flex-1 h-12 bg-[#006039] hover:bg-[#006039]/90"
-                              >
-                                Применить
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    <CustomCalendarPopover
+                      value={filterDateTo}
+                      onChange={setFilterDateTo}
+                      placeholder="До"
+                    />
                   </div>
                 </div>
               </div>
@@ -1644,8 +1439,8 @@ export function DealsList() {
                     setFilterDevice("all");
                     setFilterRequisite("all");
                     setFilterMethod("all");
-                    setFilterDateFrom("");
-                    setFilterDateTo("");
+                    setFilterDateFrom(undefined);
+                    setFilterDateTo(undefined);
                   }}
                 >
                   Сбросить фильтры
@@ -1721,7 +1516,7 @@ export function DealsList() {
       {/* Transactions List */}
       <div className="space-y-3">
         {filteredTransactions.length === 0 ? (
-          <Card className="p-12 text-center text-gray-500">
+          <Card className="p-12 text-center text-gray-500 dark:text-gray-400 dark:bg-gray-800 dark:border-gray-700">
             Сделки не найдены
           </Card>
         ) : (
@@ -1731,27 +1526,33 @@ export function DealsList() {
                 switch (transaction.status) {
                   case "CREATED":
                     return (
-                      <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                        <Clock className="h-6 w-6 text-blue-600" />
+                      <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                       </div>
                     );
                   case "IN_PROGRESS":
                     return (
-                      <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                        <Clock className="h-6 w-6 text-blue-600" />
+                      <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                       </div>
                     );
                   case "READY":
                     return (
-                      <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                      </div>
+                    );
+                  case "DISPUTE":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                        <Scale className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                       </div>
                     );
                   case "EXPIRED":
                   case "CANCELED":
                     return (
-                      <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                        <X className="h-6 w-6 text-red-600" />
+                      <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <X className="h-6 w-6 text-red-600 dark:text-red-400" />
                       </div>
                     );
                   default:
@@ -1790,12 +1591,12 @@ export function DealsList() {
               const getStatusBadgeColor = () => {
                 switch (transaction.status) {
                   case "READY":
-                    return "bg-green-100 text-green-700 border-green-200";
+                    return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800";
                   case "CREATED":
                   case "IN_PROGRESS":
-                    return "bg-blue-100 text-blue-700 border-blue-200";
+                    return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
                   default:
-                    return "bg-red-100 text-red-700 border-red-200";
+                    return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
                 }
               };
 
@@ -1818,7 +1619,7 @@ export function DealsList() {
                 <Card
                   key={transaction.id}
                   className={cn(
-                    "p-4 hover:shadow-md transition-all duration-300 cursor-pointer",
+                    "p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700",
                     transaction.isNew && "flash-once",
                   )}
                   onClick={() => setSelectedTransaction(transaction)}
@@ -1912,7 +1713,7 @@ export function DealsList() {
             {loadingMore && (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
-                <span className="ml-2 text-sm text-gray-600">Загрузка...</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Загрузка...</span>
               </div>
             )}
           </>
@@ -1929,33 +1730,33 @@ export function DealsList() {
       >
         <DialogPortal>
           <DialogOverlay />
-          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-3xl">
+          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background dark:border-gray-700 p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-3xl">
             {/* Hidden DialogTitle for accessibility */}
             <DialogTitle className="sr-only">
               {showRequisiteDetails
                 ? "Информация о реквизите"
                 : "Детали транзакции"}
             </DialogTitle>
-            <div className="bg-white">
+            <div className="bg-white dark:bg-gray-800">
               {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 {showRequisiteDetails ? (
                   <>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowRequisiteDetails(false)}
-                      className="text-sm text-gray-600 hover:text-gray-900 -ml-2"
+                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 -ml-2"
                     >
                       <ChevronDown className="h-4 w-4 mr-1 rotate-90 text-[#006039]" />
                       Назад
                     </Button>
-                    <h3 className="font-medium">Информация о реквизите</h3>
+                    <h3 className="font-medium dark:text-white">Информация о реквизите</h3>
                     <div className="w-8" />
                   </>
                 ) : (
                   <>
-                    <div className="text-sm text-gray-500 ml-[124px]">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 ml-[124px]">
                       {selectedTransaction &&
                         format(
                           new Date(selectedTransaction.createdAt),
@@ -1970,7 +1771,7 @@ export function DealsList() {
                         setSelectedTransaction(null);
                         setShowRequisiteDetails(false);
                       }}
-                      className="h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                      className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
                     >
                       <X className="h-4 w-4 text-[#006039]" />
                     </Button>
@@ -1985,23 +1786,23 @@ export function DealsList() {
                     {/* Status Icon */}
                     <div className="mb-4 flex justify-center">
                       {selectedTransaction.status === "READY" ? (
-                        <div className="w-20 h-20 rounded-3xl bg-green-100 flex items-center justify-center">
-                          <CheckCircle2 className="h-10 w-10 text-green-600" />
+                        <div className="w-20 h-20 rounded-3xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                          <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
                         </div>
                       ) : selectedTransaction.status === "CREATED" ||
                         selectedTransaction.status === "IN_PROGRESS" ? (
-                        <div className="w-20 h-20 rounded-3xl bg-blue-100 flex items-center justify-center">
-                          <Clock className="h-10 w-10 text-blue-600" />
+                        <div className="w-20 h-20 rounded-3xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                          <Clock className="h-10 w-10 text-blue-600 dark:text-blue-400" />
                         </div>
                       ) : (
-                        <div className="w-20 h-20 rounded-3xl bg-red-100 flex items-center justify-center">
-                          <X className="h-10 w-10 text-red-600" />
+                        <div className="w-20 h-20 rounded-3xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                          <X className="h-10 w-10 text-red-600 dark:text-red-400" />
                         </div>
                       )}
                     </div>
 
                     {/* Transaction Title */}
-                    <h2 className="text-lg font-semibold mb-1">
+                    <h2 className="text-lg font-semibold mb-1 dark:text-white">
                       {selectedTransaction.status === "READY"
                         ? "Платеж зачислен"
                         : selectedTransaction.status === "CREATED" ||
@@ -2011,13 +1812,13 @@ export function DealsList() {
                     </h2>
 
                     {/* Transaction ID */}
-                    <p className="text-sm text-gray-500 mb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       {selectedTransaction.numericId}
                     </p>
 
                     {/* Amount */}
                     <div className="mb-1">
-                      <span className="text-3xl font-bold text-green-600">
+                      <span className="text-3xl font-bold text-green-600 dark:text-green-400">
                         {selectedTransaction.frozenUsdtAmount
                           ? selectedTransaction.frozenUsdtAmount.toFixed(2)
                           : selectedTransaction.rate
@@ -2029,7 +1830,7 @@ export function DealsList() {
                         USDT
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {selectedTransaction.amount.toLocaleString("ru-RU")} RUB
                     </p>
                   </div>
@@ -2037,14 +1838,14 @@ export function DealsList() {
                   {/* Dispute Badge if exists */}
                   {selectedTransaction.status === "DISPUTE" && (
                     <div className="px-6 pb-4">
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center justify-between">
+                      <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                            <MessageSquare className="h-4 w-4 text-purple-600" />
+                          <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-800 flex items-center justify-center">
+                            <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-300" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium">Спор принят</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm font-medium dark:text-white">Спор принят</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {format(new Date(), "d MMMM yyyy 'г., в' HH:mm", {
                                 locale: ru,
                               })}
@@ -2059,7 +1860,7 @@ export function DealsList() {
                   <div className="px-6 pb-4">
                     <Button
                       variant="outline"
-                      className="w-full p-4 h-auto justify-between hover:bg-gray-50 transition-colors"
+                      className="w-full p-4 h-auto justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800 dark:border-gray-700"
                       onClick={() => setShowRequisiteInfoModal(true)}
                     >
                       <div className="flex items-center gap-3">
@@ -2090,11 +1891,11 @@ export function DealsList() {
                           </div>
                         </div>
                         <div className="text-left">
-                          <p className="font-semibold text-xl">
+                          <p className="font-semibold text-xl dark:text-white">
                             {selectedTransaction.requisites?.recipientName ||
                               selectedTransaction.clientName}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
                             {selectedTransaction.requisites?.cardNumber
                               ?.replace(/(\d{4})/g, "$1 ")
                               .trim() || "—"}
@@ -2108,10 +1909,10 @@ export function DealsList() {
                   {/* Transaction Details */}
                   <div className="px-6 pb-4 space-y-3">
                     {/* Rate */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Ставка</span>
-                        <span className="text-lg font-semibold">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Ставка</span>
+                        <span className="text-lg font-semibold dark:text-white">
                           1 USDT ={" "}
                           {selectedTransaction.rate
                             ? selectedTransaction.rate.toFixed(2)
@@ -2122,10 +1923,10 @@ export function DealsList() {
                     </div>
 
                     {/* Profit */}
-                    <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">Прибыль</span>
-                        <span className="text-lg font-semibold text-green-600">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Прибыль</span>
+                        <span className="text-lg font-semibold text-green-600 dark:text-green-400">
                           +{" "}
                           {selectedTransaction.calculatedCommission
                             ? selectedTransaction.calculatedCommission.toFixed(
@@ -2139,10 +1940,10 @@ export function DealsList() {
 
                     {/* Device */}
                     {selectedTransaction.method && (
-                      <div className="pt-3 border-t">
+                      <div className="pt-3 border-t dark:border-gray-700">
                         <Button
                           variant="ghost"
-                          className="w-full p-3 h-auto justify-between hover:bg-gray-50 -mx-3"
+                          className="w-full p-3 h-auto justify-between hover:bg-gray-50 dark:hover:bg-gray-700 -mx-3"
                           onClick={() => {
                             if (selectedTransaction.deviceId) {
                               router.push(
@@ -2154,19 +1955,19 @@ export function DealsList() {
                           }}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                              <Smartphone className="h-5 w-5 text-[#006039]" />
+                            <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                              <Smartphone className="h-5 w-5 text-[#006039] dark:text-green-400" />
                             </div>
                             <div className="text-left">
-                              <p className="text-sm font-medium">
+                              <p className="text-sm font-medium dark:text-white">
                                 {selectedTransaction.method.id}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedTransaction.method.name}
                               </p>
                             </div>
                           </div>
-                          <ChevronDown className="h-5 w-5 text-[#006039] -rotate-90" />
+                          <ChevronDown className="h-5 w-5 text-[#006039] dark:text-green-400 -rotate-90" />
                         </Button>
                       </div>
                     )}
@@ -2176,9 +1977,9 @@ export function DealsList() {
                   <div className="px-6 pb-6">
                     {selectedTransaction.status === "READY" ? (
                       <div className="text-center space-y-3">
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           Сделка готова к закрытию{" "}
-                          <span className="text-blue-600 cursor-pointer hover:underline">
+                          <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
                             спором
                           </span>
                         </p>
@@ -2222,27 +2023,27 @@ export function DealsList() {
               {selectedTransaction && showRequisiteDetails && (
                 <div className="">
                   {/* Requisite Header */}
-                  <div className="px-6 py-6 text-center border-b">
-                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
+                  <div className="px-6 py-6 text-center border-b dark:border-gray-700">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
                       {selectedTransaction.requisites?.bankType && (
                         <div className="scale-125">
                           {getBankIcon(selectedTransaction.requisites.bankType)}
                         </div>
                       )}
                     </div>
-                    <h3 className="text-lg font-semibold mb-1">
+                    <h3 className="text-lg font-semibold mb-1 dark:text-white">
                       {selectedTransaction.clientName}
                     </h3>
-                    <p className="text-2xl font-bold mb-1">
+                    <p className="text-2xl font-bold mb-1 dark:text-white">
                       {selectedTransaction.requisites?.cardNumber || "—"}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       Банк:{" "}
                       {selectedTransaction.requisites?.bankType ||
                         selectedTransaction.assetOrBank}{" "}
                       • Россия
                     </p>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                       Счет:{" "}
                       {selectedTransaction.requisites?.id?.slice(-8) ||
                         "00000000"}
@@ -2253,55 +2054,55 @@ export function DealsList() {
                   <div className="px-6 py-4 space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
                           Прием по номеру карты: Не подтверждено
                         </span>
                         <Button
                           variant="link"
                           size="sm"
-                          className="text-blue-600 p-0 h-auto"
+                          className="text-blue-600 dark:text-blue-400 p-0 h-auto"
                         >
                           Карта выбрана как основная
                         </Button>
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
                         Прием по номеру счета: Не подтверждено
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
                         Прием по номеру телефона: Подтверждено
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      <h4 className="font-medium text-sm">
+                      <h4 className="font-medium text-sm dark:text-white">
                         Статистика за 24 часа
                       </h4>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Объем сделок</span>
-                          <span className="font-medium">
+                          <span className="text-gray-500 dark:text-gray-400">Объем сделок</span>
+                          <span className="font-medium dark:text-white">
                             0 USDT = 0 RUB{" "}
-                            <span className="text-gray-400">(0 сделок)</span>
+                            <span className="text-gray-400 dark:text-gray-500">(0 сделок)</span>
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Прибыль</span>
-                          <span className="font-medium">0 USDT</span>
+                          <span className="text-gray-500 dark:text-gray-400">Прибыль</span>
+                          <span className="font-medium dark:text-white">0 USDT</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Конверсия</span>
-                          <span className="font-medium text-gray-400">0%</span>
+                          <span className="text-gray-500 dark:text-gray-400">Конверсия</span>
+                          <span className="font-medium text-gray-400 dark:text-gray-500">0%</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t space-y-3">
-                      <h4 className="font-medium text-sm">
+                    <div className="pt-4 border-t dark:border-gray-700 space-y-3">
+                      <h4 className="font-medium text-sm dark:text-white">
                         Привязка к устройству
                       </h4>
                       <Button
                         variant="outline"
-                        className="w-full p-3 h-auto justify-between hover:bg-gray-50"
+                        className="w-full p-3 h-auto justify-between hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 dark:border-gray-700"
                         onClick={() => {
                           if (selectedTransaction.method?.id) {
                             router.push(
@@ -2313,32 +2114,32 @@ export function DealsList() {
                         }}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                            <Smartphone className="h-5 w-5 text-[#006039]" />
+                          <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                            <Smartphone className="h-5 w-5 text-[#006039] dark:text-green-400" />
                           </div>
                           <div className="text-left">
-                            <p className="text-sm font-medium">
+                            <p className="text-sm font-medium dark:text-white">
                               {selectedTransaction.method?.name ||
                                 "Tinkoff iOS 17.2"}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {selectedTransaction.method?.id ||
                                 "5f779d3c-7f63-424e-ac7e-97f5924af501"}
                             </p>
                           </div>
                         </div>
-                        <ChevronDown className="h-5 w-5 text-[#006039] -rotate-90" />
+                        <ChevronDown className="h-5 w-5 text-[#006039] dark:text-green-400 -rotate-90" />
                       </Button>
                     </div>
 
                     <div className="pt-4 space-y-3">
-                      <h4 className="font-medium text-sm">
+                      <h4 className="font-medium text-sm dark:text-white">
                         Управление реквизитом
                       </h4>
                       <div className="space-y-2">
                         <Button
                           variant="outline"
-                          className="w-full justify-start"
+                          className="w-full justify-start dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
                           onClick={() => toast.info("Функция в разработке")}
                         >
                           <X className="h-4 w-4 mr-2 text-red-500" />
@@ -2346,26 +2147,26 @@ export function DealsList() {
                         </Button>
                         <Button
                           variant="outline"
-                          className="w-full justify-start"
+                          className="w-full justify-start dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
                           onClick={() => toast.info("Функция в разработке")}
                         >
-                          <Eye className="h-4 w-4 mr-2 text-[#006039]" />
+                          <Eye className="h-4 w-4 mr-2 text-[#006039] dark:text-green-400" />
                           Просмотр сделок по реквизиту
                         </Button>
                         <Button
                           variant="outline"
-                          className="w-full justify-start"
+                          className="w-full justify-start dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
                           onClick={() => toast.info("Функция в разработке")}
                         >
-                          <CreditCard className="h-4 w-4 mr-2 text-[#006039]" />
+                          <CreditCard className="h-4 w-4 mr-2 text-[#006039] dark:text-green-400" />
                           Подтвердить номер карты
                         </Button>
                         <Button
                           variant="outline"
-                          className="w-full justify-start"
+                          className="w-full justify-start dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
                           onClick={() => toast.info("Функция в разработке")}
                         >
-                          <CreditCard className="h-4 w-4 mr-2 text-[#006039]" />
+                          <CreditCard className="h-4 w-4 mr-2 text-[#006039] dark:text-green-400" />
                           Подтвердить номер счета
                         </Button>
                       </div>

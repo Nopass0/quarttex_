@@ -20,7 +20,7 @@ if (!existsSync(UPLOAD_DIR)) {
 export default new Elysia({ prefix: "/deal-disputes" })
   .use(traderGuard())
   
-  // Get disputes for trader
+  // Get deal disputes for trader
   .get("/", async ({ trader, query }) => {
     try {
       const { page = 1, limit = 20, status } = query;
@@ -42,8 +42,7 @@ export default new Elysia({ prefix: "/deal-disputes" })
           include: {
             deal: {
               include: {
-                method: true,
-                requisites: true
+                method: true
               }
             },
             merchant: {
@@ -271,10 +270,7 @@ export default new Elysia({ prefix: "/deal-disputes" })
       } else if (status === "RESOLVED_FAIL") {
         await db.transaction.update({
           where: { id: dispute.dealId },
-          data: { 
-            status: Status.CANCELED,
-            error: resolution
-          }
+          data: { status: Status.CANCELED }
         });
       }
 

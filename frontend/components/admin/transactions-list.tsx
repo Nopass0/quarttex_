@@ -59,7 +59,8 @@ import {
   X,
   CircleX,
   CalendarIcon,
-  Send
+  Send,
+  Scale
 } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { formatAmount, formatDateTime } from '@/lib/utils'
@@ -68,6 +69,7 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
+import { CustomCalendarPopover } from '@/components/ui/custom-calendar-popover'
 
 type TransactionType = 'IN' | 'OUT'
 type Status = 'CREATED' | 'IN_PROGRESS' | 'READY' | 'CANCELED' | 'EXPIRED' | 'DISPUTE' | 'MILK'
@@ -139,7 +141,7 @@ const statusIcons: Record<Status, any> = {
   READY: CheckCircle,
   CANCELED: XCircle,
   EXPIRED: Ban,
-  DISPUTE: AlertCircle,
+  DISPUTE: Scale,
   MILK: CircleX,
 }
 
@@ -733,54 +735,20 @@ export function TransactionsList() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Дата от</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal mt-1",
-                            !filters.dateFrom && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4 text-[#006039]" />
-                          {filters.dateFrom ? format(filters.dateFrom, "PPP", { locale: ru }) : "Выберите дату"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <CalendarComponent
-                          mode="single"
-                          selected={filters.dateFrom || undefined}
-                          onSelect={(date) => setFilters({ ...filters, dateFrom: date || null })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <CustomCalendarPopover
+                      value={filters.dateFrom || undefined}
+                      onChange={(date) => setFilters({ ...filters, dateFrom: date || null })}
+                      placeholder="Выберите дату"
+                    />
                   </div>
                   
                   <div>
                     <Label>Дата до</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal mt-1",
-                            !filters.dateTo && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4 text-[#006039]" />
-                          {filters.dateTo ? format(filters.dateTo, "PPP", { locale: ru }) : "Выберите дату"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <CalendarComponent
-                          mode="single"
-                          selected={filters.dateTo || undefined}
-                          onSelect={(date) => setFilters({ ...filters, dateTo: date || null })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <CustomCalendarPopover
+                      value={filters.dateTo || undefined}
+                      onChange={(date) => setFilters({ ...filters, dateTo: date || null })}
+                      placeholder="Выберите дату"
+                    />
                   </div>
                 </div>
                 

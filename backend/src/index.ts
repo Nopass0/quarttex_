@@ -184,8 +184,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(cors({
     origin: true, // Разрешаем все origins в dev режиме
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-trader-token", "x-admin-key", "x-device-token", "x-agent-token"],
-    exposedHeaders: ["x-trader-token", "x-admin-key", "x-device-token", "x-agent-token"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-trader-token", "x-admin-key", "x-device-token", "x-agent-token", "x-merchant-api-key"],
+    exposedHeaders: ["x-trader-token", "x-admin-key", "x-device-token", "x-agent-token", "x-merchant-api-key"],
     credentials: true,
     preflight: true,
     maxAge: 3600

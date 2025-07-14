@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { formatAmount } from '@/lib/utils'
 import { MerchantMilkDeals } from '@/components/admin/merchant-milk-deals'
 import { MerchantExtraSettlements } from '@/components/admin/merchant-extra-settlements'
+import { TestMerchantTransactions } from '@/components/admin/test-merchant-transactions'
 
 type Merchant = {
   id: string
@@ -42,6 +43,9 @@ export default function MerchantDetailPage() {
   const { token: adminToken } = useAdminAuth()
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Проверяем, является ли мерчант тестовым
+  const isTestMerchant = merchant?.name?.toLowerCase() === 'test'
 
   useEffect(() => {
     fetchMerchant()
@@ -88,82 +92,111 @@ export default function MerchantDetailPage() {
   return (
     <ProtectedRoute variant="admin">
       <AuthLayout variant="admin">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/admin/merchants')}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold">{merchant.name}</h1>
-                <p className="text-gray-600 mt-1">
-                  ID: <code className="text-sm bg-gray-100 px-2 py-1 rounded">{merchant.id}</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(merchant.id, 'ID скопирован')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </p>
+        <div className="space-y-6 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => router.push('/admin/merchants')}
+                  className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold">{merchant.name}</h1>
+                    {isTestMerchant && (
+                      <Badge className="bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
+                        Тестовый мерчант
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
+                    <span className="text-sm">ID:</span>
+                    <code className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">{merchant.id}</code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(merchant.id, 'ID скопирован')}
+                      className="h-7 w-7 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge variant={merchant.disabled ? 'secondary' : 'default'}>
-                {merchant.disabled ? 'Отключен' : 'Активен'}
-              </Badge>
-              <Badge variant={merchant.banned ? 'destructive' : 'outline'}>
-                {merchant.banned ? 'Заблокирован' : 'Не заблокирован'}
-              </Badge>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={fetchMerchant}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
+              <div className="flex items-center gap-3">
+                <Badge 
+                  variant={merchant.disabled ? 'secondary' : 'default'}
+                  className={merchant.disabled ? 'bg-gray-100 dark:bg-gray-700' : 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'}
+                >
+                  {merchant.disabled ? 'Отключен' : 'Активен'}
+                </Badge>
+                <Badge 
+                  variant={merchant.banned ? 'destructive' : 'outline'}
+                  className={merchant.banned ? '' : 'text-gray-600 dark:text-gray-400'}
+                >
+                  {merchant.banned ? 'Заблокирован' : 'Не заблокирован'}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={fetchMerchant}
+                  disabled={isLoading}
+                  className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
             </div>
           </div>
 
+          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-6 rounded-lg border">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Баланс USDT</p>
-                  <p className="text-2xl font-bold text-[#006039]">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Баланс USDT</p>
+                  <p className="text-2xl font-bold text-[#006039] dark:text-green-400 mt-1">
                     ${formatAmount(merchant.balanceUsdt)}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-gray-400" />
+                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg border">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Активных методов</p>
-                  <p className="text-2xl font-bold">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Активных методов</p>
+                  <p className="text-2xl font-bold mt-1">
                     {merchant.merchantMethods.filter(m => m.isEnabled).length}
+                    <span className="text-sm text-gray-500 dark:text-gray-400 font-normal ml-1">
+                      / {merchant.merchantMethods.length}
+                    </span>
                   </p>
                 </div>
-                <Activity className="h-8 w-8 text-gray-400" />
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg border">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
               <div>
-                <p className="text-sm text-gray-600 mb-2">API ключ</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-3">API ключ</p>
                 <div className="flex items-center gap-2">
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded flex-1 truncate">
+                  <code className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate font-mono">
                     {merchant.token}
                   </code>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => copyToClipboard(merchant.token, 'API ключ скопирован')}
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
@@ -172,43 +205,81 @@ export default function MerchantDetailPage() {
             </div>
           </div>
 
-          <Tabs defaultValue="milk-deals" className="space-y-4">
-            <TabsList>
+          {/* Tabs */}
+          <Tabs defaultValue={isTestMerchant ? "test-transactions" : "milk-deals"} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid dark:bg-gray-800">
+              {isTestMerchant && (
+                <TabsTrigger value="test-transactions" className="data-[state=active]:bg-purple-100 dark:data-[state=active]:bg-purple-900/30 data-[state=active]:text-purple-700 dark:data-[state=active]:text-purple-300">
+                  Тестовые транзакции
+                </TabsTrigger>
+              )}
               <TabsTrigger value="milk-deals">Проблемные платежи</TabsTrigger>
               <TabsTrigger value="extra-settlements">Дополнительные расчеты</TabsTrigger>
               <TabsTrigger value="methods">Методы оплаты</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="milk-deals">
+            {isTestMerchant && (
+              <TabsContent value="test-transactions" className="mt-6">
+                <TestMerchantTransactions 
+                  merchantId={merchantId}
+                  merchantToken={merchant.token}
+                  merchantMethods={merchant.merchantMethods}
+                />
+              </TabsContent>
+            )}
+            
+            <TabsContent value="milk-deals" className="mt-6">
               <MerchantMilkDeals merchantId={merchantId} />
             </TabsContent>
             
-            <TabsContent value="extra-settlements">
+            <TabsContent value="extra-settlements" className="mt-6">
               <MerchantExtraSettlements merchantId={merchantId} />
             </TabsContent>
             
-            <TabsContent value="methods">
-              <div className="bg-white rounded-lg border p-6">
-                <h3 className="text-lg font-semibold mb-4">Подключенные методы оплаты</h3>
-                {merchant.merchantMethods.length > 0 ? (
-                  <div className="space-y-3">
-                    {merchant.merchantMethods.map((mm) => (
-                      <div key={mm.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <div className="font-medium">{mm.method.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {mm.method.code} • {mm.method.type} • {mm.method.currency.toUpperCase()}
+            <TabsContent value="methods" className="mt-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                <div className="p-6 border-b dark:border-gray-700">
+                  <h3 className="text-lg font-semibold">Подключенные методы оплаты</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Методы, доступные для приема платежей
+                  </p>
+                </div>
+                <div className="p-6">
+                  {merchant.merchantMethods.length > 0 ? (
+                    <div className="space-y-3">
+                      {merchant.merchantMethods.map((mm) => (
+                        <div key={mm.id} className="flex items-center justify-between p-4 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-2 rounded-lg ${mm.isEnabled ? 'bg-green-50 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                              <Activity className={`h-5 w-5 ${mm.isEnabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`} />
+                            </div>
+                            <div>
+                              <div className="font-medium">{mm.method.name}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                <code className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-xs">{mm.method.code}</code>
+                                <span>•</span>
+                                <span>{mm.method.type}</span>
+                                <span>•</span>
+                                <span className="uppercase">{mm.method.currency}</span>
+                              </div>
+                            </div>
                           </div>
+                          <Badge 
+                            variant={mm.isEnabled ? 'default' : 'secondary'}
+                            className={mm.isEnabled ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' : 'dark:bg-gray-700 dark:text-gray-400'}
+                          >
+                            {mm.isEnabled ? 'Активен' : 'Отключен'}
+                          </Badge>
                         </div>
-                        <Badge variant={mm.isEnabled ? 'default' : 'secondary'}>
-                          {mm.isEnabled ? 'Активен' : 'Отключен'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">Нет подключенных методов</p>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Activity className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-500 dark:text-gray-400">Нет подключенных методов</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </TabsContent>
           </Tabs>

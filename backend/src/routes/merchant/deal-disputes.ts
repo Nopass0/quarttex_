@@ -20,6 +20,11 @@ if (!existsSync(UPLOAD_DIR)) {
 export const dealDisputesRoutes = new Elysia({ prefix: "/deal-disputes" })
   .use(merchantSessionGuard())
   
+  // Test route
+  .get("/test", async () => {
+    return { message: "Deal disputes routes are working!" };
+  })
+  
   // Create a new dispute for a deal
   .post("/deal/:dealId", async ({ merchant, params, body, set }) => {
     try {
