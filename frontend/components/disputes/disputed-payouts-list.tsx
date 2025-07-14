@@ -1,7 +1,7 @@
 "use client"
 
-import { PayoutDisputesList } from "@/components/trader/disputes/payout-disputes-list"
+import { PayoutDisputesListEnhanced } from "@/components/trader/disputes/payout-disputes-list-enhanced"
 
 export function DisputedPayoutsList() {
-  return <PayoutDisputesList />
+  return <PayoutDisputesListEnhanced />
 }

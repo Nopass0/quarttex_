@@ -127,6 +127,9 @@ export function PayoutsList() {
     profit: 0,
     currency: "USDT",
   });
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const router = useRouter();
   const setFinancials = useTraderStore((state) => state.setFinancials);
@@ -155,6 +158,23 @@ export function PayoutsList() {
 
     return () => clearInterval(interval);
   }, [page]);
+
+  // Infinite scroll handler
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >=
+        document.documentElement.offsetHeight - 100
+      ) {
+        if (!loadingMore && hasMore) {
+          handleLoadMore();
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [loadingMore, hasMore]);
 
   const fetchPayouts = async () => {
     try {
@@ -786,25 +806,20 @@ export function PayoutsList() {
               </Card>
             ))}
 
-            {/* Load More */}
-            {hasMore && (
-              <div className="flex justify-center pt-4">
-                <Button
-                  variant="outline"
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Загрузка...
-                    </>
-                  ) : (
-                    "Загрузить еще"
-                  )}
-                </Button>
+            {/* Loading more indicator */}
+            {loadingMore && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                  Загрузка...
+                </span>
               </div>
             )}
+
+            {/* Count */}
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+              Найдено {payouts.length} записей
+            </div>
           </>
         )}
       </div>

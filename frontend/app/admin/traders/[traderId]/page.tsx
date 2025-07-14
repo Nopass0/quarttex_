@@ -241,6 +241,11 @@ function TraderProfileContent() {
           telegramDisputeChatId: traderSettings.telegramDisputeChatId || null,
           telegramBotToken: traderSettings.telegramBotToken || null,
           maxSimultaneousPayouts: traderSettings.maxSimultaneousPayouts || 10,
+          minPayoutAmount: traderSettings.minPayoutAmount || 100,
+          maxPayoutAmount: traderSettings.maxPayoutAmount || 1000000,
+          payoutRateDelta: traderSettings.payoutRateDelta || 0,
+          payoutFeePercent: traderSettings.payoutFeePercent || 0,
+          payoutAcceptanceTime: traderSettings.payoutAcceptanceTime || 5,
         }),
       })
 
@@ -837,6 +842,101 @@ function TraderProfileContent() {
                       onChange={(e) => setTraderSettings({ ...traderSettings, maxAmountPerRequisite: parseFloat(e.target.value) || 0 })}
                       className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Настройки выплат</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="minPayoutAmount">Минимальная сумма выплаты (₽)</Label>
+                    <Input
+                      id="minPayoutAmount"
+                      type="number"
+                      step="0.01"
+                      value={traderSettings.minPayoutAmount || 100}
+                      onChange={(e) => setTraderSettings({ ...traderSettings, minPayoutAmount: parseFloat(e.target.value) || 100 })}
+                      className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPayoutAmount">Максимальная сумма выплаты (₽)</Label>
+                    <Input
+                      id="maxPayoutAmount"
+                      type="number"
+                      step="0.01"
+                      value={traderSettings.maxPayoutAmount || 1000000}
+                      onChange={(e) => setTraderSettings({ ...traderSettings, maxPayoutAmount: parseFloat(e.target.value) || 1000000 })}
+                      className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxSimultaneousPayouts">Макс. одновременных выплат</Label>
+                    <Input
+                      id="maxSimultaneousPayouts"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={traderSettings.maxSimultaneousPayouts || 5}
+                      onChange={(e) => setTraderSettings({ ...traderSettings, maxSimultaneousPayouts: parseInt(e.target.value) || 5 })}
+                      className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Количество активных выплат, которые трейдер может обрабатывать одновременно
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payoutAcceptanceTime">Время на принятие выплаты (мин)</Label>
+                    <Input
+                      id="payoutAcceptanceTime"
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={traderSettings.payoutAcceptanceTime || 5}
+                      onChange={(e) => setTraderSettings({ ...traderSettings, payoutAcceptanceTime: parseInt(e.target.value) || 5 })}
+                      className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Настройки ставок для выплат</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="payoutRateDelta">Дельта курса (%)</Label>
+                    <Input
+                      id="payoutRateDelta"
+                      type="number"
+                      step="0.01"
+                      min="-100"
+                      max="100"
+                      value={traderSettings.payoutRateDelta || 0}
+                      onChange={(e) => setTraderSettings({ ...traderSettings, payoutRateDelta: parseFloat(e.target.value) || 0 })}
+                      className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Процент изменения курса для выплат. Положительное значение увеличивает курс.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payoutFeePercent">Комиссия за выплаты (%)</Label>
+                    <Input
+                      id="payoutFeePercent"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={traderSettings.payoutFeePercent || 0}
+                      onChange={(e) => setTraderSettings({ ...traderSettings, payoutFeePercent: parseFloat(e.target.value) || 0 })}
+                      className="bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Комиссия с трейдера за каждую выплату
+                    </p>
                   </div>
                 </div>
               </div>

@@ -179,24 +179,8 @@ const adminNavItems: NavItem[] = [
   },
   {
     title: "Выплаты",
+    href: "/admin/payouts",
     icon: DollarSign,
-    children: [
-      {
-        title: "Все выплаты",
-        href: "/admin/payouts",
-        icon: DollarSign,
-      },
-      {
-        title: "Лимиты трейдеров",
-        href: "/admin/trader-payout-settings",
-        icon: Users,
-      },
-      {
-        title: "Настройки ставок",
-        href: "/admin/rate-settings",
-        icon: TrendingUp,
-      },
-    ],
   },
 ]
 

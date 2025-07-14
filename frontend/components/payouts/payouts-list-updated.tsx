@@ -250,6 +250,23 @@ export function PayoutsList() {
     fetchPayouts();
   }, [activeTab]);
 
+  // Infinite scroll handler for window
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >=
+        document.documentElement.offsetHeight - 100
+      ) {
+        if (!loadingMore && hasMore) {
+          fetchPayouts(true);
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleWindowScroll);
+    return () => window.removeEventListener("scroll", handleWindowScroll);
+  }, [loadingMore, hasMore]);
+
   const fetchTraderProfile = async () => {
     try {
       const response = await traderApi.getProfile();
@@ -1220,8 +1237,15 @@ export function PayoutsList() {
               {loadingMore && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
+                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                    Загрузка...
+                  </span>
                 </div>
               )}
+              {/* Count */}
+              <div className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+                Найдено {filteredPayouts.length} записей
+              </div>
             </div>
           </div>
           </>

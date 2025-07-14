@@ -41,6 +41,14 @@ model User {
   maxSimultaneousPayouts Int                     @default(5)
   /// Минимальная сумма на реквизит
   minAmountPerRequisite  Float                   @default(100)
+  /// Минимальная сумма выплаты для трейдера
+  minPayoutAmount        Float                   @default(100)
+  /// Максимальная сумма выплаты для трейдера
+  maxPayoutAmount        Float                   @default(1000000)
+  /// Дельта курса для выплат (процент)
+  payoutRateDelta        Float                   @default(0)
+  /// Комиссия за выплаты (процент)
+  payoutFeePercent       Float                   @default(0)
   /// Минимальный страховой депозит
   minInsuranceDeposit    Float                   @default(0)
   numericId              Int                     @unique @default(autoincrement())

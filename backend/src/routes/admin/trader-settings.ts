@@ -233,7 +233,12 @@ export default new Elysia({ prefix: "/traders" })
           telegramDisputeChatId: t.Nullable(t.String()),
           telegramBotToken: t.Nullable(t.String()),
           deposit: t.Number(),
-          maxSimultaneousPayouts: t.Number()
+          maxSimultaneousPayouts: t.Number(),
+          minPayoutAmount: t.Number(),
+          maxPayoutAmount: t.Number(),
+          payoutRateDelta: t.Number(),
+          payoutFeePercent: t.Number(),
+          payoutAcceptanceTime: t.Number()
         }),
         404: ErrorSchema,
         401: ErrorSchema,
@@ -270,6 +275,11 @@ export default new Elysia({ prefix: "/traders" })
             telegramDisputeChatId: body.telegramDisputeChatId,
             telegramBotToken: body.telegramBotToken,
             maxSimultaneousPayouts: body.maxSimultaneousPayouts,
+            minPayoutAmount: body.minPayoutAmount,
+            maxPayoutAmount: body.maxPayoutAmount,
+            payoutRateDelta: body.payoutRateDelta,
+            payoutFeePercent: body.payoutFeePercent,
+            payoutAcceptanceTime: body.payoutAcceptanceTime,
           }
         });
 
@@ -300,6 +310,11 @@ export default new Elysia({ prefix: "/traders" })
         telegramDisputeChatId: t.Nullable(t.String()),
         telegramBotToken: t.Nullable(t.String()),
         maxSimultaneousPayouts: t.Number(),
+        minPayoutAmount: t.Number(),
+        maxPayoutAmount: t.Number(),
+        payoutRateDelta: t.Number(),
+        payoutFeePercent: t.Number(),
+        payoutAcceptanceTime: t.Number(),
       }),
       response: {
         200: t.Object({ 

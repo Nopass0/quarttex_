@@ -94,33 +94,24 @@ export function FoldersEnhanced() {
     try {
       setLoading(true)
       
-      // Fetch requisites
-      const requisitesResponse = await traderApi.getRequisites()
+      // Fetch folders and requisites in parallel
+      const [foldersResponse, requisitesResponse] = await Promise.all([
+        traderApi.getFolders(),
+        traderApi.getRequisites()
+      ])
+      
+      const foldersData = foldersResponse.data || foldersResponse.folders || foldersResponse || []
       const requisitesData = requisitesResponse.data || requisitesResponse.requisites || requisitesResponse || []
       
-      // Mock folders data
-      const mockFolders: Folder[] = [
-        {
-          id: "1",
-          title: "Основные карты",
-          requisites: []
-        },
-        {
-          id: "2", 
-          title: "Резервные карты",
-          requisites: []
-        }
-      ]
+      // Transform the data to match our interface
+      const transformedFolders = Array.isArray(foldersData) ? foldersData.map((folder: any) => ({
+        id: folder.id,
+        title: folder.title,
+        requisites: folder.requisites || []
+      })) : []
       
-      // Assign some requisites to folders
-      const allRequisites = Array.isArray(requisitesData) ? requisitesData : []
-      if (allRequisites.length > 0) {
-        mockFolders[0].requisites = allRequisites.slice(0, 2)
-        mockFolders[1].requisites = allRequisites.slice(2, 4)
-      }
-      
-      setRequisites(allRequisites)
-      setFolders(mockFolders)
+      setRequisites(Array.isArray(requisitesData) ? requisitesData : [])
+      setFolders(transformedFolders)
     } catch (error) {
       console.error("Error fetching data:", error)
       toast.error("Не удалось загрузить данные")
@@ -153,14 +144,14 @@ export function FoldersEnhanced() {
     }
 
     try {
-      // Simulate creating folder
-      const newFolder: Folder = {
-        id: Date.now().toString(),
+      const response = await traderApi.createFolder({
         title: newFolderName,
-        requisites: requisites.filter(r => selectedRequisites.includes(r.id))
-      }
+        requisiteIds: selectedRequisites
+      })
       
-      setFolders([...folders, newFolder])
+      // Refresh data to get updated folders
+      await fetchData()
+      
       toast.success("Папка создана")
       createFolderModal.close()
     } catch (error) {
@@ -170,6 +161,7 @@ export function FoldersEnhanced() {
 
   const handleDeleteFolder = async (folderId: string) => {
     try {
+      await traderApi.deleteFolder(folderId)
       setFolders(folders.filter(f => f.id !== folderId))
       toast.success("Папка удалена")
     } catch (error) {
@@ -182,7 +174,13 @@ export function FoldersEnhanced() {
       const folder = folders.find(f => f.id === folderId)
       if (!folder) return
 
-      // Update all requisites in the folder
+      if (activate) {
+        await traderApi.startAllRequisitesInFolder(folderId)
+      } else {
+        await traderApi.stopAllRequisitesInFolder(folderId)
+      }
+      
+      // Update local state
       const updatedFolders = folders.map(f => {
         if (f.id === folderId) {
           return {
