@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -214,7 +214,7 @@ export function FoldersList() {
     }
   }
 
-  const openEditModal = (folder: Folder) => {
+  const openEditModal = useCallback((folder: Folder) => {
     console.log("Opening edit modal for folder:", folder)
     setSelectedFolder(folder)
     setFolderTitle(folder.title)
@@ -222,7 +222,7 @@ export function FoldersList() {
     setCreateModalOpen(false)
     setEditModalOpen(true)
     console.log("Edit modal state set to true")
-  }
+  }, [])
 
   const openDeleteModal = (folder: Folder) => {
     setSelectedFolder(folder)
@@ -382,6 +382,14 @@ export function FoldersList() {
                       Запустить все
                     </Button>
                   )}
+                  {/* Temporary direct edit button for testing */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditModal(folder)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
                 </div>
 
                 {/* Status Badge */}
