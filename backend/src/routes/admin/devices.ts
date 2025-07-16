@@ -277,15 +277,6 @@ export default (app: Elysia) =>
       async ({ params: { id } }) => {
         const messages = await db.notification.findMany({
           where: { deviceId: id },
-          include: {
-            transaction: {
-              select: {
-                id: true,
-                amount: true,
-                status: true,
-              }
-            }
-          },
           orderBy: { createdAt: 'desc' },
           take: 100,
         })
@@ -293,7 +284,7 @@ export default (app: Elysia) =>
         return messages.map(m => ({
           ...m,
           createdAt: m.createdAt.toISOString(),
-          timestamp: m.timestamp.toISOString()
+          updatedAt: m.updatedAt.toISOString()
         }))
       },
       {

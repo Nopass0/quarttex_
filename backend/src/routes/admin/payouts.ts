@@ -373,4 +373,140 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         reason: t.String({ minLength: 5 }),
       }),
     }
+  )
+
+  // Create test payout for trader
+  .post(
+    "/create-test",
+    async ({ body, set }) => {
+      try {
+        // Check if trader exists
+        const trader = await db.user.findUnique({
+          where: { id: body.traderId },
+          select: { id: true, numericId: true, email: true, payoutBalance: true },
+        });
+
+        if (!trader) {
+          set.status = 404;
+          return { error: "Trader not found" };
+        }
+
+        // Check if trader has sufficient balance for OUT payouts
+        if (body.direction === "OUT" && trader.payoutBalance < body.amount) {
+          set.status = 400;
+          return { error: "Insufficient trader balance for OUT payout" };
+        }
+
+        // Get or create test merchant
+        let merchant = await db.merchant.findFirst({
+          where: { name: "Test Merchant" },
+        });
+
+        if (!merchant) {
+          merchant = await db.merchant.create({
+            data: {
+              name: "Test Merchant",
+              token: `test-merchant-${Date.now()}`,
+              callbackUri: "https://test-merchant.com/callback",
+              balanceUsdt: 1000000,
+              banned: false,
+              disabled: false,
+            },
+          });
+        }
+
+        // Calculate expiration time - for test payouts set to next day
+        const expireAt = new Date();
+        expireAt.setDate(expireAt.getDate() + 1);
+        expireAt.setHours(23, 59, 59, 999);
+
+        // Create test payout
+        const payout = await db.$transaction(async (tx) => {
+          const newPayout = await tx.payout.create({
+            data: {
+              merchantId: merchant.id,
+              traderId: trader.id,
+              amount: body.amount,
+              amountUsdt: body.amount / (body.rate || 95),
+              total: body.amount,
+              totalUsdt: body.amount / (body.rate || 95),
+              merchantRate: body.rate || 95,
+              rate: body.rate || 95,
+              feePercent: 0,
+              wallet: body.wallet || `7900${Math.floor(Math.random() * 10000000)}`,
+              bank: body.bank || "SBER",
+              isCard: body.isCard !== undefined ? body.isCard : true,
+              direction: body.direction || "OUT",
+              status: body.status || "CREATED",
+              expireAt,
+              processingTime: body.processingTime || 15,
+              externalReference: `TEST-${Date.now()}`,
+              merchantMetadata: {
+                isTest: true,
+                createdByAdmin: true,
+              },
+            },
+            include: {
+              merchant: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              trader: {
+                select: {
+                  id: true,
+                  numericId: true,
+                  email: true,
+                },
+              },
+            },
+          });
+
+          // For OUT payouts, freeze trader balance if status is ACTIVE or CHECKING
+          if (body.direction === "OUT" && (body.status === "ACTIVE" || body.status === "CHECKING")) {
+            await tx.user.update({
+              where: { id: trader.id },
+              data: {
+                payoutBalance: { decrement: body.amount },
+                frozenPayoutBalance: { increment: body.amount },
+              },
+            });
+          }
+
+          return newPayout;
+        });
+
+        return {
+          success: true,
+          data: payout,
+        };
+      } catch (error: any) {
+        console.error("Failed to create test payout:", error);
+        set.status = 500;
+        return { error: "Failed to create test payout", details: error.message };
+      }
+    },
+    {
+      body: t.Object({
+        traderId: t.String({ description: "ID трейдера" }),
+        amount: t.Number({ minimum: 100, description: "Сумма в рублях" }),
+        rate: t.Optional(t.Number({ minimum: 1, default: 95, description: "Курс USDT/RUB" })),
+        wallet: t.Optional(t.String({ description: "Кошелек получателя" })),
+        bank: t.Optional(t.String({ description: "Банк получателя" })),
+        isCard: t.Optional(t.Boolean({ default: true, description: "Это карта?" })),
+        direction: t.Optional(t.Enum({ IN: "IN", OUT: "OUT" }, { default: "OUT" })),
+        status: t.Optional(
+          t.Enum({
+            CREATED: "CREATED",
+            ACTIVE: "ACTIVE",
+            CHECKING: "CHECKING",
+            COMPLETED: "COMPLETED",
+            CANCELLED: "CANCELLED",
+            DISPUTED: "DISPUTED",
+          }, { default: "CREATED" })
+        ),
+        processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60, default: 15 })),
+      }),
+    }
   );

@@ -341,6 +341,30 @@ export function FinancesMain() {
       <h2 className="text-xl font-semibold mb-4 text-gray-400 dark:text-gray-500">Балансы</h2>
 
       <div className="flex flex-wrap gap-4">
+        {/* Депозит */}
+        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Депозит</span>
+              <Button
+                size="sm"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                onClick={() => depositModal.open()}
+              >
+                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
+                Пополнить
+              </Button>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+                {(financials?.deposit || 0).toFixed(2)}
+              </span>
+              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Доступный депозит</div>
+          </div>
+        </Card>
+
         {/* ТРАСТ */}
         <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">

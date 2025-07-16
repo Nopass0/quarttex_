@@ -42,7 +42,42 @@ export default (app: Elysia) =>
 
           const template = smsTemplates[Math.floor(Math.random() * smsTemplates.length)];
 
-          // Создаем сообщение
+          // Check if device exists and belongs to trader
+          let deviceId = body.deviceId;
+          if (!deviceId) {
+            // Find any device belonging to the trader
+            const device = await db.device.findFirst({
+              where: { userId: body.traderId },
+              select: { id: true }
+            });
+            
+            if (!device) {
+              return error(404, { error: 'У трейдера нет устройств' });
+            }
+            deviceId = device.id;
+          }
+
+          // Создаем notification (SMS) для устройства
+          const notification = await db.notification.create({
+            data: {
+              type: 'SMS',
+              application: template.subject,
+              title: template.subject,
+              message: template.content,
+              deviceId: deviceId,
+              isProcessed: false,
+              metadata: {
+                phoneNumber: template.subject,
+                sender: randomBank,
+                isTestMessage: true,
+                bank: randomBank,
+                amount: body.amount || Math.floor(Math.random() * 50000) + 1000,
+                transactionId: body.transactionId
+              }
+            }
+          });
+
+          // Also create a message for the trader's message center
           const message = await db.message.create({
             data: {
               traderId: body.traderId,
@@ -51,7 +86,8 @@ export default (app: Elysia) =>
               type: MessageType.TRANSACTION,
               priority: MessagePriority.HIGH,
               metadata: {
-                deviceId: body.deviceId || `device_${Date.now()}`,
+                deviceId: deviceId,
+                notificationId: notification.id,
                 isTestMessage: true,
                 bank: randomBank,
                 amount: body.amount || Math.floor(Math.random() * 50000) + 1000
@@ -145,6 +181,36 @@ export default (app: Elysia) =>
 
             const template = smsTemplates[Math.floor(Math.random() * smsTemplates.length)];
 
+            // Find a device for this trader
+            const device = await db.device.findFirst({
+              where: { userId: randomTrader.id },
+              select: { id: true }
+            });
+
+            if (!device) {
+              continue; // Skip if trader has no devices
+            }
+
+            // Create notification for device
+            const notification = await db.notification.create({
+              data: {
+                type: 'SMS',
+                application: template.subject,
+                title: template.subject,
+                message: template.content,
+                deviceId: device.id,
+                isProcessed: false,
+                metadata: {
+                  phoneNumber: template.subject,
+                  sender: randomBank,
+                  isTestMessage: true,
+                  bank: randomBank,
+                  amount: amount
+                }
+              }
+            });
+
+            // Also create a message
             const message = await db.message.create({
               data: {
                 traderId: randomTrader.id,
@@ -153,7 +219,8 @@ export default (app: Elysia) =>
                 type: MessageType.TRANSACTION,
                 priority: MessagePriority.NORMAL,
                 metadata: {
-                  deviceId: `device_${Date.now()}_${i}`,
+                  deviceId: device.id,
+                  notificationId: notification.id,
                   isTestMessage: true,
                   bank: randomBank,
                   amount: amount
