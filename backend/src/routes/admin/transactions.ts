@@ -875,7 +875,7 @@ export default (app: Elysia) =>
     /* ─────────── POST /admin/transactions/test/out ─────────── */
     .post(
       '/test/out',
-      async ({ body, set, error }) => {
+      async ({ body, set, error, headers }) => {
         try {
           // Перенаправляем на правильный эндпоинт для создания выплат
           const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3000'}/api`
@@ -883,7 +883,7 @@ export default (app: Elysia) =>
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-admin-key': process.env.ADMIN_MASTER_KEY || 'test-admin-key'
+              'x-admin-key': headers['x-admin-key'] || '' // Используем тот же admin key из запроса
             },
             body: JSON.stringify({
               amount: body.amount,
@@ -940,11 +940,13 @@ export default (app: Elysia) =>
         body: t.Object({
           methodId: t.String({ description: 'ID метода платежа' }),
           amount: t.Optional(t.Number({ description: 'Сумма транзакции (по умолчанию случайная)' })),
+          assetOrBank: t.Optional(t.String({ description: 'Номер карты или кошелька' })),
           rate: t.Optional(t.Number({ description: 'Курс USDT/RUB (по умолчанию случайный)' })),
           orderId: t.Optional(t.String({ description: 'ID заказа (по умолчанию генерируется)' })),
           expired_at: t.Optional(t.String({ description: 'Дата истечения ISO (по умолчанию через час)' })),
           userIp: t.Optional(t.String({ description: 'IP пользователя (по умолчанию случайный)' })),
-          callbackUri: t.Optional(t.String({ description: 'URL для колбэков' }))
+          callbackUri: t.Optional(t.String({ description: 'URL для колбэков' })),
+          clientName: t.Optional(t.String({ description: 'Имя клиента' }))
         }),
         response: {
           201: t.Object({
