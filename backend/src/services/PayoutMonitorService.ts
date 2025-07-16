@@ -89,8 +89,8 @@ export class PayoutMonitorService extends BaseService {
         where: {
           banned: false,
           trafficEnabled: true,
-          payoutBalance: {
-            gt: 0, // Has some balance
+          balanceRub: {
+            gt: 0, // Has some RUB balance
           },
         },
         orderBy: {
@@ -106,8 +106,8 @@ export class PayoutMonitorService extends BaseService {
         const availableTraders = [];
 
         for (const trader of eligibleTraders) {
-          // Check if trader has enough balance
-          if (trader.payoutBalance < payout.total) {
+          // Check if trader has enough RUB balance
+          if (trader.balanceRub < payout.amount) {
             continue;
           }
 
@@ -177,8 +177,8 @@ export class PayoutMonitorService extends BaseService {
         where: {
           banned: false,
           trafficEnabled: true,
-          payoutBalance: {
-            gte: payout.total,
+          balanceRub: {
+            gte: payout.amount,
           },
         },
         orderBy: {
