@@ -243,6 +243,51 @@ export const servicesRoutes = new Elysia()
     }),
   })
   
+  // Toggle device emulator service
+  .post('/device-emulator/toggle', async ({ body }) => {
+    try {
+      const { enabled } = body;
+      
+      // Update service config in database
+      await db.serviceConfig.upsert({
+        where: { serviceKey: 'device_emulator' },
+        create: {
+          serviceKey: 'device_emulator',
+          isEnabled: enabled,
+          config: {
+            global: {
+              defaultPingSec: 60,
+              defaultNotifyChance: 0.4,
+              defaultSpamChance: 0.05,
+              defaultDelayChance: 0.1,
+              reconnectOnAuthError: true,
+            },
+            devices: []
+          }
+        },
+        update: {
+          isEnabled: enabled
+        }
+      });
+      
+      // Toggle the service
+      if (enabled) {
+        await serviceRegistry.startService('DeviceEmulatorService');
+      } else {
+        await serviceRegistry.stopService('DeviceEmulatorService');
+      }
+      
+      return { success: true, enabled };
+    } catch (error) {
+      console.error('Failed to toggle device emulator:', error);
+      return { success: false, error: 'Failed to toggle service' };
+    }
+  }, {
+    body: t.Object({
+      enabled: t.Boolean(),
+    }),
+  })
+  
   // Получить статистику по сервисам
   .get('/stats/overview', async () => {
     try {

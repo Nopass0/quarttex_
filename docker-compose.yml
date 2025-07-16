@@ -34,6 +34,7 @@ services:
       PORT: 3001
       SUPER_ADMIN_KEY: ${SUPER_ADMIN_KEY:-}
       ADMIN_IPS: ${ADMIN_IPS:-}
+      DES_ENABLED: ${DES_ENABLED:-true}
     expose:
       - "3001"
     networks:

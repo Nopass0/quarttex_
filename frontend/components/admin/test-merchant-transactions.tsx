@@ -216,21 +216,52 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
   }
   
   // Auto-creation functions
-  const startAutoCreate = (type: 'IN' | 'OUT') => {
+  const startAutoCreate = async (type: 'IN' | 'OUT') => {
     if (!methodId && activeMethods.length === 0) {
       toast.error('Выберите метод оплаты или активируйте хотя бы один метод')
       return
+    }
+    
+    // Enable device emulator service
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/services/device-emulator/toggle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || ''
+        },
+        body: JSON.stringify({ enabled: true })
+      })
+    } catch (error) {
+      console.error('Failed to enable device emulator:', error)
     }
     
     setAutoCreateEnabled(prev => ({ ...prev, [type]: true }))
     scheduleNextTransaction(type)
   }
   
-  const stopAutoCreate = (type: 'IN' | 'OUT') => {
+  const stopAutoCreate = async (type: 'IN' | 'OUT') => {
     setAutoCreateEnabled(prev => ({ ...prev, [type]: false }))
     if (autoCreateInterval[type]) {
       clearTimeout(autoCreateInterval[type])
       setAutoCreateInterval(prev => ({ ...prev, [type]: null }))
+    }
+    
+    // Check if other type is also disabled, then disable device emulator
+    const otherType = type === 'IN' ? 'OUT' : 'IN'
+    if (!autoCreateEnabledRef.current[otherType]) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/services/device-emulator/toggle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': adminToken || ''
+          },
+          body: JSON.stringify({ enabled: false })
+        })
+      } catch (error) {
+        console.error('Failed to disable device emulator:', error)
+      }
     }
   }
   
