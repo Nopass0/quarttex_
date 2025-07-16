@@ -877,54 +877,47 @@ export default (app: Elysia) =>
       '/test/out',
       async ({ body, set, error }) => {
         try {
-          // Ищем тестового мерчанта
-          const testMerchant = await db.merchant.findFirst({
-            where: { name: 'test' }
-          })
-
-          if (!testMerchant) {
-            return error(404, { error: 'Тестовый мерчант не найден. Сначала создайте мерчанта с именем "test"' })
-          }
-
-          // Проверяем метод
-          const method = await db.method.findUnique({
-            where: { id: body.methodId }
-          })
-          if (!method || !method.isEnabled) {
-            return error(404, { error: 'Метод не найден или неактивен' })
-          }
-
-          // Генерируем дефолтные значения если не указаны
-          const amount = body.amount || Math.floor(Math.random() * 9000) + 1000
-          const rate = body.rate || (95 + Math.random() * 10)
-          const orderId = body.orderId || `TEST_OUT_${Date.now()}_${Math.random().toString(36).substring(7)}`
-          const expired_at = body.expired_at || new Date(Date.now() + 3600000).toISOString()
-          const userIp = body.userIp || `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
-          const callbackUri = body.callbackUri || ''
-
-          // Делаем запрос от имени тестового мерчанта
+          // Перенаправляем на правильный эндпоинт для создания выплат
           const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3000'}/api`
-          const response = await fetch(`${baseUrl}/merchant/transactions/out`, {
+          const response = await fetch(`${baseUrl}/admin/payouts/test`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-merchant-api-key': testMerchant.token
+              'x-admin-key': process.env.ADMIN_MASTER_KEY || 'test-admin-key'
             },
             body: JSON.stringify({
-              amount,
-              orderId,
-              methodId: body.methodId,
-              rate,
-              expired_at,
-              userIp,
-              callbackUri
+              amount: body.amount,
+              wallet: body.assetOrBank, // Используем assetOrBank как wallet
+              bank: 'Сбербанк', // Дефолтный банк
+              isCard: true,
+              rate: body.rate,
+              direction: 'OUT',
+              metadata: {
+                orderId: body.orderId,
+                userIp: body.userIp,
+                clientName: body.clientName
+              }
             })
           })
 
           if (response.ok) {
-            const transaction = await response.json()
+            const result = await response.json()
             set.status = 201
-            return { success: true, transaction }
+            return { 
+              success: true, 
+              transaction: {
+                id: result.payout.id,
+                numericId: result.payout.numericId,
+                status: result.payout.status,
+                amount: result.payout.amount,
+                type: 'OUT',
+                assetOrBank: result.payout.wallet,
+                bank: result.payout.bank,
+                rate: result.payout.rate,
+                expireAt: result.payout.expireAt,
+                traderId: result.payout.traderId
+              }
+            }
           } else {
             const responseText = await response.text()
             console.error('Merchant API error response:', responseText)

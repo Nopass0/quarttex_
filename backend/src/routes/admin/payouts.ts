@@ -509,4 +509,88 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60, default: 15 })),
       }),
     }
+  )
+
+  // Create test payout
+  .post(
+    "/test",
+    async ({ body, set }) => {
+      try {
+        // Find test merchant
+        const testMerchant = await db.merchant.findFirst({
+          where: { name: 'test' }
+        });
+
+        if (!testMerchant) {
+          set.status = 404;
+          return { error: 'Test merchant not found. Please create a merchant with name "test"' };
+        }
+
+        // Generate default values
+        const amount = body.amount || Math.floor(Math.random() * 50000) + 5000;
+        const rate = body.rate || 95 + Math.random() * 5;
+        const wallet = body.wallet || `4${Math.floor(Math.random() * 9000000000000000 + 1000000000000000)}`;
+        const bank = body.bank || ['Сбербанк', 'Тинькофф', 'ВТБ', 'Альфа-банк'][Math.floor(Math.random() * 4)];
+        
+        // Calculate expiration time - for test payouts set to next day
+        const expireAt = new Date();
+        expireAt.setDate(expireAt.getDate() + 1);
+        expireAt.setHours(23, 59, 59, 999);
+
+        // Create payout through the service
+        const payout = await payoutService.createPayout({
+          merchantId: testMerchant.id,
+          amount,
+          wallet,
+          bank,
+          isCard: body.isCard !== undefined ? body.isCard : true,
+          merchantRate: rate,
+          direction: body.direction || "OUT",
+          rateDelta: body.rateDelta || 0,
+          feePercent: body.feePercent || 0,
+          externalReference: body.externalReference || `TEST_${Date.now()}`,
+          processingTime: Math.floor((expireAt.getTime() - Date.now()) / 60000), // Convert to minutes
+          webhookUrl: body.webhookUrl,
+          metadata: body.metadata,
+        });
+
+        set.status = 201;
+        return {
+          success: true,
+          payout: {
+            id: payout.id,
+            numericId: payout.numericId,
+            status: payout.status,
+            amount: payout.amount,
+            amountUsdt: payout.amountUsdt,
+            total: payout.total,
+            totalUsdt: payout.totalUsdt,
+            rate: payout.rate,
+            wallet: payout.wallet,
+            bank: payout.bank,
+            direction: payout.direction,
+            expireAt: payout.expireAt,
+            traderId: payout.traderId,
+          },
+        };
+      } catch (error: any) {
+        set.status = 500;
+        return { error: error.message || 'Failed to create test payout' };
+      }
+    },
+    {
+      body: t.Object({
+        amount: t.Optional(t.Number({ minimum: 100 })),
+        wallet: t.Optional(t.String()),
+        bank: t.Optional(t.String()),
+        isCard: t.Optional(t.Boolean()),
+        rate: t.Optional(t.Number({ minimum: 50, maximum: 150 })),
+        direction: t.Optional(t.Enum({ IN: "IN", OUT: "OUT" })),
+        rateDelta: t.Optional(t.Number({ minimum: -20, maximum: 20 })),
+        feePercent: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
+        externalReference: t.Optional(t.String()),
+        webhookUrl: t.Optional(t.String()),
+        metadata: t.Optional(t.Any()),
+      }),
+    }
   );

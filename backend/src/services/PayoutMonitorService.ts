@@ -89,9 +89,7 @@ export class PayoutMonitorService extends BaseService {
         where: {
           banned: false,
           trafficEnabled: true,
-          balanceRub: {
-            gt: 0, // Has some RUB balance
-          },
+          // Remove balance check here - we'll check it per payout below
         },
         orderBy: {
           createdAt: "asc", // FIFO distribution
@@ -106,8 +104,8 @@ export class PayoutMonitorService extends BaseService {
         const availableTraders = [];
 
         for (const trader of eligibleTraders) {
-          // Check if trader has enough RUB balance
-          if (trader.balanceRub < payout.amount) {
+          // Check if trader has enough RUB balance (must cover total amount including fees)
+          if (trader.balanceRub < payout.total) {
             continue;
           }
 
@@ -178,7 +176,7 @@ export class PayoutMonitorService extends BaseService {
           banned: false,
           trafficEnabled: true,
           balanceRub: {
-            gte: payout.amount,
+            gte: payout.total, // Must have enough balance for total amount including fees
           },
         },
         orderBy: {
