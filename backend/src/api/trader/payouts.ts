@@ -68,11 +68,23 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, trader, set }) => {
 
       try {
-        const payout = await payoutAccountingService.acceptPayoutWithAccounting(params.id, trader.id);
+        // Convert numeric ID to UUID
+        const numericId = parseInt(params.id);
+        const payoutRecord = await db.payout.findFirst({
+          where: { numericId }
+        });
+        
+        if (!payoutRecord) {
+          set.status = 404;
+          return { error: "Payout not found" };
+        }
+        
+        const payout = await payoutAccountingService.acceptPayoutWithAccounting(payoutRecord.id, trader.id);
         return {
           success: true,
           payout: {
-            id: payout.id,
+            id: payout.numericId, // Return numeric ID for frontend
+            uuid: payout.id,      // Also return UUID
             status: payout.status,
             expireAt: payout.expireAt,
           },
@@ -95,6 +107,17 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, body, trader, set }) => {
 
       try {
+        // Convert numeric ID to UUID
+        const numericId = parseInt(params.id);
+        const payoutRecord = await db.payout.findFirst({
+          where: { numericId }
+        });
+        
+        if (!payoutRecord) {
+          set.status = 404;
+          return { error: "Payout not found" };
+        }
+        
         // Validate proof files
         const validation = validateFileUrls(body.proofFiles);
         if (!validation.valid) {
@@ -103,14 +126,15 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
         }
         
         const payout = await payoutService.confirmPayout(
-          params.id,
+          payoutRecord.id,
           trader.id,
           body.proofFiles
         );
         return {
           success: true,
           payout: {
-            id: payout.id,
+            id: payout.numericId, // Return numeric ID for frontend
+            uuid: payout.id,      // Also return UUID
             status: payout.status,
           },
         };
@@ -135,6 +159,17 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, body, trader, set }) => {
 
       try {
+        // Convert numeric ID to UUID
+        const numericId = parseInt(params.id);
+        const payoutRecord = await db.payout.findFirst({
+          where: { numericId }
+        });
+        
+        if (!payoutRecord) {
+          set.status = 404;
+          return { error: "Payout not found" };
+        }
+        
         // Validate files if provided
         if (body.files && body.files.length > 0) {
           const validation = validateFileUrls(body.files);
@@ -145,7 +180,7 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
         }
         
         const payout = await payoutAccountingService.cancelPayoutWithAccounting(
-          params.id,
+          payoutRecord.id,
           trader.id,
           body.reason,
           body.reasonCode,
@@ -154,7 +189,8 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
         return {
           success: true,
           payout: {
-            id: payout.id,
+            id: payout.numericId, // Return numeric ID for frontend
+            uuid: payout.id,      // Also return UUID
             status: payout.status,
           },
         };
@@ -181,8 +217,8 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
       const user = await db.user.findUnique({
         where: { id: trader.id },
         select: {
-          payoutBalance: true,
-          frozenPayoutBalance: true,
+          balanceRub: true,
+          frozenRub: true,
         },
       });
 
@@ -194,9 +230,9 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
       return {
         success: true,
         balance: {
-          available: user.payoutBalance,
-          frozen: user.frozenPayoutBalance,
-          total: user.payoutBalance + user.frozenPayoutBalance,
+          available: user.balanceRub,
+          frozen: user.frozenRub,
+          total: user.balanceRub + user.frozenRub,
         },
       };
     } catch (error: any) {
@@ -212,19 +248,19 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
 
       const user = await db.user.update({
         where: { id: trader.id },
-        data: { payoutBalance: body.balance },
+        data: { balanceRub: body.balance },
         select: {
-          payoutBalance: true,
-          frozenPayoutBalance: true,
+          balanceRub: true,
+          frozenRub: true,
         },
       });
 
       return {
         success: true,
         balance: {
-          available: user.payoutBalance,
-          frozen: user.frozenPayoutBalance,
-          total: user.payoutBalance + user.frozenPayoutBalance,
+          available: user.balanceRub,
+          frozen: user.frozenRub,
+          total: user.balanceRub + user.frozenRub,
         },
       };
     },

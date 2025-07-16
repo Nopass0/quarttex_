@@ -216,6 +216,7 @@ export function FoldersList() {
     setSelectedFolder(folder)
     setFolderTitle(folder.title)
     setSelectedRequisites(folder.requisites.map(r => r.requisite.id))
+    setCreateModalOpen(false)
     setEditModalOpen(true)
   }
 
