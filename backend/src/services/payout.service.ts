@@ -591,17 +591,29 @@ export class PayoutService {
       offset?: number;
     }
   ) {
+    const baseConditions: Prisma.PayoutWhereInput[] = [];
+    
+    // Condition 1: Payouts assigned to this trader
+    const traderCondition: Prisma.PayoutWhereInput = { traderId };
+    if (filters.status?.length) {
+      traderCondition.status = { in: filters.status };
+    }
+    baseConditions.push(traderCondition);
+    
+    // Condition 2: Available payouts in the pool (only CREATED status)
+    // Only show pool payouts when no status filter or when CREATED is included
+    if (!filters.status || filters.status.includes("CREATED")) {
+      baseConditions.push({
+        traderId: null,
+        status: "CREATED",
+        expireAt: {
+          gt: new Date() // Only show non-expired payouts
+        }
+      });
+    }
+    
     const where: Prisma.PayoutWhereInput = {
-      OR: [
-        { traderId },
-        { 
-          traderId: null,
-          status: "CREATED",
-          expireAt: {
-            gt: new Date() // Only show non-expired payouts
-          }
-        },
-      ],
+      OR: baseConditions,
     };
     
     // Exclude expired payouts from results
@@ -614,15 +626,17 @@ export class PayoutService {
       };
     }
     
-    if (filters.status?.length) {
-      where.status = { in: filters.status };
-    }
-    
     if (filters.search) {
-      where.OR = [
-        { wallet: { contains: filters.search, mode: "insensitive" } },
-        { bank: { contains: filters.search, mode: "insensitive" } },
-        { numericId: parseInt(filters.search) || 0 },
+      // Apply search filter on top of existing conditions
+      where.AND = [
+        where,
+        {
+          OR: [
+            { wallet: { contains: filters.search, mode: "insensitive" } },
+            { bank: { contains: filters.search, mode: "insensitive" } },
+            { numericId: parseInt(filters.search) || 0 },
+          ]
+        }
       ];
     }
     
