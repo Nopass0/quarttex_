@@ -1,12 +1,10 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { adminGuard } from "@/middleware/adminGuard";
 import ErrorSchema from "@/types/error";
 import { MessageType, MessagePriority } from "@prisma/client";
 
 export default (app: Elysia) =>
   app
-    .use(adminGuard())
     
     /* ─────────── POST /admin/messages/test-sms ─────────── */
     .post(
@@ -16,10 +14,10 @@ export default (app: Elysia) =>
           // Проверяем существование трейдера
           const trader = await db.user.findUnique({
             where: { id: body.traderId },
-            select: { id: true, role: true }
+            select: { id: true }
           });
 
-          if (!trader || trader.role !== 'TRADER') {
+          if (!trader) {
             return error(404, { error: 'Трейдер не найден' });
           }
 
@@ -115,7 +113,6 @@ export default (app: Elysia) =>
           for (let i = 0; i < count; i++) {
             // Случайный трейдер
             const traders = await db.user.findMany({
-              where: { role: 'TRADER' },
               select: { id: true },
               take: 10
             });

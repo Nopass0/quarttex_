@@ -978,16 +978,17 @@ export default (app: Elysia) =>
         // Получаем параметры трейдера для расчета заморозки
         const traderMerchant = await db.traderMerchant.findUnique({
           where: {
-            traderId_merchantId: {
+            traderId_merchantId_methodId: {
               traderId: chosen.userId,
-              merchantId: merchant.id
+              merchantId: merchant.id,
+              methodId: method.id
             }
           }
         });
 
         // Рассчитываем параметры заморозки
-        const kkkPercent = traderMerchant?.kkkPercent || 0;
-        const feeInPercent = traderMerchant?.feeInPercent || 0;
+        const kkkPercent = 0; // TODO: Get from system config
+        const feeInPercent = traderMerchant?.feeIn || 0;
         
         const freezingParams = calculateFreezingParams(
           body.amount,

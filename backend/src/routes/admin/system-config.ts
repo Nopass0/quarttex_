@@ -1,10 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { adminGuard } from "@/middleware/adminGuard";
 import ErrorSchema from "@/types/error";
 
 export default new Elysia({ prefix: "/system-config" })
-  .use(adminGuard())
   
   // Get all system configs
   .get("/", async () => {

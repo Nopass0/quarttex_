@@ -1,10 +1,8 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { adminGuard } from "@/middleware/adminGuard";
 import { ProcessorConfigSchema } from "@/types/processor";
 
 export default new Elysia()
-  .use(adminGuard())
   .get(
     "/notification-processor/config",
     async () => {

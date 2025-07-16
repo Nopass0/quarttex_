@@ -811,7 +811,7 @@ export default (app: Elysia) =>
           const callbackUri = body.callbackUri || ''
 
           // Делаем запрос от имени тестового мерчанта
-          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3001'}/api`
+          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3000'}/api`
           const response = await fetch(`${baseUrl}/merchant/transactions/in`, {
             method: 'POST',
             headers: {
@@ -834,10 +834,17 @@ export default (app: Elysia) =>
             set.status = 201
             return { success: true, transaction }
           } else {
-            const errorData = await response.json()
-            return error(response.status, errorData)
+            const responseText = await response.text()
+            console.error('Merchant API error response:', responseText)
+            try {
+              const errorData = JSON.parse(responseText)
+              return error(response.status, errorData)
+            } catch {
+              return error(response.status, { error: responseText })
+            }
           }
         } catch (e: any) {
+          console.error('Test transaction creation error:', e)
           return error(500, { error: 'Ошибка создания тестовой транзакции', details: e.message })
         }
       },
@@ -896,7 +903,7 @@ export default (app: Elysia) =>
           const callbackUri = body.callbackUri || ''
 
           // Делаем запрос от имени тестового мерчанта
-          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3001'}/api`
+          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3000'}/api`
           const response = await fetch(`${baseUrl}/merchant/transactions/out`, {
             method: 'POST',
             headers: {
@@ -919,10 +926,17 @@ export default (app: Elysia) =>
             set.status = 201
             return { success: true, transaction }
           } else {
-            const errorData = await response.json()
-            return error(response.status, errorData)
+            const responseText = await response.text()
+            console.error('Merchant API error response:', responseText)
+            try {
+              const errorData = JSON.parse(responseText)
+              return error(response.status, errorData)
+            } catch {
+              return error(response.status, { error: responseText })
+            }
           }
         } catch (e: any) {
+          console.error('Test transaction creation error:', e)
           return error(500, { error: 'Ошибка создания тестовой транзакции', details: e.message })
         }
       },

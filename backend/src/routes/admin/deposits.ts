@@ -1,11 +1,9 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { adminGuard } from "@/middleware/adminGuard";
 import { DepositStatus } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 
 export default new Elysia({ prefix: "/deposits" })
-  .use(adminGuard())
   
   // Get all deposit requests
   .get("/", async ({ query }) => {
