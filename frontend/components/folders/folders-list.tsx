@@ -119,8 +119,10 @@ export function FoldersList() {
   const fetchRequisites = async () => {
     try {
       const response = await traderApi.getRequisites()
+      console.log("Fetched requisites response:", response)
       // Handle both possible response formats
       const requisites = response.bankDetails || response.data || response || []
+      console.log("Processed requisites:", requisites)
       setAvailableRequisites(Array.isArray(requisites) ? requisites : [])
     } catch (error) {
       console.error("Failed to fetch requisites:", error)
@@ -213,11 +215,13 @@ export function FoldersList() {
   }
 
   const openEditModal = (folder: Folder) => {
+    console.log("Opening edit modal for folder:", folder)
     setSelectedFolder(folder)
     setFolderTitle(folder.title)
     setSelectedRequisites(folder.requisites.map(r => r.requisite.id))
     setCreateModalOpen(false)
     setEditModalOpen(true)
+    console.log("Edit modal state set to true")
   }
 
   const openDeleteModal = (folder: Folder) => {
@@ -303,7 +307,13 @@ export function FoldersList() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditModal(folder)}>
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          openEditModal(folder)
+                        }}
+                      >
                         <Edit2 className="h-4 w-4 mr-2" />
                         Редактировать
                       </DropdownMenuItem>
@@ -443,6 +453,7 @@ export function FoldersList() {
       <Dialog 
         open={createModalOpen || editModalOpen} 
         onOpenChange={(open) => {
+          console.log("Dialog onOpenChange called with:", open)
           if (!open) {
             setCreateModalOpen(false)
             setEditModalOpen(false)
@@ -464,6 +475,7 @@ export function FoldersList() {
               }
             </DialogDescription>
           </DialogHeader>
+          {console.log("Dialog render - createModalOpen:", createModalOpen, "editModalOpen:", editModalOpen)}
           
           <div className="space-y-4 py-4">
             <div>
@@ -480,6 +492,7 @@ export function FoldersList() {
             <div>
               <Label>Реквизиты</Label>
               <ScrollArea className="h-[300px] border rounded-lg mt-2 p-4">
+                {console.log("Available requisites for modal:", availableRequisites)}
                 <div className="space-y-2">
                   {availableRequisites.map((requisite) => (
                     <label
