@@ -598,6 +598,8 @@ export default (app: Elysia) =>
     .put(
       '/trader',
       async ({ body, error }) => {
+        const updateData: any = { traderId: body.traderId };
+        
         if (body.traderId) {
           const [tx, trader] = await Promise.all([
             db.transaction.findUnique({ where: { id: body.id } }),
@@ -605,16 +607,45 @@ export default (app: Elysia) =>
           ])
           if (!tx) return error(404, { error: 'Транзакция не найдена' })
           if (!trader) return error(400, { error: 'Указанный трейдер не существует' })
-          if (tx.rate !== null) {
-            const percent = trader.profitPercent ?? 0
-            const traderRate = tx.rate * (1 - percent / 100)
-            const baseAmount = tx.amount / traderRate
-            const needed = baseAmount * (1 + percent / 100)
-            if (trader.balanceUsdt < needed)
-              return error(400, { error: 'Недостаточно баланса трейдера' })
+          
+          // Рассчитываем параметры заморозки для IN транзакций
+          if (tx.type === TransactionType.IN && tx.rate !== null) {
+            // Получаем параметры трейдера для данного мерчанта
+            const traderMerchant = await db.traderMerchant.findUnique({
+              where: {
+                traderId_merchantId: {
+                  traderId: body.traderId,
+                  merchantId: tx.merchantId
+                }
+              }
+            });
+            
+            const kkkPercent = traderMerchant?.kkkPercent || 0;
+            const feeInPercent = traderMerchant?.feeInPercent || 0;
+            
+            const { calculateFreezingParams } = require('@/utils/freezing');
+            const freezingParams = calculateFreezingParams(
+              tx.amount,
+              tx.rate,
+              kkkPercent,
+              feeInPercent
+            );
+            
+            // Добавляем параметры заморозки к обновлению
+            updateData.adjustedRate = freezingParams.adjustedRate;
+            updateData.kkkPercent = kkkPercent;
+            updateData.feeInPercent = feeInPercent;
+            updateData.frozenUsdtAmount = freezingParams.frozenUsdtAmount;
+            updateData.calculatedCommission = freezingParams.calculatedCommission;
+            
+            // Проверяем доступный баланс с учетом заморозки
+            if (trader.trustBalance < freezingParams.totalRequired) {
+              return error(400, { error: 'Недостаточно баланса трейдера для заморозки' })
+            }
           }
         }
-        return updateTrx(body.id, { traderId: body.traderId }).catch((e) => {
+        
+        return updateTrx(body.id, updateData).catch((e) => {
           if (
             e instanceof Prisma.PrismaClientKnownRequestError &&
             e.code === 'P2025'

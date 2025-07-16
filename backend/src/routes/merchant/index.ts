@@ -971,7 +971,28 @@ export default (app: Elysia) =>
           return error(409, { error: "NO_REQUISITE" });
         }
 
-        // Создаем транзакцию
+        // Получаем параметры трейдера для расчета заморозки
+        const traderMerchant = await db.traderMerchant.findUnique({
+          where: {
+            traderId_merchantId: {
+              traderId: chosen.userId,
+              merchantId: merchant.id
+            }
+          }
+        });
+
+        // Рассчитываем параметры заморозки
+        const kkkPercent = traderMerchant?.kkkPercent || 0;
+        const feeInPercent = traderMerchant?.feeInPercent || 0;
+        
+        const freezingParams = calculateFreezingParams(
+          body.amount,
+          body.rate,
+          kkkPercent,
+          feeInPercent
+        );
+
+        // Создаем транзакцию с параметрами заморозки
         const tx = await db.transaction.create({
           data: {
             merchantId: merchant.id,
@@ -991,6 +1012,11 @@ export default (app: Elysia) =>
             clientName: `user_${Date.now()}`,
             status: Status.IN_PROGRESS,
             rate: body.rate,
+            adjustedRate: freezingParams.adjustedRate,
+            kkkPercent: kkkPercent,
+            feeInPercent: feeInPercent,
+            frozenUsdtAmount: freezingParams.frozenUsdtAmount,
+            calculatedCommission: freezingParams.calculatedCommission,
             isMock: false,
             bankDetailId: chosen.id,
             traderId: chosen.userId,

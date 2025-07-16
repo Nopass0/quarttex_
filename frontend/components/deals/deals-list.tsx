@@ -363,6 +363,9 @@ export function DealsList() {
             
             return currentTransactions;
           });
+
+          // Also update trader profile to refresh profit
+          await fetchTraderProfile();
         } catch (error) {
           console.error("Failed to poll transactions:", error);
         }
