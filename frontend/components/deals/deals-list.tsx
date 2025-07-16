@@ -233,6 +233,7 @@ export function DealsList() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [period, setPeriod] = useState("today"); // Period filter
 
   // Real data for filters
   const [devices, setDevices] = useState<any[]>([]);
@@ -332,15 +333,44 @@ export function DealsList() {
 
   // Set up polling for real-time updates
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       // Only fetch first page if not already loading
-      if (!loading && !loadingMore && page === 1) {
-        fetchTransactions(1, false);
+      if (!loading && !loadingMore) {
+        try {
+          const params: any = {
+            page: 1,
+            limit: 50,
+          };
+
+          const response = await traderApi.getTransactions(params);
+          const newData = response.data || response.transactions || [];
+          
+          setTransactions((currentTransactions) => {
+            const existingIds = new Set(currentTransactions.map((t) => t.id));
+            const newTransactions = newData.filter((tx: Transaction) => !existingIds.has(tx.id));
+            
+            if (newTransactions.length > 0) {
+              // Show notifications for new transactions
+              newTransactions.forEach((tx: Transaction) => {
+                toast.success(`Новая сделка ${tx.numericId}`, {
+                  description: `${tx.amount.toLocaleString("ru-RU")} ₽ от ${tx.clientName}`,
+                });
+              });
+              
+              // Add new transactions to the beginning of the list
+              return [...newTransactions, ...currentTransactions];
+            }
+            
+            return currentTransactions;
+          });
+        } catch (error) {
+          console.error("Failed to poll transactions:", error);
+        }
       }
-    }, 10000); // Check every 10 seconds
+    }, 5000); // Check every 5 seconds for real-time updates
 
     return () => clearInterval(interval);
-  }, [page, loading, loadingMore]);
+  }, [loading, loadingMore]);
 
   // Timer for countdown update - only update if there are pending transactions
   useEffect(() => {
@@ -480,7 +510,12 @@ export function DealsList() {
           }, 500);
         }
 
-        return append ? [...currentTransactions, ...newData] : newData;
+        // Sort transactions by createdAt to show newest first
+        const sortedData = [...newData].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        return append ? [...currentTransactions, ...sortedData] : sortedData;
       });
 
       setHasMore(hasMoreData);
@@ -676,18 +711,66 @@ export function DealsList() {
 
   const filteredTransactions = getFilteredTransactions();
 
-  // Calculate stats for filtered transactions
-  const filteredStats = filteredTransactions.reduce(
-    (acc, tx) => {
-      if (tx.status === "READY" || tx.status === "COMPLETED") {
-        acc.count += 1;
-        acc.totalAmount += tx.amount || 0;
-        acc.totalProfit += tx.calculatedCommission || 0;
-      }
-      return acc;
-    },
-    { count: 0, totalAmount: 0, totalProfit: 0 },
-  );
+  // Calculate stats for period
+  const calculatePeriodStats = () => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    const startOfHalfYear = new Date(now.getFullYear(), Math.floor(now.getMonth() / 6) * 6, 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let filterDate: Date;
+    let endDate: Date | undefined;
+
+    switch (period) {
+      case "yesterday":
+        filterDate = yesterday;
+        endDate = endOfYesterday;
+        break;
+      case "week":
+        filterDate = startOfWeek;
+        break;
+      case "month":
+        filterDate = startOfMonth;
+        break;
+      case "quarter":
+        filterDate = startOfQuarter;
+        break;
+      case "halfyear":
+        filterDate = startOfHalfYear;
+        break;
+      case "year":
+        filterDate = startOfYear;
+        break;
+      case "today":
+      default:
+        filterDate = startOfDay;
+        break;
+    }
+
+    return transactions.reduce(
+      (acc, tx) => {
+        const txDate = new Date(tx.createdAt);
+        if (txDate >= filterDate && (!endDate || txDate < endDate)) {
+          if (tx.status === "READY" || tx.status === "COMPLETED") {
+            acc.count += 1;
+            // Calculate USDT amount
+            const usdtAmount = tx.frozenUsdtAmount || (tx.rate ? tx.amount / tx.rate : tx.amount / 95);
+            acc.totalAmount += usdtAmount;
+            acc.totalProfit += tx.calculatedCommission || 0;
+          }
+        }
+        return acc;
+      },
+      { count: 0, totalAmount: 0, totalProfit: 0 },
+    );
+  };
+
+  const periodStats = calculatePeriodStats();
 
   console.log(
     "[DealsList] Rendering with:",
@@ -722,16 +805,16 @@ export function DealsList() {
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Сделки ({filteredStats.count})
+                Сделки ({periodStats.count})
               </h3>
               <div className="space-y-1">
                 <div className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
-                  {filteredStats.totalProfit.toFixed(2)} USDT
+                  {periodStats.totalAmount.toFixed(2)} USDT
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {(filteredStats.totalProfit * 95).toFixed(0)} RUB
+                  {(periodStats.totalAmount * 95).toFixed(0)} RUB
                 </div>
-                {filteredStats.count === 0 && (
+                {periodStats.count === 0 && (
                   <div className="text-xs text-red-500 dark:text-[#c64444] mt-2">
                     Нет успешных сделок
                   </div>
@@ -741,7 +824,13 @@ export function DealsList() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs">
-                  Период: за сегодня
+                  Период: {period === "today" ? "за сегодня" : 
+                          period === "yesterday" ? "за вчера" :
+                          period === "week" ? "за неделю" :
+                          period === "month" ? "за месяц" :
+                          period === "quarter" ? "за квартал" :
+                          period === "halfyear" ? "за полгода" :
+                          period === "year" ? "за год" : "за сегодня"}
                   <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                 </Button>
               </PopoverTrigger>
@@ -751,6 +840,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("today")}
                   >
                     За сегодня
                   </Button>
@@ -758,6 +848,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("yesterday")}
                   >
                     За вчера
                   </Button>
@@ -765,6 +856,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("week")}
                   >
                     За неделю
                   </Button>
@@ -772,6 +864,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("month")}
                   >
                     За месяц
                   </Button>
@@ -779,6 +872,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("quarter")}
                   >
                     За квартал
                   </Button>
@@ -786,6 +880,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("halfyear")}
                   >
                     За полгода
                   </Button>
@@ -793,6 +888,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("year")}
                   >
                     За год
                   </Button>
@@ -811,25 +907,23 @@ export function DealsList() {
               </h3>
               <div className="space-y-1">
                 <div className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
-                  {(
-                    financials.profitFromDeals + financials.profitFromPayouts
-                  ).toFixed(2)}{" "}
-                  USDT
+                  {periodStats.totalProfit.toFixed(2)} USDT
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {(
-                    (financials.profitFromDeals +
-                      financials.profitFromPayouts) *
-                    95
-                  ).toFixed(0)}{" "}
-                  RUB
+                  {(periodStats.totalProfit * 95).toFixed(0)} RUB
                 </div>
               </div>
             </div>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs">
-                  Период: за сегодня
+                  Период: {period === "today" ? "за сегодня" : 
+                          period === "yesterday" ? "за вчера" :
+                          period === "week" ? "за неделю" :
+                          period === "month" ? "за месяц" :
+                          period === "quarter" ? "за квартал" :
+                          period === "halfyear" ? "за полгода" :
+                          period === "year" ? "за год" : "за сегодня"}
                   <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                 </Button>
               </PopoverTrigger>
@@ -839,6 +933,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("today")}
                   >
                     За сегодня
                   </Button>
@@ -846,6 +941,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("yesterday")}
                   >
                     За вчера
                   </Button>
@@ -853,6 +949,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("week")}
                   >
                     За неделю
                   </Button>
@@ -860,6 +957,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("month")}
                   >
                     За месяц
                   </Button>
@@ -867,6 +965,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("quarter")}
                   >
                     За квартал
                   </Button>
@@ -874,6 +973,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("halfyear")}
                   >
                     За полгода
                   </Button>
@@ -881,6 +981,7 @@ export function DealsList() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start"
+                    onClick={() => setPeriod("year")}
                   >
                     За год
                   </Button>

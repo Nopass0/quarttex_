@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +42,12 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
   const [orderId, setOrderId] = useState('')
   const [userIp, setUserIp] = useState('')
   const [callbackUri, setCallbackUri] = useState('')
+  
+  // Auto-creation state
+  const [autoCreateEnabled, setAutoCreateEnabled] = useState(false)
+  const [minDelay, setMinDelay] = useState('5')
+  const [maxDelay, setMaxDelay] = useState('30')
+  const [autoCreateInterval, setAutoCreateInterval] = useState<NodeJS.Timeout | null>(null)
   
   const activeMethods = merchantMethods.filter(m => m.isEnabled)
   
@@ -172,6 +178,99 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
       description: `Успешно: ${successCount}, Ошибок: ${errorCount}`
     })
   }
+  
+  // Auto-creation functions
+  const startAutoCreate = () => {
+    if (!methodId && activeMethods.length === 0) {
+      toast.error('Выберите метод оплаты или активируйте хотя бы один метод')
+      return
+    }
+    
+    setAutoCreateEnabled(true)
+    scheduleNextTransaction()
+  }
+  
+  const stopAutoCreate = () => {
+    setAutoCreateEnabled(false)
+    if (autoCreateInterval) {
+      clearTimeout(autoCreateInterval)
+      setAutoCreateInterval(null)
+    }
+  }
+  
+  const scheduleNextTransaction = () => {
+    const min = parseInt(minDelay) * 1000
+    const max = parseInt(maxDelay) * 1000
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min
+    
+    const timeout = setTimeout(async () => {
+      await createAutoTransaction()
+      if (autoCreateEnabled) {
+        scheduleNextTransaction()
+      }
+    }, delay)
+    
+    setAutoCreateInterval(timeout)
+  }
+  
+  const createAutoTransaction = async () => {
+    try {
+      const selectedMethodId = methodId || activeMethods[Math.floor(Math.random() * activeMethods.length)]?.method.id
+      if (!selectedMethodId) return
+      
+      const data: any = {
+        methodId: selectedMethodId,
+        amount: Math.floor(Math.random() * 9000) + 1000,
+        rate: 95 + Math.random() * 10,
+        orderId: `AUTO_${transactionType}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        expired_at: new Date(Date.now() + 3600000).toISOString(),
+        userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+      }
+      
+      if (callbackUri) {
+        data.callbackUri = callbackUri;
+      }
+      
+      const endpoint = transactionType === 'IN' ? 'in' : 'out'
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/merchant/transactions/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-merchant-api-key': merchantToken
+        },
+        body: JSON.stringify(data)
+      })
+      
+      const result = await response.json()
+      
+      if (response.ok) {
+        toast.success(`Авто-транзакция ${transactionType} создана`, {
+          description: `ID: ${result.id}, Сумма: ${result.amount} ₽`
+        })
+      } else {
+        console.error('Auto-transaction failed:', result)
+      }
+    } catch (error) {
+      console.error('Auto-transaction error:', error)
+    }
+  }
+  
+  // Cleanup on unmount or when auto-create is disabled
+  useEffect(() => {
+    return () => {
+      if (autoCreateInterval) {
+        clearTimeout(autoCreateInterval)
+      }
+    }
+  }, [autoCreateInterval])
+  
+  // Fix for autoCreateEnabled state in closure
+  useEffect(() => {
+    if (!autoCreateEnabled && autoCreateInterval) {
+      clearTimeout(autoCreateInterval)
+      setAutoCreateInterval(null)
+    }
+  }, [autoCreateEnabled, autoCreateInterval])
   
   return (
     <Card className="dark:bg-gray-800 dark:border-gray-700">
@@ -359,6 +458,66 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
                   >
                     Создать 20
                   </Button>
+                </div>
+                
+                {/* Auto-creation section */}
+                <div className="border dark:border-gray-700 rounded-lg p-4 space-y-4 mt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm dark:text-gray-200">Автоматическое создание</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Создание транзакций с случайной задержкой
+                      </p>
+                    </div>
+                    <Switch
+                      checked={autoCreateEnabled}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          startAutoCreate()
+                        } else {
+                          stopAutoCreate()
+                        }
+                      }}
+                      className="dark:bg-gray-700"
+                    />
+                  </div>
+                  
+                  {autoCreateEnabled && (
+                    <Badge className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
+                      Автосоздание активно
+                    </Badge>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs dark:text-gray-300">Мин. задержка (сек)</Label>
+                      <Input
+                        type="number"
+                        value={minDelay}
+                        onChange={(e) => setMinDelay(e.target.value)}
+                        min="1"
+                        max="300"
+                        disabled={autoCreateEnabled}
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs dark:text-gray-300">Макс. задержка (сек)</Label>
+                      <Input
+                        type="number"
+                        value={maxDelay}
+                        onChange={(e) => setMaxDelay(e.target.value)}
+                        min="1"
+                        max="300"
+                        disabled={autoCreateEnabled}
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Транзакции будут создаваться автоматически с задержкой от {minDelay} до {maxDelay} секунд
+                  </p>
                 </div>
               </div>
             )}
