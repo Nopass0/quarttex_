@@ -1783,7 +1783,7 @@ export function DealsList() {
                   )}
                   onClick={() => setSelectedTransaction(transaction)}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 overflow-hidden">
                     {/* Status Icon */}
                     <div className="flex-shrink-0">{getStatusIcon()}</div>
 
@@ -1798,7 +1798,7 @@ export function DealsList() {
                     </div>
 
                     {/* Payment Status and Date */}
-                    <div className="w-48 flex-shrink-0">
+                    <div className="w-48 flex-shrink-0 hidden xl:block">
                       <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
                         {getPaymentStatus()}
                       </div>
@@ -1812,15 +1812,15 @@ export function DealsList() {
                     </div>
 
                     {/* Bank and Requisites */}
-                    <div className="w-64 flex-shrink-0">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3">
                         {transaction.requisites?.bankType &&
                           getBankIcon(transaction.requisites.bankType)}
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee] truncate">
                             {transaction.requisites?.cardNumber || "—"}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                             {transaction.clientName}
                           </div>
                         </div>
@@ -1838,7 +1838,7 @@ export function DealsList() {
                     </div>
 
                     {/* Rate */}
-                    <div className="w-32 flex-shrink-0">
+                    <div className="w-20 flex-shrink-0 hidden lg:block">
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         {transaction.rate
                           ? `${transaction.rate.toFixed(2)} ₽`
@@ -1847,11 +1847,11 @@ export function DealsList() {
                     </div>
 
                     {/* Status Badge */}
-                    <div className="flex-1">
+                    <div className="flex-shrink-0">
                       <Badge
                         variant="outline"
                         className={cn(
-                          "px-4 py-2 text-sm font-medium border rounded-xl inline-block min-w-[100px] text-center",
+                          "px-3 py-1.5 text-xs font-medium border rounded-xl whitespace-nowrap",
                           getStatusBadgeColor(),
                         )}
                       >
