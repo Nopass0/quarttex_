@@ -87,6 +87,7 @@ export function FoldersList() {
   const [folderTitle, setFolderTitle] = useState("")
   const [selectedRequisites, setSelectedRequisites] = useState<string[]>([])
   const [availableRequisites, setAvailableRequisites] = useState<Requisite[]>([])
+  const [testModalOpen, setTestModalOpen] = useState(false)
   
   const debouncedSearch = useDebounce(searchQuery, 500)
 
@@ -119,10 +120,8 @@ export function FoldersList() {
   const fetchRequisites = async () => {
     try {
       const response = await traderApi.getRequisites()
-      console.log("Fetched requisites response:", response)
       // Handle both possible response formats
       const requisites = response.bankDetails || response.data || response || []
-      console.log("Processed requisites:", requisites)
       setAvailableRequisites(Array.isArray(requisites) ? requisites : [])
     } catch (error) {
       console.error("Failed to fetch requisites:", error)
@@ -215,13 +214,11 @@ export function FoldersList() {
   }
 
   const openEditModal = useCallback((folder: Folder) => {
-    console.log("Opening edit modal for folder:", folder)
     setSelectedFolder(folder)
     setFolderTitle(folder.title)
     setSelectedRequisites(folder.requisites.map(r => r.requisite.id))
     setCreateModalOpen(false)
     setEditModalOpen(true)
-    console.log("Edit modal state set to true")
   }, [])
 
   const openDeleteModal = (folder: Folder) => {
@@ -245,6 +242,12 @@ export function FoldersList() {
         </div>
         <div className="flex items-center gap-2">
           <TraderHeader />
+          <Button 
+            variant="outline"
+            onClick={() => setTestModalOpen(true)}
+          >
+            Test Modal
+          </Button>
           <Button 
             className="bg-[#006039] hover:bg-[#006039]/90 text-white"
             onClick={() => setCreateModalOpen(true)}
@@ -308,11 +311,7 @@ export function FoldersList() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem 
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          openEditModal(folder)
-                        }}
+                        onClick={() => openEditModal(folder)}
                       >
                         <Edit2 className="h-4 w-4 mr-2" />
                         Редактировать
@@ -382,14 +381,6 @@ export function FoldersList() {
                       Запустить все
                     </Button>
                   )}
-                  {/* Temporary direct edit button for testing */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditModal(folder)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
                 </div>
 
                 {/* Status Badge */}
@@ -457,50 +448,39 @@ export function FoldersList() {
         </div>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* Create Modal */}
       <Dialog 
-        open={createModalOpen || editModalOpen} 
+        open={createModalOpen} 
         onOpenChange={(open) => {
-          console.log("Dialog onOpenChange called with:", open)
           if (!open) {
             setCreateModalOpen(false)
-            setEditModalOpen(false)
             setFolderTitle("")
             setSelectedRequisites([])
-            setSelectedFolder(null)
           }
         }}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {createModalOpen ? "Создать папку" : "Редактировать папку"}
-            </DialogTitle>
+            <DialogTitle>Создать папку</DialogTitle>
             <DialogDescription>
-              {createModalOpen 
-                ? "Создайте новую папку и добавьте в нее реквизиты"
-                : "Измените название папки и состав реквизитов"
-              }
+              Создайте новую папку и добавьте в нее реквизиты
             </DialogDescription>
           </DialogHeader>
-          {console.log("Dialog render - createModalOpen:", createModalOpen, "editModalOpen:", editModalOpen)}
           
           <div className="space-y-4 py-4">
             <div>
               <Label htmlFor="folder-title">Название папки</Label>
               <Input
                 id="folder-title"
+                placeholder="Введите название папки"
                 value={folderTitle}
                 onChange={(e) => setFolderTitle(e.target.value)}
-                placeholder="Например: Основные карты"
-                className="mt-2"
               />
             </div>
 
             <div>
               <Label>Реквизиты</Label>
               <ScrollArea className="h-[300px] border rounded-lg mt-2 p-4">
-                {console.log("Available requisites for modal:", availableRequisites)}
                 <div className="space-y-2">
                   {availableRequisites.map((requisite) => (
                     <label
@@ -524,15 +504,18 @@ export function FoldersList() {
                           className="w-6 h-6"
                         />
                         <div>
-                          <p className="font-medium">{requisite.recipientName}</p>
+                          <p className="font-medium">
+                            •••• {requisite.cardNumber.slice(-4)}
+                          </p>
                           <p className="text-sm text-muted-foreground">
-                            {requisite.bankType} •••• {requisite.cardNumber.slice(-4)}
+                            {requisite.bankType} • {requisite.recipientName}
                           </p>
                         </div>
                       </div>
                       {requisite.device && (
                         <Badge 
                           variant={requisite.device.isOnline ? "default" : "secondary"}
+                          className="text-xs"
                         >
                           <Smartphone className="h-3 w-3 mr-1" />
                           {requisite.device.name}
@@ -553,20 +536,127 @@ export function FoldersList() {
               variant="outline"
               onClick={() => {
                 setCreateModalOpen(false)
-                setEditModalOpen(false)
                 setFolderTitle("")
                 setSelectedRequisites([])
-                setSelectedFolder(null)
               }}
             >
               Отмена
             </Button>
             <Button
               className="bg-[#006039] hover:bg-[#006039]/90 text-white"
-              onClick={createModalOpen ? handleCreateFolder : handleUpdateFolder}
+              onClick={handleCreateFolder}
               disabled={!folderTitle.trim() || selectedRequisites.length === 0}
             >
-              {createModalOpen ? "Создать" : "Сохранить"}
+              Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Modal */}
+      <Dialog 
+        open={editModalOpen} 
+        onOpenChange={(open) => {
+          setEditModalOpen(open)
+          if (!open) {
+            // Clean up state when modal closes
+            setSelectedFolder(null)
+            setFolderTitle("")
+            setSelectedRequisites([])
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Редактировать папку</DialogTitle>
+            <DialogDescription>
+              Измените название папки и состав реквизитов
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedFolder && (
+            <div className="text-sm text-gray-500 mb-2">
+              Редактирование папки: {selectedFolder.title}
+            </div>
+          )}
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="edit-folder-title">Название папки</Label>
+              <Input
+                id="edit-folder-title"
+                placeholder="Введите название папки"
+                value={folderTitle}
+                onChange={(e) => setFolderTitle(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Реквизиты</Label>
+              <ScrollArea className="h-[300px] border rounded-lg mt-2 p-4">
+                <div className="space-y-2">
+                  {availableRequisites.map((requisite) => (
+                    <label
+                      key={requisite.id}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={selectedRequisites.includes(requisite.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedRequisites([...selectedRequisites, requisite.id])
+                          } else {
+                            setSelectedRequisites(selectedRequisites.filter(id => id !== requisite.id))
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-3 flex-1">
+                        <img 
+                          src={getBankLogo(requisite.bankType)}
+                          alt={requisite.bankType}
+                          className="w-6 h-6"
+                        />
+                        <div>
+                          <p className="font-medium">
+                            •••• {requisite.cardNumber.slice(-4)}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {requisite.bankType} • {requisite.recipientName}
+                          </p>
+                        </div>
+                      </div>
+                      {requisite.device && (
+                        <Badge 
+                          variant={requisite.device.isOnline ? "default" : "secondary"}
+                          className="text-xs"
+                        >
+                          <Smartphone className="h-3 w-3 mr-1" />
+                          {requisite.device.name}
+                        </Badge>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
+              <p className="text-sm text-muted-foreground mt-2">
+                Выбрано: {selectedRequisites.length} реквизитов
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditModalOpen(false)}
+            >
+              Отмена
+            </Button>
+            <Button
+              className="bg-[#006039] hover:bg-[#006039]/90 text-white"
+              onClick={handleUpdateFolder}
+              disabled={!folderTitle.trim() || selectedRequisites.length === 0}
+            >
+              Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -597,6 +687,26 @@ export function FoldersList() {
               onClick={handleDeleteFolder}
             >
               Удалить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Modal */}
+      <Dialog open={testModalOpen} onOpenChange={setTestModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Test Modal</DialogTitle>
+            <DialogDescription>
+              This is a simple test modal to check if Dialog works.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p>If you can see this, the Dialog component is working.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTestModalOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
