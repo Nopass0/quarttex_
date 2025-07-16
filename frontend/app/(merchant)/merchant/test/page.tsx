@@ -87,6 +87,8 @@ export default function MerchantTestPage() {
         methodId,
         amount: parseFloat(amount),
         orderId: orderId || generateOrderId(),
+        rate: 95 + Math.random() * 10, // Добавляем обязательный параметр rate
+        expired_at: new Date(Date.now() + 3600000).toISOString(), // 1 час от текущего времени
         userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
       }
 
@@ -138,6 +140,8 @@ export default function MerchantTestPage() {
           methodId,
           amount: Math.floor(Math.random() * 9000) + 1000,
           orderId: generateOrderId(),
+          rate: 95 + Math.random() * 10, // Добавляем обязательный параметр rate
+          expired_at: new Date(Date.now() + 3600000).toISOString(), // 1 час от текущего времени
           userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
         }
 

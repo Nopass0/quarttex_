@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { useAdminAuth } from '@/stores/auth'
-import { RefreshCw, Send, Shuffle } from 'lucide-react'
+import { RefreshCw, Send, Shuffle, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface TestMerchantTransactionsProps {
   merchantId: string
@@ -57,6 +58,35 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
   
   const activeMethods = merchantMethods.filter(m => m.isEnabled)
   
+  const createTestSMS = async (count = 5) => {
+    setIsLoading(true)
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/messages/bulk-test-sms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || ''
+        },
+        body: JSON.stringify({ count })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        toast.success(`Создано ${result.count} тестовых SMS`, {
+          description: 'Сообщения отправлены случайным трейдерам'
+        })
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Ошибка создания SMS')
+      }
+    } catch (error) {
+      toast.error('Не удалось создать тестовые SMS')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
   const generateRandomData = () => {
     const randomAmount = Math.floor(Math.random() * 9000) + 1000
     const randomRate = (95 + Math.random() * 10).toFixed(2)
@@ -93,11 +123,11 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
       }
       
       const endpoint = transactionType === 'IN' ? 'in' : 'out'
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/merchant/transactions/${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/transactions/test/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-merchant-api-key': merchantToken
+          'x-admin-key': adminToken || ''
         },
         body: JSON.stringify(data)
       })
@@ -155,11 +185,11 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
         console.log('Sending transaction data:', data)
         
         const endpoint = transactionType === 'IN' ? 'in' : 'out'
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/merchant/transactions/${endpoint}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/transactions/test/${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-merchant-api-key': merchantToken
+            'x-admin-key': adminToken || ''
           },
           body: JSON.stringify(data)
         })
@@ -241,11 +271,11 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
       }
       
       const endpoint = type === 'IN' ? 'in' : 'out'
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/merchant/transactions/${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/transactions/test/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-merchant-api-key': merchantToken
+          'x-admin-key': adminToken || ''
         },
         body: JSON.stringify(data)
       })
@@ -289,13 +319,14 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
   }, [autoCreateEnabled, autoCreateInterval])
   
   return (
-    <Card className="dark:bg-gray-800 dark:border-gray-700">
-      <CardHeader>
-        <CardTitle className="dark:text-white">Тестовые транзакции</CardTitle>
-        <CardDescription className="dark:text-gray-400">
-          Создание тестовых транзакций для эмуляции работы мерчанта
-        </CardDescription>
-      </CardHeader>
+    <>
+      <Card className="dark:bg-gray-800 dark:border-gray-700">
+        <CardHeader>
+          <CardTitle className="dark:text-white">Тестовые транзакции</CardTitle>
+          <CardDescription className="dark:text-gray-400">
+            Создание тестовых транзакций для эмуляции работы мерчанта
+          </CardDescription>
+        </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <Label htmlFor="random-mode" className="dark:text-gray-300">Использовать случайные данные</Label>
@@ -541,5 +572,55 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
         </Tabs>
       </CardContent>
     </Card>
+    
+    {/* Секция для создания тестовых SMS */}
+    <Card className="mt-4 dark:bg-gray-800 dark:border-gray-700">
+      <CardHeader>
+        <CardTitle className="dark:text-white">Тестовые SMS сообщения</CardTitle>
+        <CardDescription className="dark:text-gray-400">
+          Создание моковых SMS от банков для тестирования
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <Alert className="dark:bg-gray-700 dark:border-gray-600">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="dark:text-gray-300">
+              SMS будут отправлены случайным активным трейдерам с имитацией банковских уведомлений
+            </AlertDescription>
+          </Alert>
+          
+          <div className="flex gap-2">
+            <Button
+              onClick={() => createTestSMS(1)}
+              disabled={isLoading}
+              className="flex-1"
+            >
+              {isLoading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+              Создать 1 SMS
+            </Button>
+            <Button
+              onClick={() => createTestSMS(5)}
+              disabled={isLoading}
+              variant="outline"
+              className="flex-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:bg-gray-600"
+            >
+              {isLoading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+              Создать 5 SMS
+            </Button>
+            <Button
+              onClick={() => createTestSMS(10)}
+              disabled={isLoading}
+              variant="outline"
+              className="flex-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:bg-gray-600"
+            >
+              {isLoading && <RefreshCw className="h-4 w-4 mr-2 animate-spin" />}
+              Создать 10 SMS
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+    </>
   )
 }

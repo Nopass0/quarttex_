@@ -44,6 +44,7 @@ import { adminWithdrawalsRoutes } from "@/routes/admin/withdrawals";
 import { merchantEmulatorApi } from "@/api/admin/merchant-emulator";
 import depositsRoutes from "@/routes/admin/deposits";
 import systemConfigRoutes from "@/routes/admin/system-config";
+import messagesRoutes from "@/routes/admin/messages";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
 
@@ -120,6 +121,7 @@ export default (app: Elysia) =>
     .use(merchantEmulatorApi)
     .use(depositsRoutes)
     .use(systemConfigRoutes)
+    .group("/messages", (a) => messagesRoutes(a))
     .group("", (a) => metricsRoutes(a))
 
     /* ───────────────── enums ───────────────── */
