@@ -15,6 +15,7 @@ import { endOfDay, endOfMonth, startOfDay, startOfMonth } from "date-fns";
 import authRoutes from "./auth";
 import dashboardRoutes from "./dashboard";
 import apiDocsRoutes from "./api-docs";
+import tradersRoutes from "./traders";
 import { disputesRoutes } from "./disputes";
 import { dealDisputesRoutes } from "./deal-disputes";
 import { calculateFreezingParams } from "@/utils/freezing";
@@ -37,6 +38,9 @@ export default (app: Elysia) =>
     
     // Основные API маршруты (с merchantGuard для API ключа)
     .use(merchantGuard())
+    
+    // Traders routes
+    .group("/traders", (app) => app.use(tradersRoutes))
     
     // Payout API routes
     .use(merchantPayoutsApi)

@@ -8,6 +8,7 @@ interface TraderFinancials {
   frozenRub: number
   balanceUsdt: number
   balanceRub: number
+  deposit: number
 }
 
 interface TraderStore {

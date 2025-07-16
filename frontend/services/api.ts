@@ -398,6 +398,18 @@ export const merchantApi = {
     const response = await merchantApiInstance.post('/merchant/auth/logout')
     return response.data
   },
+  checkApiKey: async () => {
+    const response = await merchantApiInstance.get('/merchant/dashboard/check-api-key')
+    return response.data
+  },
+  getMethods: async () => {
+    const response = await merchantApiInstance.get('/merchant/methods')
+    return response.data.data || response.data
+  },
+  getTraderStats: async () => {
+    const response = await merchantApiInstance.get('/merchant/traders/stats')
+    return response.data.data || response.data
+  },
   getMe: async () => {
     const response = await merchantApiInstance.get('/merchant/auth/me')
     return response.data

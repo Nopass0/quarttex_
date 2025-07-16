@@ -548,6 +548,7 @@ export function DealsList() {
           frozenRub,
           balanceUsdt,
           balanceRub,
+          deposit,
         } = response;
         setFinancials({
           trustBalance: trustBalance || 0,
@@ -557,6 +558,7 @@ export function DealsList() {
           frozenRub: frozenRub || 0,
           balanceUsdt: balanceUsdt || 0,
           balanceRub: balanceRub || 0,
+          deposit: deposit || 0,
         });
       }
     } catch (error) {

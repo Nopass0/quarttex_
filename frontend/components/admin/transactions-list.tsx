@@ -436,28 +436,41 @@ export function TransactionsList() {
     
     try {
       setIsLoading(true)
+      // Prepare the update data
+      const updateData: any = {
+        status: formData.status,
+        amount: formData.amount,
+        clientName: formData.clientName,
+      }
+      
+      // Only include traderId if it has changed or is not empty
+      if (formData.traderId) {
+        updateData.traderId = formData.traderId
+      } else if (formData.traderId === '' && selectedTransaction.trader) {
+        // If traderId is empty and transaction had a trader, explicitly set to null to remove
+        updateData.traderId = null
+      }
+      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/transactions/${selectedTransaction.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'x-admin-key': adminToken || '',
         },
-        body: JSON.stringify({
-          status: formData.status,
-          amount: formData.amount,
-          clientName: formData.clientName,
-          traderId: formData.traderId || null,
-        }),
+        body: JSON.stringify(updateData),
       })
       
-      if (!response.ok) throw new Error('Failed to update transaction')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to update transaction')
+      }
       
       setIsEditDialogOpen(false)
       setSelectedTransaction(null)
       await fetchTransactions()
       toast.success('Транзакция обновлена')
-    } catch (error) {
-      toast.error('Не удалось обновить транзакцию')
+    } catch (error: any) {
+      toast.error(error.message || 'Не удалось обновить транзакцию')
     } finally {
       setIsLoading(false)
     }

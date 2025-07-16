@@ -13,6 +13,45 @@ export default (app: Elysia) =>
   app
     .use(merchantSessionGuard())
     
+    /* ──────── GET /merchant/dashboard/check-api-key ──────── */
+    .get(
+      "/check-api-key",
+      async ({ merchant }) => {
+        // Проверяем актуальность API ключа
+        const currentMerchant = await db.merchant.findUnique({
+          where: { id: merchant.id },
+          select: { token: true, disabled: true, banned: true }
+        });
+
+        if (!currentMerchant) {
+          return { valid: false, reason: "Merchant not found" };
+        }
+
+        if (currentMerchant.disabled || currentMerchant.banned) {
+          return { valid: false, reason: "Merchant disabled or banned" };
+        }
+
+        // Проверяем, совпадает ли текущий токен с тем, что в БД
+        if (currentMerchant.token !== merchant.token) {
+          return { valid: false, reason: "API key has been changed" };
+        }
+
+        return { valid: true };
+      },
+      {
+        detail: {
+          tags: ["merchant", "dashboard"],
+          summary: "Проверка актуальности API ключа мерчанта"
+        },
+        response: {
+          200: t.Object({
+            valid: t.Boolean(),
+            reason: t.Optional(t.String())
+          })
+        }
+      }
+    )
+    
     /* ──────── GET /merchant/dashboard/statistics ──────── */
     .get(
       "/statistics",

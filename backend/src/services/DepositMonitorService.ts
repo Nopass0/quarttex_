@@ -1,6 +1,6 @@
 import { BaseService } from "./BaseService";
 import { db } from "@/db";
-import { DepositStatus } from "@prisma/client";
+import { DepositStatus, DepositType } from "@prisma/client";
 
 export default class DepositMonitorService extends BaseService {
   private readonly INTERVAL_MS = 60000; // Check every minute
@@ -140,14 +140,14 @@ export default class DepositMonitorService extends BaseService {
         }
       });
 
-      // Update trader balance
+      // Update trader balance based on deposit type
+      const updateData = deposit.type === DepositType.INSURANCE 
+        ? { deposit: { increment: deposit.amountUSDT } }
+        : { trustBalance: { increment: deposit.amountUSDT } };
+        
       await tx.user.update({
         where: { id: deposit.traderId },
-        data: {
-          trustBalance: {
-            increment: deposit.amountUSDT
-          }
-        }
+        data: updateData
       });
 
       // Create admin log
@@ -155,7 +155,7 @@ export default class DepositMonitorService extends BaseService {
         data: {
           adminId: "system",
           action: "DEPOSIT_CONFIRMED",
-          details: `Deposit ${deposit.id} confirmed for ${deposit.amountUSDT} USDT, trader balance updated`,
+          details: `Deposit ${deposit.id} confirmed for ${deposit.amountUSDT} USDT, ${deposit.type === DepositType.INSURANCE ? 'insurance deposit' : 'trader balance'} updated`,
           ip: "system"
         }
       });

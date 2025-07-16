@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Copy, Plus, Loader2, AlertCircle, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { traderApi } from "@/services/api";
+import { useTraderStore } from "@/stores/trader";
 import QRCode from "react-qr-code";
 
 interface DepositSettings {
@@ -37,17 +38,20 @@ interface DepositRequest {
 }
 
 export function DepositsTab() {
+  const { financials } = useTraderStore();
   const [loading, setLoading] = useState(false);
   const [depositSettings, setDepositSettings] = useState<DepositSettings | null>(null);
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
   const [amount, setAmount] = useState("");
+  const [depositType, setDepositType] = useState<"balance" | "insurance">("balance");
   const [showDepositDialog, setShowDepositDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("deposit");
   const [stats, setStats] = useState({
     totalDeposited: 0,
     pendingCount: 0,
     totalCount: 0,
-    currentBalance: 0
+    currentBalance: 0,
+    insuranceDeposit: 0
   });
 
   useEffect(() => {
@@ -77,7 +81,10 @@ export function DepositsTab() {
   const fetchStats = async () => {
     try {
       const response = await traderApi.get("/deposits/stats");
-      setStats(response.data.data);
+      setStats({
+        ...response.data.data,
+        insuranceDeposit: financials?.deposit || 0
+      });
     } catch (error) {
       console.error("Failed to fetch stats:", error);
     }
@@ -97,10 +104,11 @@ export function DepositsTab() {
     setLoading(true);
     try {
       await traderApi.post("/deposits", {
-        amountUSDT: parseFloat(amount)
+        amountUSDT: parseFloat(amount),
+        type: depositType
       });
 
-      toast.success("Заявка на пополнение создана");
+      toast.success(`Заявка на пополнение ${depositType === "insurance" ? "страхового депозита" : "баланса"} создана`);
 
       setAmount("");
       setShowDepositDialog(false);
@@ -142,7 +150,7 @@ export function DepositsTab() {
   return (
     <div className="space-y-6">
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Всего пополнено</CardTitle>
@@ -173,6 +181,14 @@ export function DepositsTab() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.currentBalance, "USDT")}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Страховой депозит</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.insuranceDeposit, "USDT")}</div>
           </CardContent>
         </Card>
       </div>
@@ -218,6 +234,16 @@ export function DepositsTab() {
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Тип пополнения</Label>
+                          <Tabs value={depositType} onValueChange={(value: any) => setDepositType(value)}>
+                            <TabsList className="grid w-full grid-cols-2">
+                              <TabsTrigger value="balance">Торговый баланс</TabsTrigger>
+                              <TabsTrigger value="insurance">Страховой депозит</TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+                        </div>
+                        
                         <div className="space-y-2">
                           <Label>Сумма (USDT)</Label>
                           <Input

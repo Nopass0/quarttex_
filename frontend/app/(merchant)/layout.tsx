@@ -20,6 +20,7 @@ import {
   Code
 } from "lucide-react"
 import { useMerchantAuth } from "@/stores/merchant-auth"
+import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
 
 const sidebarItems = [
   {
@@ -38,9 +39,14 @@ const sidebarItems = [
     icon: AlertCircle,
   },
   {
+    title: "Тестирование",
+    href: "/merchant/test",
+    icon: Code,
+  },
+  {
     title: "API документация",
     href: "/merchant/api-docs",
-    icon: Code,
+    icon: FileText,
   },
   {
     title: "Настройки",
@@ -62,6 +68,9 @@ export default function MerchantLayout({
   const pathname = usePathname()
   const { logout, merchantName } = useMerchantAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  
+  // Check API key validity periodically
+  useMerchantApiKeyCheck()
 
   return (
     <div className="flex h-screen">

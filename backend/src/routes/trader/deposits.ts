@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
 import { traderGuard } from "@/middleware/traderGuard";
-import { DepositStatus } from "@prisma/client";
+import { DepositStatus, DepositType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 
 export default new Elysia({ prefix: "/deposits" })
@@ -58,7 +58,7 @@ export default new Elysia({ prefix: "/deposits" })
   // Create deposit request
   .post("/", async ({ trader, body, set }) => {
     try {
-      const { amountUSDT } = body;
+      const { amountUSDT, type = DepositType.BALANCE } = body;
       
       // Get deposit settings
       const [walletAddress, minAmount, expiryMinutes] = await Promise.all([
@@ -99,7 +99,8 @@ export default new Elysia({ prefix: "/deposits" })
           traderId: trader.id,
           amountUSDT,
           address: walletAddress.value,
-          status: DepositStatus.PENDING
+          status: DepositStatus.PENDING,
+          type
         }
       });
 
@@ -130,7 +131,8 @@ export default new Elysia({ prefix: "/deposits" })
     tags: ["trader"],
     detail: { summary: "Создание заявки на пополнение" },
     body: t.Object({
-      amountUSDT: t.Number({ minimum: 0 })
+      amountUSDT: t.Number({ minimum: 0 }),
+      type: t.Optional(t.Enum(DepositType))
     }),
     response: {
       201: t.Object({

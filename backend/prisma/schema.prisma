@@ -408,6 +408,7 @@ model DepositRequest {
   status        DepositStatus       @default(PENDING)
   txHash        String?
   confirmations Int                 @default(0)
+  type          DepositType         @default(BALANCE)
   createdAt     DateTime            @default(now())
   confirmedAt   DateTime?
   processedAt   DateTime?
@@ -960,6 +961,11 @@ enum DepositStatus {
   CONFIRMED
   FAILED
   EXPIRED
+}
+
+enum DepositType {
+  BALANCE
+  INSURANCE
 }
 
 enum WithdrawalStatus {

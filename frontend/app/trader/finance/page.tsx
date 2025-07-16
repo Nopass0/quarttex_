@@ -22,7 +22,7 @@ export default function FinancePage() {
       </div>
 
       {/* Balance Overview */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Баланс трейдера</CardTitle>
@@ -55,12 +55,27 @@ export default function FinancePage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Страховой депозит</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(trader?.deposit || 0, "USDT")}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Обеспечение сделок
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Общий баланс</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency((trader?.trustBalance || 0) + (trader?.frozenUsdt || 0), "USDT")}
+              {formatCurrency((trader?.trustBalance || 0) + (trader?.frozenUsdt || 0) + (trader?.deposit || 0), "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               Сумма всех средств
@@ -90,7 +105,7 @@ export default function FinancePage() {
                 <div>
                   <p className="font-medium">Прибыль за сегодня</p>
                   <p className="text-2xl font-bold text-green-600">
-                    +{formatCurrency(user?.profitFromDeals || 0, "USDT")}
+                    +{formatCurrency(trader?.profitFromDeals || 0, "USDT")}
                   </p>
                 </div>
                 <History className="h-8 w-8 text-muted-foreground" />
@@ -100,7 +115,7 @@ export default function FinancePage() {
                 <div>
                   <p className="font-medium">Прибыль за месяц</p>
                   <p className="text-2xl font-bold text-green-600">
-                    +{formatCurrency((user?.profitFromDeals || 0) + (user?.profitFromPayouts || 0), "USDT")}
+                    +{formatCurrency((trader?.profitFromDeals || 0) + (trader?.profitFromPayouts || 0), "USDT")}
                   </p>
                 </div>
                 <History className="h-8 w-8 text-muted-foreground" />
