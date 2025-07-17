@@ -476,6 +476,9 @@ export function DisputesListEnhanced({ userType }: DisputesListEnhancedProps) {
       {/* Messages Dialog */}
       <Dialog open={showMessagesDialog} onOpenChange={setShowMessagesDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Переписка по спору</DialogTitle>
+          </DialogHeader>
           <div className="h-[90vh]">
             {loadingMessages ? (
               <div className="flex items-center justify-center h-full">

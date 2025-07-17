@@ -2106,7 +2106,7 @@ export function DealsList() {
                             ? selectedTransaction.calculatedCommission.toFixed(
                                 2,
                               )
-                            : "0.17"}{" "}
+                            : "0.00"}{" "}
                           USDT
                         </span>
                       </div>

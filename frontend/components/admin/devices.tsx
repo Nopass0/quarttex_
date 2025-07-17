@@ -61,6 +61,7 @@ import {
   WifiOff,
   ChevronLeft,
   ChevronRight,
+  Battery,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -69,34 +70,24 @@ import { adminApi } from '@/services/api'
 
 type Device = {
   id: string
-  deviceId: string
   name: string
-  model: string
-  manufacturer: string
-  fingerprint: string
-  appVersion: string
-  isActive: boolean
-  isConnected: boolean
+  isOnline: boolean
+  energy: number | null
+  ethernetSpeed: number | null
+  emulated: boolean
   trader: {
     id: string
     name: string
     email: string
   }
-  bankDetails: Array<{
-    id: string
-    bankType: string
-    cardNumber: string
-    recipientName: string
-    isActive: boolean
-  }>
-  lastActiveAt: string
+  lastActiveAt: string | null
   createdAt: string
 }
 
 type Statistics = {
   total: number
-  active: number
-  inactive: number
+  online: number
+  offline: number
 }
 
 export function DevicesManagement() {
@@ -104,8 +95,8 @@ export function DevicesManagement() {
   const [isLoading, setIsLoading] = useState(false)
   const [statistics, setStatistics] = useState<Statistics>({
     total: 0,
-    active: 0,
-    inactive: 0,
+    online: 0,
+    offline: 0,
   })
   const [devices, setDevices] = useState<Device[]>([])
   const [pagination, setPagination] = useState({
@@ -118,10 +109,9 @@ export function DevicesManagement() {
   // Filters
   const [filters, setFilters] = useState({
     traderId: '',
-    isActive: '',
-    deviceId: '',
-    model: '',
-    appVersion: '',
+    isOnline: '',
+    name: '',
+    emulated: '',
   })
   
   const [searchQuery, setSearchQuery] = useState('')
@@ -141,10 +131,9 @@ export function DevicesManagement() {
 
       // Apply filters
       if (filters.traderId) params.traderId = filters.traderId
-      if (filters.isActive !== '') params.isActive = filters.isActive
-      if (filters.deviceId) params.deviceId = filters.deviceId
-      if (filters.model) params.model = filters.model
-      if (filters.appVersion) params.appVersion = filters.appVersion
+      if (filters.isOnline !== '') params.isOnline = filters.isOnline
+      if (filters.name) params.name = filters.name
+      if (filters.emulated !== '') params.emulated = filters.emulated
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
 
       const response = await adminApi.getDevices(params)
@@ -153,7 +142,7 @@ export function DevicesManagement() {
       setDevices(response.devices)
       setPagination(response.pagination)
     } catch (error) {
-      toast.error('Failed to fetch devices')
+      toast.error('Не удалось загрузить устройства')
       console.error('Error fetching devices:', error)
     } finally {
       setIsLoading(false)
@@ -171,21 +160,20 @@ export function DevicesManagement() {
   const clearFilters = () => {
     setFilters({
       traderId: '',
-      isActive: '',
-      deviceId: '',
-      model: '',
-      appVersion: '',
+      isOnline: '',
+      name: '',
+      emulated: '',
     })
     setSearchQuery('')
   }
 
   const handleToggleActive = async (device: Device) => {
     try {
-      await adminApi.updateDevice(device.id, { isActive: !device.isActive })
+      await adminApi.updateDevice(device.id, { isOnline: !device.isOnline })
       await fetchDevices(pagination.page)
-      toast.success(`Device ${device.isActive ? 'deactivated' : 'activated'}`)
+      toast.success(`Устройство ${device.isOnline ? 'отключено' : 'подключено'}`)
     } catch (error) {
-      toast.error('Failed to update device status')
+      toast.error('Не удалось обновить статус устройства')
     }
   }
 
@@ -195,11 +183,11 @@ export function DevicesManagement() {
     try {
       await adminApi.deleteDevice(selectedDevice.id)
       await fetchDevices(pagination.page)
-      toast.success('Device deleted successfully')
+      toast.success('Устройство успешно удалено')
       setShowDeleteDialog(false)
       setSelectedDevice(null)
     } catch (error) {
-      toast.error('Failed to delete device')
+      toast.error('Не удалось удалить устройство')
     }
   }
 
@@ -207,14 +195,8 @@ export function DevicesManagement() {
     router.push(`/admin/devices/${deviceId}`)
   }
 
-  const getDeviceIcon = (model: string) => {
-    const modelLower = model.toLowerCase()
-    if (modelLower.includes('tablet') || modelLower.includes('ipad')) {
-      return Tablet
-    } else if (modelLower.includes('desktop') || modelLower.includes('pc')) {
-      return Monitor
-    }
-    return Smartphone
+  const getDeviceIcon = (emulated: boolean) => {
+    return emulated ? Monitor : Smartphone
   }
 
   const getLastActiveStatus = (lastActiveAt: string) => {
@@ -223,18 +205,18 @@ export function DevicesManagement() {
     const diffHours = (now.getTime() - lastActive.getTime()) / (1000 * 60 * 60)
     
     if (diffHours < 1) {
-      return { label: 'Online', variant: 'default' as const, color: 'text-green-600' }
+      return { label: 'Онлайн', variant: 'default' as const, color: 'text-green-600' }
     } else if (diffHours < 24) {
-      return { label: 'Today', variant: 'secondary' as const, color: 'text-blue-600' }
+      return { label: 'Сегодня', variant: 'secondary' as const, color: 'text-blue-600' }
     } else if (diffHours < 168) { // 7 days
-      return { label: `${Math.floor(diffHours / 24)}d ago`, variant: 'outline' as const, color: 'text-gray-600' }
+      return { label: `${Math.floor(diffHours / 24)} дн. назад`, variant: 'outline' as const, color: 'text-gray-600' }
     } else {
-      return { label: 'Inactive', variant: 'destructive' as const, color: 'text-red-600' }
+      return { label: 'Неактивно', variant: 'destructive' as const, color: 'text-red-600' }
     }
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    return new Date(dateString).toLocaleString('ru-RU', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -249,7 +231,7 @@ export function DevicesManagement() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Total Devices</CardTitle>
+            <CardTitle className="text-base font-medium">Всего устройств</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
@@ -260,22 +242,22 @@ export function DevicesManagement() {
         </Card>
         <Card className="border-green-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-green-600">Active</CardTitle>
+            <CardTitle className="text-base font-medium text-green-600">Онлайн</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <p className="text-2xl font-bold text-green-600">{statistics.active}</p>
+              <p className="text-2xl font-bold text-green-600">{statistics.online}</p>
               <Activity className="h-8 w-8 text-green-400" />
             </div>
           </CardContent>
         </Card>
         <Card className="border-red-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-red-600">Inactive</CardTitle>
+            <CardTitle className="text-base font-medium text-red-600">Офлайн</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <p className="text-2xl font-bold text-red-600">{statistics.inactive}</p>
+              <p className="text-2xl font-bold text-red-600">{statistics.offline}</p>
               <AlertCircle className="h-8 w-8 text-red-400" />
             </div>
           </CardContent>
@@ -286,7 +268,7 @@ export function DevicesManagement() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Search & Filters</CardTitle>
+            <CardTitle>Поиск и фильтры</CardTitle>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -294,7 +276,7 @@ export function DevicesManagement() {
                 onClick={() => setShowFilters(!showFilters)}
               >
                 <Filter className="h-4 w-4 mr-2" />
-                {showFilters ? 'Hide' : 'Show'} Filters
+                {showFilters ? 'Скрыть' : 'Показать'} фильтры
               </Button>
               <Button
                 variant="outline"
@@ -312,7 +294,7 @@ export function DevicesManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by device ID, name, model, or trader..."
+              placeholder="Поиск по названию, трейдеру..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -324,49 +306,49 @@ export function DevicesManagement() {
             <div className="space-y-4 border-t pt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label>Статус</Label>
                   <Select
-                    value={filters.isActive}
-                    onValueChange={(value) => setFilters({ ...filters, isActive: value })}
+                    value={filters.isOnline}
+                    onValueChange={(value) => setFilters({ ...filters, isOnline: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="All statuses" />
+                      <SelectValue placeholder="Все статусы" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">All statuses</SelectItem>
-                      <SelectItem value="true">Active</SelectItem>
-                      <SelectItem value="false">Inactive</SelectItem>
+                      <SelectItem value="">Все статусы</SelectItem>
+                      <SelectItem value="true">Онлайн</SelectItem>
+                      <SelectItem value="false">Офлайн</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Device ID</Label>
+                  <Label>Название устройства</Label>
                   <Input
-                    placeholder="Filter by device ID"
-                    value={filters.deviceId}
-                    onChange={(e) => setFilters({ ...filters, deviceId: e.target.value })}
+                    placeholder="Фильтр по названию"
+                    value={filters.name}
+                    onChange={(e) => setFilters({ ...filters, name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Model</Label>
-                  <Input
-                    placeholder="Filter by model"
-                    value={filters.model}
-                    onChange={(e) => setFilters({ ...filters, model: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>App Version</Label>
-                  <Input
-                    placeholder="e.g., 1.0.0"
-                    value={filters.appVersion}
-                    onChange={(e) => setFilters({ ...filters, appVersion: e.target.value })}
-                  />
+                  <Label>Тип устройства</Label>
+                  <Select
+                    value={filters.emulated}
+                    onValueChange={(value) => setFilters({ ...filters, emulated: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Все типы" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Все типы</SelectItem>
+                      <SelectItem value="true">Эмулированные</SelectItem>
+                      <SelectItem value="false">Реальные</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={clearFilters} disabled={isLoading}>
-                  Clear Filters
+                  Очистить фильтры
                 </Button>
               </div>
             </div>
@@ -377,9 +359,9 @@ export function DevicesManagement() {
       {/* Devices Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Devices List</CardTitle>
+          <CardTitle>Список устройств</CardTitle>
           <CardDescription>
-            Manage all registered devices across the platform
+            Управление всеми зарегистрированными устройствами
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -393,19 +375,18 @@ export function DevicesManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Device ID/Code</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Trader</TableHead>
-                      <TableHead>Bank Details</TableHead>
-                      <TableHead>Last Activity</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>Название</TableHead>
+                      <TableHead>Статус</TableHead>
+                      <TableHead>Трейдер</TableHead>
+                      <TableHead>Параметры</TableHead>
+                      <TableHead>Последняя активность</TableHead>
+                      <TableHead className="text-right">Действия</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {devices.map((device) => {
-                      const DeviceIcon = getDeviceIcon(device.model)
-                      const lastActiveStatus = getLastActiveStatus(device.lastActiveAt)
+                      const DeviceIcon = getDeviceIcon(device.emulated)
+                      const lastActiveStatus = device.lastActiveAt ? getLastActiveStatus(device.lastActiveAt) : null
                       
                       return (
                         <TableRow 
@@ -417,52 +398,28 @@ export function DevicesManagement() {
                             <div className="flex items-center gap-2">
                               <DeviceIcon className="h-4 w-4 text-gray-400" />
                               <div>
-                                <div className="font-mono text-sm">{device.deviceId}</div>
-                                <div className="text-xs text-gray-500">{device.fingerprint}</div>
+                                <div className="font-medium">{device.name}</div>
+                                {device.emulated && (
+                                  <Badge variant="outline" className="text-xs">Эмулированное</Badge>
+                                )}
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{device.name}</div>
-                              <div className="text-sm text-gray-500">{device.model} • {device.manufacturer}</div>
-                              <Badge variant="outline" className="mt-1 text-xs">{device.appVersion}</Badge>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
                               <Badge 
-                                variant={device.isActive ? "default" : "secondary"}
+                                variant={device.isOnline ? "default" : "secondary"}
                                 className="w-fit"
                               >
-                                {device.isActive ? (
-                                  <>
-                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                    Active
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="h-3 w-3 mr-1" />
-                                    Inactive
-                                  </>
-                                )}
-                              </Badge>
-                              <Badge 
-                                variant={device.isConnected ? "outline" : "outline"}
-                                className={cn(
-                                  "w-fit",
-                                  device.isConnected ? "text-green-600 border-green-200" : "text-gray-600 border-gray-200"
-                                )}
-                              >
-                                {device.isConnected ? (
+                                {device.isOnline ? (
                                   <>
                                     <Wifi className="h-3 w-3 mr-1" />
-                                    Connected
+                                    Онлайн
                                   </>
                                 ) : (
                                   <>
                                     <WifiOff className="h-3 w-3 mr-1" />
-                                    Disconnected
+                                    Офлайн
                                   </>
                                 )}
                               </Badge>
@@ -478,32 +435,37 @@ export function DevicesManagement() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            {device.bankDetails.length > 0 ? (
+                            <div className="space-y-1">
+                              {device.energy !== null && (
+                                <div className="flex items-center gap-1">
+                                  <Battery className="h-3 w-3 text-gray-400" />
+                                  <span className="text-sm">{device.energy}%</span>
+                                </div>
+                              )}
+                              {device.ethernetSpeed !== null && (
+                                <div className="flex items-center gap-1">
+                                  <Activity className="h-3 w-3 text-gray-400" />
+                                  <span className="text-sm">{device.ethernetSpeed} Mbps</span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {lastActiveStatus ? (
                               <div className="flex items-center gap-2">
-                                <CreditCard className="h-4 w-4 text-gray-400" />
+                                <Calendar className="h-4 w-4 text-gray-400" />
                                 <div>
-                                  <div className="text-sm">{device.bankDetails.length} linked</div>
+                                  <div className={cn("text-sm font-medium", lastActiveStatus.color)}>
+                                    {lastActiveStatus.label}
+                                  </div>
                                   <div className="text-xs text-gray-500">
-                                    {device.bankDetails.filter(bd => bd.isActive).length} active
+                                    {formatDate(device.lastActiveAt!)}
                                   </div>
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-sm text-gray-500">No bank details</span>
+                              <span className="text-sm text-gray-500">Никогда</span>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-gray-400" />
-                              <div>
-                                <div className={cn("text-sm font-medium", lastActiveStatus.color)}>
-                                  {lastActiveStatus.label}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {formatDate(device.lastActiveAt)}
-                                </div>
-                              </div>
-                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -517,7 +479,7 @@ export function DevicesManagement() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuLabel>Действия</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={(e) => {
@@ -526,7 +488,7 @@ export function DevicesManagement() {
                                   }}
                                 >
                                   <Eye className="h-4 w-4 mr-2" />
-                                  View Details
+                                  Подробнее
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={(e) => {
@@ -535,7 +497,7 @@ export function DevicesManagement() {
                                   }}
                                 >
                                   <Edit className="h-4 w-4 mr-2" />
-                                  {device.isActive ? 'Deactivate' : 'Activate'}
+                                  {device.isOnline ? 'Отключить' : 'Подключить'}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -547,7 +509,7 @@ export function DevicesManagement() {
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
+                                  Удалить
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -563,7 +525,7 @@ export function DevicesManagement() {
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-600">
-                    Showing {devices.length} of {pagination.total} devices
+                    Показано {devices.length} из {pagination.total} устройств
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -573,10 +535,10 @@ export function DevicesManagement() {
                       disabled={pagination.page === 1 || isLoading}
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      Previous
+                      Назад
                     </Button>
                     <span className="text-sm">
-                      Page {pagination.page} of {pagination.totalPages}
+                      Страница {pagination.page} из {pagination.totalPages}
                     </span>
                     <Button
                       variant="outline"
@@ -584,7 +546,7 @@ export function DevicesManagement() {
                       onClick={() => handlePageChange(pagination.page + 1)}
                       disabled={pagination.page === pagination.totalPages || isLoading}
                     >
-                      Next
+                      Вперед
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
@@ -599,19 +561,19 @@ export function DevicesManagement() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Device?</DialogTitle>
+            <DialogTitle>Удалить устройство?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this device? This action cannot be undone.
+              Вы уверены, что хотите удалить это устройство? Это действие нельзя отменить.
               {selectedDevice && (
                 <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm">
-                    <strong>Device:</strong> {selectedDevice.name} ({selectedDevice.model})
+                    <strong>Устройство:</strong> {selectedDevice.name}
                   </p>
                   <p className="text-sm">
-                    <strong>Trader:</strong> {selectedDevice.trader.name}
+                    <strong>Трейдер:</strong> {selectedDevice.trader.name}
                   </p>
                   <p className="text-sm">
-                    <strong>Device ID:</strong> {selectedDevice.deviceId}
+                    <strong>ID устройства:</strong> {selectedDevice.id}
                   </p>
                 </div>
               )}
@@ -625,13 +587,13 @@ export function DevicesManagement() {
                 setSelectedDevice(null)
               }}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteDevice}
             >
-              Delete
+              Удалить
             </Button>
           </DialogFooter>
         </DialogContent>

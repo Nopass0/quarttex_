@@ -79,11 +79,15 @@ export function FoldersEnhanced() {
     modalName: "edit-folder",
     onClose: () => {
       setSelectedFolder(null)
+      setEditFolderName("")
+      setEditSelectedRequisites([])
     }
   })
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null)
   const [newFolderName, setNewFolderName] = useState("")
   const [selectedRequisites, setSelectedRequisites] = useState<string[]>([])
+  const [editFolderName, setEditFolderName] = useState("")
+  const [editSelectedRequisites, setEditSelectedRequisites] = useState<string[]>([])
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -107,7 +111,19 @@ export function FoldersEnhanced() {
       const transformedFolders = Array.isArray(foldersData) ? foldersData.map((folder: any) => ({
         id: folder.id,
         title: folder.title,
-        requisites: folder.requisites || []
+        requisites: (folder.requisites || []).map((req: any) => {
+          // Handle the nested structure from API: requisites[].requisite
+          if (req.requisite) {
+            return req.requisite;
+          }
+          // If it's already a requisite object with cardNumber
+          if (req.cardNumber) {
+            return req;
+          }
+          // Fallback: find the full requisite data by id
+          const fullRequisite = requisitesData.find((r: any) => r.id === (req.requisiteId || req.id));
+          return fullRequisite || req;
+        }).filter(r => r && r.id) // Filter out any null/undefined requisites
       })) : []
       
       setRequisites(Array.isArray(requisitesData) ? requisitesData : [])
@@ -156,6 +172,35 @@ export function FoldersEnhanced() {
       createFolderModal.close()
     } catch (error) {
       toast.error("Не удалось создать папку")
+    }
+  }
+
+  const handleUpdateFolder = async () => {
+    if (!selectedFolder) return
+
+    if (!editFolderName.trim()) {
+      toast.error("Введите название папки")
+      return
+    }
+
+    if (editSelectedRequisites.length === 0) {
+      toast.error("Выберите хотя бы один реквизит")
+      return
+    }
+
+    try {
+      await traderApi.updateFolder(selectedFolder.id, {
+        title: editFolderName,
+        requisiteIds: editSelectedRequisites
+      })
+      
+      // Refresh data to get updated folders
+      await fetchData()
+      
+      toast.success("Папка обновлена")
+      editFolderModal.close()
+    } catch (error) {
+      toast.error("Не удалось обновить папку")
     }
   }
 
@@ -215,8 +260,14 @@ export function FoldersEnhanced() {
   }
 
   const getUnassignedRequisites = () => {
-    const assignedIds = new Set(folders.flatMap(f => f.requisites.map(r => r.id)))
-    return requisites.filter(r => !assignedIds.has(r.id))
+    const assignedIds = new Set(
+      folders.flatMap(f => 
+        f.requisites
+          .filter(r => r && r.id)
+          .map(r => r.id)
+      )
+    )
+    return requisites.filter(r => r && r.id && !assignedIds.has(r.id))
   }
 
   if (loading) {
@@ -306,6 +357,12 @@ export function FoldersEnhanced() {
                           size="sm"
                           onClick={() => {
                             setSelectedFolder(folder)
+                            setEditFolderName(folder.title)
+                            setEditSelectedRequisites(
+                              folder.requisites
+                                .filter(r => r && r.id)
+                                .map(r => r.id)
+                            )
                             editFolderModal.open()
                           }}
                           className="dark:hover:bg-[#29382f]/50"
@@ -486,6 +543,85 @@ export function FoldersEnhanced() {
               disabled={!newFolderName.trim() || selectedRequisites.length === 0}
             >
               Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Folder Dialog */}
+      <Dialog open={editFolderModal.isOpen} onOpenChange={editFolderModal.setOpen}>
+        <DialogContent className="dark:bg-[#29382f] dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="dark:text-[#eeeeee]">Редактировать папку</DialogTitle>
+            <DialogDescription className="dark:text-gray-400">
+              Измените название папки и состав реквизитов
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-folder-name" className="dark:text-[#eeeeee]">Название папки</Label>
+              <Input
+                id="edit-folder-name"
+                value={editFolderName}
+                onChange={(e) => setEditFolderName(e.target.value)}
+                placeholder="Например, Основные карты"
+                className="dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
+              />
+            </div>
+            
+            <div>
+              <Label className="dark:text-[#eeeeee]">Выберите реквизиты</Label>
+              <div className="border dark:border-gray-600 rounded-lg max-h-60 overflow-y-auto p-3 space-y-2 dark:bg-[#0f0f0f]">
+                {requisites.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                    Нет доступных реквизитов
+                  </p>
+                ) : (
+                  requisites.map((requisite) => (
+                    <label
+                      key={requisite.id}
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-[#29382f]/30 rounded cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={editSelectedRequisites.includes(requisite.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setEditSelectedRequisites([...editSelectedRequisites, requisite.id])
+                          } else {
+                            setEditSelectedRequisites(editSelectedRequisites.filter(id => id !== requisite.id))
+                          }
+                        }}
+                        className="dark:border-gray-600 dark:data-[state=checked]:bg-[#2d6a42] dark:data-[state=checked]:border-[#2d6a42]"
+                      />
+                      <CreditCard className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium dark:text-[#eeeeee]">{requisite.cardNumber}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {requisite.bankType} • {requisite.recipientName}
+                        </div>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => editFolderModal.close()}
+              className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50"
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={handleUpdateFolder}
+              className="bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90"
+              disabled={!editFolderName.trim() || editSelectedRequisites.length === 0}
+            >
+              Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>

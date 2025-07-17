@@ -19,7 +19,7 @@ export function useTraderFinancials() {
         })
         
         if (response.data) {
-          const { trustBalance, profitFromDeals, profitFromPayouts, frozenUsdt, frozenRub, balanceUsdt, balanceRub } = response.data
+          const { trustBalance, profitFromDeals, profitFromPayouts, frozenUsdt, frozenRub, balanceUsdt, balanceRub, deposit } = response.data
           setFinancials({
             trustBalance: trustBalance || 0,
             profitFromDeals: profitFromDeals || 0,
@@ -28,6 +28,7 @@ export function useTraderFinancials() {
             frozenRub: frozenRub || 0,
             balanceUsdt: balanceUsdt || 0,
             balanceRub: balanceRub || 0,
+            deposit: deposit || 0,
           })
         }
       } catch (error) {

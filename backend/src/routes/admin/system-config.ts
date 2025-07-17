@@ -67,9 +67,9 @@ export default new Elysia({ prefix: "/system-config" })
       const { key, value } = body;
 
       // Validate key format
-      if (!/^[a-z_]+$/.test(key)) {
+      if (!/^[a-zA-Z_]+$/.test(key)) {
         set.status = 400;
-        return { error: "Invalid key format. Use lowercase letters and underscores only." };
+        return { error: "Invalid key format. Use letters and underscores only." };
       }
 
       // List of allowed config keys
@@ -82,7 +82,11 @@ export default new Elysia({ prefix: "/system-config" })
         'rate_margin',
         'default_rate',
         'maintenance_mode',
-        'registration_enabled'
+        'registration_enabled',
+        'disputeDayShiftStartHour',
+        'disputeDayShiftEndHour',
+        'disputeDayShiftTimeoutMinutes',
+        'disputeNightShiftTimeoutMinutes'
       ];
 
       if (!allowedKeys.includes(key)) {

@@ -112,6 +112,8 @@ export default function AdminPayoutsPage() {
         status = 'CHECKING'
       } else if (activeTab === 'disputed') {
         status = 'DISPUTED'
+      } else if (activeTab === 'history') {
+        status = 'COMPLETED,CANCELLED'
       } else if (statusFilter !== 'all') {
         params.append('status', statusFilter)
       }
@@ -128,9 +130,10 @@ export default function AdminPayoutsPage() {
         params.append('search', search)
       }
 
-      const response = await api.get(`/admin/payouts?${params}`)
-      setPayouts(response.data.data)
-      setTotalPages(response.data.meta.totalPages)
+      const response = await api.getPayouts(Object.fromEntries(params))
+      console.log('Payouts response:', response) // Debug log
+      setPayouts(response.data || [])
+      setTotalPages(response.meta?.totalPages || 1)
     } catch (error: any) {
       toast.error('Ошибка загрузки выплат')
     } finally {
@@ -163,14 +166,14 @@ export default function AdminPayoutsPage() {
   const handleReviewPayout = async (payoutId: string, action: 'approve' | 'reject') => {
     try {
       if (action === 'approve') {
-        await api.post(`/admin/payouts/${payoutId}/approve`)
+        await api.approvePayout(payoutId)
         toast.success('Выплата одобрена')
       } else {
         if (!rejectReason) {
           toast.error('Укажите причину отклонения')
           return
         }
-        await api.post(`/admin/payouts/${payoutId}/reject`, { reason: rejectReason })
+        await api.rejectPayout(payoutId, { reason: rejectReason })
         toast.success('Выплата отклонена')
       }
       
@@ -582,6 +585,14 @@ export default function AdminPayoutsPage() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="history">
+                История
+                {payouts.filter(p => p.status === 'COMPLETED' || p.status === 'CANCELLED').length > 0 && (
+                  <Badge className="ml-2 bg-gray-100 text-gray-800">
+                    {payouts.filter(p => p.status === 'COMPLETED' || p.status === 'CANCELLED').length}
+                  </Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="all">
@@ -630,6 +641,26 @@ export default function AdminPayoutsPage() {
                   <CardTitle>Спорные выплаты</CardTitle>
                   <CardDescription>
                     Выплаты с открытыми спорами
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                  ) : (
+                    <PayoutsTable />
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="history">
+              <Card>
+                <CardHeader>
+                  <CardTitle>История выплат</CardTitle>
+                  <CardDescription>
+                    Завершенные и отмененные выплаты
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

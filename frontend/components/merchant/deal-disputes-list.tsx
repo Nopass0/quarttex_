@@ -86,14 +86,14 @@ const disputeStatusConfig = {
     icon: Clock
   },
   RESOLVED_SUCCESS: {
-    label: "Решен в вашу пользу",
-    color: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    icon: CheckCircle
-  },
-  RESOLVED_FAIL: {
     label: "Решен не в вашу пользу",
     color: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
     icon: XCircle
+  },
+  RESOLVED_FAIL: {
+    label: "Решен в вашу пользу",
+    color: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+    icon: CheckCircle
   },
   CANCELLED: {
     label: "Отменен",
@@ -227,7 +227,7 @@ export function MerchantDealDisputesList() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">В вашу пользу</p>
               <p className="text-2xl font-bold">
-                {disputes.filter(d => d.status === "RESOLVED_SUCCESS").length}
+                {disputes.filter(d => d.status === "RESOLVED_FAIL").length}
               </p>
             </div>
             <CheckCircle className="h-8 w-8 text-green-400" />
@@ -238,7 +238,7 @@ export function MerchantDealDisputesList() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Не в вашу пользу</p>
               <p className="text-2xl font-bold">
-                {disputes.filter(d => d.status === "RESOLVED_FAIL").length}
+                {disputes.filter(d => d.status === "RESOLVED_SUCCESS").length}
               </p>
             </div>
             <XCircle className="h-8 w-8 text-red-400" />
@@ -266,8 +266,8 @@ export function MerchantDealDisputesList() {
               <SelectItem value="all">Все статусы</SelectItem>
               <SelectItem value="OPEN">Открытые</SelectItem>
               <SelectItem value="IN_PROGRESS">На рассмотрении</SelectItem>
-              <SelectItem value="RESOLVED_SUCCESS">Решены в вашу пользу</SelectItem>
-              <SelectItem value="RESOLVED_FAIL">Решены не в вашу пользу</SelectItem>
+              <SelectItem value="RESOLVED_SUCCESS">Решены не в вашу пользу</SelectItem>
+              <SelectItem value="RESOLVED_FAIL">Решены в вашу пользу</SelectItem>
               <SelectItem value="CANCELLED">Отменены</SelectItem>
             </SelectContent>
           </Select>

@@ -716,7 +716,7 @@ export function TransactionsList() {
                         <SelectValue placeholder="Все мерчанты" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Все мерчанты</SelectItem>
+                        <SelectItem value="all">Все мерчанты</SelectItem>
                         {merchants.map(merchant => (
                           <SelectItem key={merchant.id} value={merchant.id}>
                             {merchant.name}
@@ -733,7 +733,7 @@ export function TransactionsList() {
                         <SelectValue placeholder="Все трейдеры" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Все трейдеры</SelectItem>
+                        <SelectItem value="all">Все трейдеры</SelectItem>
                         <SelectItem value="unassigned">Не назначен</SelectItem>
                         {traders.map(trader => (
                           <SelectItem key={trader.id} value={trader.id}>

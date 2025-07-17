@@ -242,6 +242,230 @@ export default (app: Elysia) =>
       },
     )
 
+    /* ───────── GET /trader/transactions/bt-input - получение транзакций без устройств (БТ-Вход) ───────── */
+    .get(
+      "/bt-input",
+      async ({ trader, query }) => {
+        // Параметры фильтрации и пагинации
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        // Формируем условия фильтрации - только транзакции без устройств
+        const where: Prisma.TransactionWhereInput = {
+          traderId: trader.id,
+          requisites: {
+            OR: [
+              { deviceId: null },
+              { device: null }
+            ]
+          }
+        };
+
+        // Фильтрация по статусу, если указан
+        if (query.status) {
+          where.status = query.status as Status;
+        }
+
+        // Фильтрация по типу транзакции, если указан
+        if (query.type) {
+          where.type = query.type as TransactionType;
+        }
+
+        // Получаем транзакции с пагинацией
+        console.log(`[Trader API] Поиск БТ-Вход транзакций для трейдера ${trader.id}, условия:`, where);
+        const transactions = await db.transaction.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            merchant: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            method: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+              },
+            },
+            receipts: {
+              select: {
+                id: true,
+                fileName: true,
+                isChecked: true,
+                isFake: true,
+              },
+            },
+            requisites: {
+              select: {
+                id: true,
+                recipientName: true,
+                cardNumber: true,
+                bankType: true,
+                deviceId: true,
+                device: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            dealDispute: {
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
+        });
+
+        // Получаем общее количество транзакций для пагинации
+        const total = await db.transaction.count({ where });
+        
+        console.log(`[Trader API] Найдено ${transactions.length} БТ-Вход транзакций из ${total} общих для трейдера ${trader.id}`);
+
+        // Преобразуем даты в ISO формат и корректируем курс с учетом ККК
+        const formattedTransactions = transactions.map((tx) => {
+          // Используем сохраненный adjustedRate, если есть, иначе вычисляем с округлением вниз
+          const traderRate = tx.adjustedRate || 
+            (tx.rate !== null && tx.kkkPercent !== null 
+              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100 
+              : tx.rate);
+          
+          // Рассчитываем профит на основе скорректированного курса
+          const profit = traderRate !== null ? tx.amount / traderRate : null;
+          
+          // Извлекаем информацию об устройстве
+          const device = tx.requisites?.device;
+          
+          return {
+            ...tx,
+            rate: traderRate,
+            profit,
+            deviceId: device?.id || tx.requisites?.deviceId || null,
+            deviceName: device?.name || null,
+            createdAt: tx.createdAt.toISOString(),
+            updatedAt: tx.updatedAt.toISOString(),
+            expired_at: tx.expired_at.toISOString(),
+            acceptedAt: tx.acceptedAt ? tx.acceptedAt.toISOString() : null,
+            dealDispute: tx.dealDispute ? {
+              ...tx.dealDispute,
+              createdAt: tx.dealDispute.createdAt.toISOString(),
+              updatedAt: tx.dealDispute.updatedAt.toISOString(),
+            } : null,
+          };
+        });
+
+        return {
+          data: formattedTransactions,
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        };
+      },
+      {
+        tags: ["trader"],
+        detail: { summary: "Получение списка БТ-Вход транзакций (без устройств)" },
+        query: t.Object({
+          page: t.Optional(t.String()),
+          limit: t.Optional(t.String()),
+          status: t.Optional(t.String()),
+          type: t.Optional(t.String()),
+        }),
+        response: {
+          200: t.Object({
+            data: t.Array(
+              t.Object({
+                id: t.String(),
+                numericId: t.Number(),
+                merchantId: t.String(),
+                amount: t.Number(),
+                assetOrBank: t.String(),
+                orderId: t.String(),
+                methodId: t.String(),
+                currency: t.Union([t.String(), t.Null()]),
+                userId: t.String(),
+                userIp: t.Union([t.String(), t.Null()]),
+                callbackUri: t.String(),
+                successUri: t.String(),
+                failUri: t.String(),
+                type: t.String(),
+                expired_at: t.String(),
+                commission: t.Number(),
+                clientName: t.String(),
+                status: t.String(),
+                rate: t.Union([t.Number(), t.Null()]),
+                profit: t.Union([t.Number(), t.Null()]),
+                frozenUsdtAmount: t.Union([t.Number(), t.Null()]),
+                calculatedCommission: t.Union([t.Number(), t.Null()]),
+                traderId: t.Union([t.String(), t.Null()]),
+                isMock: t.Boolean(),
+                createdAt: t.String(),
+                updatedAt: t.String(),
+                acceptedAt: t.Union([t.String(), t.Null()]),
+                merchant: t.Object({
+                  id: t.String(),
+                  name: t.String(),
+                }),
+                method: t.Object({
+                  id: t.String(),
+                  name: t.String(),
+                  type: t.String(),
+                }),
+                receipts: t.Array(
+                  t.Object({
+                    id: t.String(),
+                    fileName: t.String(),
+                    isChecked: t.Boolean(),
+                    isFake: t.Boolean(),
+                  }),
+                ),
+                requisites: t.Union([
+                  t.Object({
+                    id: t.String(),
+                    recipientName: t.String(),
+                    cardNumber: t.String(),
+                    bankType: t.String(),
+                  }),
+                  t.Null(),
+                ]),
+                deviceId: t.Union([t.String(), t.Null()]),
+                deviceName: t.Union([t.String(), t.Null()]),
+                dealDispute: t.Union([
+                  t.Object({
+                    id: t.String(),
+                    status: t.String(),
+                    createdAt: t.String(),
+                    updatedAt: t.String(),
+                  }),
+                  t.Null(),
+                ]),
+              }),
+            ),
+            pagination: t.Object({
+              total: t.Number(),
+              page: t.Number(),
+              limit: t.Number(),
+              pages: t.Number(),
+            }),
+          }),
+          401: ErrorSchema,
+          403: ErrorSchema,
+        },
+      },
+    )
+
     /* ───────── GET /trader/transactions/:id - получение детальной информации о транзакции ───────── */
     .get(
       "/:id",

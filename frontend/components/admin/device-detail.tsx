@@ -90,11 +90,42 @@ interface Message {
 
 interface Transaction {
   id: string
+  numericId: number
   amount: number
   status: string
+  type: string
+  assetOrBank: string
+  orderId: string
   clientName: string
+  rate?: number
+  commission: number
   createdAt: string
+  updatedAt: string
+  acceptedAt?: string
   expired_at: string
+  error?: string
+  merchant?: {
+    id: string
+    name: string
+  }
+  trader?: {
+    id: string
+    numericId: number
+    email: string
+  }
+  method?: {
+    name: string
+    code: string
+  }
+  requisites?: {
+    cardNumber: string
+    bankType: string
+    recipientName: string
+  }
+  dealDispute?: {
+    id: string
+    status: string
+  }
 }
 
 export function DeviceDetail({ deviceId }: DeviceDetailProps) {
@@ -193,11 +224,13 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      CREATED: { color: 'bg-blue-100 text-blue-700', icon: Clock, text: 'Создан' },
-      IN_PROGRESS: { color: 'bg-yellow-100 text-yellow-700', icon: Clock, text: 'В процессе' },
-      READY: { color: 'bg-green-100 text-green-700', icon: CheckCircle, text: 'Завершен' },
-      EXPIRED: { color: 'bg-red-100 text-red-700', icon: XCircle, text: 'Истек' },
-      CANCELLED: { color: 'bg-gray-100 text-gray-700', icon: XCircle, text: 'Отменен' },
+      CREATED: { color: 'bg-blue-100 text-blue-700', icon: Clock, text: 'Создана' },
+      IN_PROGRESS: { color: 'bg-yellow-100 text-yellow-700', icon: Clock, text: 'В работе' },
+      DISPUTE: { color: 'bg-orange-100 text-orange-700', icon: AlertCircle, text: 'Спор' },
+      READY: { color: 'bg-green-100 text-green-700', icon: CheckCircle, text: 'Готова' },
+      EXPIRED: { color: 'bg-gray-100 text-gray-700', icon: XCircle, text: 'Истекла' },
+      CANCELED: { color: 'bg-red-100 text-red-700', icon: XCircle, text: 'Отменена' },
+      MILK: { color: 'bg-purple-100 text-purple-700', icon: AlertCircle, text: 'Слив' },
     }
     
     const config = statusConfig[status] || statusConfig.CREATED
@@ -522,62 +555,101 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
         {/* Transactions Tab */}
         <TabsContent value="transactions" className="space-y-4">
           <Card>
+            <CardHeader>
+              <CardTitle>Сделки устройства</CardTitle>
+            </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Клиент</TableHead>
-                      <TableHead>Сумма</TableHead>
-                      <TableHead>Статус</TableHead>
-                      <TableHead>Создан</TableHead>
-                      <TableHead>Истекает</TableHead>
-                      <TableHead>Действия</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.length > 0 ? (
-                      transactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell className="font-mono text-sm">
-                            ${transaction.id.slice(0, 8)}
-                          </TableCell>
-                          <TableCell>{transaction.clientName}</TableCell>
-                          <TableCell className="font-medium">
-                            {transaction.amount.toLocaleString('ru-RU')} ₽
-                          </TableCell>
-                          <TableCell>
+              {transactions.length > 0 ? (
+                <div className="divide-y">
+                  {transactions.map((transaction) => (
+                    <div key={transaction.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-4 mb-2">
+                            <span className="font-mono text-sm">#{transaction.numericId}</span>
                             {getStatusBadge(transaction.status)}
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {formatDateTime(transaction.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {formatDateTime(transaction.expired_at)}
-                          </TableCell>
-                          <TableCell>
+                            <Badge variant={transaction.type === 'IN' ? 'default' : 'secondary'}>
+                              {transaction.type}
+                            </Badge>
+                            {transaction.dealDispute && (
+                              <Badge className="bg-orange-100 text-orange-700">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Спор
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Мерчант:</span>
+                              <span className="ml-2 font-medium">{transaction.merchant?.name || 'N/A'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Клиент:</span>
+                              <span className="ml-2 font-medium">{transaction.clientName}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Сумма:</span>
+                              <span className="ml-2 font-medium">{transaction.amount.toLocaleString('ru-RU')} ₽</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Метод:</span>
+                              <span className="ml-2 font-medium">{transaction.method?.name || 'N/A'}</span>
+                            </div>
+                          </div>
+                          
+                          {transaction.requisites && (
+                            <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                              <CreditCard className="w-4 h-4 inline mr-2 text-gray-400" />
+                              <span>{transaction.requisites.cardNumber}</span>
+                              <span className="mx-2">•</span>
+                              <span>{transaction.requisites.bankType}</span>
+                              <span className="mx-2">•</span>
+                              <span>{transaction.requisites.recipientName}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDateTime(transaction.createdAt)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Истекает: {formatDateTime(transaction.expired_at)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/admin/deals?id=${transaction.id}`)}
+                          >
+                            Подробнее
+                          </Button>
+                          {transaction.dealDispute && (
                             <Button
                               size="sm"
-                              variant="ghost"
-                              onClick={() => router.push(`/admin/transactions/${transaction.id}`)}
+                              variant="outline"
+                              className="text-orange-600 hover:text-orange-700"
+                              onClick={() => router.push(`/admin/disputes/deal/${transaction.dealDispute?.id}`)}
                             >
-                              Подробнее
+                              <MessageSquare className="h-4 w-4" />
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8">
-                          <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-600">Нет сделок</p>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Нет сделок</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

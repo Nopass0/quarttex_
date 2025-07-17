@@ -68,11 +68,20 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, trader, set }) => {
 
       try {
-        // Convert numeric ID to UUID
-        const numericId = parseInt(params.id);
-        const payoutRecord = await db.payout.findFirst({
-          where: { numericId }
-        });
+        // Check if params.id is a UUID or numeric ID
+        let payoutRecord;
+        if (params.id.length > 10) {
+          // UUID format
+          payoutRecord = await db.payout.findFirst({
+            where: { id: params.id }
+          });
+        } else {
+          // Numeric ID format
+          const numericId = parseInt(params.id);
+          payoutRecord = await db.payout.findFirst({
+            where: { numericId }
+          });
+        }
         
         if (!payoutRecord) {
           set.status = 404;
@@ -107,11 +116,20 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, body, trader, set }) => {
 
       try {
-        // Convert numeric ID to UUID
-        const numericId = parseInt(params.id);
-        const payoutRecord = await db.payout.findFirst({
-          where: { numericId }
-        });
+        // Check if params.id is a UUID or numeric ID
+        let payoutRecord;
+        if (params.id.length > 10) {
+          // UUID format
+          payoutRecord = await db.payout.findFirst({
+            where: { id: params.id }
+          });
+        } else {
+          // Numeric ID format
+          const numericId = parseInt(params.id);
+          payoutRecord = await db.payout.findFirst({
+            where: { numericId }
+          });
+        }
         
         if (!payoutRecord) {
           set.status = 404;
@@ -159,11 +177,20 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     async ({ params, body, trader, set }) => {
 
       try {
-        // Convert numeric ID to UUID
-        const numericId = parseInt(params.id);
-        const payoutRecord = await db.payout.findFirst({
-          where: { numericId }
-        });
+        // Check if params.id is a UUID or numeric ID
+        let payoutRecord;
+        if (params.id.length > 10) {
+          // UUID format
+          payoutRecord = await db.payout.findFirst({
+            where: { id: params.id }
+          });
+        } else {
+          // Numeric ID format
+          const numericId = parseInt(params.id);
+          payoutRecord = await db.payout.findFirst({
+            where: { numericId }
+          });
+        }
         
         if (!payoutRecord) {
           set.status = 404;

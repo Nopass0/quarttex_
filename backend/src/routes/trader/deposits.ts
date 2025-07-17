@@ -75,7 +75,7 @@ export default new Elysia({ prefix: "/deposits" })
       const minDepositAmount = parseFloat(minAmount?.value || "10");
       if (amountUSDT < minDepositAmount) {
         set.status = 400;
-        return { error: `Minimum deposit amount is ${minDepositAmount} USDT` };
+        return { error: `Минимальная сумма пополнения ${minDepositAmount} USDT` };
       }
 
       // Check for existing pending deposits

@@ -58,8 +58,8 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
   
   const fetchDepositSettings = async () => {
     try {
-      const response = await traderApi.get("/deposits/settings")
-      setDepositSettings(response.data.data)
+      const response = await traderApi.getDepositSettings()
+      setDepositSettings(response.data || response)
     } catch (error) {
       toast.error("Не удалось загрузить настройки депозита")
     }
@@ -84,7 +84,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
     } else if (step === 2) {
       setLoading(true)
       try {
-        await traderApi.post("/deposits", {
+        await traderApi.createDepositRequest({
           amountUSDT: parseFloat(amount)
         })
         setStep(3)

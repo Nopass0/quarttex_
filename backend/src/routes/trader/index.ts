@@ -14,6 +14,7 @@ import depositsRoutes from "./deposits";
 import { traderWithdrawalsRoutes } from "./withdrawals";
 import { traderMessagesRoutes } from "./trader-messages";
 import { financeRoutes } from "./finance";
+import { btEntranceRoutes } from "./bt-entrance";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
@@ -66,6 +67,35 @@ export default (app: Elysia) =>
     .use(financeRoutes)
     .use(traderPayoutsApi)
     .use(dashboardRoutes)
+    .use(btEntranceRoutes)
+    .get(
+      "/dispute-settings",
+      async () => {
+        const settings = await db.systemConfig.findMany({
+          where: {
+            key: {
+              in: [
+                'disputeDayShiftStartHour',
+                'disputeDayShiftEndHour',
+                'disputeDayShiftTimeoutMinutes',
+                'disputeNightShiftTimeoutMinutes'
+              ]
+            }
+          }
+        });
+        
+        const settingsMap = Object.fromEntries(
+          settings.map(s => [s.key, s.value])
+        );
+        
+        return {
+          dayShiftStartHour: parseInt(settingsMap.disputeDayShiftStartHour || '9'),
+          dayShiftEndHour: parseInt(settingsMap.disputeDayShiftEndHour || '21'),
+          dayShiftTimeoutMinutes: parseInt(settingsMap.disputeDayShiftTimeoutMinutes || '30'),
+          nightShiftTimeoutMinutes: parseInt(settingsMap.disputeNightShiftTimeoutMinutes || '60')
+        };
+      }
+    )
     .get(
       "/methods",
       async () => {

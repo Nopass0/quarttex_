@@ -363,6 +363,35 @@ export const traderApi = {
     const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/resolve`, data)
     return response.data
   },
+  getDisputeSettings: async () => {
+    const response = await traderApiInstance.get('/trader/dispute-settings')
+    return response.data
+  },
+  // BT Entrance endpoints
+  getBtDeals: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const response = await traderApiInstance.get('/trader/bt-entrance/deals', { params })
+    return response.data
+  },
+  updateBtDealStatus: async (id: string, status: string) => {
+    const response = await traderApiInstance.patch(`/trader/bt-entrance/deals/${id}/status`, { status })
+    return response.data
+  },
+  getBtRequisites: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    const response = await traderApiInstance.get('/trader/bt-entrance/requisites', { params })
+    return response.data
+  },
+  createBtRequisite: async (data: any) => {
+    const response = await traderApiInstance.post('/trader/bt-entrance/requisites', data)
+    return response.data
+  },
+  updateBtRequisite: async (id: string, data: any) => {
+    const response = await traderApiInstance.put(`/trader/bt-entrance/requisites/${id}`, data)
+    return response.data
+  },
+  deleteBtRequisite: async (id: string) => {
+    const response = await traderApiInstance.delete(`/trader/bt-entrance/requisites/${id}`)
+    return response.data
+  },
 }
 
 // Merchant API instance with interceptors
@@ -381,7 +410,7 @@ merchantApiInstance.interceptors.request.use((config) => {
 merchantApiInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 500) {
       useMerchantAuth.getState().logout()
       window.location.href = '/merchant/login'
     }
@@ -524,8 +553,8 @@ export const adminApi = {
     const response = await adminApiInstance.patch(`/admin/traders/${id}/ban`, { banned })
     return response.data
   },
-  getTransactions: async () => {
-    const response = await adminApiInstance.get('/admin/transactions')
+  getTransactions: async (params?: any) => {
+    const response = await adminApiInstance.get('/admin/transactions/list', { params })
     return response.data
   },
   getMerchants: async () => {
@@ -620,6 +649,130 @@ export const adminApi = {
   },
   rejectDeposit: async (depositId: string, reason: string) => {
     const response = await adminApiInstance.post(`/admin/deposits/${depositId}/reject`, { reason })
+    return response.data
+  },
+  // Payouts management
+  getPayouts: async (params?: any) => {
+    const response = await adminApiInstance.get('/admin/payouts', { params })
+    return response.data
+  },
+  approvePayout: async (payoutId: string) => {
+    const response = await adminApiInstance.post(`/admin/payouts/${payoutId}/approve`)
+    return response.data
+  },
+  rejectPayout: async (payoutId: string, data: { reason: string }) => {
+    const response = await adminApiInstance.post(`/admin/payouts/${payoutId}/reject`, data)
+    return response.data
+  },
+  // Transactions (deals) management
+  getTransactionDeals: async (params?: any) => {
+    const response = await adminApiInstance.get('/admin/transactions/list', { params })
+    return response.data
+  },
+  getTransactionDeal: async (id: string) => {
+    const response = await adminApiInstance.get(`/admin/transactions/${id}`)
+    return response.data
+  },
+  updateTransactionStatus: async (id: string, status: string) => {
+    const response = await adminApiInstance.patch(`/admin/transactions/${id}/status`, { status })
+    return response.data
+  },
+  // Deal disputes management
+  getDealDisputes: async (params?: any) => {
+    const response = await adminApiInstance.get('/admin/deal-disputes', { params })
+    return response.data
+  },
+  getDealDispute: async (id: string) => {
+    const response = await adminApiInstance.get(`/admin/deal-disputes/${id}`)
+    return response.data
+  },
+  resolveDealDispute: async (id: string, data: { inFavorOf: 'MERCHANT' | 'TRADER', resolution?: string }) => {
+    const response = await adminApiInstance.post(`/admin/deal-disputes/${id}/resolve`, data)
+    return response.data
+  },
+  sendDealDisputeMessage: async (id: string, data: FormData | string) => {
+    const requestData = typeof data === 'string' ? { message: data } : data
+    const headers = typeof data === 'string' ? {} : { 'Content-Type': 'multipart/form-data' }
+    const response = await adminApiInstance.post(`/admin/deal-disputes/${id}/messages`, requestData, { headers })
+    return response.data
+  },
+  // Withdrawal disputes management
+  getWithdrawalDisputes: async (params?: any) => {
+    const response = await adminApiInstance.get('/admin/withdrawal-disputes', { params })
+    return response.data
+  },
+  getWithdrawalDispute: async (id: string) => {
+    const response = await adminApiInstance.get(`/admin/withdrawal-disputes/${id}`)
+    return response.data
+  },
+  resolveWithdrawalDispute: async (id: string, data: { inFavorOf: 'MERCHANT' | 'TRADER', resolution?: string }) => {
+    const response = await adminApiInstance.post(`/admin/withdrawal-disputes/${id}/resolve`, data)
+    return response.data
+  },
+  sendWithdrawalDisputeMessage: async (id: string, data: FormData | string) => {
+    const requestData = typeof data === 'string' ? { message: data } : data
+    const headers = typeof data === 'string' ? {} : { 'Content-Type': 'multipart/form-data' }
+    const response = await adminApiInstance.post(`/admin/withdrawal-disputes/${id}/messages`, requestData, { headers })
+    return response.data
+  },
+  
+  // Test Tools endpoints
+  getTestMerchants: async () => {
+    const response = await adminApiInstance.get('/admin/test-tools/merchants')
+    return response.data
+  },
+  
+  getTestTraders: async () => {
+    const response = await adminApiInstance.get('/admin/test-tools/traders')
+    return response.data
+  },
+  
+  createRandomDeals: async (options: {
+    count: number;
+    minAmount: number;
+    maxAmount: number;
+    merchantId?: string;
+    traderId?: string;
+    useRandomData: boolean;
+    autoConfirm: boolean;
+    simulateErrors: boolean;
+  }) => {
+    const response = await adminApiInstance.post('/admin/test-tools/deals', options)
+    return response.data
+  },
+  
+  createRandomPayouts: async (options: {
+    count: number;
+    minAmount: number;
+    maxAmount: number;
+    merchantId?: string;
+    useRandomData: boolean;
+    autoConfirm: boolean;
+    simulateErrors: boolean;
+  }) => {
+    const response = await adminApiInstance.post('/admin/test-tools/payouts', options)
+    return response.data
+  },
+  
+  createRandomMessages: async (options: {
+    count: number;
+    type: string;
+    content?: string;
+    useRandomData: boolean;
+    simulateErrors: boolean;
+  }) => {
+    const response = await adminApiInstance.post('/admin/test-tools/messages', options)
+    return response.data
+  },
+  
+  runFullSystemTest: async (options: {
+    dealCount: number;
+    payoutCount: number;
+    messageCount: number;
+    useRandomData: boolean;
+    simulateErrors: boolean;
+  }) => {
+    const response = await adminApiInstance.post('/admin/test-tools/full-test', options)
     return response.data
   },
 }

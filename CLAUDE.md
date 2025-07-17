@@ -128,3 +128,8 @@ cd frontend && npm run build
 - Test files follow `*.test.ts` pattern
 - Tests cover main user flows (admin, merchant, trader operations)
 - Use test utilities from `/backend/src/tests/utils/`
+
+## Development Best Practices
+
+- **API Testing**: 
+  - когда работаешь с эндпоинтами с бэкэнда убеждайся в их работе отправляя различные данные на этот эндпоинт прежде чем использовать его на фронтэнде

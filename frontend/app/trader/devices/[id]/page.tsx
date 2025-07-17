@@ -71,7 +71,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatAmount } from "@/lib/utils";
 import QRCode from "qrcode";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -103,6 +103,41 @@ interface DeviceData {
   androidVersion?: string;
 }
 
+interface Transaction {
+  id: string;
+  numericId: number;
+  amount: number;
+  status: string;
+  createdAt: string;
+  merchant?: {
+    name: string;
+  };
+  method?: {
+    name: string;
+  };
+  dealDispute?: {
+    id: string;
+    status: string;
+  };
+}
+
+interface Dispute {
+  id: string;
+  status: string;
+  createdAt: string;
+  deal?: {
+    numericId: number;
+    amount: number;
+  };
+  payout?: {
+    numericId: number;
+    amount: number;
+  };
+  merchant?: {
+    name: string;
+  };
+}
+
 interface Message {
   id: string;
   type: "sms" | "push" | "call";
@@ -119,18 +154,28 @@ export default function DeviceDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("messages");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingDisputes, setLoadingDisputes] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
   const [serverError, setServerError] = useState(false);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [disputes, setDisputes] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDevice();
   }, [params.id]);
+
+  useEffect(() => {
+    if (activeTab === "deals" && device) {
+      fetchTransactions();
+    } else if (activeTab === "disputes" && device) {
+      fetchDisputes();
+    }
+  }, [activeTab, device]);
 
   useEffect(() => {
     if (device?.id) {
@@ -260,6 +305,80 @@ export default function DeviceDetailsPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    if (!device?.linkedBankDetails || device.linkedBankDetails.length === 0) {
+      setTransactions([]);
+      return;
+    }
+
+    try {
+      setLoadingTransactions(true);
+      
+      // Загружаем все транзакции трейдера
+      const response = await traderApi.getTransactions({ limit: 1000 });
+      const allTransactions = response.data || response.transactions || [];
+      
+      // Фильтруем транзакции, связанные с реквизитами этого устройства
+      const deviceRequisiteIds = device.linkedBankDetails.map(bd => bd.id);
+      const deviceTransactions = allTransactions.filter((transaction: any) => 
+        deviceRequisiteIds.includes(transaction.bankDetailId)
+      );
+      
+      // Сортируем по дате создания (новые сначала)
+      deviceTransactions.sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setTransactions(deviceTransactions);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      toast.error("Не удалось загрузить сделки");
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  const fetchDisputes = async () => {
+    if (!device?.linkedBankDetails || device.linkedBankDetails.length === 0) {
+      setDisputes([]);
+      return;
+    }
+
+    try {
+      setLoadingDisputes(true);
+      
+      // Загружаем споры по сделкам
+      const dealDisputesRes = await traderApi.getDealDisputes({ status: 'all' });
+      const payoutDisputesRes = await traderApi.getPayoutDisputes({ status: 'all' });
+      
+      const dealDisputes = (dealDisputesRes.data || []).filter((dispute: any) => {
+        // Фильтруем споры, связанные с транзакциями этого устройства
+        return transactions.some(t => t.id === dispute.dealId);
+      });
+      
+      const payoutDisputes = (payoutDisputesRes.data || []).filter((dispute: any) => {
+        // Фильтруем споры по выплатам, связанные с реквизитами устройства
+        return device.linkedBankDetails?.some(bd => 
+          dispute.payout?.bankDetailId === bd.id
+        );
+      });
+      
+      const allDisputes = [...dealDisputes, ...payoutDisputes];
+      
+      // Сортируем по дате создания (новые сначала)
+      allDisputes.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setDisputes(allDisputes);
+    } catch (error) {
+      console.error("Error fetching disputes:", error);
+      toast.error("Не удалось загрузить споры");
+    } finally {
+      setLoadingDisputes(false);
     }
   };
 
@@ -836,19 +955,162 @@ export default function DeviceDetailsPage() {
               </TabsContent>
 
               <TabsContent value="deals" className="p-6">
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                  <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                  <p>Сделки для этого устройства</p>
-                  <p className="text-sm mt-2">Здесь будут отображаться все сделки, обработанные через это устройство</p>
-                </div>
+                {loadingTransactions ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#006039]" />
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                    <p>Нет сделок</p>
+                    <p className="text-sm mt-2">Сделки, связанные с реквизитами этого устройства, будут отображаться здесь</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {transactions.map((transaction) => (
+                      <Card
+                        key={transaction.id}
+                        className="p-4 hover:shadow-md transition-all cursor-pointer"
+                        onClick={() => window.location.href = `/trader/deals`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "p-2 rounded-lg",
+                              transaction.status === "READY" ? "bg-green-100 dark:bg-green-900/30" :
+                              transaction.status === "IN_PROGRESS" ? "bg-yellow-100 dark:bg-yellow-900/30" :
+                              transaction.status === "DISPUTE" ? "bg-orange-100 dark:bg-orange-900/30" :
+                              transaction.status === "EXPIRED" ? "bg-gray-100 dark:bg-gray-700" :
+                              "bg-red-100 dark:bg-red-900/30"
+                            )}>
+                              <CreditCard className={cn(
+                                "h-5 w-5",
+                                transaction.status === "READY" ? "text-green-600 dark:text-green-400" :
+                                transaction.status === "IN_PROGRESS" ? "text-yellow-600 dark:text-yellow-400" :
+                                transaction.status === "DISPUTE" ? "text-orange-600 dark:text-orange-400" :
+                                transaction.status === "EXPIRED" ? "text-gray-600 dark:text-gray-400" :
+                                "text-red-600 dark:text-red-400"
+                              )} />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold">
+                                Сделка #{transaction.numericId}
+                              </h3>
+                              <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                <span>{transaction.merchant?.name || "Неизвестный мерчант"}</span>
+                                <span>{new Date(transaction.createdAt).toLocaleString('ru-RU')}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{formatAmount(transaction.amount)} ₽</p>
+                            <Badge className={cn(
+                              "mt-1",
+                              transaction.status === "READY" ? "bg-green-100 text-green-800" :
+                              transaction.status === "IN_PROGRESS" ? "bg-yellow-100 text-yellow-800" :
+                              transaction.status === "DISPUTE" ? "bg-orange-100 text-orange-800" :
+                              transaction.status === "EXPIRED" ? "bg-gray-100 text-gray-800" :
+                              "bg-red-100 text-red-800"
+                            )}>
+                              {transaction.status === "READY" ? "Завершена" :
+                               transaction.status === "IN_PROGRESS" ? "В работе" :
+                               transaction.status === "DISPUTE" ? "Спор" :
+                               transaction.status === "EXPIRED" ? "Истекла" :
+                               transaction.status === "CANCELED" ? "Отменена" :
+                               transaction.status}
+                            </Badge>
+                            {transaction.dealDispute && (
+                              <Badge className="ml-2 bg-orange-100 text-orange-800">
+                                Спор
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="disputes" className="p-6">
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                  <Scale className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                  <p>Споры для этого устройства</p>
-                  <p className="text-sm mt-2">Здесь будут отображаться все споры, связанные с этим устройством</p>
-                </div>
+                {loadingDisputes ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#006039]" />
+                  </div>
+                ) : disputes.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <Scale className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                    <p>Нет споров</p>
+                    <p className="text-sm mt-2">Споры, связанные со сделками этого устройства, будут отображаться здесь</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {disputes.map((dispute) => (
+                      <Card
+                        key={dispute.id}
+                        className="p-4 hover:shadow-md transition-all cursor-pointer"
+                        onClick={() => window.location.href = `/trader/disputes`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "p-2 rounded-lg",
+                              dispute.status === "OPEN" ? "bg-yellow-100 dark:bg-yellow-900/30" :
+                              dispute.status === "IN_PROGRESS" ? "bg-blue-100 dark:bg-blue-900/30" :
+                              dispute.status === "RESOLVED_SUCCESS" ? "bg-green-100 dark:bg-green-900/30" :
+                              dispute.status === "RESOLVED_FAIL" ? "bg-red-100 dark:bg-red-900/30" :
+                              "bg-gray-100 dark:bg-gray-700"
+                            )}>
+                              <Scale className={cn(
+                                "h-5 w-5",
+                                dispute.status === "OPEN" ? "text-yellow-600 dark:text-yellow-400" :
+                                dispute.status === "IN_PROGRESS" ? "text-blue-600 dark:text-blue-400" :
+                                dispute.status === "RESOLVED_SUCCESS" ? "text-green-600 dark:text-green-400" :
+                                dispute.status === "RESOLVED_FAIL" ? "text-red-600 dark:text-red-400" :
+                                "text-gray-600 dark:text-gray-400"
+                              )} />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold">
+                                {dispute.deal ? 
+                                  `Спор по сделке #${dispute.deal.numericId}` : 
+                                  `Спор по выплате #${dispute.payout?.numericId || "?"}`
+                                }
+                              </h3>
+                              <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                <span>{dispute.merchant?.name || "Неизвестный мерчант"}</span>
+                                <span>{new Date(dispute.createdAt).toLocaleString('ru-RU')}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">
+                              {dispute.deal ? 
+                                formatAmount(dispute.deal.amount) : 
+                                formatAmount(dispute.payout?.amount || 0)
+                              } ₽
+                            </p>
+                            <Badge className={cn(
+                              "mt-1",
+                              dispute.status === "OPEN" ? "bg-yellow-100 text-yellow-800" :
+                              dispute.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-800" :
+                              dispute.status === "RESOLVED_SUCCESS" ? "bg-green-100 text-green-800" :
+                              dispute.status === "RESOLVED_FAIL" ? "bg-red-100 text-red-800" :
+                              "bg-gray-100 text-gray-800"
+                            )}>
+                              {dispute.status === "OPEN" ? "Открыт" :
+                               dispute.status === "IN_PROGRESS" ? "На рассмотрении" :
+                               dispute.status === "RESOLVED_SUCCESS" ? "В вашу пользу" :
+                               dispute.status === "RESOLVED_FAIL" ? "Не в вашу пользу" :
+                               dispute.status === "CANCELLED" ? "Отменен" :
+                               dispute.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="events" className="p-6 space-y-4">

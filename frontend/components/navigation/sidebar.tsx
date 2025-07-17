@@ -28,9 +28,11 @@ import {
   Package,
   Headphones,
   Home,
+  TestTube,
   DollarSign,
   Folder,
   Send,
+  Clock,
 } from "lucide-react"
 import { useTraderAuth, useAdminAuth } from "@/stores/auth"
 import { useAgentAuth } from "@/stores/agent-auth"
@@ -62,6 +64,11 @@ const traderNavItems: NavItem[] = [
     title: "Сделки",
     href: "/trader/deals",
     icon: FileText,
+  },
+  {
+    title: "БТ-Вход",
+    href: "/trader/bt-entrance",
+    icon: AlertCircle,
   },
   {
     title: "Устройства",
@@ -123,9 +130,19 @@ const adminNavItems: NavItem[] = [
     icon: Users,
   },
   {
-    title: "Транзакции",
-    href: "/admin/transactions",
-    icon: FileText,
+    title: "Сделки",
+    href: "/admin/deals",
+    icon: CreditCard,
+  },
+  {
+    title: "Выплаты",
+    href: "/admin/payouts",
+    icon: DollarSign,
+  },
+  {
+    title: "Споры",
+    href: "/admin/disputes",
+    icon: AlertCircle,
   },
   {
     title: "Методы платежей",
@@ -136,6 +153,11 @@ const adminNavItems: NavItem[] = [
     title: "Настройки ККК",
     href: "/admin/kkk-settings",
     icon: Settings,
+  },
+  {
+    title: "Настройки споров",
+    href: "/admin/dispute-settings",
+    icon: Clock,
   },
   {
     title: "Мерчанты",
@@ -178,9 +200,9 @@ const adminNavItems: NavItem[] = [
     icon: BarChart3,
   },
   {
-    title: "Выплаты",
-    href: "/admin/payouts",
-    icon: DollarSign,
+    title: "Инструменты тестирования",
+    href: "/admin/test-tools",
+    icon: TestTube,
   },
 ]
 

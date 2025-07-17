@@ -19,22 +19,16 @@ export default (app: Elysia) =>
 
         // Add filters
         if (query.traderId) {
-          where.traderId = query.traderId
+          where.userId = query.traderId
         }
-        if (query.isActive !== undefined) {
-          where.isActive = query.isActive === 'true'
+        if (query.isOnline !== undefined) {
+          where.isOnline = query.isOnline === 'true'
         }
-        if (query.deviceId) {
-          where.deviceId = { contains: query.deviceId, mode: 'insensitive' }
+        if (query.name) {
+          where.name = { contains: query.name, mode: 'insensitive' }
         }
-        if (query.model) {
-          where.model = { contains: query.model, mode: 'insensitive' }
-        }
-        if (query.fingerprint) {
-          where.fingerprint = { contains: query.fingerprint, mode: 'insensitive' }
-        }
-        if (query.appVersion) {
-          where.appVersion = { contains: query.appVersion }
+        if (query.emulated !== undefined) {
+          where.emulated = query.emulated === 'true'
         }
         if (query.startDate) {
           where.lastActiveAt = { ...where.lastActiveAt, gte: new Date(query.startDate) }
@@ -53,7 +47,7 @@ export default (app: Elysia) =>
           db.device.findMany({
             where,
             include: {
-              trader: {
+              user: {
                 select: {
                   id: true,
                   name: true,
@@ -69,29 +63,28 @@ export default (app: Elysia) =>
         ])
 
         // Get statistics
-        const [totalDevices, activeDevices] = await Promise.all([
+        const [totalDevices, onlineDevices] = await Promise.all([
           db.device.count(),
-          db.device.count({ where: { isActive: true } }),
+          db.device.count({ where: { isOnline: true } }),
         ])
 
         const deviceData = devices.map(device => ({
           id: device.id,
-          deviceId: device.deviceId,
-          model: device.model,
-          manufacturer: device.manufacturer,
-          fingerprint: device.fingerprint,
-          appVersion: device.appVersion,
-          isActive: device.isActive,
-          trader: device.trader,
-          lastActiveAt: device.lastActiveAt.toISOString(),
+          name: device.name,
+          isOnline: device.isOnline || false,
+          energy: device.energy,
+          ethernetSpeed: device.ethernetSpeed,
+          emulated: device.emulated,
+          trader: device.user,
+          lastActiveAt: device.lastActiveAt?.toISOString() || null,
           createdAt: device.createdAt.toISOString(),
         }))
 
         return {
           statistics: {
             total: totalDevices,
-            active: activeDevices,
-            inactive: totalDevices - activeDevices,
+            online: onlineDevices,
+            offline: totalDevices - onlineDevices,
           },
           devices: deviceData,
           pagination: {
@@ -108,11 +101,9 @@ export default (app: Elysia) =>
         headers: AuthHeader,
         query: t.Object({
           traderId: t.Optional(t.String()),
-          isActive: t.Optional(t.String()),
-          deviceId: t.Optional(t.String()),
-          model: t.Optional(t.String()),
-          fingerprint: t.Optional(t.String()),
-          appVersion: t.Optional(t.String()),
+          isOnline: t.Optional(t.String()),
+          name: t.Optional(t.String()),
+          emulated: t.Optional(t.String()),
           startDate: t.Optional(t.String()),
           endDate: t.Optional(t.String()),
           page: t.Optional(t.Number({ minimum: 1 })),
@@ -122,23 +113,22 @@ export default (app: Elysia) =>
           200: t.Object({
             statistics: t.Object({
               total: t.Number(),
-              active: t.Number(),
-              inactive: t.Number(),
+              online: t.Number(),
+              offline: t.Number(),
             }),
             devices: t.Array(t.Object({
               id: t.String(),
-              deviceId: t.String(),
-              model: t.String(),
-              manufacturer: t.String(),
-              fingerprint: t.String(),
-              appVersion: t.String(),
-              isActive: t.Boolean(),
+              name: t.String(),
+              isOnline: t.Boolean(),
+              energy: t.Union([t.Number(), t.Null()]),
+              ethernetSpeed: t.Union([t.Number(), t.Null()]),
+              emulated: t.Boolean(),
               trader: t.Object({
                 id: t.String(),
                 name: t.String(),
                 email: t.String(),
               }),
-              lastActiveAt: t.String(),
+              lastActiveAt: t.Union([t.String(), t.Null()]),
               createdAt: t.String(),
             })),
             pagination: t.Object({

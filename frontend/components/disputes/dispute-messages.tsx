@@ -86,10 +86,8 @@ export function DisputeMessages({
         formData.append("files", file);
       });
 
-      // Use the correct method based on user type
-      const response = userType === "trader" 
-        ? await api.sendDealDisputeMessage(disputeId, formData)
-        : await api.createDealDisputeMessage(disputeId, formData);
+      // Both trader and merchant APIs use the same method name
+      const response = await api.sendDealDisputeMessage(disputeId, formData);
 
       if (response.success) {
         setNewMessage("");

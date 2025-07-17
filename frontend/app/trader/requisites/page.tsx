@@ -195,7 +195,14 @@ export default function TraderRequisitesPage() {
         return;
       }
 
-      await traderApi.createRequisite(requisiteForm);
+      // Prepare data, converting empty string to null for deviceId
+      const requisiteData = {
+        ...requisiteForm,
+        deviceId: requisiteForm.deviceId || null,
+        intervalMinutes: 5 // По умолчанию 5 минут между транзакциями
+      };
+      
+      await traderApi.createRequisite(requisiteData);
       toast.success("Реквизит успешно добавлен");
       setShowAddDialog(false);
       await fetchRequisites();
@@ -389,7 +396,16 @@ export default function TraderRequisitesPage() {
               <h1 className="text-2xl font-semibold">Реквизиты</h1>
               <p className="text-gray-500">Управление платежными реквизитами</p>
             </div>
-            <TraderHeader />
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => setShowAddDialog(true)}
+                className="bg-[#006039] hover:bg-[#006039]/90"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить реквизит
+              </Button>
+              <TraderHeader />
+            </div>
           </div>
 
           {/* Search and Filters - Sticky */}
@@ -846,10 +862,19 @@ export default function TraderRequisitesPage() {
                     <SelectContent>
                       <SelectItem value="SBERBANK">Сбербанк</SelectItem>
                       <SelectItem value="TBANK">Т-Банк</SelectItem>
+                      <SelectItem value="TINKOFF">Тинькофф</SelectItem>
                       <SelectItem value="VTB">ВТБ</SelectItem>
                       <SelectItem value="ALFABANK">Альфа-Банк</SelectItem>
                       <SelectItem value="RAIFFEISEN">Райффайзен</SelectItem>
                       <SelectItem value="GAZPROMBANK">Газпромбанк</SelectItem>
+                      <SelectItem value="OTKRITIE">Открытие</SelectItem>
+                      <SelectItem value="ROSBANK">Росбанк</SelectItem>
+                      <SelectItem value="PSB">ПСБ</SelectItem>
+                      <SelectItem value="SOVCOMBANK">Совкомбанк</SelectItem>
+                      <SelectItem value="POCHTABANK">Почта Банк</SelectItem>
+                      <SelectItem value="RSHB">Россельхозбанк</SelectItem>
+                      <SelectItem value="MKB">МКБ</SelectItem>
+                      <SelectItem value="URALSIB">Уралсиб</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

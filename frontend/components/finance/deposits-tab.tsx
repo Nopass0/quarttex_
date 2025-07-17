@@ -15,27 +15,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { traderApi } from "@/services/api";
 import { useTraderStore } from "@/stores/trader";
 import QRCode from "react-qr-code";
-
-interface DepositSettings {
-  address: string;
-  minAmount: number;
-  confirmationsRequired: number;
-  expiryMinutes: number;
-  network: string;
-}
-
-interface DepositRequest {
-  id: string;
-  traderId: string;
-  amountUSDT: number;
-  address: string;
-  status: string;
-  txHash: string | null;
-  confirmations: number;
-  createdAt: string;
-  confirmedAt: string | null;
-  processedAt: string | null;
-}
+import { DepositSettings, DepositRequest, DepositType } from "@/types/deposit";
 
 export function DepositsTab() {
   const { financials } = useTraderStore();
@@ -43,7 +23,7 @@ export function DepositsTab() {
   const [depositSettings, setDepositSettings] = useState<DepositSettings | null>(null);
   const [depositRequests, setDepositRequests] = useState<DepositRequest[]>([]);
   const [amount, setAmount] = useState("");
-  const [depositType, setDepositType] = useState<"balance" | "insurance">("balance");
+  const [depositType, setDepositType] = useState<DepositType>(DepositType.BALANCE);
   const [showDepositDialog, setShowDepositDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("deposit");
   const [stats, setStats] = useState({
@@ -236,10 +216,10 @@ export function DepositsTab() {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label>Тип пополнения</Label>
-                          <Tabs value={depositType} onValueChange={(value: any) => setDepositType(value)}>
+                          <Tabs value={depositType} onValueChange={(value: string) => setDepositType(value as DepositType)}>
                             <TabsList className="grid w-full grid-cols-2">
-                              <TabsTrigger value="balance">Торговый баланс</TabsTrigger>
-                              <TabsTrigger value="insurance">Страховой депозит</TabsTrigger>
+                              <TabsTrigger value={DepositType.BALANCE}>Торговый баланс</TabsTrigger>
+                              <TabsTrigger value={DepositType.INSURANCE}>Страховой депозит</TabsTrigger>
                             </TabsList>
                           </Tabs>
                         </div>

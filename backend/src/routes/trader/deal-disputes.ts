@@ -42,7 +42,12 @@ export default new Elysia({ prefix: "/deal-disputes" })
           include: {
             deal: {
               include: {
-                method: true
+                method: true,
+                requisites: {
+                  include: {
+                    device: true
+                  }
+                }
               }
             },
             merchant: {

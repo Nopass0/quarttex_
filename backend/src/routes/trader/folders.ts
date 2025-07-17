@@ -108,15 +108,18 @@ export default new Elysia({ prefix: "/folders" })
     try {
       const { title, requisiteIds } = body;
 
+      // Filter out null values from requisiteIds
+      const validRequisiteIds = requisiteIds.filter(id => id !== null && id !== undefined);
+
       // Verify that all requisites belong to the trader
       const requisites = await db.bankDetail.findMany({
         where: {
-          id: { in: requisiteIds },
+          id: { in: validRequisiteIds },
           userId: trader.id
         }
       });
 
-      if (requisites.length !== requisiteIds.length) {
+      if (requisites.length !== validRequisiteIds.length) {
         throw new Error("Some requisites not found or don't belong to you");
       }
 
@@ -126,7 +129,7 @@ export default new Elysia({ prefix: "/folders" })
           title,
           traderId: trader.id,
           requisites: {
-            create: requisiteIds.map(requisiteId => ({
+            create: validRequisiteIds.map(requisiteId => ({
               requisiteId
             }))
           }
@@ -155,7 +158,7 @@ export default new Elysia({ prefix: "/folders" })
   }, {
     body: t.Object({
       title: t.String(),
-      requisiteIds: t.Array(t.String())
+      requisiteIds: t.Array(t.Union([t.String(), t.Null()]))
     })
   })
   
@@ -178,14 +181,17 @@ export default new Elysia({ prefix: "/folders" })
 
       // If requisiteIds provided, verify they belong to trader
       if (requisiteIds) {
+        // Filter out null values from requisiteIds
+        const validRequisiteIds = requisiteIds.filter(id => id !== null && id !== undefined);
+        
         const requisites = await db.bankDetail.findMany({
           where: {
-            id: { in: requisiteIds },
+            id: { in: validRequisiteIds },
             userId: trader.id
           }
         });
 
-        if (requisites.length !== requisiteIds.length) {
+        if (requisites.length !== validRequisiteIds.length) {
           throw new Error("Some requisites not found or don't belong to you");
         }
       }
@@ -199,9 +205,11 @@ export default new Elysia({ prefix: "/folders" })
           ...(requisiteIds !== undefined && {
             requisites: {
               deleteMany: {},
-              create: requisiteIds.map(requisiteId => ({
-                requisiteId
-              }))
+              create: requisiteIds
+                .filter(id => id !== null && id !== undefined)
+                .map(requisiteId => ({
+                  requisiteId
+                }))
             }
           })
         },
@@ -229,7 +237,7 @@ export default new Elysia({ prefix: "/folders" })
   }, {
     body: t.Object({
       title: t.Optional(t.String()),
-      requisiteIds: t.Optional(t.Array(t.String())),
+      requisiteIds: t.Optional(t.Array(t.Union([t.String(), t.Null()]))),
       isActive: t.Optional(t.Boolean())
     })
   })

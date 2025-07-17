@@ -18,8 +18,10 @@ import {
 import { toast } from "sonner";
 import { traderApi } from "@/services/api";
 import { formatAmount } from "@/lib/utils";
-import { DisputeMessages } from "@/components/disputes/dispute-messages";
+import { DisputeMessagesRealtime } from "@/components/disputes/dispute-messages-realtime";
 import { useTraderAuth } from "@/stores/auth";
+import { DisputeTimer, DisputeTimerBadge } from "@/components/disputes/dispute-timer";
+import { useDisputeSettings } from "@/hooks/use-dispute-settings";
 import { 
   Loader2, 
   AlertCircle,
@@ -34,7 +36,12 @@ import {
   Calendar,
   Eye,
   Ban,
-  CheckCircle2
+  CreditCard,
+  Smartphone,
+  Filter,
+  ArrowUpDown,
+  SlidersHorizontal,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -45,8 +52,80 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { CustomCalendarPopover } from "@/components/ui/custom-calendar-popover";
+// import { io, Socket } from "socket.io-client";
+
+// Функция для получения квадратных SVG логотипов банков
+const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
+  const bankLogos: Record<string, string> = {
+    SBERBANK: "/bank-logos/sberbank.svg",
+    TBANK: "/bank-logos/tbank.svg",
+    TINKOFF: "/bank-logos/tinkoff.svg",
+    ALFABANK: "/bank-logos/alfabank.svg",
+    VTB: "/bank-logos/vtb.svg",
+    RAIFFEISEN: "/bank-logos/raiffeisen.svg",
+    GAZPROMBANK: "/bank-logos/gazprombank.svg",
+    POCHTABANK: "/bank-logos/pochtabank.svg",
+    PROMSVYAZBANK: "/bank-logos/psb.svg",
+    PSB: "/bank-logos/psb.svg",
+    SOVCOMBANK: "/bank-logos/sovcombank.svg",
+    SPBBANK: "/bank-logos/bspb.svg",
+    BSPB: "/bank-logos/bspb.svg",
+    ROSSELKHOZBANK: "/bank-logos/rshb.svg",
+    RSHB: "/bank-logos/rshb.svg",
+    OTKRITIE: "/bank-logos/otkritie.svg",
+    URALSIB: "/bank-logos/uralsib.svg",
+    MKB: "/bank-logos/mkb.svg",
+    ROSBANK: "/bank-logos/rosbank.svg",
+    ZENIT: "/bank-logos/zenit.svg",
+    RUSSIAN_STANDARD: "/bank-logos/russian-standard.svg",
+    AVANGARD: "/bank-logos/avangard.svg",
+    RNKB: "/bank-logos/rnkb.svg",
+    SBP: "/bank-logos/sbp.svg",
+    AKBARS: "/bank-logos/akbars.svg",
+  };
+
+  const logoPath = bankLogos[bankType] || bankLogos[bankType?.toUpperCase()];
+  const sizeClasses = size === "sm" ? "w-8 h-8" : "w-10 h-10";
+
+  if (logoPath) {
+    return (
+      <div
+        className={`${sizeClasses} rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center p-1`}
+      >
+        <img
+          src={logoPath}
+          alt={bankType}
+          className="w-full h-full object-contain"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+            e.currentTarget.parentElement!.innerHTML = `
+              <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            `;
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Default neutral bank icon
+  return (
+    <div
+      className={`${sizeClasses} rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center`}
+    >
+      <CreditCard className="w-5 h-5 text-gray-600" />
+    </div>
+  );
+};
 
 interface DealDispute {
   id: string;
@@ -65,6 +144,16 @@ interface DealDispute {
     method?: {
       name: string;
     };
+    requisites?: {
+      id: string;
+      recipientName: string;
+      cardNumber: string;
+      bankType: string;
+      device?: {
+        id: string;
+        name: string;
+      };
+    };
   };
   merchant: {
     id: string;
@@ -75,55 +164,159 @@ interface DealDispute {
 
 const disputeStatusConfig = {
   OPEN: {
-    label: "Открыт",
+    label: "Идет спор",
+    description: "Спор открыт",
     color: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800",
-    icon: AlertCircle
+    badgeColor: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    icon: Clock
   },
   IN_PROGRESS: {
-    label: "На рассмотрении",
+    label: "Идет спор",
+    description: "На рассмотрении",
     color: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+    badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
     icon: Clock
   },
   RESOLVED_SUCCESS: {
-    label: "Решен в вашу пользу",
-    color: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
-    icon: CheckCircle
+    label: "Спор принят в сторону мерчанта",
+    description: "Решен не в вашу пользу",
+    color: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+    badgeColor: "bg-red-50 text-red-700 border-red-200",
+    icon: XCircle
   },
   RESOLVED_FAIL: {
-    label: "Решен не в вашу пользу",
-    color: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
-    icon: XCircle
+    label: "Спор принят в сторону трейдера",
+    description: "Решен в вашу пользу",
+    color: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+    badgeColor: "bg-green-50 text-green-700 border-green-200",
+    icon: CheckCircle
   },
   CANCELLED: {
     label: "Отменен",
+    description: "Спор отменен",
     color: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600",
+    badgeColor: "bg-gray-50 text-gray-700 border-gray-200",
     icon: Ban
   }
 };
 
+// Format card number function
+const formatCardNumber = (cardNumber: string) => {
+  if (!cardNumber) return "****";
+  return cardNumber.replace(/(\d{4})(\d{2})(\d+)(\d{4})/, "$1 $2** **** $4");
+};
+
 export function DealDisputesList() {
   const { user } = useTraderAuth();
+  const { getCurrentTimeoutMinutes, loading: settingsLoading } = useDisputeSettings();
   const [disputes, setDisputes] = useState<DealDispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("active");
 
+  // Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterMerchant, setFilterMerchant] = useState("");
+  const [filterBank, setFilterBank] = useState("");
+  const [filterDevice, setFilterDevice] = useState("");
+  const [filterDateRange, setFilterDateRange] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({ from: undefined, to: undefined });
+  const [sortBy, setSortBy] = useState("date_desc");
+  
   // Selected dispute for details
   const [selectedDispute, setSelectedDispute] = useState<DealDispute | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [disputeDetails, setDisputeDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  
+  // WebSocket
+  // const [socket, setSocket] = useState<Socket | null>(null);
+  // const [isConnected, setIsConnected] = useState(false);
 
-  // Resolution dialog
-  const [showResolutionDialog, setShowResolutionDialog] = useState(false);
-  const [resolutionStatus, setResolutionStatus] = useState<"RESOLVED_SUCCESS" | "RESOLVED_FAIL">("RESOLVED_SUCCESS");
-  const [resolutionText, setResolutionText] = useState("");
-  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     fetchDisputes();
   }, [filterStatus]);
+
+  // WebSocket connection
+  /* useEffect(() => {
+    if (!user) return;
+
+    const socketUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
+    const newSocket = io(socketUrl, {
+      transports: ['websocket'],
+      auth: {
+        token: localStorage.getItem('trader-auth-token') || '',
+        userType: 'trader'
+      }
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Connected to WebSocket');
+      setIsConnected(true);
+      
+      // Join all dispute rooms for this trader
+      disputes.forEach(dispute => {
+        newSocket.emit('join-dispute', { disputeId: dispute.id });
+      });
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('Disconnected from WebSocket');
+      setIsConnected(false);
+    });
+
+    // Listen for new messages
+    newSocket.on('dispute-message', (data: any) => {
+      console.log('New dispute message:', data);
+      
+      // Update dispute details if this dispute is open
+      if (disputeDetails && disputeDetails.id === data.disputeId) {
+        setDisputeDetails((prev: any) => ({
+          ...prev,
+          messages: [...prev.messages, data.message]
+        }));
+      }
+      
+      // Update dispute in list to show new message count
+      setDisputes(prev => prev.map(dispute => 
+        dispute.id === data.disputeId
+          ? { ...dispute, messages: [...dispute.messages, data.message] }
+          : dispute
+      ));
+    });
+
+    // Listen for dispute status updates
+    newSocket.on('dispute-status-update', (data: any) => {
+      console.log('Dispute status updated:', data);
+      
+      // Update dispute in list
+      setDisputes(prev => prev.map(dispute => 
+        dispute.id === data.disputeId
+          ? { ...dispute, status: data.status, resolvedAt: data.resolvedAt, resolution: data.resolution }
+          : dispute
+      ));
+      
+      // Update dispute details if open
+      if (disputeDetails && disputeDetails.id === data.disputeId) {
+        setDisputeDetails((prev: any) => ({
+          ...prev,
+          status: data.status,
+          resolvedAt: data.resolvedAt,
+          resolution: data.resolution
+        }));
+      }
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user, disputes.length]); */
 
   const fetchDisputes = async () => {
     try {
@@ -143,6 +336,16 @@ export function DealDisputesList() {
     }
   };
 
+  const clearFilters = () => {
+    setFilterStatus("all");
+    setFilterMerchant("");
+    setFilterBank("");
+    setFilterDevice("");
+    setFilterDateRange({ from: undefined, to: undefined });
+    setSortBy("date_desc");
+    setSearchQuery("");
+  };
+
   const fetchDisputeDetails = async (id: string) => {
     try {
       setLoadingDetails(true);
@@ -160,33 +363,13 @@ export function DealDisputesList() {
     setSelectedDispute(dispute);
     setShowDetailsDialog(true);
     await fetchDisputeDetails(dispute.id);
+    
+    // Join dispute room for real-time updates
+    // if (socket && isConnected) {
+    //   socket.emit('join-dispute', { disputeId: dispute.id });
+    // }
   };
 
-  const handleResolveDispute = async () => {
-    if (!selectedDispute || !resolutionText.trim()) {
-      toast.error("Пожалуйста, укажите решение");
-      return;
-    }
-
-    try {
-      setResolving(true);
-      await traderApi.resolveDealDispute(selectedDispute.id, {
-        status: resolutionStatus,
-        resolution: resolutionText
-      });
-
-      toast.success("Спор успешно разрешен");
-      setShowResolutionDialog(false);
-      setShowDetailsDialog(false);
-      setResolutionText("");
-      await fetchDisputes();
-    } catch (error) {
-      console.error("Failed to resolve dispute:", error);
-      toast.error("Не удалось разрешить спор");
-    } finally {
-      setResolving(false);
-    }
-  };
 
   const handleMessageSent = (message: any) => {
     if (disputeDetails) {
@@ -204,8 +387,46 @@ export function DealDisputesList() {
     if (searchQuery) {
       filtered = filtered.filter(dispute => 
         dispute.deal.numericId.toString().includes(searchQuery) ||
-        dispute.merchant.name.toLowerCase().includes(searchQuery.toLowerCase())
+        dispute.merchant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dispute.deal.requisites?.cardNumber.includes(searchQuery) ||
+        dispute.deal.requisites?.recipientName.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+
+    // Status filter
+    if (filterStatus !== "all") {
+      filtered = filtered.filter(d => d.status === filterStatus);
+    }
+
+    // Merchant filter
+    if (filterMerchant) {
+      filtered = filtered.filter(d => 
+        d.merchant.name.toLowerCase().includes(filterMerchant.toLowerCase())
+      );
+    }
+
+    // Bank filter
+    if (filterBank) {
+      filtered = filtered.filter(d => 
+        d.deal.requisites?.bankType === filterBank
+      );
+    }
+
+    // Device filter
+    if (filterDevice) {
+      filtered = filtered.filter(d => 
+        d.deal.requisites?.device?.name.toLowerCase().includes(filterDevice.toLowerCase())
+      );
+    }
+
+    // Date range filter
+    if (filterDateRange.from || filterDateRange.to) {
+      filtered = filtered.filter(d => {
+        const disputeDate = new Date(d.createdAt);
+        if (filterDateRange.from && disputeDate < filterDateRange.from) return false;
+        if (filterDateRange.to && disputeDate > filterDateRange.to) return false;
+        return true;
+      });
     }
 
     // Tab filter
@@ -214,6 +435,22 @@ export function DealDisputesList() {
     } else {
       filtered = filtered.filter(d => ["RESOLVED_SUCCESS", "RESOLVED_FAIL", "CANCELLED"].includes(d.status));
     }
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case "date_desc":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "amount_asc":
+          return a.deal.amount - b.deal.amount;
+        case "amount_desc":
+          return b.deal.amount - a.deal.amount;
+        default:
+          return 0;
+      }
+    });
 
     return filtered;
   };
@@ -232,56 +469,152 @@ export function DealDisputesList() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Споры по сделкам</h2>
-        <Button
-          variant="outline"
-          onClick={() => fetchDisputes()}
-        >
-          <Loader2 className="h-4 w-4 mr-2" />
-          Обновить
-        </Button>
+        <h1 className="text-3xl font-bold">Споры по сделкам</h1>
       </div>
 
       {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Поиск по ID сделки или мерчанту..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+      <div className="space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Status Filter */}
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Все статусы" />
+            <SelectTrigger className="w-full lg:w-[200px]">
+              <SelectValue placeholder="Статус споров" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все статусы</SelectItem>
               <SelectItem value="OPEN">Открытые</SelectItem>
               <SelectItem value="IN_PROGRESS">На рассмотрении</SelectItem>
-              <SelectItem value="RESOLVED_SUCCESS">Решены в вашу пользу</SelectItem>
-              <SelectItem value="RESOLVED_FAIL">Решены не в вашу пользу</SelectItem>
+              <SelectItem value="RESOLVED_SUCCESS">В пользу мерчанта</SelectItem>
+              <SelectItem value="RESOLVED_FAIL">В пользу трейдера</SelectItem>
               <SelectItem value="CANCELLED">Отменены</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Поиск по ID, карте, имени..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Sort */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full lg:w-[180px]">
+              <ArrowUpDown className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Сортировка" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date_desc">Сначала новые</SelectItem>
+              <SelectItem value="date_asc">Сначала старые</SelectItem>
+              <SelectItem value="amount_desc">По сумме ↓</SelectItem>
+              <SelectItem value="amount_asc">По сумме ↑</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filters Button */}
+          <Popover open={showFilters} onOpenChange={setShowFilters}>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Фильтры
+                {(filterMerchant || filterBank || filterDevice || filterDateRange.from || filterDateRange.to) && (
+                  <Badge className="ml-2" variant="secondary">
+                    {[filterMerchant, filterBank, filterDevice, filterDateRange.from].filter(Boolean).length}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Дополнительные фильтры</h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Мерчант</Label>
+                    <Input
+                      placeholder="Название мерчанта"
+                      value={filterMerchant}
+                      onChange={(e) => setFilterMerchant(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Банк</Label>
+                    <Select value={filterBank} onValueChange={setFilterBank}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите банк" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Все банки</SelectItem>
+                        <SelectItem value="SBERBANK">Сбербанк</SelectItem>
+                        <SelectItem value="TBANK">Т-Банк</SelectItem>
+                        <SelectItem value="VTB">ВТБ</SelectItem>
+                        <SelectItem value="ALFABANK">Альфа-Банк</SelectItem>
+                        <SelectItem value="RAIFFEISEN">Райффайзен</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Устройство</Label>
+                    <Input
+                      placeholder="Название устройства"
+                      value={filterDevice}
+                      onChange={(e) => setFilterDevice(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Период</Label>
+                    <CustomCalendarPopover
+                      dateRange={filterDateRange}
+                      onDateRangeChange={setFilterDateRange}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="flex-1"
+                  >
+                    Сбросить
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowFilters(false)}
+                    className="flex-1"
+                  >
+                    Применить
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
-      </Card>
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active">
-            Активные ({disputes.filter(d => ["OPEN", "IN_PROGRESS"].includes(d.status)).length})
+            Активные ({disputes.filter(d => d && ["OPEN", "IN_PROGRESS"].includes(d.status)).length})
           </TabsTrigger>
           <TabsTrigger value="resolved">
-            Завершенные ({disputes.filter(d => ["RESOLVED_SUCCESS", "RESOLVED_FAIL", "CANCELLED"].includes(d.status)).length})
+            Завершенные ({disputes.filter(d => d && ["RESOLVED_SUCCESS", "RESOLVED_FAIL", "CANCELLED"].includes(d.status)).length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="space-y-4 mt-4">
+        <TabsContent value={activeTab} className="space-y-3 mt-4">
+          
           {filteredDisputes.length === 0 ? (
             <Card className="p-12 text-center">
               <p className="text-gray-500 dark:text-gray-400">
@@ -289,57 +622,120 @@ export function DealDisputesList() {
               </p>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredDisputes.map((dispute) => {
-                const statusConfig = disputeStatusConfig[dispute.status as keyof typeof disputeStatusConfig];
-                const StatusIcon = statusConfig.icon;
+                const statusConfig = disputeStatusConfig[dispute.status as keyof typeof disputeStatusConfig] || disputeStatusConfig.OPEN;
+                const StatusIcon = statusConfig?.icon || Clock;
+                const isActive = ["OPEN", "IN_PROGRESS"].includes(dispute.status);
 
                 return (
                   <Card
                     key={dispute.id}
-                    className="p-4 hover:shadow-md transition-all cursor-pointer"
+                    className="group hover:shadow-lg transition-all cursor-pointer border-gray-200 dark:border-gray-700"
                     onClick={() => handleViewDetails(dispute)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          statusConfig.color.split(" ")[0]
-                        )}>
-                          <StatusIcon className="h-5 w-5" />
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        {/* Left section */}
+                        <div className="flex items-start gap-4 flex-1">
+                          {/* Status Icon */}
+                          <div className={cn(
+                            "p-3 rounded-xl",
+                            statusConfig?.color?.split(" ")[0] || "bg-gray-100"
+                          )}>
+                            <StatusIcon className="h-6 w-6" />
+                          </div>
+
+                          {/* Dispute Info */}
+                          <div className="flex-1 space-y-3">
+                            {/* Status and Date */}
+                            <div>
+                              <h3 className="font-semibold text-base">
+                                {statusConfig?.label || "Неизвестный статус"}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {format(new Date(dispute.createdAt), "d MMMM yyyy 'г.', 'в' HH:mm", { locale: ru })}
+                              </p>
+                            </div>
+
+                            {/* Deal Details */}
+                            <div className="flex items-center gap-6">
+                              {/* Bank and Card */}
+                              {dispute.deal.requisites && (
+                                <div className="flex items-center gap-3">
+                                  {getBankIcon(dispute.deal.requisites.bankType, "sm")}
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {formatCardNumber(dispute.deal.requisites.cardNumber)}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {dispute.deal.requisites.recipientName || "Неизвестно"}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Amount */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-semibold">
+                                  {formatAmount(dispute.deal.amount)} ₽
+                                </span>
+                              </div>
+
+                              {/* Device */}
+                              {dispute.deal.requisites?.device && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Smartphone className="h-4 w-4" />
+                                  <span>{dispute.deal.requisites.device.name}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">
-                              Сделка #{dispute.deal.numericId}
-                            </h3>
-                            <Badge className={statusConfig.color}>
-                              {statusConfig.label}
+
+                        {/* Right section - Status Badge or Timer */}
+                        <div className="flex items-center gap-3">
+                          {isActive && !settingsLoading ? (
+                            <DisputeTimerBadge
+                              createdAt={dispute.createdAt}
+                              timeoutMinutes={getCurrentTimeoutMinutes()}
+                              onExpired={() => {
+                                toast.error(`Время ответа на спор истекло`);
+                                fetchDisputes();
+                              }}
+                            />
+                          ) : (
+                            <Badge 
+                              className={cn(
+                                "px-3 py-1.5",
+                                statusConfig?.badgeColor || "bg-gray-50 text-gray-700 border-gray-200"
+                              )}
+                            >
+                              {dispute.status === 'RESOLVED_SUCCESS' ? 'Отклонен' : 
+                               dispute.status === 'RESOLVED_FAIL' ? 'Принят' : 
+                               'Завершен'}
                             </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {dispute.merchant.name}
-                            </span>
-                            <span>
-                              {formatAmount(dispute.deal.amount)} ₽
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {format(new Date(dispute.createdAt), "d MMM yyyy", { locale: ru })}
-                            </span>
-                          </div>
+                          )}
+                          
+                          {/* Messages count */}
+                          {dispute.messages && dispute.messages.length > 0 && (
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <MessageSquare className="h-4 w-4" />
+                              <span>{dispute.messages.length}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {dispute.messages.length > 0 && (
-                          <div className="flex items-center gap-1 text-sm text-gray-500">
-                            <MessageSquare className="h-4 w-4" />
-                            {dispute.messages.length}
-                          </div>
-                        )}
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
+
+                      {/* Additional info */}
+                      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                        <span className="text-sm text-muted-foreground">
+                          ID сделки: #{dispute.deal.numericId}
+                        </span>
+                        <span className="text-sm text-muted-foreground">•</span>
+                        <span className="text-sm text-muted-foreground">
+                          Мерчант: {dispute.merchant.name}
+                        </span>
                       </div>
                     </div>
                   </Card>
@@ -351,13 +747,22 @@ export function DealDisputesList() {
       </Tabs>
 
       {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+      <Dialog 
+        open={showDetailsDialog} 
+        onOpenChange={(open) => {
+          setShowDetailsDialog(open);
+          // Leave dispute room when closing dialog
+          // if (!open && socket && isConnected && selectedDispute) {
+          //   socket.emit('leave-dispute', { disputeId: selectedDispute.id });
+          // }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>Детали спора</DialogTitle>
             {selectedDispute && (
               <DialogDescription>
-                Сделка #{selectedDispute.deal.numericId} • {disputeStatusConfig[selectedDispute.status as keyof typeof disputeStatusConfig].label}
+                Сделка #{selectedDispute.deal.numericId} • {disputeStatusConfig[selectedDispute.status as keyof typeof disputeStatusConfig]?.label || "Неизвестный статус"}
               </DialogDescription>
             )}
           </DialogHeader>
@@ -390,101 +795,55 @@ export function DealDisputesList() {
                     </p>
                   </div>
                 </div>
+                
+                {/* Timer for active disputes */}
+                {(disputeDetails.status === 'OPEN' || disputeDetails.status === 'IN_PROGRESS') && !settingsLoading && (
+                  <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                          Время на ответ:
+                        </p>
+                        <DisputeTimer
+                          createdAt={disputeDetails.createdAt}
+                          timeoutMinutes={getCurrentTimeoutMinutes()}
+                          onExpired={() => {
+                            toast.error('Время ответа истекло. Спор будет закрыт в пользу мерчанта.');
+                            setShowDetailsDialog(false);
+                            fetchDisputes();
+                          }}
+                        />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-orange-600 dark:text-orange-400">
+                          {getCurrentTimeoutMinutes()} минут на ответ
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-hidden">
-                <DisputeMessages
+                <DisputeMessagesRealtime
                   disputeId={disputeDetails.id}
                   messages={disputeDetails.messages || []}
                   userType="trader"
                   userId={user?.id || ""}
+                  disputeType="deal"
                   onMessageSent={handleMessageSent}
+                  socket={null}
+                  isConnected={false}
                   api={traderApi}
                 />
               </div>
 
-              {/* Actions */}
-              {["OPEN", "IN_PROGRESS"].includes(disputeDetails.status) && (
-                <div className="p-6 pt-4 border-t">
-                  <Button
-                    onClick={() => setShowResolutionDialog(true)}
-                    className="w-full"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Разрешить спор
-                  </Button>
-                </div>
-              )}
             </div>
           ) : null}
         </DialogContent>
       </Dialog>
 
-      {/* Resolution Dialog */}
-      <Dialog open={showResolutionDialog} onOpenChange={setShowResolutionDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Разрешение спора</DialogTitle>
-            <DialogDescription>
-              Укажите результат разрешения спора и комментарий
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label>Результат</Label>
-              <Select value={resolutionStatus} onValueChange={(v) => setResolutionStatus(v as any)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RESOLVED_SUCCESS">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      Подтвердить платеж (в пользу мерчанта)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="RESOLVED_FAIL">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-red-600" />
-                      Отменить платеж (в вашу пользу)
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="resolution">Комментарий *</Label>
-              <Textarea
-                id="resolution"
-                value={resolutionText}
-                onChange={(e) => setResolutionText(e.target.value)}
-                placeholder="Опишите причину решения..."
-                className="min-h-[100px]"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setShowResolutionDialog(false)}
-              disabled={resolving}
-            >
-              Отмена
-            </Button>
-            <Button
-              onClick={handleResolveDispute}
-              disabled={resolving || !resolutionText.trim()}
-            >
-              {resolving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Разрешить спор
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

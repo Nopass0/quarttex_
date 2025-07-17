@@ -164,6 +164,29 @@ export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: Wit
           <DialogDescription>
             Выведите средства на внешний кошелек
           </DialogDescription>
+          {balances && (
+            <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="text-sm text-green-800 dark:text-green-300">
+                <div className="font-medium mb-1">Доступная прибыль для вывода:</div>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span>Прибыль с приема:</span>
+                    <span className="font-semibold">{balances.PROFIT_DEALS.toFixed(2)} USDT</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Прибыль с выплат:</span>
+                    <span className="font-semibold">{balances.PROFIT_PAYOUTS.toFixed(2)} USDT</span>
+                  </div>
+                  <div className="border-t pt-1 mt-1 flex justify-between">
+                    <span className="font-medium">Общая прибыль:</span>
+                    <span className="font-bold text-[#006039] dark:text-[#2d6a42]">
+                      {(balances.PROFIT_DEALS + balances.PROFIT_PAYOUTS).toFixed(2)} USDT
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogHeader>
 
         {step === 1 && (

@@ -14,6 +14,14 @@ export function formatAmount(amount: number): string {
   }).format(amount)
 }
 
+export function formatCurrency(amount: number, currency: string = '₽'): string {
+  const formatted = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount)
+  return `${formatted} ${currency}`
+}
+
 export function formatDateTime(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Intl.DateTimeFormat('ru-RU', {

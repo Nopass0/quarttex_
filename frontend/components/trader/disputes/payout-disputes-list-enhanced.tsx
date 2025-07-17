@@ -19,6 +19,8 @@ import { traderApi } from "@/services/api";
 import { formatAmount, cn } from "@/lib/utils";
 import { DisputeMessages } from "@/components/disputes/dispute-messages";
 import { useTraderAuth } from "@/stores/auth";
+import { DisputeTimer, DisputeTimerBadge } from "@/components/disputes/dispute-timer";
+import { useDisputeSettings } from "@/hooks/use-dispute-settings";
 import { 
   Loader2, 
   AlertCircle,
@@ -160,6 +162,7 @@ const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
 
 export function PayoutDisputesListEnhanced() {
   const { user } = useTraderAuth();
+  const { getCurrentTimeoutMinutes, loading: settingsLoading } = useDisputeSettings();
   const [disputes, setDisputes] = useState<PayoutDispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -443,6 +446,13 @@ export function PayoutDisputesListEnhanced() {
                         >
                           {statusConfig?.label}
                         </Badge>
+                        {/* Timer for active disputes */}
+                        {(dispute.status === 'OPEN' || dispute.status === 'IN_PROGRESS') && !settingsLoading && (
+                          <DisputeTimerBadge
+                            createdAt={dispute.createdAt}
+                            timeoutMinutes={getCurrentTimeoutMinutes()}
+                          />
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span className="flex items-center gap-1">
@@ -562,6 +572,33 @@ export function PayoutDisputesListEnhanced() {
             </div>
           ) : disputeDetails ? (
             <div className="flex-1 overflow-y-auto">
+              {/* Timer for active disputes */}
+              {(disputeDetails.status === 'OPEN' || disputeDetails.status === 'IN_PROGRESS') && !settingsLoading && (
+                <div className="mx-6 mt-4 mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                        Время на ответ:
+                      </p>
+                      <DisputeTimer
+                        createdAt={disputeDetails.createdAt}
+                        timeoutMinutes={getCurrentTimeoutMinutes()}
+                        onExpired={() => {
+                          toast.error('Время ответа истекло. Спор будет закрыт в пользу мерчанта.');
+                          setShowDetailsDialog(false);
+                          fetchDisputes();
+                        }}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-orange-600 dark:text-orange-400">
+                        {getCurrentTimeoutMinutes()} минут на ответ
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <DisputeMessages
                 disputeId={disputeDetails.id}
                 messages={disputeDetails.messages}

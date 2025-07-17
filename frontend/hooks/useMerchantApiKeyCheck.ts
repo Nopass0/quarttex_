@@ -23,9 +23,14 @@ export const useMerchantApiKeyCheck = () => {
           logout()
           router.push('/merchant/login')
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to check API key:', error)
-        // On network error, don't log out - just skip this check
+        // If it's a 401, 403, or 500 error, log out
+        if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 500) {
+          logout()
+          router.push('/merchant/login')
+        }
+        // On other errors (network, etc), don't log out - just skip this check
       }
     }
 

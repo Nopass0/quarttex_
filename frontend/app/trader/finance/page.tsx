@@ -9,10 +9,12 @@ import { formatCurrency } from "@/lib/utils";
 import { Wallet, History, Plus } from "lucide-react";
 import { DepositsTab } from "@/components/finance/deposits-tab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTraderFinancials } from "@/hooks/use-trader-financials";
 
 export default function FinancePage() {
   const router = useRouter();
-  const { trader } = useTraderStore();
+  const { financials } = useTraderStore();
+  useTraderFinancials(); // Load financials data
   const [activeTab, setActiveTab] = useState("overview");
 
   return (
@@ -30,7 +32,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(trader?.trustBalance || 0, "USDT")}
+              {formatCurrency(financials?.trustBalance || 0, "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               Доступно для торговли
@@ -45,7 +47,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(trader?.frozenUsdt || 0, "USDT")}
+              {formatCurrency(financials?.frozenUsdt || 0, "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               В активных сделках
@@ -60,7 +62,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(trader?.deposit || 0, "USDT")}
+              {formatCurrency(financials?.deposit || 0, "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               Обеспечение сделок
@@ -75,7 +77,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency((trader?.trustBalance || 0) + (trader?.frozenUsdt || 0) + (trader?.deposit || 0), "USDT")}
+              {formatCurrency((financials?.trustBalance || 0) + (financials?.frozenUsdt || 0) + (financials?.deposit || 0), "USDT")}
             </div>
             <p className="text-xs text-muted-foreground">
               Сумма всех средств

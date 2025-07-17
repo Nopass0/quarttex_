@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "seed": "bun run scripts/seed-dev.ts",
     "seed:services": "bun run scripts/seed-services.ts",
+    "seed:dispute-settings": "bun run scripts/seed-dispute-settings.ts",
     "device:create": "bun run scripts/create-emulated-device.ts"
   },
   "dependencies": {
