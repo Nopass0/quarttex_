@@ -127,7 +127,7 @@ export default (app: Elysia) =>
     .group("/messages", (a) => messagesRoutes(a))
     .group("/deal-disputes", (a) => dealDisputesRoutes(a))
     .group("/withdrawal-disputes", (a) => withdrawalDisputesRoutes(a))
-    .group("/test-tools", (a) => testToolsRoutes(a))
+    .group("/test-tools", (a) => a.use(testToolsRoutes))
     .group("", (a) => metricsRoutes(a))
 
     /* ───────────────── enums ───────────────── */
