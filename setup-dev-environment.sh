@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Setup script for Chase P2P Payment Platform development environment
 
 set -e
@@ -308,7 +308,7 @@ mkdir -p .gpt
 
 # Create helper scripts (we'll add more later)
 cat > .gpt/check-status.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "🔍 Checking project status..."
 echo ""
 
