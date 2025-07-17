@@ -149,14 +149,49 @@ jobs:
             echo "Waiting for services to start..."
             sleep 30
             
+            # Wait for backend container to be fully ready
+            echo "Waiting for backend container to be ready..."
+            timeout=180  # 3 minutes
+            while [ $timeout -gt 0 ]; do
+              if docker compose -f docker-compose.prod.yml exec -T backend curl -f http://localhost:3001/health >/dev/null 2>&1; then
+                echo "Backend container is ready and healthy"
+                break
+              fi
+              echo "Backend container not ready yet, waiting..."
+              sleep 5
+              timeout=$((timeout - 5))
+            done
+            
+            if [ $timeout -le 0 ]; then
+              echo "Backend container failed to start properly"
+              docker compose -f docker-compose.prod.yml logs backend
+              exit 1
+            fi
+            
             # Push database schema changes
             echo "Pushing database schema..."
             docker compose -f docker-compose.prod.yml exec -T backend bunx prisma generate
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db push --accept-data-loss || {
-              echo "Schema push failed, retrying..."
-              sleep 10
-              docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db push --accept-data-loss
-            }
+            
+            # Try database push with multiple retries
+            max_retries=5
+            retry_count=0
+            while [ $retry_count -lt $max_retries ]; do
+              echo "Attempting database schema push (attempt $((retry_count + 1))/$max_retries)..."
+              if docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db push --accept-data-loss; then
+                echo "Database schema push successful"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Schema push failed, retrying in 15 seconds..."
+                  sleep 15
+                else
+                  echo "Schema push failed after $max_retries attempts"
+                  docker compose -f docker-compose.prod.yml logs backend
+                  exit 1
+                fi
+              fi
+            done
             
             # Initialize service records
             echo "Initializing service records..."
