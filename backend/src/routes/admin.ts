@@ -47,7 +47,7 @@ import systemConfigRoutes from "@/routes/admin/system-config";
 import messagesRoutes from "@/routes/admin/messages";
 import dealDisputesRoutes from "@/routes/admin/deal-disputes";
 import withdrawalDisputesRoutes from "@/routes/admin/withdrawal-disputes";
-import { testToolsRoutes } from "@/routes/admin/test-tools";
+// import { testToolsRoutes } from "@/routes/admin/test-tools";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
 
@@ -127,7 +127,7 @@ export default (app: Elysia) =>
     .group("/messages", (a) => messagesRoutes(a))
     .group("/deal-disputes", (a) => dealDisputesRoutes(a))
     .group("/withdrawal-disputes", (a) => withdrawalDisputesRoutes(a))
-    .group("/test-tools", (a) => a.use(testToolsRoutes))
+    // .group("/test-tools", (a) => a.use(testToolsRoutes))
     .group("", (a) => metricsRoutes(a))
 
     /* ───────────────── enums ───────────────── */
