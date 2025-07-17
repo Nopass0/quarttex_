@@ -149,25 +149,45 @@ jobs:
             
             # Build and start new containers (using prod config without local postgres)
             docker compose -f docker-compose.prod.yml build --no-cache
+            echo "Starting containers..."
             if ! docker compose -f docker-compose.prod.yml up -d; then
               echo "Failed to start containers"
               docker compose -f docker-compose.prod.yml logs
               exit 1
             fi
             
+            # Show initial container status
+            echo "Container status after startup:"
+            docker compose -f docker-compose.prod.yml ps
+            
             # Wait for services to be ready
             echo "Waiting for services to start..."
             sleep 30
+            
+            # Check if backend container is running
+            if ! docker ps | grep -q "chase_backend"; then
+              echo "Backend container is not running after startup"
+              docker compose -f docker-compose.prod.yml logs backend
+              exit 1
+            fi
             
             # Wait for backend container to be fully ready
             echo "Waiting for backend container to be ready..."
             timeout=180  # 3 minutes
             while [ $timeout -gt 0 ]; do
+              # Check if backend container is running first
+              if ! docker ps | grep -q "chase_backend"; then
+                echo "Backend container stopped running, checking logs..."
+                docker compose -f docker-compose.prod.yml logs backend
+                exit 1
+              fi
+              
+              # Try to connect to health endpoint
               if docker compose -f docker-compose.prod.yml exec -T backend curl -f http://localhost:3001/health >/dev/null 2>&1; then
                 echo "Backend container is ready and healthy"
                 break
               fi
-              echo "Backend container not ready yet, waiting..."
+              echo "Backend container not ready yet, waiting... (${timeout}s remaining)"
               sleep 5
               timeout=$((timeout - 5))
             done
