@@ -25,7 +25,7 @@ RUN npx prisma generate
 COPY . .
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3001
 
 # Start the application
 CMD ["bun", "run", "src/index.ts"]

@@ -120,6 +120,12 @@ jobs:
             NODE_ENV=production
             EOF
             
+            # Validate DATABASE_URL is set
+            if ! grep -q "DATABASE_URL=" .env || grep -q "DATABASE_URL=$" .env; then
+              echo "ERROR: DATABASE_URL is not properly set in secrets"
+              exit 1
+            fi
+            
             # Ensure SSL certificates directory exists
             mkdir -p ssl
             
@@ -143,7 +149,11 @@ jobs:
             
             # Build and start new containers (using prod config without local postgres)
             docker compose -f docker-compose.prod.yml build --no-cache
-            docker compose -f docker-compose.prod.yml up -d
+            if ! docker compose -f docker-compose.prod.yml up -d; then
+              echo "Failed to start containers"
+              docker compose -f docker-compose.prod.yml logs
+              exit 1
+            fi
             
             # Wait for services to be ready
             echo "Waiting for services to start..."
@@ -164,6 +174,9 @@ jobs:
             
             if [ $timeout -le 0 ]; then
               echo "Backend container failed to start properly"
+              echo "Container status:"
+              docker compose -f docker-compose.prod.yml ps
+              echo "Backend logs:"
               docker compose -f docker-compose.prod.yml logs backend
               exit 1
             fi
