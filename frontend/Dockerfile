@@ -8,7 +8,9 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json ./
-RUN npm install --frozen-lockfile || npm install
+# React 19 conflicts with swagger-ui-react peer deps
+# Allow legacy peer deps to ensure install succeeds
+RUN npm install --frozen-lockfile --legacy-peer-deps || npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
