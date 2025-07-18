@@ -65,23 +65,16 @@ const API_ENDPOINTS: ApiEndpoint[] = [
   // Authentication
   {
     method: "POST",
-    path: "/api/merchant/auth",
+    path: "/api/merchant/auth/login",
     category: "auth",
-    description: "Аутентификация мерчанта и получение API ключа",
+    description: "Вход мерчанта по API токену и получение сессионного токена",
     body: [
       {
-        name: "email",
+        name: "token",
         type: "string",
         required: true,
-        description: "Email мерчанта",
-        example: "merchant@example.com"
-      },
-      {
-        name: "password",
-        type: "string",
-        required: true,
-        description: "Пароль мерчанта",
-        example: "password123"
+        description: "API токен мерчанта",
+        example: "mk_live_abcdef123456"
       }
     ],
     responses: [
@@ -90,12 +83,19 @@ const API_ENDPOINTS: ApiEndpoint[] = [
         description: "Успешная аутентификация",
         example: {
           success: true,
+          sessionToken: "session_token",
+          expiresAt: "2024-01-02T10:00:00.000Z",
           merchant: {
-            id: "123",
-            name: "Test Merchant",
-            email: "merchant@example.com",
-            apiKey: "mk_live_abcdef123456",
-            webhookUrl: "https://example.com/webhook"
+            id: "merchant_id",
+            name: "Merchant Name",
+            balanceUsdt: 1000.5,
+            createdAt: "2024-01-01T00:00:00.000Z",
+            statistics: {
+              totalTransactions: 100,
+              successfulTransactions: 80,
+              successRate: 80,
+              totalVolume: 500000
+            }
           }
         }
       }
