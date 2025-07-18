@@ -204,6 +204,11 @@ const adminNavItems: NavItem[] = [
     href: "/admin/test-tools",
     icon: TestTube,
   },
+  {
+    title: "Wellbit API",
+    href: "/wellbit/docs",
+    icon: BookOpen,
+  },
 ]
 
 const agentNavItems: NavItem[] = [

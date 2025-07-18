@@ -249,6 +249,11 @@ const app = new Elysia({ prefix: "/api" })
   // Health check endpoint
   .get("/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }))
   .get("/api/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }))
+  .get("/wellbit/openapi.yaml", async ({ set }) => {
+    set.headers["content-type"] = "application/yaml";
+    const path = join(process.cwd(), "../docs/openapi-v1.6.yaml");
+    return await readFile(path);
+  })
   // ── Feature groups ────────────────────────────────────────────
   .group("/user", (app) => app.use(userRoutes))
   .group("/info", (app) => app.use(infoRoutes))
