@@ -159,11 +159,35 @@ jobs:
             # Show initial container status
             echo "Container status after startup:"
             docker compose -f docker-compose.prod.yml ps
-            
+
+            # Run database migrations before health checks
+            echo "Running database schema migrations..."
+            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma generate
+
+            max_retries=5
+            retry_count=0
+            while [ $retry_count -lt $max_retries ]; do
+              echo "Attempting database schema push (attempt $((retry_count + 1))/$max_retries)..."
+              if docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db push --accept-data-loss; then
+                echo "Database schema push successful"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Schema push failed, retrying in 15 seconds..."
+                  sleep 15
+                else
+                  echo "Schema push failed after $max_retries attempts"
+                  docker compose -f docker-compose.prod.yml logs backend
+                  exit 1
+                fi
+              fi
+            done
+
             # Wait for services to be ready
             echo "Waiting for services to start..."
             sleep 30
-            
+
             # Check if backend container is running
             if ! docker ps | grep -q "chase_backend"; then
               echo "Backend container is not running after startup"
@@ -201,30 +225,6 @@ jobs:
               exit 1
             fi
             
-            # Push database schema changes
-            echo "Pushing database schema..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma generate
-            
-            # Try database push with multiple retries
-            max_retries=5
-            retry_count=0
-            while [ $retry_count -lt $max_retries ]; do
-              echo "Attempting database schema push (attempt $((retry_count + 1))/$max_retries)..."
-              if docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db push --accept-data-loss; then
-                echo "Database schema push successful"
-                break
-              else
-                retry_count=$((retry_count + 1))
-                if [ $retry_count -lt $max_retries ]; then
-                  echo "Schema push failed, retrying in 15 seconds..."
-                  sleep 15
-                else
-                  echo "Schema push failed after $max_retries attempts"
-                  docker compose -f docker-compose.prod.yml logs backend
-                  exit 1
-                fi
-              fi
-            done
             
             # Initialize service records
             echo "Initializing service records..."
