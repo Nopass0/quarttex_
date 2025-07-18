@@ -1,14 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Code, FileJson, Key, Lock, Send, Clock, CheckCircle, XCircle, RotateCcw, AlertCircle, ExternalLink } from "lucide-react";
+import { Code, FileJson, Key, Lock, Send, Clock, CheckCircle, XCircle, RotateCcw, AlertCircle, ExternalLink, TestTube } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { WellbitApiTestDialog } from "@/components/wellbit/api-test-dialog";
 
 export default function WellbitApiDocsPage() {
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
   const baseUrl = typeof window !== 'undefined' 
     ? `${window.location.protocol}//${window.location.host}`
     : 'https://api.example.com';
@@ -17,10 +21,18 @@ export default function WellbitApiDocsPage() {
     <div className="container max-w-6xl mx-auto py-8 px-4 space-y-8">
       {/* Header */}
       <div className="space-y-4">
-        <h1 className="text-4xl font-bold">Wellbit API Documentation</h1>
-        <p className="text-lg text-muted-foreground">
-          API документация для интеграции с платежной платформой Wellbit v1.6
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold">Wellbit API Documentation</h1>
+            <p className="text-lg text-muted-foreground mt-2">
+              API документация для интеграции с платежной платформой Wellbit v1.6
+            </p>
+          </div>
+          <Button onClick={() => setTestDialogOpen(true)} className="gap-2">
+            <TestTube className="h-4 w-4" />
+            Тестировать API
+          </Button>
+        </div>
       </div>
 
       {/* General Information */}
@@ -651,6 +663,12 @@ echo "HMAC Signature: " . $signature;`}</code></pre>
           </div>
         </CardContent>
       </Card>
+
+      {/* Test Dialog */}
+      <WellbitApiTestDialog 
+        open={testDialogOpen} 
+        onOpenChange={setTestDialogOpen} 
+      />
     </div>
   );
 }
