@@ -119,6 +119,30 @@ export class NotificationMatcherService extends BaseService {
       bankName: "OZONBANK",
       regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
       extractAmount: (match) => this.parseAmount(match[2])
+    },
+    {
+      packageName: "com.citi.citimobile",
+      bankName: "CITIBANK",
+      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[2])
+    },
+    {
+      packageName: "ru.unicreditbank.mobile",
+      bankName: "UNICREDIT",
+      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[2])
+    },
+    {
+      packageName: "ru.rosbank.android",
+      bankName: "ROSBANK",
+      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[2])
+    },
+    {
+      packageName: "ru.rs.mobilebank",
+      bankName: "RUSSIANSTANDARD",
+      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[2])
     }
   ];
 

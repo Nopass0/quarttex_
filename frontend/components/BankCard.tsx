@@ -139,6 +139,8 @@ const bankLogoUrls: Record<string, string> = {
   "Ак Барс": "https://upload.wikimedia.org/wikipedia/commons/0/0f/Ak_Bars_Bank_Logo.svg",
   "Банк СПб": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 40'%3E%3Ctext x='70' y='28' font-family='Arial, sans-serif' font-size='18' font-weight='bold' text-anchor='middle' fill='%23ED1C24'%3EБанк СПб%3C/text%3E%3C/svg%3E",
   "Русский Стандарт": "https://upload.wikimedia.org/wikipedia/commons/0/01/Russian-Standard-Logo.svg",
+  "Ситибанк": "https://upload.wikimedia.org/wikipedia/commons/5/5f/Citibank.svg",
+  "ЮниКредит": "https://upload.wikimedia.org/wikipedia/commons/8/80/UniCredit_Logo_2017.svg",
 };
 
 type BinData = {
@@ -351,6 +353,20 @@ export default function BankCard({
           backgroundImage: `
             radial-gradient(ellipse at top left, rgba(255,255,255,0.15) 0%, transparent 60%),
             linear-gradient(135deg, #004C8C 0%, #0066CC 50%, #0080FF 100%)
+          `,
+        },
+        "Ситибанк": {
+          background: `linear-gradient(135deg, #052169 0%, #0644A3 50%, #0061B9 100%)`,
+          backgroundImage: `
+            radial-gradient(circle at 30% 70%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            linear-gradient(135deg, #052169 0%, #0644A3 50%, #0061B9 100%)
+          `,
+        },
+        "ЮниКредит": {
+          background: `linear-gradient(135deg, #e2001a 0%, #ef3e42 50%, #e2001a 100%)`,
+          backgroundImage: `
+            radial-gradient(circle at 70% 30%, rgba(255,255,255,0.15) 0%, transparent 60%),
+            linear-gradient(135deg, #e2001a 0%, #ef3e42 50%, #e2001a 100%)
           `,
         },
       };
