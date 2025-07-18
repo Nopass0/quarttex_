@@ -9,6 +9,8 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    env:
+      PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
     
     services:
       postgres:
@@ -45,15 +47,15 @@ jobs:
       
       - name: Generate Prisma client
         working-directory: ./backend
-        run: bunx prisma generate
-        env:
-          PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
+        run: |
+          export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+          bunx prisma generate
         
       - name: Push database schema
         working-directory: ./backend
-        run: bunx prisma db push --accept-data-loss
-        env:
-          PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
+        run: |
+          export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+          bunx prisma db push --accept-data-loss
       
       - name: Run backend tests
         working-directory: ./backend
