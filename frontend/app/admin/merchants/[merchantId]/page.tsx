@@ -79,6 +79,9 @@ export default function MerchantDetailPage() {
       } : null)
       
       toast.success('Ключи успешно сгенерированы')
+      
+      // Fetch updated merchant data to ensure we have the latest keys
+      await fetchMerchant()
     } catch (error) {
       toast.error('Не удалось сгенерировать ключи')
     } finally {
