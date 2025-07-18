@@ -400,9 +400,12 @@ export const merchantApiInstance = axios.create({
 })
 
 merchantApiInstance.interceptors.request.use((config) => {
-  const sessionToken = useMerchantAuth.getState().sessionToken
+  const { sessionToken, token } = useMerchantAuth.getState()
   if (sessionToken) {
     config.headers['Authorization'] = `Bearer ${sessionToken}`
+  }
+  if (token) {
+    config.headers['x-merchant-api-key'] = token
   }
   return config
 })
