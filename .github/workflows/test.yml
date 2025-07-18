@@ -9,8 +9,6 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
-    env:
-      PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
     
     services:
       postgres:
@@ -37,7 +35,12 @@ jobs:
       
       - name: Install backend dependencies
         working-directory: ./backend
-        run: bun install
+        run: |
+          export PRISMA_BINARIES_MIRROR=https://github.com/prisma/prisma-engines-builds/releases/download
+          export PRISMA_ENGINES_MIRROR=https://github.com/prisma/prisma-engines-builds/releases/download
+          export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=true
+          export PRISMA_SKIP_POSTINSTALL_GENERATE=true
+          bun install
       
       - name: Setup test environment
         working-directory: ./backend
@@ -45,17 +48,24 @@ jobs:
           echo "DATABASE_URL=postgresql://postgres:testpassword@localhost:5432/chase_test?schema=public" > .env
           echo "JWT_SECRET=test-secret-key" >> .env
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
       - name: Generate Prisma client
         working-directory: ./backend
+        env:
+          PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: '1'
         run: |
-          export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-          bunx prisma generate
+          npx prisma generate
         
       - name: Push database schema
         working-directory: ./backend
+        env:
+          PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: '1'
         run: |
-          export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-          bunx prisma db push --accept-data-loss
+          npx prisma db push --accept-data-loss
       
       - name: Run backend tests
         working-directory: ./backend
