@@ -406,6 +406,9 @@ merchantApiInstance.interceptors.request.use((config) => {
   }
   if (token) {
     config.headers['x-merchant-api-key'] = token
+    // Some payout endpoints expect the legacy `x-api-key` header
+    // so include it alongside the new header
+    config.headers['x-api-key'] = token
   }
   return config
 })
