@@ -18,6 +18,7 @@ import {
   Receipt,
 } from 'lucide-react'
 import { useAgentAuth } from '@/stores/agent-auth'
+import { ThemeSwitcher } from '@/components/ui/theme-toggle'
 
 interface NavItem {
   title: string
@@ -116,7 +117,8 @@ export function AgentSidebar() {
           {navItems.map((item) => renderNavItem(item))}
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 space-y-2">
+          <ThemeSwitcher />
           <Button
             variant="ghost"
             className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50"
@@ -173,7 +175,8 @@ export function AgentSidebar() {
               {navItems.map((item) => renderNavItem(item))}
             </nav>
             
-            <div className="p-4 border-t">
+            <div className="p-4 border-t space-y-2">
+              <ThemeSwitcher />
               <Button
                 variant="ghost"
                 className="w-full justify-start"

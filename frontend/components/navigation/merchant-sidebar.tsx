@@ -18,6 +18,7 @@ import {
   BarChart3,
   AlertCircle,
 } from "lucide-react"
+import { ThemeSwitcher } from "@/components/ui/theme-toggle"
 
 interface NavItem {
   title: string
@@ -175,7 +176,8 @@ export function MerchantSidebar() {
       <nav className="mt-5 px-2 space-y-1 flex-1">
         {merchantNavItems.map((item) => renderNavItem(item))}
       </nav>
-      <div className="p-4 border-t">
+      <div className="p-4 border-t space-y-2">
+        <ThemeSwitcher />
         <Button
           variant="ghost"
           className="w-full justify-start"
