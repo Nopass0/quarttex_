@@ -326,6 +326,67 @@ paths:
       responses:
         200:
           description: Telegram linked
+
+  /wellbit/payment/create:
+    post:
+      summary: Create payment
+      tags: [Wellbit]
+      security:
+        - ApiKeyAuth: []
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, wallet, bank, isCard]
+              properties:
+                amount:
+                  type: number
+                wallet:
+                  type: string
+                bank:
+                  type: string
+                isCard:
+                  type: boolean
+      responses:
+        200:
+          description: Payment created
+
+  /wellbit/payment/get:
+    get:
+      summary: Get payment details
+      tags: [Wellbit]
+      security:
+        - ApiKeyAuth: []
+        - HmacAuth: []
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Payment details
+
+  /wellbit/payment/status:
+    get:
+      summary: Get payment status
+      tags: [Wellbit]
+      security:
+        - ApiKeyAuth: []
+        - HmacAuth: []
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Payment status
           
 components:
   securitySchemes:
@@ -341,6 +402,10 @@ components:
       type: apiKey
       in: header
       name: x-admin-key
+    HmacAuth:
+      type: apiKey
+      in: header
+      name: x-api-token
       
   parameters:
     PayoutId:

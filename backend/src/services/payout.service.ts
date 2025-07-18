@@ -3,6 +3,7 @@ import type { Payout, PayoutStatus, Prisma } from "@prisma/client";
 import { ServiceRegistry } from "./ServiceRegistry";
 import { broadcastPayoutUpdate, broadcastRateAdjustment } from "../routes/websocket/payouts";
 import type { TelegramService } from "./TelegramService";
+import { createHmac } from "node:crypto";
 
 export class PayoutService {
   private static instance: PayoutService;
@@ -953,32 +954,45 @@ export class PayoutService {
    */
   async sendMerchantWebhook(payout: Payout, event: string) {
     if (!payout.merchantWebhookUrl) return;
-    
+
     try {
+      const merchant = await db.merchant.findUnique({ where: { id: payout.merchantId } });
+      const body = JSON.stringify({
+        event,
+        payout: {
+          id: payout.id,
+          numericId: payout.numericId,
+          status: payout.status,
+          amount: payout.amount,
+          amountUsdt: payout.amountUsdt,
+          wallet: payout.wallet,
+          bank: payout.bank,
+          externalReference: payout.externalReference,
+          proofFiles: payout.proofFiles,
+          disputeFiles: payout.disputeFiles,
+          disputeMessage: payout.disputeMessage,
+          cancelReason: payout.cancelReason,
+          cancelReasonCode: payout.cancelReasonCode,
+          metadata: payout.merchantMetadata,
+        },
+      });
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (merchant?.apiKeyPublic && merchant.apiKeyPrivate) {
+        const sig = createHmac("sha256", merchant.apiKeyPrivate)
+          .update(body)
+          .digest("hex");
+        headers["x-api-key"] = merchant.apiKeyPublic;
+        headers["x-api-token"] = sig;
+      }
+
       const response = await fetch(payout.merchantWebhookUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          event,
-          payout: {
-            id: payout.id,
-            numericId: payout.numericId,
-            status: payout.status,
-            amount: payout.amount,
-            amountUsdt: payout.amountUsdt,
-            wallet: payout.wallet,
-            bank: payout.bank,
-            externalReference: payout.externalReference,
-            proofFiles: payout.proofFiles,
-            disputeFiles: payout.disputeFiles,
-            disputeMessage: payout.disputeMessage,
-            cancelReason: payout.cancelReason,
-            cancelReasonCode: payout.cancelReasonCode,
-            metadata: payout.merchantMetadata,
-          },
-        }),
+        headers,
+        body,
       });
       
       if (!response.ok) {
