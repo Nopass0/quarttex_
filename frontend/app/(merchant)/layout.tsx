@@ -10,9 +10,7 @@ import {
   LayoutDashboard, 
   Receipt, 
   AlertCircle, 
-  Settings,
   FileText,
-  HelpCircle,
   LogOut,
   Menu,
   X,
@@ -47,16 +45,6 @@ const sidebarItems = [
     title: "API документация",
     href: "/merchant/api-docs",
     icon: FileText,
-  },
-  {
-    title: "Настройки",
-    href: "/merchant/settings",
-    icon: Settings,
-  },
-  {
-    title: "Помощь",
-    href: "/merchant/help",
-    icon: HelpCircle,
   },
 ]
 
