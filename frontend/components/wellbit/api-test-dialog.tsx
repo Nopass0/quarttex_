@@ -22,8 +22,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Copy, Check, Key, AlertCircle } from "lucide-react";
+import { Loader2, Send, Copy, Check, Key, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface WellbitApiTestDialogProps {
   open: boolean;
@@ -44,36 +45,98 @@ export function WellbitApiTestDialog({ open, onOpenChange }: WellbitApiTestDialo
     ? `${window.location.protocol}//${window.location.host}`
     : 'https://api.example.com';
 
+  // Initialize with random data when dialog opens
+  useEffect(() => {
+    if (open && !requestBody) {
+      const newBody = getDefaultBody(endpoint);
+      setRequestBody(JSON.stringify(newBody, null, 2));
+    }
+  }, [open]);
+
+  // Auto-generate signature when keys or body change
+  useEffect(() => {
+    if (apiKey && privateKey && requestBody) {
+      try {
+        JSON.parse(requestBody); // Validate JSON
+        generateSignature(requestBody, privateKey).then(sig => {
+          setSignature(sig);
+        });
+      } catch (e) {
+        // Invalid JSON, clear signature
+        setSignature("");
+      }
+    } else {
+      setSignature("");
+    }
+  }, [apiKey, privateKey, requestBody]);
+
+  // Generate random data for request bodies
+  const generateRandomData = () => {
+    const paymentId = Math.floor(Math.random() * 1000000) + 4000000;
+    const amount = Math.floor(Math.random() * 5000) + 1000;
+    const course = 75 + Math.random() * 10;
+    const amountUsdt = amount / course;
+    const feePercent = 5 + Math.random() * 3;
+    const profit = amount * (1 - feePercent / 100);
+    const profitUsdt = profit / course;
+    
+    return {
+      paymentId,
+      amount,
+      course: parseFloat(course.toFixed(2)),
+      amountUsdt: parseFloat(amountUsdt.toFixed(8)),
+      feePercent: parseFloat(feePercent.toFixed(1)),
+      profit: parseFloat(profit.toFixed(3)),
+      profitUsdt: parseFloat(profitUsdt.toFixed(8))
+    };
+  };
+
   // Default request bodies for each endpoint
-  const defaultBodies: Record<string, any> = {
-    "payment/create": {
-      payment_id: Math.floor(Math.random() * 1000000) + 4000000,
-      payment_amount: 3833,
-      payment_amount_usdt: 48.42091966,
-      payment_amount_profit: 3583.855,
-      payment_amount_profit_usdt: 45.2735598821,
-      payment_fee_percent_profit: 6.5,
-      payment_type: "card",
-      payment_bank: "SBERBANK",
-      payment_course: 79.16,
-      payment_lifetime: 720,
-      payment_status: "new"
-    },
-    "payment/get": {
-      payment_id: 888888
-    },
-    "payment/status": {
-      payment_id: 888888,
-      payment_status: "complete"
+  const getDefaultBody = (endpointType: string) => {
+    const randomData = generateRandomData();
+    
+    switch (endpointType) {
+      case "payment/create":
+        return {
+          payment_id: randomData.paymentId,
+          payment_amount: randomData.amount,
+          payment_amount_usdt: randomData.amountUsdt,
+          payment_amount_profit: randomData.profit,
+          payment_amount_profit_usdt: randomData.profitUsdt,
+          payment_fee_percent_profit: randomData.feePercent,
+          payment_type: Math.random() > 0.5 ? "card" : "sbp",
+          payment_bank: ["SBERBANK", "TINKOFF", "VTB", "ALFA"][Math.floor(Math.random() * 4)],
+          payment_course: randomData.course,
+          payment_lifetime: 720,
+          payment_status: "new"
+        };
+      case "payment/get":
+        return {
+          payment_id: randomData.paymentId
+        };
+      case "payment/status":
+        return {
+          payment_id: randomData.paymentId,
+          payment_status: ["new", "complete", "cancel"][Math.floor(Math.random() * 3)]
+        };
+      default:
+        return {};
     }
   };
 
   // Update request body when endpoint changes
   const handleEndpointChange = (value: string) => {
     setEndpoint(value);
-    setRequestBody(JSON.stringify(defaultBodies[value], null, 2));
+    const newBody = getDefaultBody(value);
+    setRequestBody(JSON.stringify(newBody, null, 2));
     setResponse(null);
-    setSignature("");
+  };
+
+  // Generate new random data for current endpoint
+  const generateNewData = () => {
+    const newBody = getDefaultBody(endpoint);
+    setRequestBody(JSON.stringify(newBody, null, 2));
+    setResponse(null);
   };
 
   // Generate HMAC signature
@@ -138,9 +201,11 @@ export function WellbitApiTestDialog({ open, onOpenChange }: WellbitApiTestDialo
         return;
       }
 
-      // Generate signature
-      const sig = await generateSignature(requestBody, privateKey);
-      setSignature(sig);
+      // Check if we have a signature
+      if (!signature) {
+        toast.error("Подпись не сгенерирована");
+        return;
+      }
 
       // Send request
       const res = await fetch(`${baseUrl}/api/wellbit/${endpoint}`, {
@@ -148,7 +213,7 @@ export function WellbitApiTestDialog({ open, onOpenChange }: WellbitApiTestDialo
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
-          "x-api-token": sig,
+          "x-api-token": signature,
         },
         body: requestBody,
       });
@@ -258,7 +323,18 @@ export function WellbitApiTestDialog({ open, onOpenChange }: WellbitApiTestDialo
 
           {/* Request Body */}
           <div className="space-y-2">
-            <Label>Request Body</Label>
+            <div className="flex items-center justify-between">
+              <Label>Request Body</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={generateNewData}
+                className="gap-2"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Сгенерировать данные
+              </Button>
+            </div>
             <Textarea
               value={requestBody}
               onChange={(e) => setRequestBody(e.target.value)}
@@ -269,28 +345,32 @@ export function WellbitApiTestDialog({ open, onOpenChange }: WellbitApiTestDialo
           </div>
 
           {/* Generated Signature */}
-          {signature && (
-            <Alert>
+          {apiKey && privateKey && (
+            <Alert className={signature ? "" : "border-orange-200 dark:border-orange-800"}>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="space-y-2">
-                <p className="font-medium">Сгенерированная подпись (x-api-token):</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs break-all flex-1 bg-muted px-2 py-1 rounded">
-                    {signature}
-                  </code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={copySignature}
-                    className="shrink-0"
-                  >
-                    {copiedSignature ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <p className="font-medium">
+                  {signature ? "Сгенерированная подпись (x-api-token):" : "Введите корректный JSON для генерации подписи"}
+                </p>
+                {signature && (
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs break-all flex-1 bg-muted px-2 py-1 rounded">
+                      {signature}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copySignature}
+                      className="shrink-0"
+                    >
+                      {copiedSignature ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
           )}
