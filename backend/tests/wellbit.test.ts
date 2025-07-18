@@ -69,26 +69,32 @@ describe('Wellbit routes', () => {
   });
 
   it('gets payment', async () => {
+    const body = { id: payoutId };
     const res = await app.handle(
-      new Request(`http://localhost/payment/get?id=${payoutId}`, {
-        method: 'GET',
+      new Request('http://localhost/payment/get', {
+        method: 'POST',
         headers: {
+          'content-type': 'application/json',
           'x-api-key': publicKey,
-          'x-api-token': sign(''),
+          'x-api-token': sign(body),
         },
+        body: JSON.stringify(body),
       })
     );
     expect(res.status).toBe(200);
   });
 
   it('checks payment status', async () => {
+    const body = { id: payoutId };
     const res = await app.handle(
-      new Request(`http://localhost/payment/status?id=${payoutId}`, {
-        method: 'GET',
+      new Request('http://localhost/payment/status', {
+        method: 'POST',
         headers: {
+          'content-type': 'application/json',
           'x-api-key': publicKey,
-          'x-api-token': sign(''),
+          'x-api-token': sign(body),
         },
+        body: JSON.stringify(body),
       })
     );
     expect(res.status).toBe(200);
