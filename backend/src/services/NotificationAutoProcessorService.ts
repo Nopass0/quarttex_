@@ -288,6 +288,7 @@ export class NotificationAutoProcessorService extends BaseService {
       "Альфа-Банк": "ALFABANK",
       "Газпромбанк": "GAZPROMBANK",
       "Озон Банк": "OZONBANK",
+      "Открытие": "OTKRITIE",
       "Совкомбанк": "SOVCOMBANK",
       "Росбанк": "ROSBANK",
       "ЮниКредит": "UNICREDIT",

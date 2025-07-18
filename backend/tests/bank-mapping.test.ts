@@ -11,7 +11,14 @@ let app: Elysia;
 const sign = (body: any) =>
   createHmac('sha256', privateKey).update(JSON.stringify(body)).digest('hex');
 
-const banks = ['CITIBANK', 'UNICREDIT', 'SOVCOMBANK', 'ROSBANK', 'RUSSIANSTANDARD'];
+const banks = [
+  'CITIBANK',
+  'UNICREDIT',
+  'SOVCOMBANK',
+  'ROSBANK',
+  'RUSSIANSTANDARD',
+  'OTKRITIE'
+];
 
 describe('Wellbit bank mapping', () => {
   beforeAll(async () => {
