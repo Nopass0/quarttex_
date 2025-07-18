@@ -355,35 +355,43 @@ paths:
           description: Payment created
 
   /wellbit/payment/get:
-    get:
+    post:
       summary: Get payment details
       tags: [Wellbit]
       security:
         - ApiKeyAuth: []
         - HmacAuth: []
-      parameters:
-        - in: query
-          name: id
-          required: true
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
       responses:
         200:
           description: Payment details
 
   /wellbit/payment/status:
-    get:
+    post:
       summary: Get payment status
       tags: [Wellbit]
       security:
         - ApiKeyAuth: []
         - HmacAuth: []
-      parameters:
-        - in: query
-          name: id
-          required: true
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
       responses:
         200:
           description: Payment status

@@ -43,27 +43,27 @@ export default (app: Elysia) =>
         }),
       }
     )
-    .get(
+    .post(
       '/payment/get',
-      async ({ query, wellbitMerchant, error }) => {
-        const payout = await db.payout.findUnique({ where: { id: String(query.id) } });
+      async ({ body, wellbitMerchant, error }) => {
+        const payout = await db.payout.findUnique({ where: { id: String(body.id) } });
         if (!payout || payout.merchantId !== wellbitMerchant.id) {
           return error(404, { error: 'Payment not found' });
         }
         return { payout };
       },
       {
-        query: t.Object({ id: t.String() }),
+        body: t.Object({ id: t.String() }),
       }
     )
-    .get(
+    .post(
       '/payment/status',
-      async ({ query, wellbitMerchant, error }) => {
-        const payout = await db.payout.findUnique({ where: { id: String(query.id) } });
+      async ({ body, wellbitMerchant, error }) => {
+        const payout = await db.payout.findUnique({ where: { id: String(body.id) } });
         if (!payout || payout.merchantId !== wellbitMerchant.id) {
           return error(404, { error: 'Payment not found' });
         }
         return { status: payout.status };
       },
-      { query: t.Object({ id: t.String() }) }
+      { body: t.Object({ id: t.String() }) }
     );
