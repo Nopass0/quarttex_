@@ -62,364 +62,78 @@ interface ApiEndpoint {
 }
 
 const API_ENDPOINTS: ApiEndpoint[] = [
-  // Authentication
   {
     method: "POST",
-    path: "/api/merchant/auth/login",
+    path: "/merchant/auth/login",
     category: "auth",
-    description: "Вход мерчанта по API токену и получение сессионного токена",
-    body: [
-      {
-        name: "token",
-        type: "string",
-        required: true,
-        description: "API токен мерчанта",
-        example: "mk_live_abcdef123456"
-      }
-    ],
-    responses: [
-      {
-        status: 200,
-        description: "Успешная аутентификация",
-        example: {
-          success: true,
-          sessionToken: "session_token",
-          expiresAt: "2024-01-02T10:00:00.000Z",
-          merchant: {
-            id: "merchant_id",
-            name: "Merchant Name",
-            balanceUsdt: 1000.5,
-            createdAt: "2024-01-01T00:00:00.000Z",
-            statistics: {
-              totalTransactions: 100,
-              successfulTransactions: 80,
-              successRate: 80,
-              totalVolume: 500000
-            }
-          }
-        }
-      }
-    ]
+    description: "Вход мерчанта по API токену",
+    body: [{ name: "token", type: "string", required: true, description: "API токен" }],
+    responses: [{ status: 200, description: "Успех", example: { success: true, sessionToken: "token" } }]
   },
+  { method: "POST", path: "/merchant/auth/logout", category: "auth", description: "Выход", responses: [{ status: 200, description: "ОК", example: { success: true } }] },
+  { method: "GET", path: "/merchant/auth/me", category: "auth", description: "Информация о мерчанте", headers: { Authorization: "Bearer session" }, responses: [{ status: 200, description: "OK", example: { id: "m1" } }] },
 
-  // Transactions
-  {
-    method: "POST",
-    path: "/api/merchant/transactions",
-    category: "transactions",
-    description: "Создание новой транзакции для приема платежа",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    body: [
-      {
-        name: "amount",
-        type: "number",
-        required: true,
-        description: "Сумма платежа в рублях",
-        example: 1000
-      },
-      {
-        name: "orderId",
-        type: "string",
-        required: true,
-        description: "Уникальный ID заказа в вашей системе",
-        example: "ORDER-123"
-      },
-      {
-        name: "customerEmail",
-        type: "string",
-        required: false,
-        description: "Email клиента для уведомлений",
-        example: "customer@example.com"
-      },
-      {
-        name: "description",
-        type: "string",
-        required: false,
-        description: "Описание платежа",
-        example: "Оплата заказа #123"
-      },
-      {
-        name: "methodId",
-        type: "string",
-        required: false,
-        description: "ID конкретного метода оплаты",
-        example: "method_123"
-      },
-      {
-        name: "callbackUrl",
-        type: "string",
-        required: false,
-        description: "URL для редиректа после оплаты",
-        example: "https://example.com/success"
-      }
-    ],
-    responses: [
-      {
-        status: 200,
-        description: "Транзакция создана успешно",
-        example: {
-          success: true,
-          transaction: {
-            id: "tx_123",
-            numericId: 10001,
-            amount: 1000,
-            status: "CREATED",
-            paymentUrl: "https://pay.example.com/tx_123",
-            expiresAt: "2024-01-01T12:00:00Z"
-          }
-        }
-      }
-    ]
-  },
+  // Общие
+  { method: "GET", path: "/merchant/connect", category: "general", description: "Информация о мерчанте", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: { id: "m1", name: "Shop" } }] },
+  { method: "GET", path: "/merchant/balance", category: "general", description: "Текущий баланс", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: { balance: 0 } }] },
+  { method: "GET", path: "/merchant/methods", category: "general", description: "Доступные методы", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: [] }] },
+  { method: "GET", path: "/merchant/enums", category: "general", description: "Enum значения", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: {} }] },
+  { method: "GET", path: "/merchant/traders/stats", category: "general", description: "Статистика трейдеров", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: { success: true } }] },
 
-  {
-    method: "GET",
-    path: "/api/merchant/transactions/:id",
-    category: "transactions",
-    description: "Получение информации о транзакции",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    params: [
-      {
-        name: "id",
-        type: "string",
-        required: true,
-        description: "ID транзакции",
-        example: "tx_123"
-      }
-    ],
-    responses: [
-      {
-        status: 200,
-        description: "Информация о транзакции",
-        example: {
-          success: true,
-          transaction: {
-            id: "tx_123",
-            numericId: 10001,
-            amount: 1000,
-            status: "READY",
-            orderId: "ORDER-123",
-            createdAt: "2024-01-01T10:00:00Z",
-            completedAt: "2024-01-01T10:05:00Z",
-            method: {
-              name: "Сбербанк",
-              type: "CARD"
-            }
-          }
-        }
-      }
-    ]
-  },
+  // Транзакции
+  { method: "POST", path: "/merchant/transactions/create", category: "transactions", description: "Создание транзакции", headers: { "x-merchant-api-key": "API_KEY" }, body: [{ name: "amount", type: "number", required: true, description: "Сумма" }], responses: [{ status: 201, description: "OK", example: { id: "tx" } }] },
+  { method: "POST", path: "/merchant/transactions/in", category: "transactions", description: "Создание IN транзакции", headers: { "x-merchant-api-key": "API_KEY" }, body: [{ name: "amount", type: "number", required: true, description: "Сумма" }], responses: [{ status: 201, description: "OK", example: { id: "tx" } }] },
+  { method: "POST", path: "/merchant/transactions/out", category: "transactions", description: "Создание OUT транзакции", headers: { "x-merchant-api-key": "API_KEY" }, body: [{ name: "amount", type: "number", required: true, description: "Сумма" }], responses: [{ status: 201, description: "OK", example: { id: "tx" } }] },
+  { method: "GET", path: "/merchant/transactions/list", category: "transactions", description: "Список транзакций", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
+  { method: "GET", path: "/merchant/transactions/by-order-id/:orderId", category: "transactions", description: "Транзакция по orderId", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "orderId", type: "string", required: true, description: "ID заказа" }], responses: [{ status: 200, description: "OK", example: { id: "tx" } }] },
+  { method: "PATCH", path: "/merchant/transactions/by-order-id/:orderId/cancel", category: "transactions", description: "Отмена транзакции", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "orderId", type: "string", required: true, description: "ID заказа" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "GET", path: "/merchant/transactions/status/:id", category: "transactions", description: "Статус транзакции", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { status: "READY" } }] },
+  { method: "POST", path: "/merchant/transactions/:id/receipt", category: "transactions", description: "Загрузка чека", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "fileData", type: "string", required: true, description: "base64" }], responses: [{ status: 201, description: "OK", example: { id: "r" } }] },
+  { method: "GET", path: "/merchant/transactions/:id/receipts", category: "transactions", description: "Получение чеков", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: [] }] },
 
-  {
-    method: "GET",
-    path: "/api/merchant/transactions",
-    category: "transactions",
-    description: "Получение списка транзакций с фильтрацией",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    params: [
-      {
-        name: "page",
-        type: "number",
-        required: false,
-        description: "Номер страницы (по умолчанию 1)",
-        example: 1
-      },
-      {
-        name: "limit",
-        type: "number",
-        required: false,
-        description: "Количество записей на странице (по умолчанию 20)",
-        example: 20
-      },
-      {
-        name: "status",
-        type: "string",
-        required: false,
-        description: "Фильтр по статусу: CREATED, IN_PROGRESS, READY, EXPIRED, CANCELED",
-        example: "READY"
-      },
-      {
-        name: "from",
-        type: "string",
-        required: false,
-        description: "Дата начала периода (ISO 8601)",
-        example: "2024-01-01T00:00:00Z"
-      },
-      {
-        name: "to",
-        type: "string",
-        required: false,
-        description: "Дата конца периода (ISO 8601)",
-        example: "2024-01-31T23:59:59Z"
-      }
-    ],
-    responses: [
-      {
-        status: 200,
-        description: "Список транзакций",
-        example: {
-          success: true,
-          transactions: [
-            {
-              id: "tx_123",
-              numericId: 10001,
-              amount: 1000,
-              status: "READY",
-              orderId: "ORDER-123",
-              createdAt: "2024-01-01T10:00:00Z"
-            }
-          ],
-          pagination: {
-            page: 1,
-            limit: 20,
-            total: 100,
-            totalPages: 5
-          }
-        }
-      }
-    ]
-  },
+  // Dashboard
+  { method: "GET", path: "/merchant/dashboard/check-api-key", category: "dashboard", description: "Проверка API ключа", headers: { Authorization: "Bearer" }, responses: [{ status: 200, description: "OK", example: { valid: true } }] },
+  { method: "GET", path: "/merchant/dashboard/statistics", category: "dashboard", description: "Статистика", headers: { Authorization: "Bearer" }, params: [{ name: "period", type: "string", required: false, description: "today|week|month|all" }], responses: [{ status: 200, description: "OK", example: { period: "today" } }] },
+  { method: "GET", path: "/merchant/dashboard/transactions", category: "dashboard", description: "Список транзакций", headers: { Authorization: "Bearer" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
+  { method: "POST", path: "/merchant/dashboard/transactions/:id/dispute", category: "dashboard", description: "Создать спор", headers: { Authorization: "Bearer" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "reason", type: "string", required: true, description: "Причина" }], responses: [{ status: 201, description: "OK", example: { success: true } }] },
+  { method: "GET", path: "/merchant/dashboard/chart-data", category: "dashboard", description: "Данные для графика", headers: { Authorization: "Bearer" }, params: [{ name: "days", type: "number", required: false, description: "Период" }], responses: [{ status: 200, description: "OK", example: { days: 7 } }] },
 
-  // Methods
-  {
-    method: "GET",
-    path: "/api/merchant/methods",
-    category: "methods",
-    description: "Получение доступных методов оплаты",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    responses: [
-      {
-        status: 200,
-        description: "Список методов оплаты",
-        example: {
-          success: true,
-          methods: [
-            {
-              id: "method_123",
-              name: "Сбербанк",
-              type: "CARD",
-              minAmount: 100,
-              maxAmount: 100000,
-              commission: 2.5,
-              isActive: true
-            }
-          ]
-        }
-      }
-    ]
-  },
+  // Выплаты
+  { method: "POST", path: "/merchant/payouts", category: "payouts", description: "Создать выплату", headers: { "x-api-key": "API_KEY" }, body: [{ name: "amount", type: "number", required: true, description: "Сумма" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "GET", path: "/merchant/payouts/:id", category: "payouts", description: "Получить выплату", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "POST", path: "/merchant/payouts/:id/approve", category: "payouts", description: "Подтвердить выплату", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "POST", path: "/merchant/payouts/:id/dispute", category: "payouts", description: "Создать спор по выплате", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "PATCH", path: "/merchant/payouts/:id/cancel", category: "payouts", description: "Отмена выплаты", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "reasonCode", type: "string", required: true, description: "Причина" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "PATCH", path: "/merchant/payouts/:id/rate", category: "payouts", description: "Изменить курс", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "merchantRate", type: "number", required: false, description: "Курс" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "GET", path: "/merchant/payouts", category: "payouts", description: "Список выплат", headers: { "x-api-key": "API_KEY" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
 
-  // Balance
-  {
-    method: "GET",
-    path: "/api/merchant/balance",
-    category: "balance",
-    description: "Получение текущего баланса",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    responses: [
-      {
-        status: 200,
-        description: "Информация о балансе",
-        example: {
-          success: true,
-          balance: {
-            available: 50000,
-            pending: 5000,
-            frozen: 0,
-            currency: "RUB"
-          }
-        }
-      }
-    ]
-  },
+  // Споры по выплатам
+  { method: "POST", path: "/merchant/disputes/payout/:payoutId", category: "disputes", description: "Создать спор по выплате", headers: { Authorization: "Bearer" }, params: [{ name: "payoutId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "GET", path: "/merchant/disputes", category: "disputes", description: "Список споров", headers: { Authorization: "Bearer" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
+  { method: "GET", path: "/merchant/disputes/:disputeId", category: "disputes", description: "Получить спор", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { data: {} } }] },
+  { method: "POST", path: "/merchant/disputes/:disputeId/messages", category: "disputes", description: "Сообщение в споре", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
 
-  // Webhooks
-  {
-    method: "POST",
-    path: "/api/merchant/webhook/test",
-    category: "webhooks",
-    description: "Тестирование webhook уведомлений",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    body: [
-      {
-        name: "url",
-        type: "string",
-        required: true,
-        description: "URL для тестового webhook",
-        example: "https://example.com/webhook"
-      }
-    ],
-    responses: [
-      {
-        status: 200,
-        description: "Webhook отправлен успешно",
-        example: {
-          success: true,
-          message: "Test webhook sent successfully"
-        }
-      }
-    ]
-  },
+  // Споры по сделкам
+  { method: "GET", path: "/merchant/deal-disputes/test", category: "deal-disputes", description: "Тест" , headers: { Authorization: "Bearer" }, responses: [{ status: 200, description: "OK", example: { message: "Deal disputes routes are working!" } }] },
+  { method: "POST", path: "/merchant/deal-disputes/deal/:dealId", category: "deal-disputes", description: "Создать спор по сделке", headers: { Authorization: "Bearer" }, params: [{ name: "dealId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  { method: "GET", path: "/merchant/deal-disputes", category: "deal-disputes", description: "Список споров по сделкам", headers: { Authorization: "Bearer" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
+  { method: "GET", path: "/merchant/deal-disputes/:disputeId", category: "deal-disputes", description: "Получить спор по сделке", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { data: {} } }] },
+  { method: "POST", path: "/merchant/deal-disputes/:disputeId/messages", category: "deal-disputes", description: "Сообщение в споре по сделке", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
 
-  // Disputes
-  {
-    method: "GET",
-    path: "/api/merchant/disputes",
-    category: "disputes",
-    description: "Получение списка споров",
-    headers: {
-      "x-merchant-api-key": "YOUR_API_KEY"
-    },
-    params: [
-      {
-        name: "status",
-        type: "string",
-        required: false,
-        description: "Фильтр по статусу: OPEN, IN_PROGRESS, RESOLVED_SUCCESS, RESOLVED_FAIL",
-        example: "OPEN"
-      }
-    ],
-    responses: [
-      {
-        status: 200,
-        description: "Список споров",
-        example: {
-          success: true,
-          disputes: [
-            {
-              id: "dispute_123",
-              transactionId: "tx_123",
-              status: "OPEN",
-              reason: "Платеж не получен",
-              createdAt: "2024-01-01T12:00:00Z"
-            }
-          ]
-        }
-      }
-    ]
-  }
+  // Документация
+  { method: "GET", path: "/merchant/api-docs/endpoints", category: "docs", description: "Список эндпоинтов", headers: { Authorization: "Bearer" }, responses: [{ status: 200, description: "OK", example: { baseUrl: "" } }] },
+  { method: "POST", path: "/merchant/api-docs/test", category: "docs", description: "Тест запроса", headers: { Authorization: "Bearer" }, body: [{ name: "method", type: "string", required: true, description: "HTTP метод" }, { name: "path", type: "string", required: true, description: "Путь" }], responses: [{ status: 200, description: "OK", example: { request: {}, response: {} } }] }
 ];
 
 const CATEGORIES = [
   { id: "auth", name: "Аутентификация", icon: Key },
+  { id: "general", name: "Общие", icon: Server },
   { id: "transactions", name: "Транзакции", icon: CreditCard },
-  { id: "methods", name: "Методы оплаты", icon: Zap },
-  { id: "balance", name: "Баланс", icon: DollarSign },
-  { id: "webhooks", name: "Webhooks", icon: Link },
-  { id: "disputes", name: "Споры", icon: AlertCircle }
+  { id: "payouts", name: "Выплаты", icon: DollarSign },
+  { id: "dashboard", name: "Дашборд", icon: FileText },
+  { id: "disputes", name: "Споры", icon: AlertCircle },
+  { id: "deal-disputes", name: "Споры по сделкам", icon: AlertCircle },
+  { id: "docs", name: "Документация API", icon: FileJson }
 ];
 
 export function ApiDocumentation() {
