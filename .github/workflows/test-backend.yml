@@ -33,24 +33,32 @@ jobs:
       with:
         bun-version: latest
 
+    - name: Cache Prisma binaries
+      uses: actions/cache@v3
+      id: prisma-cache
+      with:
+        path: ~/.cache/prisma
+        key: ${{ runner.os }}-prisma-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-prisma-
+
     - name: Install dependencies
       run: |
         cd backend
         bun install
 
+    - name: Install Prisma CLI globally
+      run: bun install -g prisma@6.11.1
+
     - name: Generate Prisma Client
       run: |
         cd backend
-        # Set environment variable to ignore checksum errors
-        export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
-        bunx prisma generate
-      env:
-        PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
+        prisma generate
 
     - name: Run database migrations
       run: |
         cd backend
-        bunx prisma migrate deploy
+        prisma migrate deploy
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chase_test
 
