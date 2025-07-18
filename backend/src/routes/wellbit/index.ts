@@ -8,6 +8,7 @@ const payoutService = PayoutService.getInstance();
 
 const mapBank = (name: string): BankType => {
   const key = name.toUpperCase().replace(/\s+/g, '');
+  if (key === 'OPENBANK') return BankType.OTKRITIE;
   return (BankType as any)[key] ?? BankType.SBERBANK;
 };
 
