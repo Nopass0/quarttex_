@@ -130,6 +130,8 @@ model Merchant {
   id              String               @id @default(cuid())
   name            String
   token           String               @unique
+  apiKeyPublic    String?              @unique
+  apiKeyPrivate   String?
   disabled        Boolean              @default(false)
   banned          Boolean              @default(false)
   balanceUsdt     Float                @default(0)

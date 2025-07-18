@@ -21,6 +21,7 @@ import supportRoutes from "@/routes/support";
 import payoutWebSocketRoutes from "@/routes/websocket/payouts";
 import { disputeWebSocketRoutes } from "@/routes/websocket/disputes";
 import { dealDisputeWebSocketRoutes } from "@/routes/websocket/deal-disputes";
+import wellbitRoutes from "@/routes/wellbit";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";
@@ -258,6 +259,7 @@ const app = new Elysia({ prefix: "/api" })
   .group("/merchant", (app) => app.use(merchantRoutes))
   .group("/device", (app) => app.use(deviceRoutes))
   .group("/trader", (app) => app.use(traderRoutes))
+  .group("/wellbit", (app) => app.use(wellbitRoutes))
   .group("/app", (app) => app.use(appDownloadRoutes))
   .group("/support", (app) => app.use(supportRoutes))
   .use(agentRoutes)
