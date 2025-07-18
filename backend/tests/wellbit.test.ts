@@ -3,6 +3,7 @@ import { expect, it, beforeAll, afterAll, describe } from 'bun:test';
 import { db } from '@/db';
 import wellbitRoutes from '@/routes/wellbit';
 import { createHmac } from 'node:crypto';
+import { canonicalJson } from '@/utils/canonicalJson';
 
 let publicKey: string;
 let privateKey: string;
@@ -10,7 +11,7 @@ let payoutId: string;
 let app: Elysia;
 
 const sign = (body: any) =>
-  createHmac('sha256', privateKey).update(JSON.stringify(body)).digest('hex');
+  createHmac('sha256', privateKey).update(canonicalJson(body)).digest('hex');
 
 describe('Wellbit routes', () => {
   beforeAll(async () => {

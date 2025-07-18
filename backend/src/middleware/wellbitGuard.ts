@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { db } from '@/db';
 import { createHmac } from 'node:crypto';
+import { canonicalJson } from '@/utils/canonicalJson';
 import type { Merchant as MerchantModel } from '@prisma/client';
 
 // Extend Elysia context
@@ -24,8 +25,14 @@ export const wellbitGuard = () => (app: Elysia) =>
         if (!merchant) return error(401, { error: 'Invalid API key' });
 
         const bodyText = await request.clone().text();
+        let canonical: string;
+        try {
+          canonical = canonicalJson(bodyText);
+        } catch {
+          return error(400, { error: 'Invalid JSON' });
+        }
         const expected = createHmac('sha256', merchant.apiKeyPrivate || '')
-          .update(bodyText)
+          .update(canonical)
           .digest('hex');
         if (expected !== token) return error(401, { error: 'Invalid signature' });
       },
