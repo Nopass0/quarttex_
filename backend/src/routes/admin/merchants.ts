@@ -28,19 +28,33 @@ export const adminMerchantsRoutes = new Elysia({ prefix: '/merchants' })
   )
   .post(
     '/wellbit/regenerate',
-    async () => {
+    async ({ error }) => {
       const apiKeyPublic = randomBytes(16).toString('hex');
       const apiKeyPrivate = randomBytes(32).toString('hex');
-      const merchant = await db.merchant.upsert({
-        where: { name: 'Wellbit' },
-        update: { apiKeyPublic, apiKeyPrivate },
-        create: {
-          name: 'Wellbit',
-          token: randomBytes(32).toString('hex'),
-          apiKeyPublic,
-          apiKeyPrivate,
-        },
+      
+      // First, try to find the Wellbit merchant
+      let merchant = await db.merchant.findFirst({
+        where: { name: 'Wellbit' }
       });
+      
+      if (merchant) {
+        // Update existing merchant
+        merchant = await db.merchant.update({
+          where: { id: merchant.id },
+          data: { apiKeyPublic, apiKeyPrivate }
+        });
+      } else {
+        // Create new Wellbit merchant
+        merchant = await db.merchant.create({
+          data: {
+            name: 'Wellbit',
+            token: randomBytes(32).toString('hex'),
+            apiKeyPublic,
+            apiKeyPrivate,
+          }
+        });
+      }
+      
       return {
         apiKeyPublic: merchant.apiKeyPublic,
         apiKeyPrivate: merchant.apiKeyPrivate,

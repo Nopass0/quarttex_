@@ -7,18 +7,21 @@ import { AuthLayout } from '@/components/layouts/auth-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Copy, ArrowLeft, RefreshCw, Activity, DollarSign } from 'lucide-react'
+import { Copy, ArrowLeft, RefreshCw, Activity, DollarSign, Key, TestTube } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { toast } from 'sonner'
 import { formatAmount } from '@/lib/utils'
 import { MerchantMilkDeals } from '@/components/admin/merchant-milk-deals'
 import { MerchantExtraSettlements } from '@/components/admin/merchant-extra-settlements'
 import { TestMerchantTransactions } from '@/components/admin/test-merchant-transactions'
+import { WellbitTestDialog } from '@/components/admin/wellbit-test-dialog'
 
 type Merchant = {
   id: string
   name: string
   token: string
+  apiKeyPublic?: string | null
+  apiKeyPrivate?: string | null
   disabled: boolean
   banned: boolean
   balanceUsdt: number
@@ -43,13 +46,45 @@ export default function MerchantDetailPage() {
   const { token: adminToken } = useAdminAuth()
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGeneratingKeys, setIsGeneratingKeys] = useState(false)
+  const [showTestDialog, setShowTestDialog] = useState(false)
   
-  // Проверяем, является ли мерчант тестовым
+  // Проверяем, является ли мерчант тестовым или Wellbit
   const isTestMerchant = merchant?.name?.toLowerCase() === 'test'
+  const isWellbitMerchant = merchant?.name?.toLowerCase() === 'wellbit'
 
   useEffect(() => {
     fetchMerchant()
   }, [merchantId])
+
+  const handleGenerateKeys = async () => {
+    try {
+      setIsGeneratingKeys(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/merchants/wellbit/regenerate`, {
+        method: 'POST',
+        headers: {
+          'x-admin-key': adminToken || '',
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to generate keys')
+      }
+      const data = await response.json()
+      
+      // Update merchant data with new keys
+      setMerchant(prev => prev ? {
+        ...prev,
+        apiKeyPublic: data.apiKeyPublic,
+        apiKeyPrivate: data.apiKeyPrivate
+      } : null)
+      
+      toast.success('Ключи успешно сгенерированы')
+    } catch (error) {
+      toast.error('Не удалось сгенерировать ключи')
+    } finally {
+      setIsGeneratingKeys(false)
+    }
+  }
 
   const fetchMerchant = async () => {
     try {
@@ -154,6 +189,69 @@ export default function MerchantDetailPage() {
             </div>
           </div>
 
+          {/* Wellbit API Keys */}
+          {isWellbitMerchant && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold mb-4">Wellbit API ключи</h2>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">x-api-key (Публичный ключ)</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate font-mono">
+                      {merchant.apiKeyPublic || 'Не установлен'}
+                    </code>
+                    {merchant.apiKeyPublic && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(merchant.apiKeyPublic!, 'Публичный ключ скопирован')}
+                        className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Приватный ключ (для генерации x-api-token)</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate font-mono">
+                      {merchant.apiKeyPrivate || 'Не установлен'}
+                    </code>
+                    {merchant.apiKeyPrivate && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(merchant.apiKeyPrivate!, 'Приватный ключ скопирован')}
+                        className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mt-4">
+                  <Button
+                    onClick={handleGenerateKeys}
+                    disabled={isGeneratingKeys}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    {isGeneratingKeys ? 'Генерация...' : 'Сгенерировать новые ключи'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowTestDialog(true)}
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <TestTube className="h-4 w-4 mr-2" />
+                    Тестировать API
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
@@ -185,24 +283,47 @@ export default function MerchantDetailPage() {
                 </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-3">API ключ</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate font-mono">
-                    {merchant.token}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(merchant.token, 'API ключ скопирован')}
-                    className="hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
+            {!isWellbitMerchant ? (
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-3">API ключ</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate font-mono">
+                      {merchant.token}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(merchant.token, 'API ключ скопирован')}
+                      className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Token (для входа)</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded flex-1 truncate font-mono">
+                        {merchant.token}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(merchant.token, 'Token скопирован')}
+                        className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}
@@ -284,6 +405,16 @@ export default function MerchantDetailPage() {
             </TabsContent>
           </Tabs>
         </div>
+        
+        {/* Wellbit Test Dialog */}
+        {isWellbitMerchant && (
+          <WellbitTestDialog
+            open={showTestDialog}
+            onOpenChange={setShowTestDialog}
+            apiKeyPublic={merchant.apiKeyPublic}
+            apiKeyPrivate={merchant.apiKeyPrivate}
+          />
+        )}
       </AuthLayout>
     </ProtectedRoute>
   )

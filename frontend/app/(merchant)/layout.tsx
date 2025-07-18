@@ -15,10 +15,13 @@ import {
   Menu,
   X,
   ChevronRight,
-  Code
+  Code,
+  Sun,
+  Moon
 } from "lucide-react"
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
+import { useTheme } from "next-themes"
 
 const sidebarItems = [
   {
@@ -37,11 +40,6 @@ const sidebarItems = [
     icon: AlertCircle,
   },
   {
-    title: "Тестирование",
-    href: "/merchant/test",
-    icon: Code,
-  },
-  {
     title: "API документация",
     href: "/merchant/api-docs",
     icon: FileText,
@@ -56,6 +54,7 @@ export default function MerchantLayout({
   const pathname = usePathname()
   const { logout, merchantName } = useMerchantAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { theme, setTheme } = useTheme()
   
   // Check API key validity periodically
   useMerchantApiKeyCheck()
@@ -130,13 +129,25 @@ export default function MerchantLayout({
           </nav>
         </ScrollArea>
 
-        {/* Logout button */}
-        <div className="border-t p-2">
+        {/* Theme toggle and Logout button */}
+        <div className="border-t p-2 space-y-1">
           <Button
             variant="ghost"
             className={cn(
-              "w-full",
-              !sidebarOpen && "px-2"
+              "w-full justify-start",
+              !sidebarOpen && "px-2 justify-center"
+            )}
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          >
+            <Sun className={cn("h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0", sidebarOpen && "mr-2")} />
+            <Moon className={cn("absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100", sidebarOpen && "mr-2")} />
+            {sidebarOpen && <span className="ml-6">{theme === "light" ? "Темная тема" : "Светлая тема"}</span>}
+          </Button>
+          <Button
+            variant="ghost"
+            className={cn(
+              "w-full justify-start",
+              !sidebarOpen && "px-2 justify-center"
             )}
             onClick={() => logout()}
           >

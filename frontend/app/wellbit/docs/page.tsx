@@ -6,7 +6,7 @@ import "swagger-ui-react/swagger-ui.css";
 export default function WellbitDocsPage() {
   return (
     <div className="p-4">
-      <SwaggerUI url="/wellbit/openapi.yaml" />
+      <SwaggerUI url="/api/wellbit/openapi.yaml" />
     </div>
   );
 }

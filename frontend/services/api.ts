@@ -426,7 +426,7 @@ merchantApiInstance.interceptors.response.use(
 
 export const merchantApi = {
   login: async (apiToken: string) => {
-    const response = await api.post('/merchant/auth/login', { apiToken })
+    const response = await api.post('/api/merchant/auth/login', { token: apiToken })
     return response.data
   },
   logout: async () => {

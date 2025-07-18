@@ -23,6 +23,10 @@ const MerchantBase = t.Object({
   id: t.String(),
   name: t.String(),
   token: t.String({ description: 'Уникальный API-токен' }),
+  apiKeyPublic: t.Nullable(t.String()),
+  apiKeyPrivate: t.Nullable(t.String()),
+  disabled: t.Boolean(),
+  banned: t.Boolean(),
   createdAt: t.String(),
   balanceUsdt: t.Number()
 })
@@ -51,7 +55,7 @@ export default (app: Elysia) =>
         try {
           const m = await db.merchant.create({
             data: { name: body.name, token: randomBytes(32).toString('hex') },
-            select: { id: true, name: true, token: true, createdAt: true }
+            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, apiKeyPublic: true, apiKeyPrivate: true, disabled: true, banned: true }
           })
           return new Response(JSON.stringify(toISO(m)), {
             status: 201,
@@ -176,7 +180,7 @@ export default (app: Elysia) =>
       async () => {
         /* 1. Получаем мерчантов */
         const merchants = await db.merchant.findMany({
-          select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true }
+          select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, apiKeyPublic: true, apiKeyPrivate: true, disabled: true, banned: true }
         })
 
         if (!merchants.length) return []
@@ -236,7 +240,7 @@ export default (app: Elysia) =>
               disabled: body.disabled,
               banned: body.banned,
             },
-            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, disabled: true, banned: true }
+            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, disabled: true, banned: true, apiKeyPublic: true, apiKeyPrivate: true }
           })
           return toISO(merchant)
         } catch (e) {
@@ -284,6 +288,8 @@ export default (app: Elysia) =>
         
         return {
           ...toISO(merchant),
+          apiKeyPublic: merchant.apiKeyPublic,
+          apiKeyPrivate: merchant.apiKeyPrivate,
           merchantMethods: merchant.merchantMethods.map(mm => ({
             id: mm.id,
             isEnabled: mm.isEnabled,
@@ -307,6 +313,8 @@ export default (app: Elysia) =>
             id: t.String(),
             name: t.String(),
             token: t.String(),
+            apiKeyPublic: t.Nullable(t.String()),
+            apiKeyPrivate: t.Nullable(t.String()),
             disabled: t.Boolean(),
             banned: t.Boolean(),
             balanceUsdt: t.Number(),
