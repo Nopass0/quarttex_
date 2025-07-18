@@ -775,6 +775,16 @@ export const adminApi = {
     const response = await adminApiInstance.post('/admin/test-tools/full-test', options)
     return response.data
   },
+
+  // Wellbit keys
+  getWellbitKeys: async () => {
+    const response = await adminApiInstance.get('/admin/merchants/wellbit/keys')
+    return response.data
+  },
+  regenerateWellbitKeys: async () => {
+    const response = await adminApiInstance.post('/admin/merchants/wellbit/regenerate')
+    return response.data
+  },
 }
 
 // Server health check

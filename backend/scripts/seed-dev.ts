@@ -48,7 +48,20 @@ async function seedDevelopment() {
     })
     console.log('✓ Created test merchant')
 
-    // 4. Create payment methods
+    // 4. Create Wellbit merchant with API keys
+    await db.merchant.upsert({
+      where: { name: 'Wellbit' },
+      update: {},
+      create: {
+        name: 'Wellbit',
+        token: randomBytes(32).toString('hex'),
+        apiKeyPublic: randomBytes(16).toString('hex'),
+        apiKeyPrivate: randomBytes(32).toString('hex'),
+      }
+    })
+    console.log('✓ Created Wellbit merchant')
+
+    // 5. Create payment methods
     const methods = [
       {
         code: 'sber_c2c',
@@ -109,7 +122,7 @@ async function seedDevelopment() {
     }
     console.log('✓ Created payment methods')
 
-    // 5. Create KKK setting
+    // 6. Create KKK setting
     await db.systemConfig.upsert({
       where: { key: 'kkk_percent' },
       update: {},
@@ -120,7 +133,7 @@ async function seedDevelopment() {
     })
     console.log('✓ Created KKK setting (5%)')
 
-    // 6. Create services
+    // 7. Create services
     const services = [
       { name: 'ExpiredTransactionWatcher', displayName: 'Expired Transaction Watcher', description: 'Watches for expired transactions' },
       { name: 'MerchantEmulator', displayName: 'Merchant Emulator', description: 'Emulates merchant transactions' },
