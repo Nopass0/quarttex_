@@ -92,8 +92,9 @@ export const traderApi = {
     const response = await traderApiInstance.get('/trader/profile')
     return response.data
   },
-  getTransactions: async (params?: { page?: number; limit?: number; status?: string }) => {
-    const response = await traderApiInstance.get('/trader/transactions', { params })
+  getTransactions: async (params?: { page?: number; limit?: number; status?: string; noDevice?: boolean }) => {
+    const endpoint = params?.noDevice ? '/trader/transactions/bt-input' : '/trader/transactions';
+    const response = await traderApiInstance.get(endpoint, { params })
     return response.data.data ? response.data : { transactions: response.data.data || [] }
   },
   getFinanceStats: async () => {
