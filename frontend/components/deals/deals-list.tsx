@@ -806,7 +806,7 @@ export function DealsList() {
       {/* Stats Blocks */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         {/* Deals Stats */}
-        <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
+        <Card className="p-3 md:p-4 border border-gray-200 dark:border-[#29382f]">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -904,7 +904,7 @@ export function DealsList() {
         </Card>
 
         {/* Profit Stats */}
-        <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
+        <Card className="p-3 md:p-4 border border-gray-200 dark:border-[#29382f]">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -1783,21 +1783,21 @@ export function DealsList() {
                 <Card
                   key={transaction.id}
                   className={cn(
-                    "p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700",
+                    "p-3 md:p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700",
                     transaction.isNew && "flash-once",
                   )}
                   onClick={() => setSelectedTransaction(transaction)}
                 >
-                  <div className="flex items-center gap-4 overflow-hidden">
+                  <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                     {/* Status Icon */}
                     <div className="flex-shrink-0">{getStatusIcon()}</div>
 
                     {/* Transaction ID and Device */}
-                    <div className="w-24 flex-shrink-0">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                    <div className="w-20 md:w-24 flex-shrink-0">
+                      <div className="text-xs md:text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
                         {transaction.numericId}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">
                         {transaction.method?.name || "—"}
                       </div>
                     </div>
@@ -1833,8 +1833,8 @@ export function DealsList() {
                     </div>
 
                     {/* Amount */}
-                    <div className="w-32 flex-shrink-0">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                    <div className="w-24 md:w-32 flex-shrink-0 text-right md:text-left">
+                      <div className="text-xs md:text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
                         {usdtAmount} USDT
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">

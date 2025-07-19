@@ -803,35 +803,37 @@ export function BtEntryList() {
   return (
     <div className="space-y-6">
       {/* Header with user info */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
           БТ-вход
         </h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <Button
             onClick={() => setRequisitesDialogOpen(true)}
             variant="outline"
             size="sm"
+            className="text-xs md:text-sm"
           >
-            <CreditCard className="mr-2 h-4 w-4" />
-            Реквизиты
+            <CreditCard className="mr-1 md:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Реквизиты</span>
+            <span className="sm:hidden">+</span>
           </Button>
           <TraderHeader />
         </div>
       </div>
 
       {/* Stats Blocks */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
         {/* Deals Stats */}
-        <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
+        <Card className="p-3 md:p-4 border border-gray-200 dark:border-[#29382f]">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              <h3 className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1 md:mb-2">
                 Сделки ({periodStats.count})
               </h3>
               <div className="space-y-1">
-                <div className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
+                <div className="text-lg md:text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
                   {periodStats.totalAmount.toFixed(2)} USDT
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">

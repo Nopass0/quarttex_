@@ -68,9 +68,9 @@ export function TraderHeader() {
   };
 
   return (
-    <div className="flex items-center gap-4">
-      {/* Team toggle switch */}
-      <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 md:gap-4">
+      {/* Team toggle switch - hidden on mobile */}
+      <div className="hidden md:flex items-center gap-2">
         <Label htmlFor="team-switch" className="text-sm text-gray-700">
           Команда
         </Label>
@@ -92,7 +92,7 @@ export function TraderHeader() {
               <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-[#29382f] flex items-center justify-center">
                 <User className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
               </div>
-              <span className="text-gray-700 dark:text-gray-300 font-medium">
+              <span className="hidden sm:block text-gray-700 dark:text-gray-300 font-medium">
                 ${traderProfile?.numericId?.toString().padStart(4, "0") || "0000"}
               </span>
             </div>

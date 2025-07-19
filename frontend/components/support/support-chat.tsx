@@ -298,7 +298,7 @@ export function SupportChat({ variant }: SupportChatProps) {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-[#006039] text-white shadow-lg hover:bg-[#005030] transition-all hover:scale-110 flex items-center justify-center z-50"
+        className="fixed bottom-20 md:bottom-6 right-4 md:right-6 h-12 w-12 md:h-14 md:w-14 rounded-full bg-[#006039] text-white shadow-lg hover:bg-[#005030] transition-all hover:scale-110 flex items-center justify-center z-30"
       >
         <MessageCircle className="h-6 w-6" />
         {tickets.some(t => t.unreadCount > 0) && (
