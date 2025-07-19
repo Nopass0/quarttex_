@@ -25,11 +25,10 @@ import {
   DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTraderAuth } from "@/stores/auth";
+import { useTraderAuth, useAdminAuth } from "@/stores/auth";
 import { useTraderStore } from "@/stores/trader";
 import { useMerchantAuth } from "@/stores/merchant-auth";
 import { useAgentAuth } from "@/stores/agent-auth";
-import { useAdminAuth } from "@/stores/admin-auth";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
