@@ -66,24 +66,24 @@ const traderNavItems: NavItem[] = [
     icon: FileText,
   },
   {
-    title: "БТ-Вход",
-    href: "/trader/bt-entry",
-    icon: AlertCircle,
-  },
-  {
     title: "Устройства",
     href: "/trader/devices",
     icon: Smartphone,
   },
   {
-    title: "Реквизиты",
-    href: "/trader/requisites",
-    icon: CreditCard,
-  },
-  {
     title: "Сообщения",
     href: "/trader/messages",
     icon: MessageSquare,
+  },
+  {
+    title: "БТ-Вход",
+    href: "/trader/bt-entry",
+    icon: AlertCircle,
+  },
+  {
+    title: "Реквизиты",
+    href: "/trader/requisites",
+    icon: CreditCard,
   },
   {
     title: "Финансы",

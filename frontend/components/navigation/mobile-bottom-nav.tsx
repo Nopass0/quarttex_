@@ -44,14 +44,14 @@ const traderMainItems: NavItem[] = [
     icon: FileText,
   },
   {
-    title: "БТ-Вход",
-    href: "/trader/bt-entry",
-    icon: AlertCircle,
-  },
-  {
     title: "Устройства",
     href: "/trader/devices",
     icon: Smartphone,
+  },
+  {
+    title: "БТ-Вход",
+    href: "/trader/bt-entry",
+    icon: AlertCircle,
   },
 ];
 
