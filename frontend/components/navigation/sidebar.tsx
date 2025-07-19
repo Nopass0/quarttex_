@@ -405,8 +405,8 @@ export function Sidebar({ variant }: SidebarProps) {
   
   return (
     <>
-      {/* Desktop Sidebar */}
-      <div className="h-screen w-64 sticky top-0 bg-white dark:bg-[#0f0f0f] border-r border-gray-100 dark:border-[#29382f] flex flex-col">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <div className="hidden md:flex h-screen w-64 sticky top-0 bg-white dark:bg-[#0f0f0f] border-r border-gray-100 dark:border-[#29382f] flex-col">
         <div className="p-6 border-b border-gray-100 dark:border-[#29382f]">
           <div className="flex flex-col items-start">
             <Logo size="md" />

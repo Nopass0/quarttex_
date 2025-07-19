@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 export const metadata: Metadata = {
   title: "Chase Platform",
   description: "Trading and payment platform",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({

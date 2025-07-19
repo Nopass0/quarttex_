@@ -4,6 +4,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-specific styles */
+@layer base {
+  /* Prevent horizontal scroll on mobile */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+  
+  /* Ensure proper touch targets on mobile */
+  @media (max-width: 768px) {
+    button, a, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+  
+  /* Fix for iOS Safari */
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
 @layer base {
   @keyframes flash {
     0%, 100% {

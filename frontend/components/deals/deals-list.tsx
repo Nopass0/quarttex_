@@ -998,16 +998,16 @@ export function DealsList() {
       </div>
 
       {/* Search and Filters - Sticky */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-4 -mx-6 px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
+      <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-3 md:pb-4 -mx-4 md:-mx-6 px-4 md:px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
         <div className="flex gap-2">
           {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
             <Input
-              placeholder="Поиск по ID, ФИО, банку, сумме..."
+              placeholder="Поиск..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 border h-12 border-gray-300 dark:border-[#29382f] rounded-lg"
+              className="pl-10 border h-10 md:h-12 text-sm md:text-base border-gray-300 dark:border-[#29382f] rounded-lg"
             />
           </div>
 
@@ -1017,10 +1017,11 @@ export function DealsList() {
               <Button
                 variant="outline"
                 size="default"
-                className="gap-2 h-12 px-6"
+                className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base"
               >
                 <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-                Не выбраны
+                <span className="hidden sm:inline">Не выбраны</span>
+                <span className="sm:hidden">Фильтры</span>
                 {(filterStatus !== "all" ||
                   filterAmount.exact ||
                   filterAmount.min ||
@@ -1800,6 +1801,18 @@ export function DealsList() {
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">
                         {transaction.method?.name || "—"}
                       </div>
+                      {/* Mobile status */}
+                      <div className="sm:hidden mt-1">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "px-1.5 py-0.5 text-[10px] font-medium border rounded-md whitespace-nowrap",
+                            getStatusBadgeColor(),
+                          )}
+                        >
+                          {getStatusBadgeText()}
+                        </Badge>
+                      </div>
                     </div>
 
                     {/* Payment Status and Date */}
@@ -1818,14 +1831,16 @@ export function DealsList() {
 
                     {/* Bank and Requisites */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3">
-                        {transaction.requisites?.bankType &&
-                          getBankIcon(transaction.requisites.bankType)}
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="hidden sm:block">
+                          {transaction.requisites?.bankType &&
+                            getBankIcon(transaction.requisites.bankType, "sm")}
+                        </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee] truncate">
+                          <div className="text-xs md:text-sm font-medium text-gray-900 dark:text-[#eeeeee] truncate">
                             {transaction.requisites?.cardNumber || "—"}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 md:mt-1 truncate">
                             {transaction.clientName}
                           </div>
                         </div>
@@ -1852,11 +1867,11 @@ export function DealsList() {
                     </div>
 
                     {/* Status Badge */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 hidden sm:block">
                       <Badge
                         variant="outline"
                         className={cn(
-                          "px-3 py-1.5 text-xs font-medium border rounded-xl whitespace-nowrap",
+                          "px-2 md:px-3 py-1 md:py-1.5 text-xs font-medium border rounded-xl whitespace-nowrap",
                           getStatusBadgeColor(),
                         )}
                       >
@@ -1896,7 +1911,7 @@ export function DealsList() {
       >
         <DialogPortal>
           <DialogOverlay />
-          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background dark:border-gray-700 p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-3xl">
+          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] md:w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background dark:border-gray-700 p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-2xl md:rounded-3xl">
             {/* Hidden DialogTitle for accessibility */}
             <DialogTitle className="sr-only">
               {showRequisiteDetails
@@ -1905,7 +1920,7 @@ export function DealsList() {
             </DialogTitle>
             <div className="bg-white dark:bg-gray-800">
               {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 {showRequisiteDetails ? (
                   <>
                     <Button
@@ -1924,11 +1939,11 @@ export function DealsList() {
                   </>
                 ) : (
                   <>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 ml-[124px]">
+                    <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400 ml-0 md:ml-[124px]">
                       {selectedTransaction &&
                         format(
                           new Date(selectedTransaction.createdAt),
-                          "d MMMM yyyy 'г., в' HH:mm",
+                          "d MMM 'в' HH:mm",
                           { locale: ru },
                         )}
                     </div>
