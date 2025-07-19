@@ -333,60 +333,64 @@ export function FinancesMain() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold dark:text-[#eeeeee]">Финансы</h1>
-        <TraderHeader />
+        <h1 className="text-xl md:text-2xl font-semibold dark:text-[#eeeeee]">Финансы</h1>
+        <div className="hidden md:block">
+          <TraderHeader />
+        </div>
       </div>
 
       {/* Balance Cards */}
-      <h2 className="text-xl font-semibold mb-4 text-gray-400 dark:text-gray-500">Балансы</h2>
+      <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-gray-400 dark:text-gray-500">Балансы</h2>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-3 md:gap-4">
         {/* Депозит */}
-        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Депозит</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Депозит</span>
               <Button
                 size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
                 onClick={() => depositModal.open()}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
-                Пополнить
+                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                <span className="hidden sm:inline">Пополнить</span>
+                <span className="sm:hidden">+</span>
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
                 {(financials?.deposit || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Доступный депозит</div>
+            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Доступный депозит</div>
           </div>
         </Card>
 
         {/* ТРАСТ */}
-        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">ТРАСТ</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">ТРАСТ</span>
               <Button
                 size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
                 onClick={() => depositModal.open()}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
-                Пополнить
+                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                <span className="hidden sm:inline">Пополнить</span>
+                <span className="sm:hidden">+</span>
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
                 {(financials?.trustBalance || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
             <div
-              className="flex items-center gap-1 text-sm"
+              className="flex items-center gap-1 text-xs md:text-sm"
               style={{ color: "#006039" }}
             >
               <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
@@ -396,57 +400,59 @@ export function FinancesMain() {
         </Card>
 
         {/* Компенсация выплат */}
-        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Компенсация выплат</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Компенсация выплат</span>
               <Button
                 size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
                 onClick={() => {
                   setWithdrawalBalanceType("COMPENSATION");
                   withdrawalModal.open();
                 }}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
-                Вывод средств
+                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                <span className="hidden sm:inline">Вывод средств</span>
+                <span className="sm:hidden">Вывод</span>
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
                 {(financials?.compensationBalance || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Страховой резерв</div>
+            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Страховой резерв</div>
           </div>
         </Card>
 
         {/* Прибыль с приема */}
-        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Прибыль с приема</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Прибыль с приема</span>
               <Button
                 size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
                 onClick={() => {
                   setWithdrawalBalanceType("PROFIT_DEALS");
                   withdrawalModal.open();
                 }}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
-                Вывод средств
+                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                <span className="hidden sm:inline">Вывод средств</span>
+                <span className="sm:hidden">Вывод</span>
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-[#006039] dark:text-[#2d6a42]">
+              <span className="text-lg md:text-2xl font-bold text-[#006039] dark:text-[#2d6a42]">
                 +{(financials?.profitFromDeals || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
             <div
-              className="flex items-center gap-1 text-sm"
+              className="flex items-center gap-1 text-xs md:text-sm"
               style={{ color: "#006039" }}
             >
               <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
@@ -456,30 +462,31 @@ export function FinancesMain() {
         </Card>
 
         {/* Прибыль с выплат */}
-        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Прибыль с выплат</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Прибыль с выплат</span>
               <Button
                 size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
                 onClick={() => {
                   setWithdrawalBalanceType("PROFIT_PAYOUTS");
                   withdrawalModal.open();
                 }}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
-                Вывод средств
+                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                <span className="hidden sm:inline">Вывод средств</span>
+                <span className="sm:hidden">Вывод</span>
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-[#006039] dark:text-[#2d6a42]">
+              <span className="text-lg md:text-2xl font-bold text-[#006039] dark:text-[#2d6a42]">
                 +{(financials?.profitFromPayouts || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
             <div
-              className="flex items-center gap-1 text-sm"
+              className="flex items-center gap-1 text-xs md:text-sm"
               style={{ color: "#006039" }}
             >
               <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
@@ -489,30 +496,31 @@ export function FinancesMain() {
         </Card>
 
         {/* РЕФЕРАЛЬНЫЙ БАЛАНС */}
-        <Card className="p-6 flex-1 min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">РЕФЕРАЛЬНЫЙ БАЛАНС</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">РЕФЕРАЛЬНЫЙ БАЛАНС</span>
               <Button
                 size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-7 px-2"
+                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
                 onClick={() => {
                   setWithdrawalBalanceType("REFERRAL");
                   withdrawalModal.open();
                 }}
               >
-                <Wallet className="h-3 w-3 mr-1" style={{ color: "#006039" }} />
-                Вывод средств
+                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                <span className="hidden sm:inline">Вывод средств</span>
+                <span className="sm:hidden">Вывод</span>
               </Button>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
                 {(financials?.referralBalance || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
             <div
-              className="flex items-center gap-1 text-sm"
+              className="flex items-center gap-1 text-xs md:text-sm"
               style={{ color: "#006039" }}
             >
               <TrendingUp className="h-3 w-3" style={{ color: "#006039" }} />
@@ -523,45 +531,45 @@ export function FinancesMain() {
       </div>
 
       {/* Frozen Funds Section */}
-      <h2 className="text-xl font-semibold mb-4 text-gray-400 dark:text-gray-500">
+      <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-gray-400 dark:text-gray-500">
         Замороженные средства
       </h2>
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-3 md:gap-4">
         {/* ЭСКРОУ-СЧЕТ */}
-        <Card className="p-6 flex-1 min-w-[240px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[240px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
                 ЭСКРОУ-СЧЕТ (ПРОВОДИТСЯ СДЕЛКА)
               </span>
               <Shield className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
                 {(financials?.escrowBalance || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
               Средства в эскроу для активных сделок (проводится сделка)
             </div>
           </div>
         </Card>
 
         {/* СПОРНЫЕ СДЕЛКИ */}
-        <Card className="p-6 flex-1 min-w-[240px] dark:bg-[#29382f] dark:border-gray-700">
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[240px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">СПОРНЫЕ СДЕЛКИ</span>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">СПОРНЫЕ СДЕЛКИ</span>
               <AlertCircle className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold dark:text-[#eeeeee]">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
                 {(financials?.disputedBalance || 0).toFixed(2)}
               </span>
-              <span className="text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
               Замороженные средства в спорных сделках
             </div>
           </div>
@@ -570,47 +578,50 @@ export function FinancesMain() {
 
       {/* Tabs Section */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-fit grid-cols-2 gap-1 bg-gray-50 dark:bg-[#0f0f0f] p-1">
+        <TabsList className="grid w-full sm:w-fit grid-cols-2 gap-1 bg-gray-50 dark:bg-[#0f0f0f] p-1">
           <TabsTrigger
             value="operations"
-            className="data-[state=active]:bg-[#006039]/10 dark:data-[state=active]:bg-[#2d6a42]/10 h-12 data-[state=active]:text-gray-900 dark:data-[state=active]:text-[#eeeeee] data-[state=active]:shadow-sm px-6"
+            className="data-[state=active]:bg-[#006039]/10 dark:data-[state=active]:bg-[#2d6a42]/10 h-10 md:h-12 data-[state=active]:text-gray-900 dark:data-[state=active]:text-[#eeeeee] data-[state=active]:shadow-sm px-3 md:px-6 text-xs md:text-sm"
           >
-            <WalletIcon className="h-4 w-4 mr-2" style={{ color: "#006039" }} />
-            Операции по счету
+            <WalletIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" style={{ color: "#006039" }} />
+            <span className="hidden sm:inline">Операции по счету</span>
+            <span className="sm:hidden">Операции</span>
           </TabsTrigger>
           <TabsTrigger
             value="deposits"
-            className="data-[state=active]:bg-[#006039]/10 dark:data-[state=active]:bg-[#2d6a42]/10 h-12 data-[state=active]:text-gray-900 dark:data-[state=active]:text-[#eeeeee] data-[state=active]:shadow-sm px-6"
+            className="data-[state=active]:bg-[#006039]/10 dark:data-[state=active]:bg-[#2d6a42]/10 h-10 md:h-12 data-[state=active]:text-gray-900 dark:data-[state=active]:text-[#eeeeee] data-[state=active]:shadow-sm px-3 md:px-6 text-xs md:text-sm"
           >
             <BanknoteIcon
-              className="h-4 w-4 mr-2"
+              className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2"
               style={{ color: "#006039" }}
             />
-            Заявки на пополнение
+            <span className="hidden sm:inline">Заявки на пополнение</span>
+            <span className="sm:hidden">Пополнения</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="operations" className="mt-6">
-          <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
+        <TabsContent value="operations" className="mt-4 md:mt-6">
+          <Card className="p-4 md:p-6 dark:bg-[#29382f] dark:border-gray-700">
             {/* Filters */}
-            <div className="sticky top-0 z-10 bg-white dark:bg-[#29382f] pb-6 -mx-6 px-6 pt-6 shadow-sm dark:shadow-none">
-              <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[200px]">
+            <div className="sticky top-0 z-10 bg-white dark:bg-[#29382f] pb-4 md:pb-6 -mx-4 md:-mx-6 px-4 md:px-6 pt-4 md:pt-6 shadow-sm dark:shadow-none">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3">
+              <div className="flex-1 min-w-0 sm:min-w-[200px]">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                   <Input
-                    placeholder="Поиск по операциям..."
+                    placeholder="Поиск..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
+                    className="pl-10 h-9 md:h-10 text-sm md:text-base dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
                   />
                 </div>
               </div>
 
+              <div className="flex gap-2 flex-1 sm:flex-initial">
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
-                  <Filter className="h-4 w-4 mr-2 text-green-700 dark:text-[#2d6a42]" />
-                  <SelectValue placeholder="Тип операции" />
+                <SelectTrigger className="flex-1 sm:flex-initial sm:w-[180px] h-9 md:h-10 text-sm md:text-base dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
+                  <Filter className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2 text-green-700 dark:text-[#2d6a42]" />
+                  <SelectValue placeholder="Тип" />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
                   <SelectItem value="all">Все операции</SelectItem>
@@ -624,8 +635,8 @@ export function FinancesMain() {
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[150px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
-                  <ArrowUpDown className="h-4 w-4 mr-2 text-green-700 dark:text-[#2d6a42]" />
+                <SelectTrigger className="flex-1 sm:flex-initial sm:w-[150px] h-9 md:h-10 text-sm md:text-base dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
+                  <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2 text-green-700 dark:text-[#2d6a42]" />
                   <SelectValue placeholder="Статус" />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
@@ -638,8 +649,8 @@ export function FinancesMain() {
               </Select>
 
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-[140px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
-                  <Calendar className="h-4 w-4 mr-2 text-green-700 dark:text-[#2d6a42]" />
+                <SelectTrigger className="hidden sm:flex sm:w-[140px] h-9 md:h-10 text-sm md:text-base dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
+                  <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2 text-green-700 dark:text-[#2d6a42]" />
                   <SelectValue placeholder="Период" />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
@@ -651,34 +662,35 @@ export function FinancesMain() {
                 </SelectContent>
               </Select>
               </div>
+              </div>
             </div>
 
             {/* Operations List */}
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
               {filteredOperations.map((operation) => (
                 <div
                   key={operation.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#29382f]/50 rounded-lg hover:bg-gray-100 dark:hover:bg-[#29382f]/70 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 md:p-4 bg-gray-50 dark:bg-[#29382f]/50 rounded-lg hover:bg-gray-100 dark:hover:bg-[#29382f]/70 transition-colors gap-3 sm:gap-0"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-start sm:items-center gap-3 md:gap-4">
                     <div
                       className={cn(
-                        "p-2 bg-white dark:bg-[#0f0f0f] rounded-lg",
+                        "p-1.5 md:p-2 bg-white dark:bg-[#0f0f0f] rounded-lg flex-shrink-0",
                         getOperationColor(operation.type),
                       )}
                     >
                       {getOperationIcon(operation.type)}
                     </div>
-                    <div>
-                      <p className="font-medium dark:text-[#eeeeee]">{operation.description}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm md:text-base dark:text-[#eeeeee] truncate">{operation.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-1">
+                        <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {formatDate(operation.date)}
                         </span>
                         {operation.txHash && (
-                          <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                            {operation.txHash.slice(0, 10)}...
+                          <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-mono">
+                            {operation.txHash.slice(0, 6)}...
                           </span>
                         )}
                         {operation.dealId && (
@@ -689,10 +701,10 @@ export function FinancesMain() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center justify-between sm:block sm:text-right">
                     <div
                       className={cn(
-                        "font-semibold",
+                        "font-semibold text-sm md:text-base",
                         operation.type === "deposit" ||
                           operation.type === "unfreeze" ||
                           operation.type === "profit"
@@ -711,7 +723,7 @@ export function FinancesMain() {
                         : "-"}
                       {operation.amount.toFixed(2)} {operation.currency}
                     </div>
-                    <div className="mt-1">
+                    <div className="sm:mt-1">
                       {getStatusBadge(operation.status)}
                     </div>
                   </div>
@@ -728,47 +740,47 @@ export function FinancesMain() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="deposits" className="mt-6">
-          <Card className="p-6 dark:bg-[#29382f] dark:border-gray-700">
-            <div className="space-y-4">
+        <TabsContent value="deposits" className="mt-4 md:mt-6">
+          <Card className="p-4 md:p-6 dark:bg-[#29382f] dark:border-gray-700">
+            <div className="space-y-3 md:space-y-4">
               {mockDepositRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-[#29382f]/50 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 md:p-4 bg-gray-50 dark:bg-[#29382f]/50 rounded-lg gap-3 sm:gap-0"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-start sm:items-center gap-3 md:gap-4">
                     <div
-                      className="p-2 bg-white dark:bg-[#0f0f0f] rounded-lg"
+                      className="p-1.5 md:p-2 bg-white dark:bg-[#0f0f0f] rounded-lg flex-shrink-0"
                       style={{ color: "#006039" }}
                     >
                       <ArrowDownRight className="h-4 w-4" />
                     </div>
-                    <div>
-                      <p className="font-medium dark:text-[#eeeeee]">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm md:text-base dark:text-[#eeeeee]">
                         Пополнение {request.amount.toFixed(2)}{" "}
                         {request.currency}
                       </p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-1">
+                        <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {formatDate(request.date)}
                         </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                           {request.network}
                         </span>
                         {request.txHash && (
-                          <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                            {request.txHash.slice(0, 10)}...
+                          <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-mono">
+                            {request.txHash.slice(0, 6)}...
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold" style={{ color: "#006039" }}>
+                  <div className="flex items-center justify-between sm:block sm:text-right">
+                    <div className="font-semibold text-sm md:text-base" style={{ color: "#006039" }}>
                       +{request.amount.toFixed(2)} {request.currency}
                     </div>
-                    <div className="mt-1">{getStatusBadge(request.status)}</div>
+                    <div className="sm:mt-1">{getStatusBadge(request.status)}</div>
                   </div>
                 </div>
               ))}

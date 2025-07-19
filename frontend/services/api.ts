@@ -122,6 +122,10 @@ export const traderApi = {
     const response = await traderApiInstance.patch(`/trader/bank-details/${id}/toggle`)
     return response.data
   },
+  archiveRequisite: async (id: string, archived: boolean) => {
+    const response = await traderApiInstance.patch(`/trader/bank-details/${id}/archive`, { archived })
+    return response.data
+  },
   deleteRequisite: async (id: string) => {
     const response = await traderApiInstance.delete(`/trader/bank-details/${id}`)
     return response.data

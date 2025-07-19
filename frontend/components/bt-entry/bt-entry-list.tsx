@@ -38,6 +38,7 @@ import { useTraderAuth } from "@/stores/auth";
 import { useRouter } from "next/navigation";
 import { useTraderStore } from "@/stores/trader";
 import { TraderHeader } from "@/components/trader/trader-header";
+import { RequisitesListDialog } from "./requisites-list-dialog";
 import {
   Loader2,
   MoreVertical,
@@ -221,7 +222,6 @@ export function BtEntryList() {
     max: "",
   });
   const [filterAmountType, setFilterAmountType] = useState("range");
-  const [filterDevice, setFilterDevice] = useState("all");
   const [filterRequisite, setFilterRequisite] = useState("all");
   const [filterMethod, setFilterMethod] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
@@ -237,10 +237,8 @@ export function BtEntryList() {
   const [period, setPeriod] = useState("today"); // Period filter
 
   // Real data for filters
-  const [devices, setDevices] = useState<any[]>([]);
   const [requisites, setRequisites] = useState<any[]>([]);
   const [methods, setMethods] = useState<any[]>([]);
-  const [deviceSearch, setDeviceSearch] = useState("");
   const [requisiteSearch, setRequisiteSearch] = useState("");
   const [methodSearch, setMethodSearch] = useState("");
 
@@ -318,7 +316,6 @@ export function BtEntryList() {
         await Promise.all([
           fetchTransactions(),
           fetchTraderProfile(),
-          fetchDevices(),
           fetchRequisites(),
           fetchMethods(),
         ]);
@@ -344,7 +341,12 @@ export function BtEntryList() {
           };
 
           const response = await traderApi.getTransactions(params);
-          const newData = response.data || response.transactions || [];
+          let newData = response.data || response.transactions || [];
+          
+          // Filter only transactions without devices for BT-entry
+          newData = newData.filter((tx: any) => {
+            return !tx.deviceId || tx.deviceId === null;
+          });
           
           setTransactions((currentTransactions) => {
             const existingIds = new Set(currentTransactions.map((t) => t.id));
@@ -399,7 +401,6 @@ export function BtEntryList() {
     }
   }, [
     filterStatus,
-    filterDevice,
     filterRequisite,
     filterMethod,
     filterAmount,
@@ -436,10 +437,6 @@ export function BtEntryList() {
         }
       }
 
-      // Add device filter
-      if (filterDevice !== "all") {
-        params.deviceId = filterDevice;
-      }
 
       // Add requisite filter
       if (filterRequisite !== "all") {
@@ -478,11 +475,31 @@ export function BtEntryList() {
 
       const response = await traderApi.getTransactions(params);
       console.log("[BtEntryList] API Response:", response);
+      console.log("[BtEntryList] Params sent:", params);
       // Handle both response formats
-      const txData = response.data || response.transactions || [];
+      let txData = response.data || response.transactions || [];
+      
+      // Filter only transactions without devices for BT-entry
+      // Check first transaction to understand structure
+      if (txData.length > 0) {
+        console.log("[BtEntryList] Sample transaction:", txData[0]);
+      }
+      
+      // Filter transactions where the requisite has no device
+      txData = txData.filter((tx: any) => {
+        // Check if the transaction has no deviceId (which comes from requisites.device)
+        return !tx.deviceId || tx.deviceId === null;
+      });
+      
       const hasMoreData = txData.length === 50; // If we get full page, there might be more
 
-      console.log("[BtEntryList] Transactions data:", txData.length, "items");
+      console.log("[BtEntryList] All transactions:", response.data?.length || response.transactions?.length || 0);
+      console.log("[BtEntryList] Filtered (no device):", txData.length, "items");
+      
+      // Also log if we have no transactions at all
+      if (!response.data || response.data.length === 0) {
+        console.log("[BtEntryList] No transactions received from API");
+      }
 
       // Mark new transactions using callback to get current state
       setTransactions((currentTransactions) => {
@@ -567,14 +584,6 @@ export function BtEntryList() {
     }
   };
 
-  const fetchDevices = async () => {
-    try {
-      const response = await traderApi.getDevices();
-      setDevices(response.devices || response || []);
-    } catch (error) {
-      console.error("Failed to fetch devices:", error);
-    }
-  };
 
   const fetchRequisites = async () => {
     try {
@@ -665,10 +674,6 @@ export function BtEntryList() {
       }
     }
 
-    // Method filter (replacing device filter)
-    if (filterDevice !== "all") {
-      filtered = filtered.filter((t) => t.method?.id === filterDevice);
-    }
 
     // Requisite filter
     if (filterRequisite !== "all") {
@@ -1250,111 +1255,6 @@ export function BtEntryList() {
                   </div>
                 </div>
 
-                {/* Device Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Устройства</Label>
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full justify-between h-12"
-                      >
-                        <span className={"text-[#006039]"}>
-                          {filterDevice === "all"
-                            ? "Все устройства"
-                            : filterDevice === "1"
-                              ? "Основное устройство"
-                              : "Резервное устройство"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-[465px] p-0"
-                      align="start"
-                      sideOffset={5}
-                    >
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <Input
-                            placeholder="Поиск устройств"
-                            className="pl-9"
-                            value={deviceSearch}
-                            onChange={(e) => setDeviceSearch(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-64 overflow-auto">
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterDevice === "all" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterDevice("all")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Smartphone className="h-4 w-4 text-gray-600" />
-                            </div>
-                            <div className="text-left">
-                              <div className="font-medium">Все устройства</div>
-                              <div className="text-sm text-gray-500">
-                                Не фильтровать по устройству
-                              </div>
-                            </div>
-                          </div>
-                        </Button>
-                        {devices
-                          .filter(
-                            (device) =>
-                              !deviceSearch ||
-                              device.name
-                                ?.toLowerCase()
-                                .includes(deviceSearch.toLowerCase()) ||
-                              device.id
-                                ?.toLowerCase()
-                                .includes(deviceSearch.toLowerCase()),
-                          )
-                          .map((device) => (
-                            <Button
-                              key={device.id}
-                              variant="ghost"
-                              size="default"
-                              className={cn(
-                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                                filterDevice === device.id &&
-                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                              )}
-                              onClick={() => setFilterDevice(device.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <Smartphone className="h-4 w-4 text-gray-600" />
-                                </div>
-                                <div className="text-left">
-                                  <div className="font-medium">
-                                    {device.name}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {device.isOnline ? "Онлайн" : "Оффлайн"} •
-                                    ID: {device.id.slice(0, 8)}...
-                                  </div>
-                                </div>
-                              </div>
-                            </Button>
-                          ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
 
                 {/* Requisite Filter */}
                 <div className="space-y-2">
@@ -2444,14 +2344,10 @@ export function BtEntryList() {
         />
       )}
 
-      {/* Requisites Dialog */}
-      <RequisitesDialog
+      {/* Requisites List Dialog */}
+      <RequisitesListDialog
         open={requisitesDialogOpen}
         onOpenChange={setRequisitesDialogOpen}
-        onRequisiteAdded={() => {
-          fetchRequisites();
-          fetchTransactions();
-        }}
       />
     </div>
   );

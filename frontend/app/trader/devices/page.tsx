@@ -345,23 +345,24 @@ export default function DevicesPage() {
       <AuthLayout variant="trader">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Устройства ({devices.length})</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl md:text-3xl font-bold">Устройства ({devices.length})</h1>
             <Button
               onClick={() => setDeviceDialogOpen(true)}
               style={{ backgroundColor: "#006039", color: "white" }}
-              className="hover:opacity-90 transition-opacity"
+              className="hover:opacity-90 transition-opacity text-sm md:text-base"
             >
-              <Wifi className="mr-2 h-5 w-5" />
-              Добавить устройство
+              <Wifi className="mr-1 md:mr-2 h-4 w-4 md:h-5 md:w-5" />
+              <span className="hidden sm:inline">Добавить устройство</span>
+              <span className="sm:hidden">Добавить</span>
             </Button>
           </div>
 
           {/* Search and Filters Section */}
-          <Card className="p-6">
-            <div className="space-y-4">
+          <Card className="p-4 md:p-6">
+            <div className="space-y-3 md:space-y-4">
               {/* Search Title */}
-              <h3 className="text-lg font-medium">Поиск по устройствам</h3>
+              <h3 className="text-base md:text-lg font-medium">Поиск по устройствам</h3>
 
               {/* Search Input */}
               <div className="relative">
@@ -390,12 +391,12 @@ export default function DevicesPage() {
               </div>
 
               {/* Filters Row */}
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
                 {/* Parameters Button */}
                 <Popover open={showFilters} onOpenChange={setShowFilters}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1">
-                      <SlidersHorizontal className="mr-2 h-4 w-4 text-green-700" />
+                    <Button variant="outline" className="flex-1 w-full sm:w-auto text-sm md:text-base">
+                      <SlidersHorizontal className="mr-1 md:mr-2 h-4 w-4 text-green-700" />
                       <span className="text-gray-500">Не выбраны</span>
                       <ChevronDown className="ml-auto h-4 w-4 text-gray-500" />
                     </Button>
@@ -459,9 +460,10 @@ export default function DevicesPage() {
                 {/* Sort Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex-1">
-                      <ArrowUpDown className="mr-2 h-4 w-4 text-green-700" />
-                      {sortBy === "newest" ? "Сначала новые" : "Сначала старые"}
+                    <Button variant="outline" className="flex-1 w-full sm:w-auto text-sm md:text-base">
+                      <ArrowUpDown className="mr-1 md:mr-2 h-4 w-4 text-green-700" />
+                      <span className="hidden sm:inline">{sortBy === "newest" ? "Сначала новые" : "Сначала старые"}</span>
+                      <span className="sm:hidden">{sortBy === "newest" ? "Новые" : "Старые"}</span>
                       <ChevronDown className="ml-auto h-4 w-4 text-gray-500" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -488,12 +490,88 @@ export default function DevicesPage() {
                 <Card
                   key={device.id}
                   className={cn(
-                    "p-6 hover:shadow-md transition-all cursor-pointer",
+                    "p-4 md:p-6 hover:shadow-md transition-all cursor-pointer",
                     !device.isRegistered && "bg-red-50/30",
                   )}
                   onClick={() => router.push(`/trader/devices/${device.id}`)}
                 >
-                  <div className="flex items-center justify-between">
+                  {/* Mobile Layout */}
+                  <div className="md:hidden">
+                    <div className="flex items-start gap-3">
+                      {/* Device Icon */}
+                      <div
+                        className={cn(
+                          "p-2 rounded-lg flex-shrink-0",
+                          device.isRegistered 
+                            ? (device.isOnline || device.status === "working" 
+                              ? "bg-gray-100 dark:bg-gray-800" 
+                              : "bg-gray-50 dark:bg-gray-900/50")
+                            : "bg-red-100 dark:bg-red-900/20",
+                        )}
+                      >
+                        <Smartphone
+                          className={cn("h-5 w-5", statusInfo.iconColor)}
+                        />
+                      </div>
+
+                      {/* Device Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-base truncate">{device.name}</h3>
+                            <div className="flex items-center gap-1 mt-1">
+                              <p className="text-xs text-gray-500 font-mono truncate">
+                                {device.token.substring(0, 8)}...
+                              </p>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(device.token);
+                                  toast.success("Токен скопирован");
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                          {/* Status Badge */}
+                          <Badge
+                            className={cn(
+                              "border px-2 py-1 text-xs flex-shrink-0",
+                              statusInfo.badge.className,
+                            )}
+                          >
+                            {statusInfo.badge.text}
+                          </Badge>
+                        </div>
+
+                        {/* Status Info */}
+                        <div className="mt-2">
+                          <p className="text-sm font-medium">{statusInfo.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {statusInfo.description}
+                          </p>
+                        </div>
+
+                        {/* Online Status */}
+                        <div className="mt-2 flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              device.isOnline ? "bg-green-500" : "bg-gray-400"
+                            )}
+                          />
+                          <p className="text-xs text-gray-600">
+                            {device.isOnline ? "Онлайн" : "Не в сети"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Layout */}
+                  <div className="hidden md:flex items-center justify-between">
                     {/* Left Section - Icon and Device Info */}
                     <div className="flex items-center gap-4">
                       {/* Device Icon */}
@@ -578,48 +656,49 @@ export default function DevicesPage() {
           </div>
 
           {sortedDevices.length === 0 && (
-            <Card className="p-12 text-center">
-              <Smartphone className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">Устройства не найдены</p>
+            <Card className="p-8 md:p-12 text-center">
+              <Smartphone className="h-10 w-10 md:h-12 md:w-12 mx-auto text-gray-300 mb-3 md:mb-4" />
+              <p className="text-sm md:text-base text-gray-500">Устройства не найдены</p>
             </Card>
           )}
         </div>
 
         {/* Create Device Dialog */}
         <Dialog open={deviceDialogOpen} onOpenChange={setDeviceDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px] max-w-[calc(100vw-2rem)]">
             <DialogHeader>
-              <DialogTitle>Добавить устройство</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base md:text-lg">Добавить устройство</DialogTitle>
+              <DialogDescription className="text-sm">
                 Введите название для нового устройства
               </DialogDescription>
             </DialogHeader>
 
             <div>
-              <Label htmlFor="deviceName">Название устройства</Label>
+              <Label htmlFor="deviceName" className="text-sm">Название устройства</Label>
               <Input
                 id="deviceName"
                 placeholder="Например: Samsung Galaxy S23"
                 value={deviceForm.name}
                 onChange={(e) => setDeviceForm({ name: e.target.value })}
-                className="mt-2"
+                className="mt-2 text-sm md:text-base"
               />
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setDeviceDialogOpen(false);
                   setDeviceForm({ name: "" });
                 }}
+                className="w-full sm:w-auto"
               >
                 Отмена
               </Button>
               <Button
                 onClick={createDevice}
                 style={{ backgroundColor: "#006039", color: "white" }}
-                className="hover:opacity-90 transition-opacity"
+                className="hover:opacity-90 transition-opacity w-full sm:w-auto"
                 disabled={!deviceForm.name}
               >
                 Создать
@@ -633,44 +712,44 @@ export default function DevicesPage() {
           open={deviceTokenDialogOpen}
           onOpenChange={setDeviceTokenDialogOpen}
         >
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-w-[calc(100vw-2rem)]">
             <DialogHeader>
-              <DialogTitle>Токен устройства</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base md:text-lg">Токен устройства</DialogTitle>
+              <DialogDescription className="text-sm">
                 Сохраните этот токен в безопасном месте. Он понадобится для
                 подключения устройства.
               </DialogDescription>
             </DialogHeader>
 
             {selectedDevice && (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {/* QR Code */}
                 {qrCodeDataUrl && (
-                  <div className="flex flex-col items-center space-y-3">
-                    <div className="p-4 bg-white border-2 border-gray-200 rounded-lg">
+                  <div className="flex flex-col items-center space-y-2 md:space-y-3">
+                    <div className="p-3 md:p-4 bg-white border-2 border-gray-200 rounded-lg">
                       <img
                         src={qrCodeDataUrl}
                         alt="QR код токена устройства"
-                        className="w-48 h-48"
+                        className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48"
                       />
                     </div>
-                    <p className="text-sm text-gray-600 text-center">
+                    <p className="text-xs md:text-sm text-gray-600 text-center">
                       Отсканируйте QR код с мобильного устройства
                     </p>
                   </div>
                 )}
 
                 {/* Token Text */}
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-3 md:p-4 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-500 mb-2">
                     Токен устройства:
                   </p>
-                  <p className="font-mono text-sm break-all">
+                  <p className="font-mono text-xs md:text-sm break-all">
                     {selectedDevice.token}
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     className="flex-1"
@@ -698,6 +777,7 @@ export default function DevicesPage() {
               <Button
                 variant="outline"
                 onClick={() => setDeviceTokenDialogOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Закрыть
               </Button>

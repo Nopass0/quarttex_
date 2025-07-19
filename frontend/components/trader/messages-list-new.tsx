@@ -427,36 +427,37 @@ export function MessagesListNew() {
     <div className="space-y-6">
       {/* Header with user info */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Сообщения</h1>
+        <h1 className="text-lg md:text-xl font-semibold text-gray-900">Сообщения</h1>
 
-        <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-4">
           <TraderHeader />
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] h-4 w-4" />
           <Input
-            placeholder="Поиск по ID, пакету, тексту, устройству..."
+            placeholder="Поиск..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 border h-12 border-gray-300 rounded-lg"
+            className="pl-10 border h-10 md:h-12 text-sm md:text-base border-gray-300 rounded-lg"
           />
         </div>
 
+        <div className="flex gap-2">
         {/* Filters */}
         <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               size="default"
-              className="gap-2 h-12 px-6"
+              className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base flex-1 sm:flex-initial"
             >
-              <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-              Не выбраны
+              <SlidersHorizontal className="h-3.5 w-3.5 md:h-4 md:w-4 text-[#006039]" />
+              <span className="hidden sm:inline">Не выбраны</span>
               {(filterStatus !== "all" ||
                 filterDevice !== "all" ||
                 filterMethod !== "all" ||
@@ -485,7 +486,7 @@ export function MessagesListNew() {
               />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
+          <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[500px] max-h-[80vh] overflow-y-auto" sideOffset={5}>
             <div className="space-y-4">
               <h4 className="font-medium">Параметры поиска</h4>
 
@@ -1032,11 +1033,12 @@ export function MessagesListNew() {
             <Button
               variant="outline"
               size="default"
-              className="gap-2 h-12 px-6"
+              className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base flex-1 sm:flex-initial"
             >
-              <ArrowUpDown className="h-4 w-4 text-[#006039]" />
-              Сортировка
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+              <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-[#006039]" />
+              <span className="hidden sm:inline">Сортировка</span>
+              <span className="sm:hidden">Сорт.</span>
+              <ChevronDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-auto" sideOffset={5}>
@@ -1079,13 +1081,14 @@ export function MessagesListNew() {
             </div>
           </PopoverContent>
         </Popover>
+        </div>
       </div>
 
       {/* Messages List in ScrollArea */}
-      <ScrollArea className="h-[calc(100vh-300px)] pr-4">
-        <div className="space-y-3">
+      <ScrollArea className="h-[calc(100vh-250px)] md:h-[calc(100vh-300px)] pr-2 md:pr-4">
+        <div className="space-y-2 md:space-y-3">
           {filteredMessages.length === 0 ? (
-            <Card className="p-12 text-center text-gray-500">
+            <Card className="p-8 md:p-12 text-center text-gray-500 text-sm md:text-base">
               Сообщения не найдены
             </Card>
           ) : (
@@ -1094,12 +1097,66 @@ export function MessagesListNew() {
                 <Card
                   key={message.id}
                   className={cn(
-                    "p-4 hover:shadow-md transition-all duration-300 cursor-pointer",
+                    "p-3 md:p-4 hover:shadow-md transition-all duration-300 cursor-pointer",
                     message.isNew && "flash-once",
                   )}
                   onClick={() => setSelectedMessage(message)}
                 >
-                  <div className="flex items-center gap-4">
+                  {/* Mobile Layout */}
+                  <div className="md:hidden">
+                    <div className="space-y-2">
+                      {/* Top row: Package name, amount */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <MessageSquare className="h-5 w-5 text-gray-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">
+                              {message.packageName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {formatDateTime(message.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Amount badge */}
+                        <div className="flex-shrink-0">
+                          {message.amount && message.amount > 0 ? (
+                            <Badge
+                              variant="outline"
+                              className="px-2 py-1 text-xs font-bold border rounded-lg bg-green-50 text-green-600 border-green-200"
+                            >
+                              {message.amount.toLocaleString("ru-RU")} ₽
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="px-2 py-1 text-xs font-medium border rounded-lg bg-gray-100 text-gray-600 border-gray-200"
+                            >
+                              0 ₽
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Device info */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Smartphone className="h-3 w-3" />
+                        <span className="truncate">{message.deviceName}</span>
+                        <span>•</span>
+                        <span>{message.deviceId?.slice(0, 6)}...</span>
+                      </div>
+
+                      {/* Message text */}
+                      <div className="text-xs text-gray-600 line-clamp-2">
+                        {message.text}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Layout */}
+                  <div className="hidden md:flex items-center gap-4">
                     {/* Message Icon */}
                     <div className="flex-shrink-0">{getMessageIcon()}</div>
 
@@ -1177,7 +1234,7 @@ export function MessagesListNew() {
       >
         <DialogPortal>
           <DialogOverlay />
-          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-3xl">
+          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] sm:w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-2xl sm:rounded-3xl">
             <DialogTitle className="sr-only">Детали сообщения</DialogTitle>
             <div className="bg-white">
               {/* Header */}

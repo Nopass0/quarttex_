@@ -458,33 +458,38 @@ export default function DeviceDetailsPage() {
       <AuthLayout variant="trader">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 sm:h-10 sm:w-10"
                 onClick={() => router.push("/trader/devices")}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <h1 className="text-2xl font-semibold">Устройство</h1>
+              <h1 className="text-xl sm:text-2xl font-semibold">Устройство</h1>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => fetchDevice()}>
+            <div className="flex items-center gap-2 sm:gap-3 ml-10 sm:ml-0">
+              <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={() => fetchDevice()}>
                 <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Обновить</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-8 px-2 sm:px-3"
                 onClick={() => setShowQrDialog(true)}
               >
                 <QrCode className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">QR код</span>
               </Button>
               {device.isOnline ? (
                 <Button
                   variant="destructive"
                   size="sm"
+                  className="h-8 px-3"
                   onClick={async () => {
                     try {
                       await traderApi.stopDevice(device.id);
@@ -503,6 +508,7 @@ export default function DeviceDetailsPage() {
                 <Button
                   className="bg-[#006039] hover:bg-[#006039]/90"
                   size="sm"
+                  className="h-8 px-3"
                   onClick={async () => {
                     try {
                       await traderApi.startDevice(device.id);
@@ -522,11 +528,11 @@ export default function DeviceDetailsPage() {
           </div>
 
           {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Phone Mockup */}
-            <div className="lg:col-span-1">
-              <Card className="p-1 border-none dark:bg-[#29382f]/30">
-                <div className="relative mx-auto w-[280px] h-[560px]">
+            <div className="lg:col-span-1 order-2 lg:order-1">
+              <Card className="p-1 border-none dark:bg-[#29382f]/30 hidden sm:block">
+                <div className="relative mx-auto w-[240px] sm:w-[280px] h-[480px] sm:h-[560px]">
                   {/* Phone Frame */}
                   <div className="absolute inset-0 bg-gray-900 dark:bg-black rounded-[40px] border-[6px] border-gray-800 dark:border-gray-900">
                     {/* Side Buttons */}
@@ -618,11 +624,11 @@ export default function DeviceDetailsPage() {
             </div>
 
             {/* Device Info */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6 order-1 lg:order-2">
               {/* Info Cards */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Device Info Card */}
-                <Card className="p-6 dark:bg-[#29382f]/30">
+                <Card className="p-4 sm:p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
                     <Smartphone className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
                     <Badge
@@ -635,7 +641,7 @@ export default function DeviceDetailsPage() {
                       {device.isOnline ? "Онлайн" : "Офлайн"}
                     </Badge>
                   </div>
-                  <h2 className="text-xl font-bold mb-2 dark:text-[#eeeeee]">{device.name}</h2>
+                  <h2 className="text-lg sm:text-xl font-bold mb-2 dark:text-[#eeeeee]">{device.name}</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     Серийный номер: {device.id}
                   </p>
@@ -645,12 +651,12 @@ export default function DeviceDetailsPage() {
                 </Card>
 
                 {/* Status Card */}
-                <Card className="p-6 dark:bg-[#29382f]/30">
+                <Card className="p-4 sm:p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
                     <Activity className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
                     <span className="text-sm text-gray-500 dark:text-gray-400">Статус</span>
                   </div>
-                  <h3 className="text-lg font-bold mb-2 dark:text-[#eeeeee]">
+                  <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
                     {device.isOnline ? "В работе" : "Не в работе"}
                   </h3>
                   <Badge 
@@ -666,7 +672,7 @@ export default function DeviceDetailsPage() {
                 </Card>
 
                 {/* WiFi Status Card */}
-                <Card className="p-6 dark:bg-[#29382f]/30">
+                <Card className="p-4 sm:p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
                     {device.isOnline ? (
                       <Wifi className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
@@ -675,7 +681,7 @@ export default function DeviceDetailsPage() {
                     )}
                     <span className="text-sm text-gray-500 dark:text-gray-400">Wi-Fi</span>
                   </div>
-                  <h3 className="text-lg font-bold mb-2 dark:text-[#eeeeee]">
+                  <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
                     {device.isOnline ? "Подключено" : "Отключено"}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -688,7 +694,7 @@ export default function DeviceDetailsPage() {
                 </Card>
 
                 {/* SIM Card Info Card */}
-                <Card className="p-6 dark:bg-[#29382f]/30">
+                <Card className="p-4 sm:p-6 dark:bg-[#29382f]/30">
                   <div className="flex items-center justify-between mb-4">
                     <Globe className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
                     <span className="text-sm text-gray-500 dark:text-gray-400">Сеть</span>
@@ -706,12 +712,12 @@ export default function DeviceDetailsPage() {
               </div>
 
               {/* Requisites Section */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between mb-4">
+              <Card className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="font-semibold">Привязанные реквизиты</h3>
                   <Button
                     size="sm"
-                    className="bg-[#006039] hover:bg-[#006039]/90"
+                    className="h-8 px-3 bg-[#006039] hover:bg-[#006039]/90 w-full sm:w-auto"
                     onClick={() => setShowAddRequisiteDialog(true)}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
@@ -759,34 +765,35 @@ export default function DeviceDetailsPage() {
           {/* Tabs Section */}
           <Card>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="border-b">
-                <TabsList className="h-12 p-0 bg-transparent rounded-none w-full justify-start">
+              <div className="border-b overflow-x-auto">
+                <TabsList className="h-12 p-0 bg-transparent rounded-none w-full sm:w-auto min-w-max justify-start">
                   <TabsTrigger
                     value="messages"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-3 sm:px-6 text-xs sm:text-sm whitespace-nowrap"
                   >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Сообщения
+                    <MessageSquare className="h-4 w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Сообщения</span>
+                    <span className="sm:hidden">Сообщ.</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="deals"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-3 sm:px-6 text-xs sm:text-sm whitespace-nowrap"
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />
+                    <CreditCard className="h-4 w-4 mr-1 sm:mr-2" />
                     Сделки
                   </TabsTrigger>
                   <TabsTrigger
                     value="disputes"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-3 sm:px-6 text-xs sm:text-sm whitespace-nowrap"
                   >
-                    <Scale className="h-4 w-4 mr-2" />
+                    <Scale className="h-4 w-4 mr-1 sm:mr-2" />
                     Споры
                   </TabsTrigger>
                   <TabsTrigger
                     value="events"
-                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-6"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-[#006039] rounded-none px-3 sm:px-6 text-xs sm:text-sm whitespace-nowrap"
                   >
-                    <Clock className="h-4 w-4 mr-2" />
+                    <Clock className="h-4 w-4 mr-1 sm:mr-2" />
                     События
                   </TabsTrigger>
                 </TabsList>
@@ -794,21 +801,21 @@ export default function DeviceDetailsPage() {
 
               <TabsContent value="messages" className="p-0">
                 {/* Messages Search and Filters */}
-                <div className="p-6 pb-4 border-b">
-                  <div className="flex gap-2 mb-4">
+                <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b">
+                  <div className="flex flex-col sm:flex-row gap-2 mb-3 sm:mb-4">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         placeholder="Поиск сообщений..."
                         value={messageSearch}
                         onChange={(e) => setMessageSearch(e.target.value)}
-                        className="pl-10"
+                        className="pl-10 h-10"
                       />
                     </div>
                     <select
                       value={messageFilter}
                       onChange={(e) => setMessageFilter(e.target.value)}
-                      className="px-4 py-2 border rounded-md bg-white dark:bg-gray-800"
+                      className="px-3 sm:px-4 py-2 border rounded-md bg-white dark:bg-gray-800 h-10 text-sm"
                     >
                       <option value="all">Все сообщения</option>
                       <option value="sms">SMS</option>
@@ -818,7 +825,7 @@ export default function DeviceDetailsPage() {
                   </div>
                 </div>
                 
-                <div className="p-6 pt-4 space-y-3">
+                <div className="p-4 sm:p-6 pt-3 sm:pt-4 space-y-3">
                   {messages
                     .filter(message => {
                       const matchesSearch = message.content.toLowerCase().includes(messageSearch.toLowerCase()) ||
@@ -1223,7 +1230,7 @@ export default function DeviceDetailsPage() {
 
         {/* QR Code Dialog */}
         <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md">
             <DialogHeader>
               <DialogTitle>QR-код для подключения</DialogTitle>
               <DialogDescription>
@@ -1231,9 +1238,9 @@ export default function DeviceDetailsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex flex-col items-center space-y-4">
+            <div className="flex flex-col items-center space-y-4 py-4">
               {qrCodeUrl && (
-                <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64" />
+                <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 sm:w-64 sm:h-64" />
               )}
 
               <div className="w-full space-y-2">

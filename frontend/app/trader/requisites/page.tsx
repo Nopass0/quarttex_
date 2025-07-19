@@ -391,63 +391,68 @@ export default function TraderRequisitesPage() {
       <AuthLayout variant="trader">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 md:mb-6">
             <div>
-              <h1 className="text-2xl font-semibold">Реквизиты</h1>
-              <p className="text-gray-500">Управление платежными реквизитами</p>
+              <h1 className="text-xl md:text-2xl font-semibold">Реквизиты</h1>
+              <p className="text-sm md:text-base text-gray-500">Управление платежными реквизитами</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               <Button
                 onClick={() => setShowAddDialog(true)}
-                className="bg-[#006039] hover:bg-[#006039]/90"
+                className="bg-[#006039] hover:bg-[#006039]/90 text-sm md:text-base"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить реквизит
+                <Plus className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Добавить реквизит</span>
+                <span className="sm:hidden">Добавить</span>
               </Button>
-              <TraderHeader />
+              <div className="hidden md:block">
+                <TraderHeader />
+              </div>
             </div>
           </div>
 
           {/* Search and Filters - Sticky */}
-          <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-4 -mx-6 px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
-            <div className="flex gap-2">
+          <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-3 md:pb-4 -mx-4 md:-mx-6 px-4 md:px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
+            <div className="flex flex-col sm:flex-row gap-2">
               {/* Search */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
                 <Input
-                  placeholder="Поиск по номеру, имени, устройству..."
+                  placeholder="Поиск..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border h-12 border-gray-300 dark:border-[#29382f] rounded-lg"
+                  className="pl-10 border h-10 md:h-12 text-sm md:text-base border-gray-300 dark:border-[#29382f] rounded-lg"
                 />
               </div>
 
-              {/* Filters */}
-              <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="default"
-                    className="gap-2 h-12 px-6"
-                  >
-                    <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-                    Не выбраны
-                    {(filterStatus !== "all" || filterDevice !== "all") && (
-                      <Badge className="ml-1 bg-[#006039] text-white">
-                        {[
-                          filterStatus !== "all",
-                          filterDevice !== "all",
-                        ].filter(Boolean).length}
-                      </Badge>
-                    )}
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 transition-colors",
-                        filtersOpen ? "text-[#006039]" : "text-gray-400"
+              {/* Filters and Sort Container */}
+              <div className="flex gap-2">
+                {/* Filters */}
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base flex-1 sm:flex-initial"
+                    >
+                      <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
+                      <span className="hidden sm:inline">Не выбраны</span>
+                      {(filterStatus !== "all" || filterDevice !== "all") && (
+                        <Badge className="ml-1 bg-[#006039] text-white">
+                          {[
+                            filterStatus !== "all",
+                            filterDevice !== "all",
+                          ].filter(Boolean).length}
+                        </Badge>
                       )}
-                    />
-                  </Button>
-                </PopoverTrigger>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-colors",
+                          filtersOpen ? "text-[#006039]" : "text-gray-400"
+                        )}
+                      />
+                    </Button>
+                  </PopoverTrigger>
                 <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
                   <div className="space-y-4">
                     <h4 className="font-medium text-">Параметры поиска</h4>
@@ -648,24 +653,26 @@ export default function TraderRequisitesPage() {
                 </PopoverContent>
               </Popover>
 
-              {/* Sort Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2 h-12 px-6">
-                    <ArrowUpDown className="h-4 w-4 text-[#006039]" />
-                    {sortOrder === "newest" ? "Сначала новые" : "Сначала старые"}
-                    <ChevronDown className="h-4 w-4 text-gray-500" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSortOrder("newest")}>
-                    Сначала новые
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
-                    Сначала старые
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                {/* Sort Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base flex-1 sm:flex-initial">
+                      <ArrowUpDown className="h-4 w-4 text-[#006039]" />
+                      <span className="hidden sm:inline">{sortOrder === "newest" ? "Сначала новые" : "Сначала старые"}</span>
+                      <span className="sm:hidden">{sortOrder === "newest" ? "Новые" : "Старые"}</span>
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSortOrder("newest")}>
+                      Сначала новые
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
+                      Сначала старые
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -732,10 +739,86 @@ export default function TraderRequisitesPage() {
                   />
 
                   <Card
-                    className="pl-12 pr-4 py-4 hover:shadow-md transition-all duration-300 cursor-pointer border-gray-100"
+                    className="pl-10 md:pl-12 pr-3 md:pr-4 py-3 md:py-4 hover:shadow-md transition-all duration-300 cursor-pointer border-gray-100"
                     onClick={() => setSelectedRequisiteForInfo(requisite)}
                   >
-                    <div className="flex items-center gap-4">
+                    {/* Mobile Layout */}
+                    <div className="md:hidden">
+                      <div className="space-y-3">
+                        {/* Top Row: Bank Logo, Name, Device, Status */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {/* Bank Logo */}
+                            <div className="flex-shrink-0">
+                              <Image
+                                src={`/bank-logos/${getBankLogo(requisite.bankType)}`}
+                                alt={requisite.bankType}
+                                width={28}
+                                height={28}
+                                className="object-contain"
+                              />
+                            </div>
+
+                            {/* Name and Device */}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900 text-sm truncate">
+                                {requisite.recipientName}
+                              </div>
+                              {requisite.device && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Smartphone className="h-3 w-3 text-green-600" />
+                                  <span className="text-xs text-green-600 truncate">
+                                    {requisite.device.name}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex-shrink-0">
+                            {!requisite.isArchived &&
+                            requisite.hasDevice &&
+                            requisite.device?.isOnline ? (
+                              <Badge className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-1">
+                                В работе
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs px-2 py-1">
+                                Выключен
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Number */}
+                        <div className="flex items-center gap-2">
+                          {paymentSystem !== "unknown" && (
+                            <PaymentSystemIcon system={paymentSystem} />
+                          )}
+                          <span className="font-medium text-gray-900 text-sm">
+                            {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
+                          </span>
+                        </div>
+
+                        {/* Success Rate */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">
+                              Успешные сделки: {requisite.successfulDeals || 0} из{" "}
+                              {requisite.totalDeals || 0}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {successRate.toFixed(0)}%
+                            </span>
+                          </div>
+                          <Progress value={successRate} className="h-1.5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop Layout */}
+                    <div className="hidden md:flex items-center gap-4">
                       {/* Bank Logo */}
                       <div className="flex-shrink-0">
                         <Image
@@ -820,16 +903,16 @@ export default function TraderRequisitesPage() {
 
         {/* Add Requisite Dialog */}
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Добавить реквизит</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base md:text-lg">Добавить реквизит</DialogTitle>
+              <DialogDescription className="text-sm">
                 Заполните данные для добавления нового платежного реквизита
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-3 md:gap-4 py-3 md:py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <Label htmlFor="method">Метод</Label>
                   <Select
@@ -880,9 +963,9 @@ export default function TraderRequisitesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <Label htmlFor="cardNumber">Номер карты</Label>
+                  <Label htmlFor="cardNumber" className="text-sm">Номер карты</Label>
                   <Input
                     id="cardNumber"
                     placeholder="0000 0000 0000 0000"
@@ -893,11 +976,12 @@ export default function TraderRequisitesPage() {
                         cardNumber: e.target.value,
                       })
                     }
+                    className="text-sm md:text-base"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="phoneNumber">Номер телефона</Label>
+                  <Label htmlFor="phoneNumber" className="text-sm">Номер телефона</Label>
                   <Input
                     id="phoneNumber"
                     placeholder="+7 900 000 00 00"
@@ -908,12 +992,13 @@ export default function TraderRequisitesPage() {
                         phoneNumber: e.target.value,
                       })
                     }
+                    className="text-sm md:text-base"
                   />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="recipientName">Имя получателя</Label>
+                <Label htmlFor="recipientName" className="text-sm">Имя получателя</Label>
                 <Input
                   id="recipientName"
                   placeholder="Иван Иванович И."
@@ -924,12 +1009,13 @@ export default function TraderRequisitesPage() {
                       recipientName: e.target.value,
                     })
                   }
+                  className="text-sm md:text-base"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <Label htmlFor="minAmount">Мин. сумма транзакции</Label>
+                  <Label htmlFor="minAmount" className="text-sm">Мин. сумма транзакции</Label>
                   <Input
                     id="minAmount"
                     type="number"
@@ -940,11 +1026,12 @@ export default function TraderRequisitesPage() {
                         minAmount: parseInt(e.target.value) || 0,
                       })
                     }
+                    className="text-sm md:text-base"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="maxAmount">Макс. сумма транзакции</Label>
+                  <Label htmlFor="maxAmount" className="text-sm">Макс. сумма транзакции</Label>
                   <Input
                     id="maxAmount"
                     type="number"
@@ -955,13 +1042,14 @@ export default function TraderRequisitesPage() {
                         maxAmount: parseInt(e.target.value) || 0,
                       })
                     }
+                    className="text-sm md:text-base"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <Label htmlFor="dailyLimit">Дневной лимит</Label>
+                  <Label htmlFor="dailyLimit" className="text-sm">Дневной лимит</Label>
                   <Input
                     id="dailyLimit"
                     type="number"
@@ -972,11 +1060,12 @@ export default function TraderRequisitesPage() {
                         dailyLimit: parseInt(e.target.value) || 0,
                       })
                     }
+                    className="text-sm md:text-base"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="monthlyLimit">Месячный лимит</Label>
+                  <Label htmlFor="monthlyLimit" className="text-sm">Месячный лимит</Label>
                   <Input
                     id="monthlyLimit"
                     type="number"
@@ -987,12 +1076,13 @@ export default function TraderRequisitesPage() {
                         monthlyLimit: parseInt(e.target.value) || 0,
                       })
                     }
+                    className="text-sm md:text-base"
                   />
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="device">
+                <Label htmlFor="device" className="text-sm">
                   Привязать к устройству (опционально)
                 </Label>
                 <Select
@@ -1001,7 +1091,7 @@ export default function TraderRequisitesPage() {
                     setRequisiteForm({ ...requisiteForm, deviceId: value })
                   }
                 >
-                  <SelectTrigger id="device">
+                  <SelectTrigger id="device" className="text-sm md:text-base">
                     <SelectValue placeholder="Выберите устройство" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1016,12 +1106,16 @@ export default function TraderRequisitesPage() {
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAddDialog(false)}
+                className="w-full sm:w-auto"
+              >
                 Отмена
               </Button>
               <Button
-                className="bg-[#006039] hover:bg-[#006039]/90"
+                className="bg-[#006039] hover:bg-[#006039]/90 w-full sm:w-auto"
                 onClick={handleCreateRequisite}
                 disabled={addingRequisite}
               >

@@ -1050,7 +1050,7 @@ export function DealsList() {
                 />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
+            <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[500px] max-h-[80vh] overflow-y-auto" sideOffset={5}>
               <div className="space-y-4">
                 <h4 className="font-medium text-">Параметры поиска</h4>
 
@@ -1628,11 +1628,12 @@ export function DealsList() {
               <Button
                 variant="outline"
                 size="default"
-                className="gap-2 h-12 px-6"
+                className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base"
               >
-                <ArrowUpDown className="h-4 w-4 text-[#006039]" />
-                Сортировка
-                <ChevronDown className="h-4 w-4 text-gray-400" />
+                <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-[#006039]" />
+                <span className="hidden sm:inline">Сортировка</span>
+                <span className="sm:hidden">Сорт.</span>
+                <ChevronDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-auto" sideOffset={5}>

@@ -97,11 +97,6 @@ const traderNavItems: NavItem[] = [
       },
     ],
   },
-  {
-    title: "Настройки",
-    href: "/trader/settings",
-    icon: Settings,
-  },
 ];
 
 const adminNavItems: NavItem[] = [

@@ -343,10 +343,10 @@ export default function TraderDashboardPage() {
           {/* Finance Section - Copied from deals page */}
           <section className="space-y-4">
             {/* Stats Blocks */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
               {/* Deals Stats */}
-              <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
-                <div className="flex items-start justify-between">
+              <Card className="p-3 md:p-4 border border-gray-200 dark:border-[#29382f]">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <h3 className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1 md:mb-2">
                       Сделки ({dashboardData?.financialStats.deals.count || 0})
@@ -367,7 +367,7 @@ export default function TraderDashboardPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="text-xs">
+                      <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
                         Период: {periodLabels[period]}
                         <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                       </Button>
@@ -413,8 +413,8 @@ export default function TraderDashboardPage() {
               </Card>
 
               {/* Profit Stats */}
-              <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
-                <div className="flex items-start justify-between">
+              <Card className="p-3 md:p-4 border border-gray-200 dark:border-[#29382f]">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <h3 className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1 md:mb-2">Прибыль</h3>
                     <div className="space-y-1">
@@ -428,7 +428,7 @@ export default function TraderDashboardPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="text-xs">
+                      <Button variant="outline" size="sm" className="text-xs w-full sm:w-auto">
                         Период: {periodLabels[period]}
                         <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                       </Button>
