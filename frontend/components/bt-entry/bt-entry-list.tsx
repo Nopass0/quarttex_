@@ -2040,39 +2040,6 @@ export function BtEntryList() {
                       </div>
                     </div>
 
-                    {/* Device */}
-                    {selectedTransaction.method && (
-                      <div className="pt-3 border-t dark:border-gray-700">
-                        <Button
-                          variant="ghost"
-                          className="w-full p-3 h-auto justify-between hover:bg-gray-50 dark:hover:bg-gray-700 -mx-3"
-                          onClick={() => {
-                            if (selectedTransaction.deviceId) {
-                              router.push(
-                                `/trader/devices/${selectedTransaction.deviceId}`,
-                              );
-                            } else {
-                              toast.error("ID устройства не найден");
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                              <Smartphone className="h-5 w-5 text-[#006039] dark:text-green-400" />
-                            </div>
-                            <div className="text-left">
-                              <p className="text-sm font-medium dark:text-white">
-                                {selectedTransaction.method.id}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {selectedTransaction.method.name}
-                              </p>
-                            </div>
-                          </div>
-                          <ChevronDown className="h-5 w-5 text-[#006039] dark:text-green-400 -rotate-90" />
-                        </Button>
-                      </div>
-                    )}
                   </div>
 
                   {/* Action Button */}
