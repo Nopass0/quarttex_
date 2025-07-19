@@ -55,6 +55,7 @@ export function RequisitesDialog({
 }: RequisitesDialogProps) {
   const [loading, setLoading] = useState(false);
   const [methods, setMethods] = useState<any[]>([]);
+  const [selectedMethodType, setSelectedMethodType] = useState<"sbp" | "c2c" | "">("")
   const [formData, setFormData] = useState({
     recipientName: "",
     cardNumber: "",
@@ -85,16 +86,33 @@ export function RequisitesDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.recipientName || !formData.cardNumber || !formData.bankType) {
+    if (!formData.recipientName || !formData.methodId) {
       toast.error("Пожалуйста, заполните все обязательные поля");
       return;
     }
 
-    // Validate card number (16 digits)
-    const cleanCardNumber = formData.cardNumber.replace(/\s/g, "");
-    if (cleanCardNumber.length !== 16 || !/^\d+$/.test(cleanCardNumber)) {
-      toast.error("Номер карты должен содержать 16 цифр");
-      return;
+    // Validate based on method type
+    if (selectedMethodType === "c2c") {
+      if (!formData.cardNumber || !formData.bankType) {
+        toast.error("Пожалуйста, заполните номер карты и выберите банк");
+        return;
+      }
+      const cleanCardNumber = formData.cardNumber.replace(/\s/g, "");
+      if (cleanCardNumber.length !== 16 || !/^\d+$/.test(cleanCardNumber)) {
+        toast.error("Номер карты должен содержать 16 цифр");
+        return;
+      }
+    } else if (selectedMethodType === "sbp") {
+      if (!formData.phoneNumber) {
+        toast.error("Пожалуйста, введите номер телефона для СБП");
+        return;
+      }
+      // Basic phone validation
+      const cleanPhone = formData.phoneNumber.replace(/[^\d+]/g, "");
+      if (cleanPhone.length < 10) {
+        toast.error("Введите корректный номер телефона");
+        return;
+      }
     }
 
     setLoading(true);
@@ -102,9 +120,8 @@ export function RequisitesDialog({
     try {
       const payload: any = {
         recipientName: formData.recipientName,
-        cardNumber: cleanCardNumber,
-        bankType: formData.bankType,
-        methodType: "c2c",
+        methodType: selectedMethodType,
+        methodId: formData.methodId,
         minAmount: parseInt(formData.minAmount),
         maxAmount: parseInt(formData.maxAmount),
         dailyLimit: parseInt(formData.dailyLimit),
@@ -112,12 +129,14 @@ export function RequisitesDialog({
         intervalMinutes: 5,
       };
 
-      // Add optional fields
-      if (formData.phoneNumber) {
+      // Add method-specific fields
+      if (selectedMethodType === "c2c") {
+        const cleanCardNumber = formData.cardNumber.replace(/\s/g, "");
+        payload.cardNumber = cleanCardNumber;
+        payload.bankType = formData.bankType;
+      } else if (selectedMethodType === "sbp") {
         payload.phoneNumber = formData.phoneNumber;
-      }
-      if (formData.methodId) {
-        payload.methodId = formData.methodId;
+        payload.bankType = "SBP";
       }
 
       console.log('Creating requisite with payload:', payload);
@@ -179,63 +198,75 @@ export function RequisitesDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cardNumber">Номер карты</Label>
-            <Input
-              id="cardNumber"
-              placeholder="0000 0000 0000 0000"
-              value={formData.cardNumber}
-              onChange={(e) => {
-                const formatted = formatCardNumber(e.target.value);
-                if (formatted.replace(/\s/g, "").length <= 16) {
-                  setFormData({ ...formData, cardNumber: formatted });
-                }
-              }}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bankType">Банк *</Label>
-            <Combobox
-              options={bankTypes}
-              value={formData.bankType}
-              onValueChange={(value) =>
-                setFormData({ ...formData, bankType: value })
-              }
-              placeholder="Выберите банк"
-              searchPlaceholder="Поиск банка..."
-              emptyText="Банк не найден"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phoneNumber">Номер телефона (опционально)</Label>
-            <Input
-              id="phoneNumber"
-              placeholder="+7 (999) 999-99-99"
-              value={formData.phoneNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, phoneNumber: e.target.value })
-              }
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="methodId">Метод платежа (опционально)</Label>
+            <Label htmlFor="methodId">Метод платежа *</Label>
             <Combobox
               options={methods.map(m => ({ value: m.id, label: m.name }))}
               value={formData.methodId}
-              onValueChange={(value) =>
-                setFormData({ ...formData, methodId: value })
-              }
+              onValueChange={(value) => {
+                setFormData({ ...formData, methodId: value });
+                // Determine method type based on selected method
+                const method = methods.find(m => m.id === value);
+                if (method) {
+                  const methodType = method.name.toLowerCase().includes('сбп') || method.name.toLowerCase().includes('sbp') ? 'sbp' : 'c2c';
+                  setSelectedMethodType(methodType);
+                }
+              }}
               placeholder="Выберите метод"
               searchPlaceholder="Поиск метода..."
               emptyText="Метод не найден"
               disabled={loading}
             />
           </div>
+
+          {selectedMethodType === "c2c" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="cardNumber">Номер карты *</Label>
+                <Input
+                  id="cardNumber"
+                  placeholder="0000 0000 0000 0000"
+                  value={formData.cardNumber}
+                  onChange={(e) => {
+                    const formatted = formatCardNumber(e.target.value);
+                    if (formatted.replace(/\s/g, "").length <= 16) {
+                      setFormData({ ...formData, cardNumber: formatted });
+                    }
+                  }}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bankType">Банк *</Label>
+                <Combobox
+                  options={bankTypes}
+                  value={formData.bankType}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, bankType: value })
+                  }
+                  placeholder="Выберите банк"
+                  searchPlaceholder="Поиск банка..."
+                  emptyText="Банк не найден"
+                  disabled={loading}
+                />
+              </div>
+            </>
+          )}
+
+          {selectedMethodType === "sbp" && (
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Номер телефона *</Label>
+              <Input
+                id="phoneNumber"
+                placeholder="+7 (999) 999-99-99"
+                value={formData.phoneNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, phoneNumber: e.target.value })
+                }
+                disabled={loading}
+              />
+            </div>
+          )}
 
           <Separator />
 
