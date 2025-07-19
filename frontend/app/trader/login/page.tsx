@@ -69,20 +69,20 @@ export default function TraderLoginPage() {
   
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f0f0f] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8 bg-white dark:bg-[#29382f] shadow-lg border-gray-200 dark:border-[#29382f]">
-        <div className="flex flex-col items-center mb-8">
-          <Logo size="lg" />
-          <h1 className="mt-6 text-2xl font-semibold text-gray-900 dark:text-[#eeeeee]">
+      <Card className="w-full max-w-md p-6 md:p-8 bg-white dark:bg-[#29382f] shadow-lg border-gray-200 dark:border-[#29382f]">
+        <div className="flex flex-col items-center mb-6 md:mb-8">
+          <Logo size="lg" className="scale-75 md:scale-100" />
+          <h1 className="mt-4 md:mt-6 text-xl md:text-2xl font-semibold text-gray-900 dark:text-[#eeeeee]">
             Вход в личный кабинет
           </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-xs md:text-sm text-gray-600 dark:text-gray-400 text-center px-4">
             Введите ваши данные для входа в систему
           </p>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           <div>
-            <Label htmlFor="email" className="text-sm font-medium">
+            <Label htmlFor="email" className="text-xs md:text-sm font-medium">
               Email
             </Label>
             <div className="mt-1 relative">
@@ -93,14 +93,14 @@ export default function TraderLoginPage() {
                 placeholder="trader@example.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="pl-10"
+                className="pl-10 h-10 md:h-11 text-sm md:text-base"
                 disabled={loading}
               />
             </div>
           </div>
           
           <div>
-            <Label htmlFor="password" className="text-sm font-medium">
+            <Label htmlFor="password" className="text-xs md:text-sm font-medium">
               Пароль
             </Label>
             <div className="mt-1 relative">
@@ -111,7 +111,7 @@ export default function TraderLoginPage() {
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="pl-10"
+                className="pl-10 h-10 md:h-11 text-sm md:text-base"
                 disabled={loading}
               />
             </div>
@@ -119,7 +119,7 @@ export default function TraderLoginPage() {
           
           <Button
             type="submit"
-            className="w-full bg-[#006039] hover:bg-[#004d2e] dark:bg-[#2d6a42] dark:hover:bg-[#236035]"
+            className="w-full bg-[#006039] hover:bg-[#004d2e] dark:bg-[#2d6a42] dark:hover:bg-[#236035] h-10 md:h-11 text-sm md:text-base"
             disabled={loading}
           >
             {loading ? (
@@ -133,7 +133,7 @@ export default function TraderLoginPage() {
           </Button>
         </form>
         
-        <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+        <div className="mt-4 md:mt-6 text-center text-xs md:text-sm text-gray-600 dark:text-gray-400">
           <p>
             Нет аккаунта?{" "}
             <a href="#" className="text-[#006039] dark:text-[#2d6a42] hover:text-[#004d2e] dark:hover:text-[#236035] font-medium">

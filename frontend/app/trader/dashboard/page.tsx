@@ -348,14 +348,14 @@ export default function TraderDashboardPage() {
               <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <h3 className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1 md:mb-2">
                       Сделки ({dashboardData?.financialStats.deals.count || 0})
                     </h3>
                     <div className="space-y-1">
-                      <div className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
+                      <div className="text-lg md:text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
                         {(dashboardData?.financialStats.deals.amount || 0).toFixed(2)} USDT
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                         {(dashboardData?.financialStats.deals.amountRub || 0).toFixed(0)} RUB
                       </div>
                       {(dashboardData?.financialStats.deals.count || 0) === 0 && (
@@ -416,12 +416,12 @@ export default function TraderDashboardPage() {
               <Card className="p-4 border border-gray-200 dark:border-[#29382f]">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-sm text-gray-600 dark:text-gray-400 mb-2">Прибыль</h3>
+                    <h3 className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-1 md:mb-2">Прибыль</h3>
                     <div className="space-y-1">
-                      <div className="text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
+                      <div className="text-lg md:text-xl font-semibold text-gray-900 dark:text-[#eeeeee]">
                         {(dashboardData?.financialStats.profit.amount || 0).toFixed(2)} USDT
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                         {(dashboardData?.financialStats.profit.amountRub || 0).toFixed(0)} RUB
                       </div>
                     </div>
@@ -478,8 +478,8 @@ export default function TraderDashboardPage() {
           {/* Two column layout for middle sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Events */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-medium">Последние события</h2>
+            <section className="space-y-3 md:space-y-4">
+              <h2 className="text-base md:text-lg font-medium">Последние события</h2>
               <Card className="overflow-hidden border-gray-200">
                 <div className="divide-y divide-gray-100">
                   {loading ? (
@@ -512,10 +512,10 @@ export default function TraderDashboardPage() {
                                 )}
                               />
                               <div className="flex-1">
-                                <p className="text-sm font-semibold text-gray-900">
+                                <p className="text-xs md:text-sm font-semibold text-gray-900">
                                   {eventInfo.title}
                                 </p>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-xs md:text-sm text-gray-600">
                                   {event.description}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
@@ -536,14 +536,14 @@ export default function TraderDashboardPage() {
             </section>
 
             {/* Devices */}
-            <section className="space-y-4">
+            <section className="space-y-3 md:space-y-4">
               <Link
                 href="/trader/devices"
                 className="flex items-center justify-between group"
               >
-                <h2 className="text-lg font-medium">Устройства</h2>
+                <h2 className="text-base md:text-lg font-medium">Устройства</h2>
                 <div className="flex items-center gap-1 text-[#006039]">
-                  <span className="text-sm">Показать все</span>
+                  <span className="text-xs md:text-sm">Показать все</span>
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -594,8 +594,8 @@ export default function TraderDashboardPage() {
 
                             {/* Device Name and ID */}
                             <div>
-                              <h3 className="font-semibold text-base dark:text-[#eeeeee]">{device.name}</h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                              <h3 className="font-semibold text-sm md:text-base dark:text-[#eeeeee]">{device.name}</h3>
+                              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                 ID: {device.numericId || device.id || "N/A"}
                               </p>
                             </div>
@@ -660,10 +660,10 @@ export default function TraderDashboardPage() {
                               <MessageSquare className="h-5 w-5 text-yellow-600" />
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-gray-900">
+                              <p className="text-xs md:text-sm font-semibold text-gray-900">
                                 {dispute.entityId}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-xs md:text-sm text-gray-600">
                                 {dispute.reason}
                               </p>
                               <p className="text-xs text-gray-500">
@@ -828,85 +828,119 @@ export default function TraderDashboardPage() {
                       className="p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700"
                       onClick={() => window.location.href = `/trader/deals?id=${deal.id}`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 md:gap-4">
                         {/* Status Icon */}
-                        <div className="flex-shrink-0">{getStatusIcon()}</div>
+                        <div className="flex-shrink-0 hidden md:block">{getStatusIcon()}</div>
 
-                        {/* Transaction ID and Method */}
-                        <div className="w-24 flex-shrink-0">
-                          <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
-                            {deal.numericId}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {deal.method?.name || "—"}
-                          </div>
-                        </div>
-
-                        {/* Payment Status and Date */}
-                        <div className="w-48 flex-shrink-0">
-                          <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
-                            {getPaymentStatus()}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Создан{" "}
-                            {format(
-                              new Date(deal.createdAt),
-                              "HH:mm dd.MM.yyyy",
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Bank and Requisites */}
-                        <div className="w-64 flex-shrink-0">
-                          <div className="flex items-center gap-3">
-                            {deal.requisites?.bankType ? (
-                              getBankIcon(deal.requisites.bankType)
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
-                                <CreditCard className="w-5 h-5 text-gray-600" />
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
-                                {deal.requisites?.cardNumber || "—"}
+                        {/* Mobile layout */}
+                        <div className="md:hidden flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                                {deal.numericId}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 {deal.clientName}
                               </div>
                             </div>
+                            <div className="text-right">
+                              <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                                {usdtAmount} USDT
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {deal.amount.toLocaleString("ru-RU")} ₽
+                              </div>
+                            </div>
                           </div>
-                        </div>
-
-                        {/* Amount */}
-                        <div className="w-32 flex-shrink-0">
-                          <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
-                            {usdtAmount} USDT
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {deal.amount.toLocaleString("ru-RU")} ₽
-                          </div>
-                        </div>
-
-                        {/* Rate */}
-                        <div className="w-32 flex-shrink-0">
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {deal.rate
-                              ? `${deal.rate.toFixed(2)} ₽/USDT`
-                              : "—"}
-                          </div>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div className="flex-1">
                           <Badge
                             variant="outline"
                             className={cn(
-                              "px-4 py-2 text-sm font-medium border rounded-xl inline-block min-w-[100px] text-center",
+                              "mt-2 px-2 py-1 text-xs font-medium border rounded-md",
                               getStatusBadgeColor(),
                             )}
                           >
                             {getStatusBadgeText()}
                           </Badge>
+                        </div>
+
+                        {/* Desktop layout */}
+                        <div className="hidden md:flex md:items-center md:gap-4 md:flex-1">
+                          {/* Transaction ID and Method */}
+                          <div className="w-24 flex-shrink-0">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                              {deal.numericId}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {deal.method?.name || "—"}
+                            </div>
+                          </div>
+
+                          {/* Payment Status and Date */}
+                          <div className="w-48 flex-shrink-0">
+                            <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
+                              {getPaymentStatus()}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Создан{" "}
+                              {format(
+                                new Date(deal.createdAt),
+                                "HH:mm dd.MM.yyyy",
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Bank and Requisites */}
+                          <div className="w-64 flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                              {deal.requisites?.bankType ? (
+                                getBankIcon(deal.requisites.bankType)
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                  <CreditCard className="w-5 h-5 text-gray-600" />
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
+                                  {deal.requisites?.cardNumber || "—"}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  {deal.clientName}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Amount */}
+                          <div className="w-32 flex-shrink-0">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                              {usdtAmount} USDT
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {deal.amount.toLocaleString("ru-RU")} ₽
+                            </div>
+                          </div>
+
+                          {/* Rate */}
+                          <div className="w-32 flex-shrink-0 hidden lg:block">
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              {deal.rate
+                                ? `${deal.rate.toFixed(2)} ₽/USDT`
+                                : "—"}
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex-1">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "px-4 py-2 text-sm font-medium border rounded-xl inline-block min-w-[100px] text-center",
+                                getStatusBadgeColor(),
+                              )}
+                            >
+                              {getStatusBadgeText()}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </Card>
