@@ -212,6 +212,36 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
   const [isDragging, setIsDragging] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    if (isOpen) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Restore scroll position
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+      }
+    }
+
+    // Cleanup
+    return () => {
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   // Get auth hooks based on variant
   const getAuthHooks = () => {
     switch (variant) {
@@ -290,6 +320,7 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
     const diff = currentY - touchStart;
     
     if (diff > 10) {
+      e.preventDefault(); // Prevent page scroll
       setIsDragging(true);
       setTouchY(currentY);
     }
@@ -343,7 +374,8 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-3xl shadow-xl md:hidden max-h-[90vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-3xl shadow-xl md:hidden max-h-[90vh] flex flex-col touch-none"
+            style={{ touchAction: 'none' }}
           >
             {/* Handle bar */}
             <div className="flex justify-center pt-2 pb-2">
@@ -389,7 +421,7 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
             </div>
 
             {/* Navigation items */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
               <nav className="space-y-1">
                 {navItems.map((item) => {
                   const Icon = item.icon;
