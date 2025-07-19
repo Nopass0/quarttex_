@@ -157,7 +157,7 @@ export function RequisitesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Добавить реквизит</DialogTitle>
           <DialogDescription>
@@ -239,7 +239,7 @@ export function RequisitesDialog({
 
           <Separator />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="minAmount">Мин. сумма (₽)</Label>
               <Input
@@ -269,7 +269,7 @@ export function RequisitesDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="dailyLimit">Дневной лимит (₽)</Label>
               <Input

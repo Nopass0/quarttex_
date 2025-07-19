@@ -96,7 +96,7 @@ export function RequisitesListDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-2xl max-h-[90vh]">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-2xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Реквизиты без устройств</DialogTitle>
             <DialogDescription>
@@ -133,7 +133,7 @@ export function RequisitesListDialog({
                 </Button>
               </div>
             ) : (
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[300px] sm:h-[400px] pr-2 sm:pr-4">
                 <div className="space-y-3">
                   {requisites.map((req) => (
                     <Card
@@ -143,7 +143,7 @@ export function RequisitesListDialog({
                         req.isArchived && "opacity-60"
                       )}
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex items-start gap-3 flex-1">
                           <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
                             <CreditCard className="h-5 w-5 text-[#006039]" />
@@ -166,17 +166,18 @@ export function RequisitesListDialog({
                                 Метод: {req.method.name}
                               </p>
                             )}
-                            <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                            <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
                               <span>Мин: {req.minAmount.toLocaleString()} ₽</span>
                               <span>Макс: {req.maxAmount.toLocaleString()} ₽</span>
-                              <span>Дневной: {req.dailyLimit.toLocaleString()} ₽</span>
+                              <span className="hidden sm:inline">Дневной: {req.dailyLimit.toLocaleString()} ₽</span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="w-full sm:w-auto"
                             onClick={() => toggleRequisiteStatus(req.id, req.isArchived)}
                           >
                             {req.isArchived ? "Активировать" : "Архивировать"}
@@ -184,7 +185,7 @@ export function RequisitesListDialog({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 w-full sm:w-auto"
                             onClick={() => deleteRequisite(req.id)}
                           >
                             <Trash2 className="h-4 w-4" />

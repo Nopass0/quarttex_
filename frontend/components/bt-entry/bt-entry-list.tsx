@@ -822,7 +822,7 @@ export function BtEntryList() {
       </div>
 
       {/* Stats Blocks */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
         {/* Deals Stats */}
         <Card className="p-3 md:p-4 border border-gray-200 dark:border-[#29382f]">
           <div className="flex items-start justify-between">
@@ -847,7 +847,7 @@ export function BtEntryList() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs">
-                  Период: {period === "today" ? "за сегодня" : 
+                  <span className="hidden sm:inline">Период: </span>{period === "today" ? "за сегодня" : 
                           period === "yesterday" ? "за вчера" :
                           period === "week" ? "за неделю" :
                           period === "month" ? "за месяц" :
@@ -857,7 +857,7 @@ export function BtEntryList() {
                   <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-0" align="end">
+              <PopoverContent className="w-48 p-0" align="end" alignOffset={-10}>
                 <div className="max-h-64 overflow-auto">
                   <Button
                     variant="ghost"
@@ -940,7 +940,7 @@ export function BtEntryList() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs">
-                  Период: {period === "today" ? "за сегодня" : 
+                  <span className="hidden sm:inline">Период: </span>{period === "today" ? "за сегодня" : 
                           period === "yesterday" ? "за вчера" :
                           period === "week" ? "за неделю" :
                           period === "month" ? "за месяц" :
@@ -950,7 +950,7 @@ export function BtEntryList() {
                   <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-0" align="end">
+              <PopoverContent className="w-48 p-0" align="end" alignOffset={-10}>
                 <div className="max-h-64 overflow-auto">
                   <Button
                     variant="ghost"
@@ -1068,7 +1068,7 @@ export function BtEntryList() {
                 />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
+            <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[500px]" sideOffset={5}>
               <div className="space-y-4">
                 <h4 className="font-medium text-">Параметры поиска</h4>
 
@@ -1098,7 +1098,7 @@ export function BtEntryList() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-[465px]  p-0"
+                      className="w-[calc(100vw-3rem)] sm:w-[465px] p-0"
                       align="start"
                       sideOffset={5}
                     >
@@ -1280,7 +1280,7 @@ export function BtEntryList() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-[465px]  p-0"
+                      className="w-[calc(100vw-3rem)] sm:w-[465px] p-0"
                       align="start"
                       sideOffset={5}
                     >
