@@ -17,6 +17,8 @@ import traderRoutes from "@/routes/trader";
 import deviceRoutes from "@/routes/trader/device";
 import agentRoutes from "@/routes/agent";
 import appDownloadRoutes from "@/routes/public/app-download";
+import appStaticRoutes from "@/routes/public/app-static";
+import appPageRoutes from "@/routes/public/app-page";
 import supportRoutes from "@/routes/support";
 import payoutWebSocketRoutes from "@/routes/websocket/payouts";
 import { disputeWebSocketRoutes } from "@/routes/websocket/disputes";
@@ -265,7 +267,7 @@ const app = new Elysia({ prefix: "/api" })
   .group("/device", (app) => app.use(deviceRoutes))
   .group("/trader", (app) => app.use(traderRoutes))
   .group("/wellbit", (app) => app.use(wellbitRoutes))
-  .group("/app", (app) => app.use(appDownloadRoutes))
+  .group("/app", (app) => app.use(appDownloadRoutes).use(appStaticRoutes).use(appPageRoutes))
   .group("/support", (app) => app.use(supportRoutes))
   .use(agentRoutes)
   .use(payoutWebSocketRoutes)

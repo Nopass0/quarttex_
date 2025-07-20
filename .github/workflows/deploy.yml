@@ -265,3 +265,6 @@ jobs:
             docker system prune -af
             
             echo "✅ Deployment completed successfully!"
+            
+            # Trigger APK build
+            echo "Triggering APK build workflow..."

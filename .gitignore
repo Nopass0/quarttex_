@@ -94,3 +94,19 @@ next-env.d.ts
 
 # Temporary - websocket server
 websocket-server/
+
+# Android build files
+apk/build/
+apk/.gradle/
+apk/app/build/
+apk/local.properties
+apk/.idea/
+apk/*.iml
+apk/**/*.iml
+apk/app/*.apk
+apk/gradle/wrapper/gradle-wrapper.jar
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
