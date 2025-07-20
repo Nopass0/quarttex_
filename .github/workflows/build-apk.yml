@@ -74,6 +74,14 @@ jobs:
         name: chase-mobile-apk
         path: chase-mobile-*.apk
 
+    - name: Create Git Tag
+      if: github.event_name == 'push'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a v${{ steps.version.outputs.version_name }} -m "Release v${{ steps.version.outputs.version_name }}"
+        git push origin v${{ steps.version.outputs.version_name }}
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: github.event_name == 'push'
