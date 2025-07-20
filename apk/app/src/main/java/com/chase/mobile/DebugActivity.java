@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
@@ -38,9 +40,19 @@ public class DebugActivity extends AppCompatActivity {
     private void displayDebugInfo() {
         StringBuilder info = new StringBuilder();
         
+        String versionName = "Unknown";
+        int versionCode = 0;
+        try {
+            PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            versionName = pInfo.versionName;
+            versionCode = pInfo.versionCode;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        
         info.append("=== ИНФОРМАЦИЯ О ПРИЛОЖЕНИИ ===\n");
-        info.append("Версия: ").append(BuildConfig.VERSION_NAME).append("\n");
-        info.append("Код версии: ").append(BuildConfig.VERSION_CODE).append("\n");
+        info.append("Версия: ").append(versionName).append("\n");
+        info.append("Код версии: ").append(versionCode).append("\n");
         info.append("Тип сборки: ").append(BuildConfig.BUILD_TYPE).append("\n");
         info.append("Базовый URL: ").append(BuildConfig.BASE_URL).append("\n\n");
         

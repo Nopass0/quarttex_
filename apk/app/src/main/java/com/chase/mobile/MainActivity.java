@@ -168,7 +168,11 @@ public class MainActivity extends AppCompatActivity {
         request.networkInfo = DeviceUtils.getNetworkInfo(this);
         request.deviceModel = DeviceUtils.getDeviceModel();
         request.androidVersion = DeviceUtils.getAndroidVersion();
-        request.appVersion = BuildConfig.VERSION_NAME;
+        try {
+            request.appVersion = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            request.appVersion = "1.0.0";
+        }
         
         deviceApi.connect(request).enqueue(new Callback<ConnectResponse>() {
             @Override
