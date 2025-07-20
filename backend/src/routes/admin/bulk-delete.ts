@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { adminGuard } from "@/guards/admin";
+import { adminGuard } from "@/middleware/adminGuard";
 import { MASTER_KEY, ADMIN_IP_WHITELIST } from "@/config";
 
 export default new Elysia()
