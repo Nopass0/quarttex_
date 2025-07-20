@@ -19,7 +19,7 @@ COPY package.json bun.lock* ./
 COPY prisma ./prisma/
 
 # Install dependencies with reduced memory usage
-RUN bun install --production=false
+RUN bun install
 
 # Generate Prisma client with memory limits
 RUN NODE_OPTIONS="--max-old-space-size=384" npx prisma generate || \
