@@ -1,10 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { adminGuard } from "@/middleware/adminGuard";
-import { MASTER_KEY, ADMIN_IP_WHITELIST } from "@/config";
 
 export default new Elysia()
-  .use(adminGuard(MASTER_KEY, ADMIN_IP_WHITELIST))
   
   /* ───────────────── Get deletion statistics ───────────────── */
   .get("/stats", async () => {
