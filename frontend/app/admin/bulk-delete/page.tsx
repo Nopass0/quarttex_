@@ -37,14 +37,14 @@ export default function BulkDeletePage() {
   }>({ open: false, type: null, filters: {} });
 
   // Filters
-  const [transactionStatus, setTransactionStatus] = useState<string>("");
-  const [transactionMerchant, setTransactionMerchant] = useState<string>("");
+  const [transactionStatus, setTransactionStatus] = useState<string>("all");
+  const [transactionMerchant, setTransactionMerchant] = useState<string>("all");
   const [deleteAllTransactions, setDeleteAllTransactions] = useState(false);
 
-  const [payoutStatus, setPayoutStatus] = useState<string>("");
+  const [payoutStatus, setPayoutStatus] = useState<string>("all");
   const [deleteAllPayouts, setDeleteAllPayouts] = useState(false);
 
-  const [dealStatus, setDealStatus] = useState<string>("");
+  const [dealStatus, setDealStatus] = useState<string>("all");
   const [deleteAllDeals, setDeleteAllDeals] = useState(false);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function BulkDeletePage() {
       case "transactions":
         if (deleteAllTransactions) return stats.totals.transactions;
         let count = 0;
-        if (transactionStatus) {
+        if (transactionStatus && transactionStatus !== "all") {
           const statusData = stats.statuses.transactions.find(s => s.status === transactionStatus);
           count = statusData?.count || 0;
         } else {
@@ -88,7 +88,7 @@ export default function BulkDeletePage() {
 
       case "payouts":
         if (deleteAllPayouts) return stats.totals.payouts;
-        if (payoutStatus) {
+        if (payoutStatus && payoutStatus !== "all") {
           const statusData = stats.statuses.payouts.find(s => s.status === payoutStatus);
           return statusData?.count || 0;
         }
@@ -96,7 +96,7 @@ export default function BulkDeletePage() {
 
       case "deals":
         if (deleteAllDeals) return stats.totals.deals;
-        if (dealStatus) {
+        if (dealStatus && dealStatus !== "all") {
           const statusData = stats.statuses.deals.find(s => s.status === dealStatus);
           return statusData?.count || 0;
         }
@@ -217,7 +217,7 @@ export default function BulkDeletePage() {
                     <SelectValue placeholder="Все статусы" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все статусы</SelectItem>
+                    <SelectItem value="all">Все статусы</SelectItem>
                     {stats?.statuses.transactions.map((s) => (
                       <SelectItem key={s.status} value={s.status}>
                         {s.status} ({s.count})
@@ -234,7 +234,7 @@ export default function BulkDeletePage() {
                     <SelectValue placeholder="Все мерчанты" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Все мерчанты</SelectItem>
+                    <SelectItem value="all">Все мерчанты</SelectItem>
                     {stats?.merchants.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.name}
@@ -252,8 +252,8 @@ export default function BulkDeletePage() {
               open: true,
               type: "transactions",
               filters: {
-                status: transactionStatus || undefined,
-                merchantId: transactionMerchant || undefined,
+                status: transactionStatus && transactionStatus !== "all" ? transactionStatus : undefined,
+                merchantId: transactionMerchant && transactionMerchant !== "all" ? transactionMerchant : undefined,
                 deleteAll: deleteAllTransactions,
               },
               count: getFilteredCount("transactions"),
@@ -289,7 +289,7 @@ export default function BulkDeletePage() {
                   <SelectValue placeholder="Все статусы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все статусы</SelectItem>
+                  <SelectItem value="all">Все статусы</SelectItem>
                   {stats?.statuses.payouts.map((s) => (
                     <SelectItem key={s.status} value={s.status}>
                       {s.status} ({s.count})
@@ -306,7 +306,7 @@ export default function BulkDeletePage() {
               open: true,
               type: "payouts",
               filters: {
-                status: payoutStatus || undefined,
+                status: payoutStatus && payoutStatus !== "all" ? payoutStatus : undefined,
                 deleteAll: deleteAllPayouts,
               },
               count: getFilteredCount("payouts"),
@@ -342,7 +342,7 @@ export default function BulkDeletePage() {
                   <SelectValue placeholder="Все статусы" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Все статусы</SelectItem>
+                  <SelectItem value="all">Все статусы</SelectItem>
                   {stats?.statuses.deals.map((s) => (
                     <SelectItem key={s.status} value={s.status}>
                       {s.status} ({s.count})
@@ -359,7 +359,7 @@ export default function BulkDeletePage() {
               open: true,
               type: "deals",
               filters: {
-                status: dealStatus || undefined,
+                status: dealStatus && dealStatus !== "all" ? dealStatus : undefined,
                 deleteAll: deleteAllDeals,
               },
               count: getFilteredCount("deals"),
