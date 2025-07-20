@@ -14,13 +14,19 @@ interface AdminGuardProps {
 export function AdminGuard({ children, requireSuperAdmin = false }: AdminGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { token, role, setRole, logout } = useAdminAuth()
+  const { token, role, setRole, logout, hasHydrated } = useAdminAuth()
   const [isVerifying, setIsVerifying] = useState(true)
 
   useEffect(() => {
     const verifyToken = async () => {
+      // Wait for store to hydrate
+      if (!hasHydrated) {
+        return
+      }
+
       if (!token) {
         router.push('/admin/login')
+        setIsVerifying(false)
         return
       }
 
@@ -47,9 +53,9 @@ export function AdminGuard({ children, requireSuperAdmin = false }: AdminGuardPr
     }
 
     verifyToken()
-  }, [token, pathname])
+  }, [token, pathname, hasHydrated, router, requireSuperAdmin, setRole, logout])
 
-  if (isVerifying) {
+  if (!hasHydrated || isVerifying) {
     return <Loading />
   }
 

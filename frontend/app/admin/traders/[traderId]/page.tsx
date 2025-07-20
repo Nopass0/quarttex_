@@ -102,7 +102,7 @@ function TraderProfileContent() {
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false)
   const [balanceForm, setBalanceForm] = useState({
     amount: '',
-    currency: 'BALANCE' as 'USDT' | 'RUB' | 'DEPOSIT' | 'BALANCE',
+    currency: 'BALANCE' as 'USDT' | 'RUB' | 'DEPOSIT' | 'BALANCE' | 'FROZEN_USDT' | 'FROZEN_RUB',
     operation: 'add' as 'add' | 'subtract'
   })
   const [traderSettings, setTraderSettings] = useState<any>(null)
@@ -207,7 +207,7 @@ function TraderProfileContent() {
       if (!response.ok) throw new Error('Failed to update balance')
       
       setIsBalanceDialogOpen(false)
-      setBalanceForm({ amount: '', currency: 'BALANCE', operation: 'add' })
+      setBalanceForm({ amount: '', currency: 'BALANCE' as 'USDT' | 'RUB' | 'DEPOSIT' | 'BALANCE' | 'FROZEN_USDT' | 'FROZEN_RUB', operation: 'add' })
       await fetchTrader()
       toast.success('Баланс успешно обновлен')
     } catch (error) {
@@ -552,7 +552,7 @@ function TraderProfileContent() {
                     </Label>
                     <Select
                       value={balanceForm.currency}
-                      onValueChange={(value) => setBalanceForm({ ...balanceForm, currency: value as 'USDT' | 'RUB' | 'DEPOSIT' | 'BALANCE' })}
+                      onValueChange={(value) => setBalanceForm({ ...balanceForm, currency: value as 'USDT' | 'RUB' | 'DEPOSIT' | 'BALANCE' | 'FROZEN_USDT' | 'FROZEN_RUB' })}
                     >
                       <SelectTrigger className="col-span-3 bg-blue-50 border-blue-200 focus:border-blue-500 focus:ring-blue-500">
                         <SelectValue />
@@ -562,6 +562,8 @@ function TraderProfileContent() {
                         <SelectItem value="DEPOSIT">Депозит</SelectItem>
                         <SelectItem value="USDT">USDT</SelectItem>
                         <SelectItem value="RUB">RUB</SelectItem>
+                        <SelectItem value="FROZEN_USDT">Замороженные USDT</SelectItem>
+                        <SelectItem value="FROZEN_RUB">Замороженные RUB</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

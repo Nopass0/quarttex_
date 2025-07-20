@@ -570,6 +570,12 @@ export default (app: Elysia) =>
           } else if (body.currency === 'BALANCE') {
             balanceField = 'trustBalance';
             currentBalance = trader.trustBalance;
+          } else if (body.currency === 'FROZEN_USDT') {
+            balanceField = 'frozenUsdt';
+            currentBalance = trader.frozenUsdt;
+          } else if (body.currency === 'FROZEN_RUB') {
+            balanceField = 'frozenRub';
+            currentBalance = trader.frozenRub;
           } else {
             return error(400, { error: "Неверный тип валюты" });
           }
@@ -593,6 +599,8 @@ export default (app: Elysia) =>
               balanceRub: true,
               deposit: true,
               trustBalance: true,
+              frozenUsdt: true,
+              frozenRub: true,
             },
           });
           
@@ -618,7 +626,7 @@ export default (app: Elysia) =>
         params: t.Object({ id: t.String() }),
         body: t.Object({
           amount: t.Number(),
-          currency: t.Union([t.Literal('USDT'), t.Literal('RUB'), t.Literal('DEPOSIT'), t.Literal('BALANCE')]),
+          currency: t.Union([t.Literal('USDT'), t.Literal('RUB'), t.Literal('DEPOSIT'), t.Literal('BALANCE'), t.Literal('FROZEN_USDT'), t.Literal('FROZEN_RUB')]),
         }),
         response: {
           200: t.Object({
@@ -629,6 +637,8 @@ export default (app: Elysia) =>
             balanceRub: t.Number(),
             deposit: t.Number(),
             trustBalance: t.Number(),
+            frozenUsdt: t.Number(),
+            frozenRub: t.Number(),
             previousBalance: t.Number(),
             newBalance: t.Number(),
             currency: t.String(),

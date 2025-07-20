@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { useAdminAuth } from "@/stores/auth";
+import { adminApiInstance } from "@/services/api";
 
 interface DeletionStats {
   totals: {
@@ -17,7 +18,7 @@ interface DeletionStats {
     payouts: number;
     deals: number;
   };
-  merchants: Array<{ id: string; name: string }>;
+  merchants: Array<{ id: string; name: string; transactionCount?: number }>;
   statuses: {
     transactions: Array<{ status: string; count: number }>;
     payouts: Array<{ status: string; count: number }>;
@@ -26,7 +27,7 @@ interface DeletionStats {
 }
 
 export default function BulkDeletePage() {
-  const { user } = useAdminAuth();
+  const { hasHydrated } = useAdminAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DeletionStats | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -48,21 +49,15 @@ export default function BulkDeletePage() {
   const [deleteAllDeals, setDeleteAllDeals] = useState(false);
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (hasHydrated) {
+      loadStats();
+    }
+  }, [hasHydrated]);
 
   const loadStats = async () => {
     try {
-      const response = await fetch("/api/admin/bulk-delete/stats", {
-        headers: {
-          "x-admin-key": user?.masterKey || "",
-        },
-      });
-
-      if (!response.ok) throw new Error("Failed to load stats");
-
-      const data = await response.json();
-      setStats(data);
+      const response = await adminApiInstance.get("/admin/bulk-delete/stats");
+      setStats(response.data);
     } catch (error) {
       toast.error("Не удалось загрузить статистику");
     } finally {
@@ -111,21 +106,12 @@ export default function BulkDeletePage() {
     if (!deleteDialog.type) return;
 
     try {
-      const url = `/api/admin/bulk-delete/${deleteDialog.type === "all" ? "all" : deleteDialog.type}`;
-      const response = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": user?.masterKey || "",
-        },
-        body: deleteDialog.type === "all" ? "{}" : JSON.stringify(deleteDialog.filters),
+      const url = `/admin/bulk-delete/${deleteDialog.type === "all" ? "all" : deleteDialog.type}`;
+      const response = await adminApiInstance.delete(url, {
+        data: deleteDialog.type === "all" ? {} : deleteDialog.filters,
       });
-
-      if (!response.ok) throw new Error("Failed to delete");
-
-      const result = await response.json();
       
-      toast.success(result.message);
+      toast.success(response.data.message);
 
       // Reload stats
       await loadStats();
@@ -136,7 +122,7 @@ export default function BulkDeletePage() {
     }
   };
 
-  if (loading) {
+  if (!hasHydrated || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -237,7 +223,7 @@ export default function BulkDeletePage() {
                     <SelectItem value="all">Все мерчанты</SelectItem>
                     {stats?.merchants.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {m.name}
+                        {m.name} ({m.transactionCount || 0})
                       </SelectItem>
                     ))}
                   </SelectContent>

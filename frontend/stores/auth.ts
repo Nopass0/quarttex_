@@ -17,6 +17,8 @@ interface AdminAuthState {
   logout: () => void
   hasHydrated: boolean
   setHasHydrated: (state: boolean) => void
+  isAuthenticated: boolean
+  verify: () => Promise<boolean>
 }
 
 export const useTraderAuth = create<TraderAuthState>()(
@@ -40,20 +42,50 @@ export const useTraderAuth = create<TraderAuthState>()(
 
 export const useAdminAuth = create<AdminAuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       role: null,
       hasHydrated: false,
-      setToken: (token) => set({ token }),
+      isAuthenticated: false,
+      setToken: (token) => set({ token, isAuthenticated: !!token }),
       setRole: (role) => set({ role }),
-      logout: () => set({ token: null, role: null }),
+      logout: () => set({ token: null, role: null, isAuthenticated: false }),
       setHasHydrated: (state) => set({ hasHydrated: state }),
+      verify: async () => {
+        const token = get().token;
+        if (!token) return false;
+        
+        try {
+          const response = await fetch('/api/admin/verify', {
+            headers: {
+              'x-admin-key': token,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.admin) {
+              set({ role: data.admin.role, isAuthenticated: true });
+              return true;
+            }
+          }
+          
+          set({ token: null, role: null, isAuthenticated: false });
+          return false;
+        } catch (error) {
+          set({ token: null, role: null, isAuthenticated: false });
+          return false;
+        }
+      },
     }),
     {
       name: 'admin-auth',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true)
+        if (state?.token) {
+          state.isAuthenticated = true
+        }
       },
     }
   )

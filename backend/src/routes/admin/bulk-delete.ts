@@ -12,11 +12,12 @@ export default new Elysia()
       merchants,
       transactionStatuses,
       payoutStatuses,
-      dealStatuses
+      dealStatuses,
+      transactionsByMerchant
     ] = await Promise.all([
       db.transaction.count(),
       db.payout.count(),
-      db.dispute.count({ where: { type: "DEAL" } }),
+      db.dealDispute.count(),
       db.merchant.findMany({ select: { id: true, name: true } }),
       db.transaction.groupBy({
         by: ['status'],
@@ -26,10 +27,13 @@ export default new Elysia()
         by: ['status'],
         _count: { status: true }
       }),
-      db.dispute.groupBy({
+      db.dealDispute.groupBy({
         by: ['status'],
-        where: { type: "DEAL" },
         _count: { status: true }
+      }),
+      db.transaction.groupBy({
+        by: ['merchantId'],
+        _count: { merchantId: true }
       })
     ]);
 
@@ -39,7 +43,10 @@ export default new Elysia()
         payouts: totalPayouts,
         deals: totalDeals
       },
-      merchants: merchants.map(m => ({ id: m.id, name: m.name })),
+      merchants: merchants.map(m => {
+        const count = transactionsByMerchant.find(tm => tm.merchantId === m.id)?._count.merchantId || 0;
+        return { id: m.id, name: m.name, transactionCount: count };
+      }),
       statuses: {
         transactions: transactionStatuses.map(s => ({
           status: s.status,
@@ -80,19 +87,13 @@ export default new Elysia()
       select: { id: true }
     }).then(txs => txs.map(tx => tx.id));
     
-    // Delete notifications related to these transactions
-    await db.notification.deleteMany({
-      where: { transactionId: { in: transactionIds } }
-    });
+    // Note: Notifications don't have direct relation to transactions
     
-    // Delete callbacks
-    await db.transactionCallback.deleteMany({
-      where: { transactionId: { in: transactionIds } }
-    });
+    // Note: TransactionCallback model doesn't exist in current schema
     
-    // Delete disputes
-    await db.dispute.deleteMany({
-      where: { transactionId: { in: transactionIds } }
+    // Delete deal disputes related to transactions
+    await db.dealDispute.deleteMany({
+      where: { dealId: { in: transactionIds } }
     });
     
     // Delete the transactions
@@ -132,8 +133,8 @@ export default new Elysia()
       select: { id: true }
     }).then(payouts => payouts.map(p => p.id));
     
-    // Delete disputes related to payouts
-    await db.dispute.deleteMany({
+    // Delete withdrawal disputes related to payouts
+    await db.withdrawalDispute.deleteMany({
       where: { payoutId: { in: payoutIds } }
     });
     
@@ -155,30 +156,30 @@ export default new Elysia()
   .delete("/deals", async ({ body }) => {
     const { status, deleteAll } = body;
     
-    let whereClause: any = { type: "DEAL" };
+    let whereClause: any = {};
     
     if (!deleteAll) {
       if (status) whereClause.status = status;
     }
     
-    const count = await db.dispute.count({ where: whereClause });
+    const count = await db.dealDispute.count({ where: whereClause });
     
     if (count === 0) {
       return { deleted: 0, message: "Нет сделок для удаления" };
     }
     
     // Delete dispute messages first
-    const disputeIds = await db.dispute.findMany({
+    const disputeIds = await db.dealDispute.findMany({
       where: whereClause,
       select: { id: true }
     }).then(disputes => disputes.map(d => d.id));
     
-    await db.disputeMessage.deleteMany({
+    await db.dealDisputeMessage.deleteMany({
       where: { disputeId: { in: disputeIds } }
     });
     
-    // Delete the disputes
-    const result = await db.dispute.deleteMany({ where: whereClause });
+    // Delete the deal disputes
+    const result = await db.dealDispute.deleteMany({ where: whereClause });
     
     return { 
       deleted: result.count, 
@@ -195,10 +196,10 @@ export default new Elysia()
   .delete("/all", async () => {
     // Delete in correct order to respect foreign key constraints
     const deletedCounts = {
-      disputeMessages: await db.disputeMessage.deleteMany(),
-      disputes: await db.dispute.deleteMany(),
-      notifications: await db.notification.deleteMany(),
-      callbacks: await db.transactionCallback.deleteMany(),
+      dealDisputeMessages: await db.dealDisputeMessage.deleteMany(),
+      withdrawalDisputeMessages: await db.withdrawalDisputeMessage.deleteMany(),
+      dealDisputes: await db.dealDispute.deleteMany(),
+      withdrawalDisputes: await db.withdrawalDispute.deleteMany(),
       transactions: await db.transaction.deleteMany(),
       payouts: await db.payout.deleteMany()
     };
@@ -207,10 +208,10 @@ export default new Elysia()
       deleted: {
         transactions: deletedCounts.transactions.count,
         payouts: deletedCounts.payouts.count,
-        disputes: deletedCounts.disputes.count,
-        notifications: deletedCounts.notifications.count,
-        callbacks: deletedCounts.callbacks.count,
-        disputeMessages: deletedCounts.disputeMessages.count
+        dealDisputes: deletedCounts.dealDisputes.count,
+        withdrawalDisputes: deletedCounts.withdrawalDisputes.count,
+        dealDisputeMessages: deletedCounts.dealDisputeMessages.count,
+        withdrawalDisputeMessages: deletedCounts.withdrawalDisputeMessages.count
       },
       message: "Все данные удалены"
     };

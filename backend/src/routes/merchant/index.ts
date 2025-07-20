@@ -764,6 +764,7 @@ export default (app: Elysia) =>
 
         /* ---------- 5. Создаём транзакцию и замораживаем средства ---------- */
         const tx = await db.$transaction(async (prisma) => {
+          console.log(`[Merchant] Starting transaction creation for amount ${body.amount}, trader ${chosen.userId}`);
           // Создаем транзакцию с параметрами заморозки
           const transaction = await prisma.transaction.create({
             data: {
@@ -809,15 +810,38 @@ export default (app: Elysia) =>
 
           // Замораживаем средства трейдера для IN транзакции
           if (freezingParams && chosen.user) {
-            await prisma.user.update({
-              where: { id: chosen.userId },
-              data: {
-                frozenUsdt: { increment: freezingParams.totalRequired }
-              }
-            });
+            console.log(`[Merchant] Freezing funds for trader ${chosen.userId}: ${freezingParams.totalRequired} USDT`);
+            try {
+              const beforeUser = await prisma.user.findUnique({ where: { id: chosen.userId } });
+              console.log(`[Merchant] Before update - frozenUsdt: ${beforeUser?.frozenUsdt}`);
+              
+              const updatedUser = await prisma.user.update({
+                where: { id: chosen.userId },
+                data: {
+                  frozenUsdt: { increment: freezingParams.totalRequired }
+                }
+              });
+              console.log(`[Merchant] After update - frozenUsdt: ${updatedUser.frozenUsdt}`);
+              console.log(`[Merchant] Successfully froze ${freezingParams.totalRequired} USDT`);
+            } catch (freezeError) {
+              console.error(`[Merchant] Error freezing funds:`, freezeError);
+              throw freezeError;
+            }
+          } else {
+            console.log(`[Merchant] Freezing skipped - freezingParams: ${!!freezingParams}, chosen.user: ${!!chosen.user}`);
+            if (freezingParams) {
+              console.log(`[Merchant] freezingParams exists:`, freezingParams);
+            }
+            if (!chosen.user) {
+              console.log(`[Merchant] chosen.user is missing! chosen:`, { id: chosen.id, userId: chosen.userId });
+            }
           }
 
+          console.log(`[Merchant] Transaction created successfully, returning from $transaction block`);
           return transaction;
+        }).catch(error => {
+          console.error(`[Merchant] Transaction failed:`, error);
+          throw error;
         });
 
         /* ---------- 6. Ответ ---------- */
@@ -987,7 +1011,11 @@ export default (app: Elysia) =>
         });
 
         // Рассчитываем параметры заморозки
-        const kkkPercent = 0; // TODO: Get from system config
+        // Получаем KKK процент из системных настроек
+        const kkkSetting = await db.systemConfig.findUnique({
+          where: { key: "kkk_percent" }
+        });
+        const kkkPercent = kkkSetting ? parseFloat(kkkSetting.value) : 0;
         const feeInPercent = traderMerchant?.feeIn || 0;
         
         const freezingParams = calculateFreezingParams(
@@ -997,8 +1025,18 @@ export default (app: Elysia) =>
           feeInPercent
         );
 
-        // Создаем транзакцию с параметрами заморозки
-        const tx = await db.transaction.create({
+        // Проверяем достаточность баланса трейдера
+        if (freezingParams && chosen.user) {
+          const availableBalance = chosen.user.trustBalance - chosen.user.frozenUsdt;
+          if (availableBalance < freezingParams.totalRequired) {
+            console.log(`[Merchant IN] Недостаточно баланса. Нужно: ${freezingParams.totalRequired}, доступно: ${availableBalance}`);
+            return error(400, { error: "Недостаточно баланса трейдера" });
+          }
+        }
+
+        // Создаем транзакцию с параметрами заморозки и замораживаем средства
+        const tx = await db.$transaction(async (prisma) => {
+          const transaction = await prisma.transaction.create({
           data: {
             merchantId: merchant.id,
             amount: body.amount,
@@ -1038,6 +1076,20 @@ export default (app: Elysia) =>
               },
             },
           },
+        });
+
+          // Замораживаем средства трейдера
+          if (freezingParams && chosen.user) {
+            console.log(`[Merchant IN] Freezing funds for trader ${chosen.userId}: ${freezingParams.totalRequired} USDT`);
+            await prisma.user.update({
+              where: { id: chosen.userId },
+              data: {
+                frozenUsdt: { increment: freezingParams.totalRequired }
+              }
+            });
+          }
+
+          return transaction;
         });
 
         const crypto = tx.rate && tx.method && typeof tx.method.commissionPayin === 'number'
