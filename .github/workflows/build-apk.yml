@@ -32,9 +32,18 @@ jobs:
       id: version
       run: |
         cd apk
-        VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | awk '{print $2}')
+        # Extract current version code, handling both formats: "versionCode 1" and "versionCode = 1"
+        VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | sed 's/.*versionCode\s*=\?\s*\([0-9]\+\).*/\1/')
+        echo "Current version code: $VERSION_CODE"
+        
+        # Increment version code
+        if [ -z "$VERSION_CODE" ]; then
+          echo "Warning: Could not extract version code, using default"
+          VERSION_CODE=1
+        fi
         NEW_VERSION_CODE=$((VERSION_CODE + 1))
         VERSION_NAME="1.0.$NEW_VERSION_CODE"
+        
         echo "version_code=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
         echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
         echo "Building version $VERSION_NAME"
