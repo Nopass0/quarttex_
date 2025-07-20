@@ -33,6 +33,7 @@ import {
   Folder,
   Send,
   Clock,
+  Trash2,
 } from "lucide-react"
 import { useTraderAuth, useAdminAuth } from "@/stores/auth"
 import { useAgentAuth } from "@/stores/agent-auth"
@@ -203,6 +204,11 @@ const adminNavItems: NavItem[] = [
     title: "Инструменты тестирования",
     href: "/admin/test-tools",
     icon: TestTube,
+  },
+  {
+    title: "Массовое удаление",
+    href: "/admin/bulk-delete",
+    icon: Trash2,
   },
   {
     title: "Wellbit API",
