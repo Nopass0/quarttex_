@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { useAdminAuth } from "@/stores/auth";
 
@@ -27,7 +27,6 @@ interface DeletionStats {
 
 export default function BulkDeletePage() {
   const { user } = useAdminAuth();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DeletionStats | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -65,11 +64,7 @@ export default function BulkDeletePage() {
       const data = await response.json();
       setStats(data);
     } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить статистику",
-        variant: "destructive",
-      });
+      toast.error("Не удалось загрузить статистику");
     } finally {
       setLoading(false);
     }
@@ -130,19 +125,12 @@ export default function BulkDeletePage() {
 
       const result = await response.json();
       
-      toast({
-        title: "Успешно",
-        description: result.message,
-      });
+      toast.success(result.message);
 
       // Reload stats
       await loadStats();
     } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось выполнить удаление",
-        variant: "destructive",
-      });
+      toast.error("Не удалось выполнить удаление");
     } finally {
       setDeleteDialog({ open: false, type: null, filters: {} });
     }
