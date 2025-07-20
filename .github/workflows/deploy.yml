@@ -145,10 +145,18 @@ jobs:
             
             # Remove old containers and images
             docker compose -f docker-compose.prod.yml rm -f
-            docker image prune -af
+            # Clean up disk space and memory before building
+            docker system prune -af --volumes || true
+            # Free up memory by clearing build cache
+            docker builder prune -af || true
             
-            # Build and start new containers (using prod config without local postgres)
-            docker compose -f docker-compose.prod.yml build --no-cache
+            # Build with memory-efficient options
+            echo "Building containers with memory optimization..."
+            DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build --no-cache --memory 1g || {
+              echo "Build failed, trying without memory limit..."
+              docker compose -f docker-compose.prod.yml build --no-cache
+            }
+            
             echo "Starting containers..."
             if ! docker compose -f docker-compose.prod.yml up -d; then
               echo "Failed to start containers"
@@ -162,13 +170,43 @@ jobs:
 
             # Run database migrations before health checks
             echo "Running database schema migrations..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma generate
+            
+            # First, ensure backend container is ready for commands
+            echo "Waiting for backend to be ready for database operations..."
+            sleep 10
+            
+            # Run prisma generate with memory limits and retry logic
+            echo "Generating Prisma client..."
+            max_retries=3
+            retry_count=0
+            while [ $retry_count -lt $max_retries ]; do
+              echo "Attempting Prisma generate (attempt $((retry_count + 1))/$max_retries)..."
+              # Run with explicit memory limits to prevent OOM
+              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma generate; then
+                echo "Prisma client generated successfully"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Prisma generate failed, retrying in 10 seconds..."
+                  sleep 10
+                  # Clear any potential memory issues
+                  docker compose -f docker-compose.prod.yml restart backend
+                  sleep 20
+                else
+                  echo "Prisma generate failed after $max_retries attempts"
+                  docker compose -f docker-compose.prod.yml logs backend
+                  exit 1
+                fi
+              fi
+            done
 
+            # Run database schema push with similar memory limits
             max_retries=5
             retry_count=0
             while [ $retry_count -lt $max_retries ]; do
               echo "Attempting database schema push (attempt $((retry_count + 1))/$max_retries)..."
-              if docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db push --accept-data-loss; then
+              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma db push --accept-data-loss; then
                 echo "Database schema push successful"
                 break
               else

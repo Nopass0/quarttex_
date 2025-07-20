@@ -1,6 +1,9 @@
 # Backend Dockerfile
 FROM oven/bun:latest
 
+# Set memory limits for build process
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
 # Install OpenSSL, Node.js and other required dependencies
 RUN apt-get update -y && \
     apt-get install -y openssl ca-certificates curl && \
@@ -15,11 +18,12 @@ WORKDIR /app
 COPY package.json bun.lock* ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN bun install
+# Install dependencies with reduced memory usage
+RUN bun install --production=false
 
-# Generate Prisma client
-RUN npx prisma generate
+# Generate Prisma client with memory limits
+RUN NODE_OPTIONS="--max-old-space-size=384" npx prisma generate || \
+    (echo "Retrying with lower memory..." && NODE_OPTIONS="--max-old-space-size=256" npx prisma generate)
 
 # Copy source code
 COPY . .

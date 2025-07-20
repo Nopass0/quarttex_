@@ -11,6 +11,7 @@ services:
       PORT: 3001
       SUPER_ADMIN_KEY: ${SUPER_ADMIN_KEY:-}
       ADMIN_IPS: ${ADMIN_IPS:-}
+      NODE_OPTIONS: "--max-old-space-size=768"
     expose:
       - "3001"
     networks:
@@ -18,6 +19,9 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend/uploads:/app/uploads
+    mem_limit: 1g
+    mem_reservation: 512m
+    cpus: '0.5'
 
   frontend:
     build:
@@ -28,6 +32,7 @@ services:
     container_name: chase_frontend
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: "--max-old-space-size=512"
     expose:
       - "3000"
     depends_on:
@@ -35,6 +40,9 @@ services:
     networks:
       - chase_network
     restart: unless-stopped
+    mem_limit: 768m
+    mem_reservation: 384m
+    cpus: '0.5'
 
   nginx:
     build:
@@ -55,6 +63,8 @@ services:
     networks:
       - chase_network
     restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128m
 
 networks:
   chase_network:
