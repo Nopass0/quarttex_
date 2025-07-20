@@ -1,0 +1,4 @@
+*
+!.gitignore
+!apk/version-info.json
+!apk/placeholder.html

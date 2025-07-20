@@ -96,7 +96,7 @@ export default new Elysia()
         <h1>Мобильное приложение</h1>
         <p>Установите приложение CHA$E для управления транзакциями и мониторинга платежей</p>
         
-        <a href="/api/app/download-apk" class="download-btn">
+        <a href="/api/app/download" class="download-btn">
             Скачать APK
         </a>
         

@@ -2,7 +2,7 @@
 
 # Script to download latest APK from GitHub releases
 
-GITHUB_REPO="your-username/chase" # Update this with your repo
+GITHUB_REPO="Nopass0/chase"
 UPLOAD_DIR="/app/uploads/apk"
 
 # Create directory if not exists

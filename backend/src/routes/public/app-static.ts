@@ -8,6 +8,13 @@ export default new Elysia()
     const apkPath = join(process.cwd(), "uploads", "apk", "chase-mobile.apk");
     
     if (!existsSync(apkPath)) {
+      // Return placeholder HTML page if APK doesn't exist yet
+      const placeholderPath = join(process.cwd(), "uploads", "apk", "placeholder.html");
+      if (existsSync(placeholderPath)) {
+        set.headers["content-type"] = "text/html; charset=utf-8";
+        return Bun.file(placeholderPath);
+      }
+      
       set.status = 404;
       return { error: "APK file not found" };
     }

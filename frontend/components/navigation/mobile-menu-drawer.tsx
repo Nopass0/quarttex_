@@ -82,6 +82,11 @@ const traderNavItems: NavItem[] = [
     icon: Wallet,
   },
   {
+    title: "Выплаты",
+    href: "/trader/payouts",
+    icon: Receipt,
+  },
+  {
     title: "Споры",
     icon: AlertCircle,
     children: [
