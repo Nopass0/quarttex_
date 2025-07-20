@@ -26,7 +26,31 @@ export default (app: Elysia) =>
         });
         
         if (!primaryVersion) {
-          return error(404, { error: "Приложение не найдено" });
+          // Check if we have a GitHub release
+          const latestReleaseUrl = "https://api.github.com/repos/Nopass0/chase/releases/latest";
+          try {
+            const response = await fetch(latestReleaseUrl);
+            if (response.ok) {
+              const release = await response.json();
+              const apkAsset = release.assets?.find((asset: any) => 
+                asset.name.endsWith('.apk')
+              );
+              
+              if (apkAsset) {
+                // Redirect to GitHub release download
+                set.redirect = apkAsset.browser_download_url;
+                set.status = 302;
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Failed to fetch GitHub release:", e);
+          }
+          
+          // If no APK found anywhere, show placeholder page
+          set.redirect = "/api/app/download";
+          set.status = 302;
+          return;
         }
         
         // Redirect to file URL
