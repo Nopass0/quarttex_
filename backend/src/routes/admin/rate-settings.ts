@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
+import { KkkOperationType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 
 export default (app: Elysia) =>
@@ -27,6 +28,7 @@ export default (app: Elysia) =>
           id: s.id,
           methodId: s.methodId,
           kkkPercent: s.kkkPercent,
+          kkkOperation: s.kkkOperation,
           createdAt: s.createdAt.toISOString(),
           updatedAt: s.updatedAt.toISOString(),
           method: s.method,
@@ -41,6 +43,7 @@ export default (app: Elysia) =>
               id: t.String(),
               methodId: t.String(),
               kkkPercent: t.Number(),
+              kkkOperation: t.Enum(KkkOperationType),
               createdAt: t.String(),
               updatedAt: t.String(),
               method: t.Object({
@@ -160,6 +163,7 @@ export default (app: Elysia) =>
           id: setting.id,
           methodId: setting.methodId,
           kkkPercent: setting.kkkPercent,
+          kkkOperation: setting.kkkOperation,
           createdAt: setting.createdAt.toISOString(),
           updatedAt: setting.updatedAt.toISOString(),
           method: setting.method,
@@ -175,6 +179,9 @@ export default (app: Elysia) =>
             minimum: 0,
             maximum: 100,
           }),
+          kkkOperation: t.Optional(t.Enum(KkkOperationType, {
+            description: "Операция ККК (PLUS или MINUS)"
+          })),
         }),
         response: {
           201: t.Object({

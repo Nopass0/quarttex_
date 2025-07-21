@@ -21,6 +21,7 @@ import {
   Share2,
   ChevronRight,
   Building,
+  Edit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ interface RequisiteInfoModalProps {
     phoneNumber?: string;
     accountNumber?: string;
     status: "active" | "inactive";
+    isArchived?: boolean;
     device?: {
       id: string;
       name: string;
@@ -206,7 +208,7 @@ export function RequisiteInfoModal({
                     "bg-opacity-60 text-green-600 text-[13px]",
                   )}
                 >
-                  {requisite.status === "active" ? "В работе" : "Выключен"}
+                  {requisite.isArchived ? "Архивирован" : requisite.status === "active" ? "Активен" : "Выключен"}
                 </Badge>
                 {/* <PaymentSystemIcon cardNumber={requisite.cardNumber} /> */}
               </div>
@@ -353,6 +355,16 @@ export function RequisiteInfoModal({
             <h4 className="font-medium text-gray-900">Управление реквизитом</h4>
 
             <div className="space-y-2">
+              {requisite.isArchived && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start h-12 text-[#006039] hover:text-[#006039] hover:bg-green-50"
+                >
+                  <Edit className="h-4 w-4 mr-2 text-[#006039]" />
+                  Редактировать
+                </Button>
+              )}
+              
               <Button
                 variant="outline"
                 className="w-full justify-start h-12 text-red-600 hover:text-red-700 hover:bg-red-50"

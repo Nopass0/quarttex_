@@ -559,18 +559,26 @@ export default (app: Elysia) =>
           where: {
             isArchived: false,
             methodType: method.type,
-            user: { banned: false },
+            user: { 
+              banned: false,
+              // Проверяем, что депозит больше 0
+              deposit: { gt: 0 },
+              // Проверяем, что трейдер входит в команду (teamId не null)
+              teamId: { not: null },
+              // Проверяем, что трейдер активно работает (trafficEnabled true)
+              trafficEnabled: true
+            },
           },
           orderBy: { updatedAt: "asc" }, // LRU-очередь
           include: { user: true },
         });
 
-        console.log(`[Merchant] Поиск реквизитов: methodType=${method.type}, isArchived=false, user.banned=false`);
+        console.log(`[Merchant] Поиск реквизитов: methodType=${method.type}, isArchived=false, user.banned=false, deposit>0, teamId!=null, trafficEnabled=true`);
         console.log(`[Merchant] Найдено реквизитов в базе: ${pool.length}`);
         
         // Логируем все найденные реквизиты
         pool.forEach((bd, index) => {
-          console.log(`[Merchant] Реквизит ${index + 1}: id=${bd.id}, archived=${bd.isArchived}, methodType=${bd.methodType}, user.banned=${bd.user.banned}, minAmount=${bd.minAmount}, maxAmount=${bd.maxAmount}, trustBalance=${bd.user.trustBalance}`);
+          console.log(`[Merchant] Реквизит ${index + 1}: id=${bd.id}, archived=${bd.isArchived}, methodType=${bd.methodType}, user.banned=${bd.user.banned}, deposit=${bd.user.deposit}, teamId=${bd.user.teamId}, minAmount=${bd.minAmount}, maxAmount=${bd.maxAmount}, trustBalance=${bd.user.trustBalance}`);
         });
 
         let chosen: (typeof pool)[number] | null = null;
@@ -578,7 +586,7 @@ export default (app: Elysia) =>
         console.log(`[Merchant] Подбираем реквизит для суммы ${amount}, доступно реквизитов: ${pool.length}`);
         
         for (const bd of pool) {
-          console.log(`[Merchant] Проверяем реквизит ${bd.id}, лимиты: ${bd.minAmount}-${bd.maxAmount}, дневной: ${bd.dailyLimit}, месячный: ${bd.monthlyLimit}, траст баланс: ${bd.user.trustBalance}`);
+          console.log(`[Merchant] Проверяем реквизит ${bd.id}, депозит: ${bd.user.deposit}, команда: ${bd.user.teamId}, лимиты: ${bd.minAmount}-${bd.maxAmount}, дневной: ${bd.dailyLimit}, месячный: ${bd.monthlyLimit}, траст баланс: ${bd.user.trustBalance}`);
           
           if (amount < bd.minAmount || amount > bd.maxAmount) {
             console.log(`[Merchant] Реквизит ${bd.id} отклонен: сумма ${amount} вне диапазона ${bd.minAmount}-${bd.maxAmount}`);
@@ -757,13 +765,14 @@ export default (app: Elysia) =>
           }
         }
 
-        await db.bankDetail.update({
-          where: { id: chosen.id },
-          data: { updatedAt: now },
-        });
-
         /* ---------- 5. Создаём транзакцию и замораживаем средства ---------- */
         const tx = await db.$transaction(async (prisma) => {
+          // Обновляем updatedAt реквизита внутри транзакции для корректной ротации
+          await prisma.bankDetail.update({
+            where: { id: chosen.id },
+            data: { updatedAt: now },
+          });
+          console.log(`[Merchant] Обновлен updatedAt для реквизита ${chosen.id} для обеспечения ротации`);
           console.log(`[Merchant] Starting transaction creation for amount ${body.amount}, trader ${chosen.userId}`);
           // Создаем транзакцию с параметрами заморозки
           const transaction = await prisma.transaction.create({
@@ -940,26 +949,24 @@ export default (app: Elysia) =>
         // Генерируем значения по умолчанию
         const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
         
-        // Проверяем метод
-        const method = await db.method.findUnique({
-          where: { id: body.methodId },
-        });
-        if (!method || !method.isEnabled) {
-          return error(404, { error: "Метод не найден или неактивен" });
-        }
-
-        // Проверяем доступ мерчанта к методу
+        // Проверяем метод и доступ мерчанта к нему
         const mm = await db.merchantMethod.findUnique({
           where: {
             merchantId_methodId: {
               merchantId: merchant.id,
-              methodId: method.id,
+              methodId: body.methodId,
             },
           },
+          include: {
+            method: true
+          }
         });
-        if (!mm || !mm.isEnabled) {
-          return error(404, { error: "Метод недоступен мерчанту" });
+        
+        if (!mm || !mm.isEnabled || !mm.method) {
+          return error(404, { error: "Метод не найден или недоступен мерчанту" });
         }
+        
+        const method = mm.method;
 
         // Проверяем сумму
         if (body.amount < method.minPayin || body.amount > method.maxPayin) {
@@ -1011,18 +1018,33 @@ export default (app: Elysia) =>
         });
 
         // Рассчитываем параметры заморозки
-        // Получаем KKK процент из системных настроек
-        const kkkSetting = await db.systemConfig.findUnique({
-          where: { key: "kkk_percent" }
+        // Получаем KKK настройки для метода
+        const rateSetting = await db.rateSettings.findUnique({
+          where: { methodId: method.id }
         });
-        const kkkPercent = kkkSetting ? parseFloat(kkkSetting.value) : 0;
+        
+        // Если нет настроек для метода, используем глобальные
+        let kkkPercent = 0;
+        let kkkOperation: 'PLUS' | 'MINUS' = 'MINUS';
+        
+        if (rateSetting) {
+          kkkPercent = rateSetting.kkkPercent;
+          kkkOperation = rateSetting.kkkOperation as 'PLUS' | 'MINUS';
+        } else {
+          const globalKkkSetting = await db.systemConfig.findUnique({
+            where: { key: "kkk_percent" }
+          });
+          kkkPercent = globalKkkSetting ? parseFloat(globalKkkSetting.value) : 0;
+        }
+        
         const feeInPercent = traderMerchant?.feeIn || 0;
         
         const freezingParams = calculateFreezingParams(
           body.amount,
           body.rate,
           kkkPercent,
-          feeInPercent
+          feeInPercent,
+          kkkOperation
         );
 
         // Проверяем достаточность баланса трейдера
@@ -1057,6 +1079,7 @@ export default (app: Elysia) =>
             rate: body.rate,
             adjustedRate: freezingParams.adjustedRate,
             kkkPercent: kkkPercent,
+            kkkOperation: kkkOperation,
             feeInPercent: feeInPercent,
             frozenUsdtAmount: freezingParams.frozenUsdtAmount,
             calculatedCommission: freezingParams.calculatedCommission,

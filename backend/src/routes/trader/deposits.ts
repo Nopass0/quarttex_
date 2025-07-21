@@ -8,8 +8,19 @@ export default new Elysia({ prefix: "/deposits" })
   .use(traderGuard())
   
   // Get deposit settings
-  .get("/settings", async () => {
+  .get("/settings", async ({ set }) => {
     try {
+      console.log("Getting deposit settings...");
+      
+      // Test database connection
+      try {
+        await db.$queryRaw`SELECT 1`;
+      } catch (dbError) {
+        console.error("Database connection error:", dbError);
+        set.status = 500;
+        return { error: "Database connection error" };
+      }
+      
       const [walletAddress, minAmount, confirmationsRequired, expiryMinutes] = await Promise.all([
         db.systemConfig.findUnique({ where: { key: "deposit_wallet_address" } }),
         db.systemConfig.findUnique({ where: { key: "min_deposit_amount" } }),
@@ -17,8 +28,11 @@ export default new Elysia({ prefix: "/deposits" })
         db.systemConfig.findUnique({ where: { key: "deposit_expiry_minutes" } })
       ]);
 
+      console.log("Settings found:", { walletAddress: !!walletAddress, minAmount: !!minAmount });
+
       if (!walletAddress) {
-        throw new Error("Deposit wallet not configured");
+        set.status = 500;
+        return { error: "Deposit wallet not configured. Please contact support." };
       }
 
       return {
@@ -33,7 +47,8 @@ export default new Elysia({ prefix: "/deposits" })
       };
     } catch (error) {
       console.error("Failed to get deposit settings:", error);
-      throw new Error("Failed to get deposit settings");
+      set.status = 500;
+      return { error: error instanceof Error ? error.message : "Failed to get deposit settings" };
     }
   }, {
     tags: ["trader"],
@@ -58,7 +73,7 @@ export default new Elysia({ prefix: "/deposits" })
   // Create deposit request
   .post("/", async ({ trader, body, set }) => {
     try {
-      const { amountUSDT, type = DepositType.BALANCE } = body;
+      const { amountUSDT, type = DepositType.BALANCE, txHash } = body;
       
       // Get deposit settings
       const [walletAddress, minAmount, expiryMinutes] = await Promise.all([
@@ -100,7 +115,8 @@ export default new Elysia({ prefix: "/deposits" })
           amountUSDT,
           address: walletAddress.value,
           status: DepositStatus.PENDING,
-          type
+          type,
+          txHash: txHash || null
         }
       });
 
@@ -132,7 +148,8 @@ export default new Elysia({ prefix: "/deposits" })
     detail: { summary: "Создание заявки на пополнение" },
     body: t.Object({
       amountUSDT: t.Number({ minimum: 0 }),
-      type: t.Optional(t.Enum(DepositType))
+      type: t.Optional(t.Enum(DepositType)),
+      txHash: t.Optional(t.String())
     }),
     response: {
       201: t.Object({

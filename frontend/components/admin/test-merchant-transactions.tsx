@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { useAdminAuth } from '@/stores/auth'
-import { RefreshCw, Send, Shuffle, AlertCircle } from 'lucide-react'
+import { RefreshCw, Send, Shuffle, AlertCircle, Smartphone } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface TestMerchantTransactionsProps {
@@ -27,6 +28,22 @@ interface TestMerchantTransactionsProps {
       type: string
       currency: string
     }
+  }>
+}
+
+interface Device {
+  id: string
+  name: string
+  trader: {
+    email: string
+    name?: string
+  }
+  isOnline: boolean
+  bankDetails: Array<{
+    id: string
+    bankType: string
+    cardNumber: string
+    methodType: string
   }>
 }
 
@@ -51,10 +68,40 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
   const [autoCreateInterval, setAutoCreateInterval] = useState<{ IN: NodeJS.Timeout | null; OUT: NodeJS.Timeout | null }>({ IN: null, OUT: null })
   const autoCreateEnabledRef = useRef(autoCreateEnabled)
   
+  // Notification form data
+  const [devices, setDevices] = useState<Device[]>([])
+  const [selectedDevice, setSelectedDevice] = useState('')
+  const [notificationTitle, setNotificationTitle] = useState('')
+  const [notificationAmount, setNotificationAmount] = useState('')
+  const [customNotificationText, setCustomNotificationText] = useState('')
+  const [useCustomText, setUseCustomText] = useState(false)
+  
   // Update ref when state changes
   useEffect(() => {
     autoCreateEnabledRef.current = autoCreateEnabled
   }, [autoCreateEnabled])
+  
+  // Load devices on component mount
+  useEffect(() => {
+    loadDevices()
+  }, [])
+  
+  const loadDevices = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/devices?pageSize=100`, {
+        headers: {
+          'x-admin-key': adminToken || ''
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setDevices(data.devices || [])
+      }
+    } catch (error) {
+      console.error('Failed to load devices:', error)
+    }
+  }
   
   const activeMethods = merchantMethods.filter(m => m.isEnabled)
   
@@ -82,6 +129,103 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
       }
     } catch (error) {
       toast.error('Не удалось создать тестовые SMS')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  const generateBankNotificationText = (amount: string, bankType: string) => {
+    const senderNames = ['IVANOV I I', 'PETROV A V', 'SIDOROV M M', 'KOZLOV D A', 'NOVIKOV S S']
+    const randomSender = senderNames[Math.floor(Math.random() * senderNames.length)]
+    const currentBalance = (parseFloat(amount) + Math.floor(Math.random() * 50000) + 10000).toFixed(2)
+    
+    const templates = {
+      'SBERBANK': `Перевод от ${randomSender}. Сумма: ${amount} руб. Баланс: ${currentBalance} руб. Карта *1234`,
+      'VTB': `ВТБ. Поступление ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
+      'TBANK': `Тинькофф. Зачисление ${amount}₽ от ${randomSender}. Баланс ${currentBalance}₽`,
+      'ALFA': `Альфа-Банк. Перевод ${amount} руб. От: ${randomSender}. Баланс: ${currentBalance} руб`,
+      'RAIF': `Райффайзен. Зачисление ${amount} руб от ${randomSender}. Остаток ${currentBalance} руб`
+    }
+    
+    return templates[bankType as keyof typeof templates] || templates['SBERBANK']
+  }
+  
+  const createTestNotification = async () => {
+    if (!selectedDevice || !notificationAmount) {
+      toast.error('Выберите устройство и укажите сумму')
+      return
+    }
+    
+    setIsLoading(true)
+    
+    try {
+      const device = devices.find(d => d.id === selectedDevice)
+      if (!device) {
+        toast.error('Устройство не найдено')
+        return
+      }
+      
+      // Определяем банк из реквизитов устройства или используем Сбербанк по умолчанию
+      const bankDetail = device.bankDetails[0]
+      const bankType = bankDetail?.bankType || 'SBERBANK'
+      
+      // Генерируем пакет приложения
+      const packageNames = {
+        'SBERBANK': 'ru.sberbankmobile',
+        'VTB': 'ru.vtb24.mobilebanking.android',
+        'TBANK': 'com.idamob.tinkoff.android',
+        'ALFA': 'ru.alfabank.mobile.android',
+        'RAIF': 'ru.raiffeisen.r_online_android'
+      }
+      
+      const packageName = packageNames[bankType as keyof typeof packageNames] || packageNames['SBERBANK']
+      const title = notificationTitle || bankType
+      
+      // Генерируем текст уведомления
+      const messageText = useCustomText && customNotificationText 
+        ? customNotificationText 
+        : generateBankNotificationText(notificationAmount, bankType)
+      
+      // Создаем уведомление
+      const notificationData = {
+        deviceId: selectedDevice,
+        type: 'AppNotification',
+        application: packageName,
+        title: title,
+        message: messageText,
+        metadata: {
+          packageName: packageName,
+          amount: parseFloat(notificationAmount),
+          bankType: bankType
+        }
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/messages/create-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || ''
+        },
+        body: JSON.stringify(notificationData)
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        toast.success('Тестовое уведомление создано', {
+          description: `Отправлено на устройство ${device.name} (${device.trader?.email || 'N/A'})`
+        })
+        
+        // Очищаем форму
+        setNotificationAmount('')
+        setNotificationTitle('')
+        setCustomNotificationText('')
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Ошибка создания уведомления')
+      }
+    } catch (error) {
+      toast.error('Не удалось создать уведомление')
+      console.error('Notification creation error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -149,10 +293,13 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
         toast.error('Ошибка создания транзакции', {
           description: result.error || 'Неизвестная ошибка'
         })
+        console.error('Transaction creation failed:', result)
       }
     } catch (error) {
-      toast.error('Ошибка при отправке запроса')
-      console.error(error)
+      toast.error('Ошибка при отправке запроса', {
+        description: error instanceof Error ? error.message : 'Неизвестная ошибка'
+      })
+      console.error('Request error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -198,8 +345,18 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
           successCount++
         } else {
           errorCount++
-          const error = await response.json()
-          console.error('Transaction creation failed:', error)
+          try {
+            const error = await response.json()
+            console.error('Transaction creation failed:', error)
+            // Show the actual error message if it's the first error
+            if (errorCount === 1) {
+              toast.error('Ошибка создания транзакции', {
+                description: error.error || 'Неизвестная ошибка'
+              })
+            }
+          } catch (e) {
+            console.error('Failed to parse error response:', e)
+          }
         }
         
         // Small delay between requests
@@ -649,6 +806,155 @@ export function TestMerchantTransactions({ merchantId, merchantToken, merchantMe
               Создать 10 SMS
             </Button>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+    
+    {/* Секция для создания тестовых уведомлений от банков */}
+    <Card className="mt-4 dark:bg-gray-800 dark:border-gray-700">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 dark:text-white">
+          <Smartphone className="h-5 w-5" />
+          Тестовые уведомления от банков
+        </CardTitle>
+        <CardDescription className="dark:text-gray-400">
+          Создание уведомлений с выбором устройства для тестирования NotificationMatcherService
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="device" className="dark:text-gray-300">Устройство</Label>
+            <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+              <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <SelectValue placeholder="Выберите устройство" />
+              </SelectTrigger>
+              <SelectContent className="dark:bg-gray-700 dark:border-gray-600">
+                {devices.map((device) => (
+                  <SelectItem 
+                    key={device.id} 
+                    value={device.id} 
+                    className="dark:text-gray-200 dark:hover:bg-gray-600"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${device.isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                      {device.name} ({device.trader?.email || 'N/A'})
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedDevice && (
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                {(() => {
+                  const device = devices.find(d => d.id === selectedDevice)
+                  if (!device) return null
+                  return (
+                    <div>
+                      <p>Трейдер: {device.trader?.email || 'N/A'}</p>
+                      <p>Реквизитов: {device.bankDetails.length}</p>
+                      {device.bankDetails.slice(0, 2).map(bd => (
+                        <p key={bd.id}>{bd.methodType.toUpperCase()} {bd.bankType} *{bd.cardNumber.slice(-4)}</p>
+                      ))}
+                    </div>
+                  )
+                })()
+                }
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <Label htmlFor="notificationAmount" className="dark:text-gray-300">Сумма (₽)</Label>
+            <Input
+              id="notificationAmount"
+              type="number"
+              value={notificationAmount}
+              onChange={(e) => setNotificationAmount(e.target.value)}
+              placeholder="5000"
+              className="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+            />
+          </div>
+        </div>
+        
+        <div>
+          <Label htmlFor="notificationTitle" className="dark:text-gray-300">Заголовок уведомления (опционально)</Label>
+          <Input
+            id="notificationTitle"
+            value={notificationTitle}
+            onChange={(e) => setNotificationTitle(e.target.value)}
+            placeholder="Будет использован банк из реквизитов"
+            className="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <Label htmlFor="custom-text" className="dark:text-gray-300">Использовать свой текст уведомления</Label>
+          <Switch
+            id="custom-text"
+            checked={useCustomText}
+            onCheckedChange={setUseCustomText}
+            className="dark:bg-gray-700"
+          />
+        </div>
+        
+        {useCustomText ? (
+          <div>
+            <Label htmlFor="customNotificationText" className="dark:text-gray-300">Текст уведомления</Label>
+            <Textarea
+              id="customNotificationText"
+              value={customNotificationText}
+              onChange={(e) => setCustomNotificationText(e.target.value)}
+              placeholder="Перевод от IVANOV I I. Сумма: 5000 руб. Баланс: 25000 руб."
+              rows={3}
+              className="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+            />
+          </div>
+        ) : (
+          notificationAmount && (
+            <div>
+              <Label className="dark:text-gray-300">Сгенерированный текст:</Label>
+              <div className="mt-1 p-3 bg-gray-100 dark:bg-gray-700 rounded border text-sm">
+                {(() => {
+                  const device = devices.find(d => d.id === selectedDevice)
+                  const bankType = device?.bankDetails[0]?.bankType || 'SBERBANK'
+                  return generateBankNotificationText(notificationAmount, bankType)
+                })()}
+              </div>
+            </div>
+          )
+        )}
+        
+        <Alert className="dark:bg-gray-700 dark:border-gray-600">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="dark:text-gray-300">
+            Уведомление будет создано на выбранном устройстве и обработано NotificationMatcherService для сопоставления с транзакциями
+          </AlertDescription>
+        </Alert>
+        
+        <div className="flex gap-2 pt-2">
+          <Button
+            onClick={createTestNotification}
+            disabled={isLoading || !selectedDevice || !notificationAmount}
+            className="flex-1"
+          >
+            {isLoading ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Создать уведомление
+          </Button>
+          
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadDevices}
+            disabled={isLoading}
+            className="dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </CardContent>
     </Card>

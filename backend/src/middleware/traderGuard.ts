@@ -48,8 +48,7 @@ export const traderGuard = () => (app: Elysia) =>
           return error(401, { error: "Сессия истекла" });
         if (session.user.banned)
           return error(403, { error: "Пользователь заблокирован" });
-        if (!session.user.trafficEnabled)
-          return error(403, { error: "Трафик отключен" });
+        // Remove the trafficEnabled check - it should only affect transaction assignment
       },
       response: {
         401: ErrorSchema,

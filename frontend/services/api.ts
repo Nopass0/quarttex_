@@ -92,6 +92,10 @@ export const traderApi = {
     const response = await traderApiInstance.get('/trader/profile')
     return response.data
   },
+  updateProfile: async (data: { teamEnabled?: boolean }) => {
+    const response = await traderApiInstance.patch('/trader/profile', data)
+    return response.data
+  },
   getTransactions: async (params?: { page?: number; limit?: number; status?: string; noDevice?: boolean }) => {
     const endpoint = params?.noDevice ? '/trader/transactions/bt-input' : '/trader/transactions';
     const response = await traderApiInstance.get(endpoint, { params })
@@ -310,7 +314,7 @@ export const traderApi = {
     const response = await traderApiInstance.get('/trader/deposits/settings')
     return response.data
   },
-  createDepositRequest: async (data: { amountUSDT: number }) => {
+  createDepositRequest: async (data: { amountUSDT: number; txHash?: string; type?: 'BALANCE' | 'INSURANCE' }) => {
     const response = await traderApiInstance.post('/trader/deposits', data)
     return response.data
   },

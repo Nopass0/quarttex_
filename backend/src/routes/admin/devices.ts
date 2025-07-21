@@ -54,6 +54,14 @@ export default (app: Elysia) =>
                   email: true,
                 }
               },
+              bankDetails: {
+                select: {
+                  id: true,
+                  bankType: true,
+                  cardNumber: true,
+                  methodType: true,
+                }
+              },
             },
             orderBy: { lastActiveAt: 'desc' },
             skip,
@@ -76,6 +84,7 @@ export default (app: Elysia) =>
           ethernetSpeed: device.ethernetSpeed,
           emulated: device.emulated,
           trader: device.user,
+          bankDetails: device.bankDetails || [],
           lastActiveAt: device.lastActiveAt?.toISOString() || null,
           createdAt: device.createdAt.toISOString(),
         }))

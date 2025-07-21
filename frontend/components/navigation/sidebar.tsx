@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Logo } from "@/components/ui/logo"
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 import {
   ChevronDown,
   CreditCard,
@@ -34,25 +34,26 @@ import {
   Send,
   Clock,
   Trash2,
-} from "lucide-react"
-import { useTraderAuth, useAdminAuth } from "@/stores/auth"
-import { useAgentAuth } from "@/stores/agent-auth"
-import { useMerchantAuth } from "@/stores/merchant-auth"
-import { useTraderFinancials } from "@/hooks/use-trader-financials"
-import { toast } from "sonner"
-import { Shield } from "lucide-react"
-import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal"
-import { ThemeSwitcher } from "@/components/ui/theme-toggle"
+  PiggyBank,
+} from "lucide-react";
+import { useTraderAuth, useAdminAuth } from "@/stores/auth";
+import { useAgentAuth } from "@/stores/agent-auth";
+import { useMerchantAuth } from "@/stores/merchant-auth";
+import { useTraderFinancials } from "@/hooks/use-trader-financials";
+import { toast } from "sonner";
+import { Shield } from "lucide-react";
+import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal";
+import { ThemeSwitcher } from "@/components/ui/theme-toggle";
 
 interface NavItem {
-  title: string
-  href?: string
-  icon: React.ComponentType<{ className?: string }>
-  children?: NavItem[]
+  title: string;
+  href?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: NavItem[];
 }
 
 interface SidebarProps {
-  variant: "trader" | "admin" | "agent" | "merchant"
+  variant: "trader" | "admin" | "agent" | "merchant";
 }
 
 const traderNavItems: NavItem[] = [
@@ -67,25 +68,30 @@ const traderNavItems: NavItem[] = [
     icon: FileText,
   },
   {
-    title: "Устройства",
-    href: "/trader/devices",
-    icon: Smartphone,
-  },
-  {
-    title: "Сообщения",
-    href: "/trader/messages",
-    icon: MessageSquare,
-  },
-  {
     title: "БТ-Вход",
     href: "/trader/bt-entry",
     icon: AlertCircle,
+  },
+  {
+    title: "Устройства",
+    href: "/trader/devices",
+    icon: Smartphone,
   },
   {
     title: "Реквизиты",
     href: "/trader/requisites",
     icon: CreditCard,
   },
+  {
+    title: "Сообщения",
+    href: "/trader/messages",
+    icon: MessageSquare,
+  },
+  // {
+  //   title: "Выплаты",
+  //   href: "/trader/payouts",
+  //   icon: DollarSign,
+  // },
   {
     title: "Финансы",
     href: "/trader/finances",
@@ -100,24 +106,19 @@ const traderNavItems: NavItem[] = [
         href: "/trader/disputes/deals",
         icon: FileText,
       },
-      {
-        title: "Выплаты",
-        href: "/trader/disputes/payouts",
-        icon: DollarSign,
-      },
+      // {
+      //   title: "Выплаты",
+      //   href: "/trader/disputes/payouts",
+      //   icon: DollarSign,
+      // },
     ],
-  },
-  {
-    title: "Выплаты",
-    href: "/trader/payouts",
-    icon: DollarSign,
   },
   {
     title: "Папки",
     href: "/trader/folders",
     icon: Folder,
   },
-]
+];
 
 const adminNavItems: NavItem[] = [
   {
@@ -134,6 +135,11 @@ const adminNavItems: NavItem[] = [
     title: "Сделки",
     href: "/admin/deals",
     icon: CreditCard,
+  },
+  {
+    title: "Депозиты",
+    href: "/admin/deposits",
+    icon: PiggyBank,
   },
   {
     title: "Выплаты",
@@ -215,7 +221,7 @@ const adminNavItems: NavItem[] = [
     href: "/wellbit/docs",
     icon: BookOpen,
   },
-]
+];
 
 const agentNavItems: NavItem[] = [
   {
@@ -243,7 +249,7 @@ const agentNavItems: NavItem[] = [
     href: "/agent/settings",
     icon: Settings,
   },
-]
+];
 
 const merchantNavItems: NavItem[] = [
   {
@@ -292,110 +298,120 @@ const merchantNavItems: NavItem[] = [
       },
     ],
   },
-]
+];
 
 export function Sidebar({ variant }: SidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [telegramModalOpen, setTelegramModalOpen] = useState(false)
-  
-  const traderLogout = useTraderAuth((state) => state.logout)
-  const adminAuth = useAdminAuth()
-  const adminLogout = adminAuth.logout
-  const adminRole = adminAuth.role
-  const agentAuth = useAgentAuth()
-  const agentLogout = agentAuth.logout
-  const agent = agentAuth.agent
-  const merchantAuth = useMerchantAuth()
-  const merchantLogout = merchantAuth.logout
-  const merchant = merchantAuth
-  const financials = useTraderFinancials()
-  
+  const pathname = usePathname();
+  const router = useRouter();
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [telegramModalOpen, setTelegramModalOpen] = useState(false);
+
+  const traderLogout = useTraderAuth((state) => state.logout);
+  const adminAuth = useAdminAuth();
+  const adminLogout = adminAuth.logout;
+  const adminRole = adminAuth.role;
+  const agentAuth = useAgentAuth();
+  const agentLogout = agentAuth.logout;
+  const agent = agentAuth.agent;
+  const merchantAuth = useMerchantAuth();
+  const merchantLogout = merchantAuth.logout;
+  const merchant = merchantAuth;
+  const financials = useTraderFinancials();
+
   // Add Admins link for SUPER_ADMIN only
-  const dynamicAdminNavItems = [...adminNavItems]
+  const dynamicAdminNavItems = [...adminNavItems];
   if (variant === "admin" && adminRole === "SUPER_ADMIN") {
     dynamicAdminNavItems.push({
       title: "Администраторы",
       href: "/admin/admins",
       icon: Shield,
-    })
+    });
   }
-  
-  const navItems = variant === "trader" ? traderNavItems : 
-                   variant === "admin" ? dynamicAdminNavItems : 
-                   variant === "agent" ? agentNavItems :
-                   merchantNavItems
-  
+
+  const navItems =
+    variant === "trader"
+      ? traderNavItems
+      : variant === "admin"
+        ? dynamicAdminNavItems
+        : variant === "agent"
+          ? agentNavItems
+          : merchantNavItems;
+
   const handleLogout = () => {
-    console.log(`Logging out ${variant}`)
+    console.log(`Logging out ${variant}`);
     if (variant === "trader") {
-      traderLogout()
+      traderLogout();
       // Очищаем localStorage полностью для трейдера
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('trader-auth')
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("trader-auth");
       }
-      router.push("/trader/login")
+      router.push("/trader/login");
     } else if (variant === "admin") {
-      adminLogout()
+      adminLogout();
       // Очищаем localStorage полностью для админа
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('admin-auth')
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("admin-auth");
       }
-      router.push("/admin/login")
+      router.push("/admin/login");
     } else if (variant === "agent") {
-      agentLogout()
-      router.push("/agent/login")
+      agentLogout();
+      router.push("/agent/login");
     } else if (variant === "merchant") {
-      merchantLogout()
-      router.push("/merchant/login")
+      merchantLogout();
+      router.push("/merchant/login");
     }
-  }
-  
+  };
+
   const toggleExpanded = (title: string) => {
     setExpandedItems((prev) =>
       prev.includes(title)
         ? prev.filter((item) => item !== title)
-        : [...prev, title]
-    )
-  }
-  
+        : [...prev, title],
+    );
+  };
+
   const renderNavItem = (item: NavItem, level = 0) => {
-    const hasChildren = item.children && item.children.length > 0
-    const isExpanded = expandedItems.includes(item.title)
-    const isActive = item.href === pathname
-    
+    const hasChildren = item.children && item.children.length > 0;
+    const isExpanded = expandedItems.includes(item.title);
+    const isActive = item.href === pathname;
+
     return (
       <div key={item.title}>
         <button
           onClick={() => {
             if (hasChildren) {
-              toggleExpanded(item.title)
+              toggleExpanded(item.title);
             } else if (item.href) {
-              router.push(item.href)
-              setMobileMenuOpen(false)
+              router.push(item.href);
+              setMobileMenuOpen(false);
             }
           }}
           className={cn(
             "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200",
             "text-gray-800 hover:text-gray-950 font-semibold dark:text-[#eeeeee] dark:hover:text-[#eeeeee]",
-            isActive ? "bg-[#006039]/10 text-[#006039] font-medium border-l-4 border-[#006039] -ml-[1px] dark:bg-[#2d6a42]/10 dark:text-[#2d6a42] dark:border-[#2d6a42]" : "hover:bg-gray-50 dark:hover:bg-[#29382f]/20",
-            level > 0 && "pl-12"
+            isActive
+              ? "bg-[#006039]/10 text-[#006039] font-medium border-l-4 border-[#006039] -ml-[1px] dark:bg-[#2d6a42]/10 dark:text-[#2d6a42] dark:border-[#2d6a42]"
+              : "hover:bg-gray-50 dark:hover:bg-[#29382f]/20",
+            level > 0 && "pl-12",
           )}
         >
-          <div className={cn(
-            "flex items-center justify-center w-5 h-5",
-            isActive && "text-[#006039]"
-          )}>
+          <div
+            className={cn(
+              "flex items-center justify-center w-5 h-5",
+              isActive && "text-[#006039]",
+            )}
+          >
             <item.icon className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
           </div>
-          <span className="flex-1 text-left text-sm font-semibold">{item.title}</span>
+          <span className="flex-1 text-left text-sm font-semibold">
+            {item.title}
+          </span>
           {hasChildren && (
             <ChevronDown
               className={cn(
                 "h-4 w-4 transition-transform text-[#006039]",
-                isExpanded && "rotate-180"
+                isExpanded && "rotate-180",
               )}
             />
           )}
@@ -406,9 +422,9 @@ export function Sidebar({ variant }: SidebarProps) {
           </div>
         )}
       </div>
-    )
-  }
-  
+    );
+  };
+
   return (
     <>
       {/* Desktop Sidebar - Hidden on mobile */}
@@ -417,49 +433,73 @@ export function Sidebar({ variant }: SidebarProps) {
           <div className="flex flex-col items-start">
             <Logo size="md" />
             {variant === "admin" && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">Админ-панель</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Админ-панель
+              </span>
             )}
             {variant === "agent" && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">Кабинет агента</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Кабинет агента
+              </span>
             )}
             {variant === "merchant" && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">Кабинет мерчанта</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Кабинет мерчанта
+              </span>
             )}
           </div>
         </div>
-        
+
         {variant === "agent" && agent && (
           <div className="p-4 border-b border-gray-100 dark:border-[#29382f]">
             <div className="space-y-1">
-              <div className="text-sm font-medium dark:text-[#eeeeee]">{agent.name}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{agent.email}</div>
+              <div className="text-sm font-medium dark:text-[#eeeeee]">
+                {agent.name}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {agent.email}
+              </div>
               <div className="text-xs text-[#006039] dark:text-[#2d6a42] font-medium">
                 Комиссия: {agent.commissionRate}%
               </div>
             </div>
           </div>
         )}
-        
+
         {variant === "merchant" && merchant.merchantName && (
           <div className="p-4 border-b border-gray-100 dark:border-[#29382f]">
             <div className="space-y-1">
-              <div className="text-sm font-medium dark:text-[#eeeeee]">{merchant.merchantName}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">ID: {merchant.merchantId}</div>
+              <div className="text-sm font-medium dark:text-[#eeeeee]">
+                {merchant.merchantName}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                ID: {merchant.merchantId}
+              </div>
             </div>
           </div>
         )}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => renderNavItem(item))}
-          
+
           {variant === "trader" && financials && (
             <div className="mt-6 space-y-3 px-3">
               {/* Баланс */}
               <div className="p-4 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Баланс</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Баланс
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-semibold">{Math.max(0, (financials.trustBalance || 0) - (financials.frozenUsdt || 0)).toFixed(2)}</span>
-                    <span className="text-xs font-medium text-[#006039]">USDT</span>
+                    <span className="text-sm font-semibold">
+                      {Math.max(
+                        0,
+                        (financials.trustBalance || 0) -
+                          (financials.frozenUsdt || 0),
+                      ).toFixed(2)}
+                    </span>
+                    <span className="text-xs font-medium text-[#006039]">
+                      USDT
+                    </span>
                   </div>
                 </div>
                 {(financials.frozenUsdt || 0) > 0 && (
@@ -467,68 +507,94 @@ export function Sidebar({ variant }: SidebarProps) {
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500">Заморожено</span>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-medium text-gray-600">{(financials.frozenUsdt || 0).toFixed(2)}</span>
+                        <span className="text-xs font-medium text-gray-600">
+                          {(financials.frozenUsdt || 0).toFixed(2)}
+                        </span>
                         <span className="text-xs text-gray-600">USDT</span>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-              
+
               {/* Депозит */}
               <div className="p-4 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Депозит</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Депозит
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-semibold">{(financials.deposit || 0).toFixed(2)}</span>
-                    <span className="text-xs font-medium text-[#006039]">USDT</span>
+                    <span className="text-sm font-semibold">
+                      {(financials.deposit || 0).toFixed(2)}
+                    </span>
+                    <span className="text-xs font-medium text-[#006039]">
+                      USDT
+                    </span>
                   </div>
                 </div>
               </div>
-              
+
               {/* Общая прибыль */}
               <div className="p-4 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Прибыль</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Прибыль
+                  </span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold text-[#006039]">
-                      +{((financials.profitFromDeals || 0) + (financials.profitFromPayouts || 0)).toFixed(2)}
+                      +
+                      {(
+                        (financials.profitFromDeals || 0) +
+                        (financials.profitFromPayouts || 0)
+                      ).toFixed(2)}
                     </span>
-                    <span className="text-xs font-medium text-[#006039]">USDT</span>
+                    <span className="text-xs font-medium text-[#006039]">
+                      USDT
+                    </span>
                   </div>
                 </div>
                 <div className="mt-2 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">Со сделок</span>
-                    <span className="text-xs font-medium">+{(financials.profitFromDeals || 0).toFixed(2)}</span>
+                    <span className="text-xs font-medium">
+                      +{(financials.profitFromDeals || 0).toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">С выплат</span>
-                    <span className="text-xs font-medium">+{(financials.profitFromPayouts || 0).toFixed(2)}</span>
+                    <span className="text-xs font-medium">
+                      +{(financials.profitFromPayouts || 0).toFixed(2)}
+                    </span>
                   </div>
                 </div>
               </div>
-              
-              
+
               {/* Download APK Button */}
               <div className="mt-6 p-3 bg-gradient-to-r from-[#006039]/10 to-[#006039]/5 rounded-lg border border-[#006039]/20">
-                <p className="text-xs text-gray-600 mb-2">Приложение для автоматизации сделок</p>
+                <p className="text-xs text-gray-600 mb-2">
+                  Приложение для автоматизации сделок
+                </p>
                 <Button
                   variant="default"
                   className="w-full justify-center gap-2 bg-[#006039] hover:bg-[#006039]/90 text-white"
                   onClick={() => {
-                    toast.success("Загрузка APK началась")
-                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/app/download-apk`, "_blank")
+                    toast.success("Загрузка APK началась");
+                    window.open(
+                      `${process.env.NEXT_PUBLIC_API_URL}/app/download-apk`,
+                      "_blank",
+                    );
                   }}
                 >
                   <Download className="h-5 w-5 text-white" />
                   <span className="font-medium">Скачать APK</span>
                 </Button>
               </div>
-              
+
               {/* Telegram Connect Button */}
               <div className="p-3 bg-gradient-to-r from-blue-500/10 to-blue-400/5 rounded-lg border border-blue-500/20">
-                <p className="text-xs text-gray-600 mb-2">Получайте уведомления в Telegram</p>
+                <p className="text-xs text-gray-600 mb-2">
+                  Получайте уведомления в Telegram
+                </p>
                 <Button
                   variant="outline"
                   className="w-full justify-center gap-2 border-blue-500 text-blue-600 hover:bg-blue-50"
@@ -541,7 +607,7 @@ export function Sidebar({ variant }: SidebarProps) {
             </div>
           )}
         </nav>
-        
+
         {/* Theme Switcher and Logout Button */}
         <div className="p-4 border-t border-gray-100 dark:border-[#29382f] space-y-2">
           <ThemeSwitcher />
@@ -555,7 +621,7 @@ export function Sidebar({ variant }: SidebarProps) {
           </Button>
         </div>
       </div>
-      
+
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white dark:bg-[#0f0f0f] dark:border-[#29382f]">
         <div className="flex items-center justify-around p-2">
@@ -564,13 +630,13 @@ export function Sidebar({ variant }: SidebarProps) {
               key={item.title}
               onClick={() => {
                 if (item.href) {
-                  router.push(item.href)
+                  router.push(item.href);
                 }
               }}
               className={cn(
                 "flex flex-col items-center gap-1 p-2 rounded-lg transition-colors",
                 "hover:bg-accent/50",
-                pathname === item.href && "text-[#006039]"
+                pathname === item.href && "text-[#006039]",
               )}
             >
               <item.icon className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
@@ -586,7 +652,7 @@ export function Sidebar({ variant }: SidebarProps) {
           </button>
         </div>
       </div>
-      
+
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-white dark:bg-[#0f0f0f]">
@@ -607,7 +673,7 @@ export function Sidebar({ variant }: SidebarProps) {
           </div>
         </div>
       )}
-      
+
       {/* Telegram Connect Modal */}
       {variant === "trader" && (
         <TelegramConnectModal
@@ -616,5 +682,5 @@ export function Sidebar({ variant }: SidebarProps) {
         />
       )}
     </>
-  )
+  );
 }

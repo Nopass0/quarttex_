@@ -183,10 +183,14 @@ export function FinancesMain() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [dateRange, setDateRange] = useState("month");
   const [withdrawalBalanceType, setWithdrawalBalanceType] = useState<string | undefined>();
+  const [depositType, setDepositType] = useState<'BALANCE' | 'INSURANCE'>('BALANCE');
   const financials = useTraderFinancials();
   
   const depositModal = useUrlModal({
-    modalName: "deposit"
+    modalName: "deposit",
+    onClose: () => {
+      setDepositType('BALANCE');
+    }
   });
   
   const withdrawalModal = useUrlModal({
@@ -351,7 +355,10 @@ export function FinancesMain() {
               <Button
                 size="sm"
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
-                onClick={() => depositModal.open()}
+                onClick={() => {
+                  setDepositType('INSURANCE');
+                  depositModal.open();
+                }}
               >
                 <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
                 <span className="hidden sm:inline">Пополнить</span>
@@ -376,7 +383,10 @@ export function FinancesMain() {
               <Button
                 size="sm"
                 className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
-                onClick={() => depositModal.open()}
+                onClick={() => {
+                  setDepositType('BALANCE');
+                  depositModal.open();
+                }}
               >
                 <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
                 <span className="hidden sm:inline">Пополнить</span>
@@ -800,6 +810,7 @@ export function FinancesMain() {
       <DepositDialog
         open={depositModal.isOpen}
         onOpenChange={depositModal.setOpen}
+        depositType={depositType}
       />
       <WithdrawalDialog
         open={withdrawalModal.isOpen}

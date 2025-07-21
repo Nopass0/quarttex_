@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./radix-fixes.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
 

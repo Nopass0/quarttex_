@@ -32,6 +32,7 @@ import QRCode from "react-qr-code"
 interface DepositDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  depositType?: 'BALANCE' | 'INSURANCE'
 }
 
 interface DepositSettings {
@@ -42,13 +43,15 @@ interface DepositSettings {
   network: string
 }
 
-export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
+export function DepositDialog({ open, onOpenChange, depositType = 'BALANCE' }: DepositDialogProps) {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [amount, setAmount] = useState("")
   const [step, setStep] = useState(1)
   const [showQR, setShowQR] = useState(false)
   const [loading, setLoading] = useState(false)
   const [depositSettings, setDepositSettings] = useState<DepositSettings | null>(null)
+  const [amountError, setAmountError] = useState("")
+  const [txHash, setTxHash] = useState("")
   
   useEffect(() => {
     if (open) {
@@ -73,19 +76,44 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
       setTimeout(() => setCopiedAddress(false), 3000)
     }
   }
+  
+  const handleAmountChange = (value: string) => {
+    setAmount(value)
+    setAmountError("")
+    
+    if (value && depositSettings) {
+      const parsedAmount = parseFloat(value)
+      if (isNaN(parsedAmount)) {
+        setAmountError("Введите корректную сумму")
+      } else if (parsedAmount < depositSettings.minAmount) {
+        setAmountError(`Минимальная сумма: ${depositSettings.minAmount} USDT`)
+      }
+    }
+  }
 
   const handleNextStep = async () => {
     if (step === 1) {
-      if (!amount || !depositSettings || parseFloat(amount) < depositSettings.minAmount) {
+      const parsedAmount = parseFloat(amount)
+      if (!amount || isNaN(parsedAmount)) {
+        toast.error("Введите корректную сумму")
+        return
+      }
+      if (!depositSettings || parsedAmount < depositSettings.minAmount) {
         toast.error(`Минимальная сумма пополнения: ${depositSettings?.minAmount || 10} USDT`)
         return
       }
       setStep(2)
     } else if (step === 2) {
+      if (!txHash) {
+        toast.error("Введите хеш транзакции")
+        return
+      }
       setLoading(true)
       try {
         await traderApi.createDepositRequest({
-          amountUSDT: parseFloat(amount)
+          amountUSDT: parseFloat(amount),
+          txHash: txHash,
+          type: depositType
         })
         setStep(3)
         toast.success("Заявка на пополнение создана")
@@ -100,6 +128,8 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
   const handleReset = () => {
     setStep(1)
     setAmount("")
+    setAmountError("")
+    setTxHash("")
     setShowQR(false)
   }
 
@@ -115,7 +145,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowDownRight className="h-5 w-5" style={{ color: '#006039' }} />
-            Пополнение баланса
+            Пополнение {depositType === 'INSURANCE' ? 'депозитного' : 'траст'} баланса
           </DialogTitle>
           <DialogDescription>
             Пополните баланс для участия в сделках
@@ -156,14 +186,18 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                     type="number"
                     placeholder="0.00"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="pr-16"
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    className={cn("pr-16", amountError && "border-red-500 focus:border-red-500")}
                     min={depositSettings?.minAmount || 10}
+                    step="0.01"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
                     USDT
                   </span>
                 </div>
+                {amountError && (
+                  <p className="text-sm text-red-500 mt-1">{amountError}</p>
+                )}
               </div>
 
               <Card className="p-4 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-900/20">
@@ -180,7 +214,8 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
 
               <Button 
                 onClick={handleNextStep}
-                className="w-full bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white"
+                disabled={!amount || !!amountError}
+                className="w-full bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Продолжить
               </Button>
@@ -220,6 +255,21 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 </div>
               </div>
 
+              <div>
+                <Label htmlFor="tx-hash">Хеш транзакции *</Label>
+                <Input
+                  id="tx-hash"
+                  type="text"
+                  placeholder="Введите хеш транзакции после отправки"
+                  value={txHash}
+                  onChange={(e) => setTxHash(e.target.value)}
+                  className="mt-2 font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  После отправки USDT на указанный адрес, введите хеш транзакции
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -231,8 +281,8 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                 </Button>
                 <Button
                   onClick={handleNextStep}
-                  disabled={loading}
-                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white"
+                  disabled={loading || !txHash}
+                  className="flex-1 bg-[#006039] hover:bg-[#006039]/90 dark:bg-[#2d6a42] dark:hover:bg-[#2d6a42]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
@@ -240,7 +290,7 @@ export function DepositDialog({ open, onOpenChange }: DepositDialogProps) {
                       Создание заявки...
                     </>
                   ) : (
-                    "Отправил"
+                    "Создать заявку"
                   )}
                 </Button>
               </div>

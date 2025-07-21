@@ -88,9 +88,10 @@ export default class DepositMonitorService extends BaseService {
             });
 
             // Check if enough confirmations
-            if (mockTransaction.confirmations >= requiredConfirmations) {
-              await this.confirmDeposit(deposit);
-            }
+            // DISABLED: Now admin must manually confirm deposits
+            // if (mockTransaction.confirmations >= requiredConfirmations) {
+            //   await this.confirmDeposit(deposit);
+            // }
           }
         } catch (error) {
           await this.logError(`Error checking deposit ${deposit.id}`, { error });
@@ -102,27 +103,20 @@ export default class DepositMonitorService extends BaseService {
   }
 
   private async mockCheckTransaction(deposit: any): Promise<{ txHash: string, confirmations: number } | null> {
-    // In production, this would call TRON API to check for incoming transactions
-    // For demo, we'll simulate finding a transaction after 30 seconds
+    // Only process deposits that already have a txHash (provided by trader)
+    if (!deposit.txHash) {
+      return null;
+    }
+    
+    // In production, this would call TRON API to verify the transaction
+    // For now, we'll simulate confirmations for deposits that have txHash
     const timeSinceCreation = Date.now() - deposit.createdAt.getTime();
     
-    if (timeSinceCreation > 30000 && !deposit.txHash) {
-      // Simulate finding a transaction
-      return {
-        txHash: `0x${Math.random().toString(16).substring(2)}`,
-        confirmations: Math.floor(timeSinceCreation / 20000) // 1 confirmation every 20 seconds
-      };
-    }
-    
-    if (deposit.txHash) {
-      // Simulate increasing confirmations
-      return {
-        txHash: deposit.txHash,
-        confirmations: Math.floor(timeSinceCreation / 20000)
-      };
-    }
-    
-    return null;
+    // Simulate increasing confirmations over time
+    return {
+      txHash: deposit.txHash,
+      confirmations: Math.floor(timeSinceCreation / 20000) // 1 confirmation every 20 seconds
+    };
   }
 
   private async confirmDeposit(deposit: any): Promise<void> {

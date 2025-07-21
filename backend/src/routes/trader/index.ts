@@ -155,9 +155,15 @@ export default (app: Elysia) =>
           availableUsdt: (trader.balanceUsdt || 0) - (trader.frozenUsdt || 0),
           availableRub: (trader.balanceRub || 0) - (trader.frozenRub || 0),
           trafficEnabled: trader.trafficEnabled || true,
+          deposit: trader.deposit || 0,
           trustBalance: trader.trustBalance || 0,
           profitFromDeals: trader.profitFromDeals || 0,
           profitFromPayouts: trader.profitFromPayouts || 0,
+          compensationBalance: 0, // TODO: implement compensation balance
+          referralBalance: 0, // TODO: implement referral balance
+          escrowBalance: trader.frozenUsdt || 0, // Using frozen balance as escrow
+          disputedBalance: 0, // TODO: calculate from disputes
+          teamEnabled: trader.trafficEnabled, // Indicates if trader profile is active
           createdAt: trader.createdAt ? trader.createdAt.toISOString() : new Date().toISOString(),
         };
       },
@@ -177,13 +183,58 @@ export default (app: Elysia) =>
             availableUsdt: t.Number(),
             availableRub: t.Number(),
             trafficEnabled: t.Boolean(),
+            deposit: t.Number(),
             trustBalance: t.Number(),
             profitFromDeals: t.Number(),
             profitFromPayouts: t.Number(),
+            compensationBalance: t.Number(),
+            referralBalance: t.Number(),
+            escrowBalance: t.Number(),
+            disputedBalance: t.Number(),
+            teamEnabled: t.Boolean(),
             createdAt: t.String(),
           }),
           401: ErrorSchema,
           403: ErrorSchema,
+        },
+      },
+    )
+    .patch(
+      "/profile",
+      async ({ trader, body, error }) => {
+        // Update trader profile settings
+        const updateData: any = {};
+        
+        if (body.teamEnabled !== undefined) {
+          // Use trafficEnabled to control whether trader is actively working
+          updateData.trafficEnabled = body.teamEnabled;
+        }
+        
+        // Update the trader
+        const updatedTrader = await db.user.update({
+          where: { id: trader.id },
+          data: updateData,
+        });
+        
+        return {
+          success: true,
+          teamEnabled: updatedTrader.trafficEnabled,
+        };
+      },
+      {
+        tags: ["trader"],
+        detail: { summary: "Обновление настроек профиля трейдера" },
+        body: t.Object({
+          teamEnabled: t.Optional(t.Boolean()),
+        }),
+        response: {
+          200: t.Object({
+            success: t.Boolean(),
+            teamEnabled: t.Boolean(),
+          }),
+          401: ErrorSchema,
+          403: ErrorSchema,
+          400: ErrorSchema,
         },
       },
     )

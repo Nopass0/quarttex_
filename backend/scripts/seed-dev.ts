@@ -49,12 +49,13 @@ async function seedDevelopment() {
     console.log('✓ Created test merchant')
 
     // 4. Create Wellbit merchant with API keys
+    const wellbitToken = 'wellbit-' + randomBytes(32).toString('hex');
     await db.merchant.upsert({
-      where: { name: 'Wellbit' },
+      where: { token: wellbitToken },
       update: {},
       create: {
         name: 'Wellbit',
-        token: randomBytes(32).toString('hex'),
+        token: wellbitToken,
         apiKeyPublic: randomBytes(16).toString('hex'),
         apiKeyPrivate: randomBytes(32).toString('hex'),
       }

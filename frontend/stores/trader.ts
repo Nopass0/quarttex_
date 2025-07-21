@@ -9,6 +9,10 @@ interface TraderFinancials {
   balanceUsdt: number
   balanceRub: number
   deposit: number
+  escrowBalance: number
+  compensationBalance: number
+  referralBalance: number
+  disputedBalance: number
 }
 
 interface TraderStore {

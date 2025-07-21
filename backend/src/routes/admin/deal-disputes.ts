@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia'
 import { db } from '@/db'
+import { Status } from '@prisma/client'
 import ErrorSchema from '@/types/error'
 
 const AuthHeader = t.Object({ 'x-admin-key': t.String() })
@@ -316,12 +317,12 @@ export default (app: Elysia) =>
 
           // Update transaction status based on resolution
           if (body.inFavorOf === 'MERCHANT') {
-            // In favor of merchant - transaction is completed
+            // In favor of merchant - transaction is marked as READY
             await tx.transaction.update({
               where: { id: dispute.dealId },
               data: {
-                status: 'COMPLETED',
-                completedAt: new Date(),
+                status: Status.READY,
+                acceptedAt: new Date(),
               }
             })
           } else {
@@ -329,7 +330,7 @@ export default (app: Elysia) =>
             await tx.transaction.update({
               where: { id: dispute.dealId },
               data: {
-                status: 'CANCELED',
+                status: Status.CANCELED,
               }
             })
           }

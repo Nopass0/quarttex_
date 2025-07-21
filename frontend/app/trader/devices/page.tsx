@@ -27,14 +27,14 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/simple-popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/simple-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
@@ -60,6 +60,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import QRCode from "qrcode";
+import { StickySearchFilters } from "@/components/ui/sticky-search-filters";
 
 interface Device {
   id: string;
@@ -163,7 +164,8 @@ export default function DevicesPage() {
   const [deviceForm, setDeviceForm] = useState({ name: "" });
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterOnline, setFilterOnline] = useState(false);
 
   useEffect(() => {
     fetchDevices();
@@ -275,11 +277,20 @@ export default function DevicesPage() {
   };
 
   const filteredDevices = devices.filter((device) => {
-    return (
+    const matchesSearch = 
       device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       device.token.includes(searchQuery) ||
-      device.id.includes(searchQuery)
-    );
+      device.id.includes(searchQuery);
+      
+    const matchesStatus = 
+      filterStatus === "all" ||
+      (filterStatus === "working" && (device.isOnline || device.status === "working")) ||
+      (filterStatus === "not_working" && !device.isOnline && device.status !== "working" && device.isRegistered) ||
+      (filterStatus === "unregistered" && !device.isRegistered);
+      
+    const matchesOnline = !filterOnline || device.isOnline;
+    
+    return matchesSearch && matchesStatus && matchesOnline;
   });
 
   const sortedDevices = [...filteredDevices].sort((a, b) => {
@@ -359,126 +370,74 @@ export default function DevicesPage() {
           </div>
 
           {/* Search and Filters Section */}
-          <Card className="p-4 md:p-6">
-            <div className="space-y-3 md:space-y-4">
-              {/* Search Title */}
-              <h3 className="text-base md:text-lg font-medium">Поиск по устройствам</h3>
-
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Искать устройства"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-20"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSearchQuery("")}
-                      className="h-8 w-8"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Search className="h-4 w-4" />
+          <StickySearchFilters
+            searchPlaceholder="Искать устройства"
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            activeFiltersCount={[
+              filterStatus !== "all",
+              filterOnline
+            ].filter(Boolean).length}
+            onResetFilters={() => {
+              setFilterStatus("all");
+              setFilterOnline(false);
+            }}
+            additionalButtons={
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base">
+                    <ArrowUpDown className="h-4 w-4 text-[#006039]" />
+                    <span className="hidden sm:inline">{sortBy === "newest" ? "Сначала новые" : "Сначала старые"}</span>
+                    <span className="sm:hidden">{sortBy === "newest" ? "Новые" : "Старые"}</span>
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
                   </Button>
-                </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSortBy("newest")}>
+                    Сначала новые
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortBy("oldest")}>
+                    Сначала старые
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            }
+          >
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Wifi className="h-4 w-4 text-[#006039]" />
+                <Label>Статус устройств:</Label>
               </div>
-
-              {/* Filters Row */}
-              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
-                {/* Parameters Button */}
-                <Popover open={showFilters} onOpenChange={setShowFilters}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1 w-full sm:w-auto text-sm md:text-base">
-                      <SlidersHorizontal className="mr-1 md:mr-2 h-4 w-4 text-green-700" />
-                      <span className="text-gray-500">Не выбраны</span>
-                      <ChevronDown className="ml-auto h-4 w-4 text-gray-500" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80" align="start">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Параметры поиска</h4>
-                        <button
-                          onClick={() => setShowFilters(false)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Wifi className="h-4 w-4 text-green-700" />
-                          <span>Статус устройств:</span>
-                        </div>
-                        <Select
-                          defaultValue="all"
-                          onValueChange={(value) => console.log(value)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Все устройства" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Все устройства</SelectItem>
-                            <SelectItem value="not_working">
-                              Не в работе
-                            </SelectItem>
-                            <SelectItem value="working">В работе</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox />
-                        <span className="text-sm">
-                          Только активные устройства (online)
-                        </span>
-                      </label>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button variant="outline" className="flex-1" size="sm">
-                          Сбросить все
-                        </Button>
-                        <Button
-                          className="flex-1 bg-green-700 hover:bg-green-700/90"
-                          size="sm"
-                        >
-                          Применить фильтры
-                        </Button>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                {/* Sort Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex-1 w-full sm:w-auto text-sm md:text-base">
-                      <ArrowUpDown className="mr-1 md:mr-2 h-4 w-4 text-green-700" />
-                      <span className="hidden sm:inline">{sortBy === "newest" ? "Сначала новые" : "Сначала старые"}</span>
-                      <span className="sm:hidden">{sortBy === "newest" ? "Новые" : "Старые"}</span>
-                      <ChevronDown className="ml-auto h-4 w-4 text-gray-500" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setSortBy("newest")}>
-                      Сначала новые
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy("oldest")}>
-                      Сначала старые
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <Select
+                value={filterStatus}
+                onValueChange={setFilterStatus}
+              >
+                <SelectTrigger className="w-full h-12">
+                  <SelectValue placeholder="Все устройства" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все устройства</SelectItem>
+                  <SelectItem value="not_working">
+                    Не в работе
+                  </SelectItem>
+                  <SelectItem value="working">В работе</SelectItem>
+                  <SelectItem value="unregistered">Без регистрации</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </Card>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox 
+                checked={filterOnline}
+                onCheckedChange={(checked) => setFilterOnline(checked as boolean)}
+              />
+              <span className="text-sm">
+                Только активные устройства (online)
+              </span>
+            </label>
+
+          </StickySearchFilters>
 
           {/* Devices List */}
           <div className="space-y-3">

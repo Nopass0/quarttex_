@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronDown, LogOut, User } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, LogOut, User, Plus, Wallet, Shield } from "lucide-react";
 import { useTraderAuth } from "@/stores/auth";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
+import { DepositDialog } from "@/components/finances/deposit-dialog";
 
 interface TraderProfile {
   id: number;
@@ -21,23 +27,16 @@ export function TraderHeader() {
   const router = useRouter();
   const logout = useTraderAuth((state) => state.logout);
   const [teamEnabled, setTeamEnabled] = useState(false);
-  const [traderProfile, setTraderProfile] = useState<TraderProfile | null>(null);
+  const [traderProfile, setTraderProfile] = useState<TraderProfile | null>(
+    null,
+  );
+  const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+  const [depositType, setDepositType] = useState<'BALANCE' | 'INSURANCE'>('BALANCE');
 
   useEffect(() => {
-    // Load team state from localStorage
-    const savedTeamState = localStorage.getItem("teamEnabled");
-    if (savedTeamState !== null) {
-      setTeamEnabled(savedTeamState === "true");
-    }
-
-    // Fetch trader profile
+    // Fetch trader profile and team state from server
     fetchTraderProfile();
   }, []);
-
-  useEffect(() => {
-    // Save team state to localStorage whenever it changes
-    localStorage.setItem("teamEnabled", teamEnabled.toString());
-  }, [teamEnabled]);
 
   const fetchTraderProfile = async () => {
     try {
@@ -46,16 +45,31 @@ export function TraderHeader() {
         setTraderProfile({
           id: response.id || 0,
           numericId: response.numericId || 0,
-          email: response.email || "trader@example.com"
+          email: response.email || "trader@example.com",
         });
+        // Set team state from server response
+        setTeamEnabled(response.teamEnabled || false);
       }
     } catch (error) {
       console.error("Failed to fetch trader profile:", error);
       setTraderProfile({
         id: 0,
         numericId: 0,
-        email: "trader@example.com"
+        email: "trader@example.com",
       });
+    }
+  };
+
+  const handleTeamToggle = async (checked: boolean) => {
+    setTeamEnabled(checked);
+    try {
+      await traderApi.updateProfile({ teamEnabled: checked });
+      toast.success(checked ? "Вы вошли в команду" : "Вы вышли из команды");
+    } catch (error) {
+      console.error("Failed to update team status:", error);
+      toast.error("Не удалось обновить статус команды");
+      // Revert the state if the API call fails
+      setTeamEnabled(!checked);
     }
   };
 
@@ -69,6 +83,42 @@ export function TraderHeader() {
 
   return (
     <div className="flex items-center gap-2 md:gap-4">
+      {/* Deposit button dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 border-green-600 text-green-600 hover:bg-green-50 dark:border-green-500 dark:text-green-500 dark:hover:bg-green-950/20"
+            title="Пополнить баланс"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem
+            onClick={() => {
+              setDepositType('BALANCE');
+              setDepositDialogOpen(true);
+            }}
+            className="cursor-pointer"
+          >
+            <Wallet className="mr-2 h-4 w-4" />
+            Пополнить траст
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setDepositType('INSURANCE');
+              setDepositDialogOpen(true);
+            }}
+            className="cursor-pointer"
+          >
+            <Shield className="mr-2 h-4 w-4" />
+            Пополнить депозит
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       {/* Team toggle switch - hidden on mobile */}
       <div className="hidden md:flex items-center gap-2">
         <Label htmlFor="team-switch" className="text-sm text-gray-700">
@@ -77,7 +127,7 @@ export function TraderHeader() {
         <Switch
           id="team-switch"
           checked={teamEnabled}
-          onCheckedChange={setTeamEnabled}
+          onCheckedChange={handleTeamToggle}
         />
       </div>
 
@@ -93,7 +143,7 @@ export function TraderHeader() {
                 <User className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
               </div>
               <span className="hidden sm:block text-gray-700 dark:text-gray-300 font-medium">
-                ${traderProfile?.numericId?.toString().padStart(4, "0") || "0000"}
+                ID: {traderProfile?.numericId?.toString() || "0"}
               </span>
             </div>
             <ChevronDown className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
@@ -109,6 +159,13 @@ export function TraderHeader() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Deposit Dialog */}
+      <DepositDialog
+        open={depositDialogOpen}
+        onOpenChange={setDepositDialogOpen}
+        depositType={depositType}
+      />
     </div>
   );
 }

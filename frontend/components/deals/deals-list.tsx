@@ -28,10 +28,17 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/simple-popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/simple-select";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import { useTraderAuth } from "@/stores/auth";
@@ -63,6 +70,8 @@ import {
 import { cn } from "@/lib/utils";
 import { RequisiteInfoModal } from "@/components/requisites/requisite-info-modal";
 import { CustomCalendarPopover } from "@/components/ui/custom-calendar-popover";
+import { StickySearchFilters } from "@/components/ui/sticky-search-filters";
+import { useDebounce } from "@/hooks/use-debounce";
 
 // Функция для получения квадратных SVG логотипов банков
 const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
@@ -214,6 +223,19 @@ export function DealsList() {
     useState<Transaction | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  // Applied filters (for actual filtering)
+  const [appliedFilters, setAppliedFilters] = useState({
+    status: "all",
+    amount: { exact: "", min: "", max: "" },
+    amountType: "range",
+    device: "all",
+    requisite: "all",
+    methodType: "all",
+    dateFrom: undefined as Date | undefined,
+    dateTo: undefined as Date | undefined,
+  });
+  
+  // Temporary filters (for UI)
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterAmount, setFilterAmount] = useState({
     exact: "",
@@ -221,9 +243,9 @@ export function DealsList() {
     max: "",
   });
   const [filterAmountType, setFilterAmountType] = useState("range");
-  const [filterDevice, setFilterDevice] = useState("all");
+  const [filterDevice, setFilterDevice] = useState("1");
   const [filterRequisite, setFilterRequisite] = useState("all");
-  const [filterMethod, setFilterMethod] = useState("all");
+  const [filterMethodType, setFilterMethodType] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -390,20 +412,36 @@ export function DealsList() {
     }
   }, [transactions]);
 
-  // Refetch when filters change
+  // Apply filters function
+  const applyFilters = () => {
+    setAppliedFilters({
+      status: filterStatus,
+      amount: filterAmount,
+      amountType: filterAmountType,
+      device: filterDevice,
+      requisite: filterRequisite,
+      methodType: filterMethodType,
+      dateFrom: filterDateFrom,
+      dateTo: filterDateTo,
+    });
+  };
+  
+  // Refetch when applied filters change
   useEffect(() => {
     if (!loading) {
       setPage(1);
       fetchTransactions(1, false);
     }
   }, [
-    filterStatus,
-    filterDevice,
-    filterRequisite,
-    filterMethod,
-    filterAmount,
-    filterDateFrom,
-    filterDateTo,
+    appliedFilters.status,
+    appliedFilters.device,
+    appliedFilters.requisite,
+    appliedFilters.methodType,
+    appliedFilters.amount.exact,
+    appliedFilters.amount.min,
+    appliedFilters.amount.max,
+    appliedFilters.dateFrom,
+    appliedFilters.dateTo,
   ]);
 
   const fetchTransactions = async (pageNum = 1, append = false) => {
@@ -421,8 +459,8 @@ export function DealsList() {
       };
 
       // Add status filter
-      if (filterStatus !== "all") {
-        switch (filterStatus) {
+      if (appliedFilters.status !== "all") {
+        switch (appliedFilters.status) {
           case "not_credited":
             params.status = ["CREATED", "EXPIRED", "CANCELED"];
             break;
@@ -436,38 +474,38 @@ export function DealsList() {
       }
 
       // Add device filter
-      if (filterDevice !== "all") {
-        params.deviceId = filterDevice;
+      if (appliedFilters.device !== "all") {
+        params.deviceId = appliedFilters.device;
       }
 
       // Add requisite filter
-      if (filterRequisite !== "all") {
-        params.requisiteId = filterRequisite;
+      if (appliedFilters.requisite !== "all") {
+        params.requisiteId = appliedFilters.requisite;
       }
 
-      // Add method filter
-      if (filterMethod !== "all") {
-        params.methodId = filterMethod;
+      // Add method type filter
+      if (appliedFilters.methodType !== "all") {
+        params.methodType = appliedFilters.methodType;
       }
 
       // Add amount filters
-      if (filterAmountType === "exact" && filterAmount.exact) {
-        params.amount = parseFloat(filterAmount.exact);
-      } else if (filterAmountType === "range") {
-        if (filterAmount.min) {
-          params.amountMin = parseFloat(filterAmount.min);
+      if (appliedFilters.amountType === "exact" && appliedFilters.amount.exact) {
+        params.amount = parseFloat(appliedFilters.amount.exact);
+      } else if (appliedFilters.amountType === "range") {
+        if (appliedFilters.amount.min) {
+          params.amountMin = parseFloat(appliedFilters.amount.min);
         }
-        if (filterAmount.max) {
-          params.amountMax = parseFloat(filterAmount.max);
+        if (appliedFilters.amount.max) {
+          params.amountMax = parseFloat(appliedFilters.amount.max);
         }
       }
 
       // Add date filters
-      if (filterDateFrom) {
-        params.dateFrom = filterDateFrom.toISOString().split("T")[0];
+      if (appliedFilters.dateFrom) {
+        params.dateFrom = appliedFilters.dateFrom.toISOString().split("T")[0];
       }
-      if (filterDateTo) {
-        params.dateTo = filterDateTo.toISOString().split("T")[0];
+      if (appliedFilters.dateTo) {
+        params.dateTo = appliedFilters.dateTo.toISOString().split("T")[0];
       }
 
       // Add search query
@@ -627,8 +665,8 @@ export function DealsList() {
     }
 
     // Status filter
-    if (filterStatus !== "all") {
-      switch (filterStatus) {
+    if (appliedFilters.status !== "all") {
+      switch (appliedFilters.status) {
         case "not_credited":
           filtered = filtered.filter(
             (t) =>
@@ -647,46 +685,49 @@ export function DealsList() {
     }
 
     // Amount filter
-    if (filterAmountType === "exact" && filterAmount.exact) {
+    if (appliedFilters.amountType === "exact" && appliedFilters.amount.exact) {
       filtered = filtered.filter(
-        (t) => t.amount === parseFloat(filterAmount.exact),
+        (t) => t.amount === parseFloat(appliedFilters.amount.exact),
       );
-    } else if (filterAmountType === "range") {
-      if (filterAmount.min) {
+    } else if (appliedFilters.amountType === "range") {
+      if (appliedFilters.amount.min) {
         filtered = filtered.filter(
-          (t) => t.amount >= parseFloat(filterAmount.min),
+          (t) => t.amount >= parseFloat(appliedFilters.amount.min),
         );
       }
-      if (filterAmount.max) {
+      if (appliedFilters.amount.max) {
         filtered = filtered.filter(
-          (t) => t.amount <= parseFloat(filterAmount.max),
+          (t) => t.amount <= parseFloat(appliedFilters.amount.max),
         );
       }
     }
 
     // Method filter (replacing device filter)
-    if (filterDevice !== "all") {
-      filtered = filtered.filter((t) => t.method?.id === filterDevice);
+    if (appliedFilters.device !== "all") {
+      filtered = filtered.filter((t) => t.method?.id === appliedFilters.device);
     }
 
     // Requisite filter
-    if (filterRequisite !== "all") {
-      filtered = filtered.filter((t) => t.requisites?.id === filterRequisite);
+    if (appliedFilters.requisite !== "all") {
+      filtered = filtered.filter((t) => t.requisites?.id === appliedFilters.requisite);
     }
 
-    // Payment method filter
-    if (filterMethod !== "all") {
-      filtered = filtered.filter((t) => t.method?.name === filterMethod);
+    // Payment method type filter
+    if (appliedFilters.methodType !== "all") {
+      filtered = filtered.filter((t) => {
+        const type = t.method?.type?.toLowerCase();
+        return appliedFilters.methodType === "sbp" ? type === "sbp" : type === "c2c";
+      });
     }
 
     // Date filter
-    if (filterDateFrom) {
+    if (appliedFilters.dateFrom) {
       filtered = filtered.filter(
-        (t) => new Date(t.createdAt) >= filterDateFrom,
+        (t) => new Date(t.createdAt) >= appliedFilters.dateFrom,
       );
     }
-    if (filterDateTo) {
-      const toDate = new Date(filterDateTo);
+    if (appliedFilters.dateTo) {
+      const toDate = new Date(appliedFilters.dateTo);
       toDate.setHours(23, 59, 59, 999);
       filtered = filtered.filter((t) => new Date(t.createdAt) <= toDate);
     }
@@ -998,61 +1039,99 @@ export function DealsList() {
       </div>
 
       {/* Search and Filters - Sticky */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-3 md:pb-4 -mx-4 md:-mx-6 px-4 md:px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
-        <div className="flex gap-2">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
-            <Input
-              placeholder="Поиск..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 border h-10 md:h-12 text-sm md:text-base border-gray-300 dark:border-[#29382f] rounded-lg"
-            />
-          </div>
-
-          {/* Filters */}
-          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+      <StickySearchFilters
+        searchPlaceholder="Поиск..."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        activeFiltersCount={[
+          appliedFilters.status !== "all",
+          appliedFilters.amount.exact || appliedFilters.amount.min || appliedFilters.amount.max,
+          appliedFilters.device !== "all",
+          appliedFilters.requisite !== "all",
+          appliedFilters.methodType !== "all",
+          appliedFilters.dateFrom || appliedFilters.dateTo,
+        ].filter(Boolean).length}
+        onResetFilters={() => {
+          setFilterStatus("all");
+          setFilterAmount({ exact: "", min: "", max: "" });
+          setFilterAmountType("range");
+          setFilterDevice("all");
+          setFilterRequisite("all");
+          setFilterMethodType("all");
+          setFilterDateFrom(undefined);
+          setFilterDateTo(undefined);
+          setDeviceSearch("");
+          setRequisiteSearch("");
+          setMethodSearch("");
+          // Apply reset filters
+          setAppliedFilters({
+            status: "all",
+            amount: { exact: "", min: "", max: "" },
+            amountType: "range",
+            device: "all",
+            requisite: "all",
+            methodType: "all",
+            dateFrom: undefined,
+            dateTo: undefined,
+          });
+        }}
+        onApplyFilters={applyFilters}
+        additionalButtons={
+          <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 size="default"
                 className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base"
               >
-                <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-                <span className="hidden sm:inline">Не выбраны</span>
-                <span className="sm:hidden">Фильтры</span>
-                {(filterStatus !== "all" ||
-                  filterAmount.exact ||
-                  filterAmount.min ||
-                  filterAmount.max ||
-                  filterRequisite !== "all" ||
-                  filterDateFrom ||
-                  filterDateTo) && (
-                  <Badge className="ml-1 bg-[#006039] text-white">
-                    {
-                      [
-                        filterStatus !== "all",
-                        filterAmount.exact ||
-                          filterAmount.min ||
-                          filterAmount.max,
-                        filterRequisite !== "all",
-                        filterDateFrom || filterDateTo,
-                      ].filter(Boolean).length
-                    }
-                  </Badge>
-                )}
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-colors",
-                    filtersOpen ? "text-[#006039]" : "text-gray-400",
-                  )}
-                />
+                <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-[#006039]" />
+                <span className="hidden sm:inline">Сортировка</span>
+                <span className="sm:hidden">Сорт.</span>
+                <ChevronDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-[500px] max-h-[80vh] overflow-y-auto" sideOffset={5}>
-              <div className="space-y-4">
-                <h4 className="font-medium text-">Параметры поиска</h4>
+            <PopoverContent align="end" className="w-auto" sideOffset={5}>
+              <div className="space-y-2">
+                <h4 className="font-medium text-base">Сортировать</h4>
+                <div className="space-y-1">
+                  <Button
+                    variant={sortBy === "newest" ? "secondary" : "ghost"}
+                    size="default"
+                    className="w-full justify-start h-12"
+                    onClick={() => setSortBy("newest")}
+                  >
+                    Сначала новые
+                  </Button>
+                  <Button
+                    variant={sortBy === "oldest" ? "secondary" : "ghost"}
+                    size="default"
+                    className="w-full justify-start h-12"
+                    onClick={() => setSortBy("oldest")}
+                  >
+                    Сначала старые
+                  </Button>
+                  <Button
+                    variant={sortBy === "amount_desc" ? "secondary" : "ghost"}
+                    size="default"
+                    className="w-full justify-start h-12"
+                    onClick={() => setSortBy("amount_desc")}
+                  >
+                    По убыванию суммы
+                  </Button>
+                  <Button
+                    variant={sortBy === "amount_asc" ? "secondary" : "ghost"}
+                    size="default"
+                    className="w-full justify-start h-12"
+                    onClick={() => setSortBy("amount_asc")}
+                  >
+                    По возрастанию суммы
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        }
+      >
 
                 {/* Status Filter */}
                 <div className="space-y-2">
@@ -1455,116 +1534,25 @@ export function DealsList() {
                   </Popover>
                 </div>
 
-                {/* Payment Method Filter */}
+                {/* Payment Method Type Filter */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Метод оплаты</Label>
+                    <Label className="text-sm">Тип метода</Label>
                   </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full justify-between h-12"
-                      >
-                        <span className={"text-[#006039]"}>
-                          {filterMethod === "all" ? "Все методы" : filterMethod}
-                        </span>
-                        <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-[465px] p-0"
-                      align="start"
-                      sideOffset={5}
-                    >
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <Input
-                            placeholder="Поиск методов"
-                            className="pl-9"
-                            value={methodSearch}
-                            onChange={(e) => setMethodSearch(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-64 overflow-auto">
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterMethod === "all" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterMethod("all")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Building2 className="h-4 w-4 text-gray-600" />
-                            </div>
-                            <div className="text-left">
-                              <div className="font-medium">Все методы</div>
-                              <div className="text-sm text-gray-500">
-                                Не фильтровать по методу оплаты
-                              </div>
-                            </div>
-                          </div>
-                        </Button>
-                        {methods
-                          .filter(
-                            (method) =>
-                              !methodSearch ||
-                              method.name
-                                ?.toLowerCase()
-                                .includes(methodSearch.toLowerCase()) ||
-                              method.type
-                                ?.toLowerCase()
-                                .includes(methodSearch.toLowerCase()),
-                          )
-                          .map((method) => {
-                            // Try to extract bank type from method name or type
-                            const bankType =
-                              method.type?.toUpperCase() ||
-                              method.name?.toUpperCase().replace(/\s+/g, "") ||
-                              "";
-
-                            return (
-                              <Button
-                                key={method.id}
-                                variant="ghost"
-                                size="default"
-                                className={cn(
-                                  "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                                  filterMethod === method.id &&
-                                    "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                                )}
-                                onClick={() => setFilterMethod(method.id)}
-                              >
-                                <div className="flex items-center gap-3">
-                                  {bankType ? (
-                                    getBankIcon(bankType, "sm")
-                                  ) : (
-                                    <NeutralBankIcon />
-                                  )}
-                                  <div className="text-left">
-                                    <div className="font-medium">
-                                      {method.name}
-                                    </div>
-                                    <div className="text-sm text-gray-500">
-                                      {method.description ||
-                                        `Перевод через ${method.name}`}
-                                    </div>
-                                  </div>
-                                </div>
-                              </Button>
-                            );
-                          })}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <Select
+                    value={filterMethodType}
+                    onValueChange={setFilterMethodType}
+                  >
+                    <SelectTrigger className="w-full h-12">
+                      <SelectValue placeholder="Все типы" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все типы</SelectItem>
+                      <SelectItem value="sbp">СБП</SelectItem>
+                      <SelectItem value="c2c">C2C</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Date Range */}
@@ -1591,93 +1579,7 @@ export function DealsList() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 h-12"
-                    onClick={() => {
-                      setFilterStatus("all");
-                      setFilterAmount({ exact: "", min: "", max: "" });
-                      setFilterAmountType("range");
-                      setFilterDevice("all");
-                      setFilterRequisite("all");
-                      setFilterMethod("all");
-                      setFilterDateFrom(undefined);
-                      setFilterDateTo(undefined);
-                    }}
-                  >
-                    Сбросить фильтры
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1 h-12 bg-green-100 hover:bg-green-200 transition-colors duration-150 text-green-500"
-                    onClick={() => setFiltersOpen(false)}
-                  >
-                    Применить фильтры
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Sort */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="default"
-                className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base"
-              >
-                <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-[#006039]" />
-                <span className="hidden sm:inline">Сортировка</span>
-                <span className="sm:hidden">Сорт.</span>
-                <ChevronDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-400" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-auto" sideOffset={5}>
-              <div className="space-y-2">
-                <h4 className="font-medium text-base">Сортировать</h4>
-                <div className="space-y-1">
-                  <Button
-                    variant={sortBy === "newest" ? "secondary" : "ghost"}
-                    size="default"
-                    className="w-full justify-start h-12"
-                    onClick={() => setSortBy("newest")}
-                  >
-                    Сначала новые
-                  </Button>
-                  <Button
-                    variant={sortBy === "oldest" ? "secondary" : "ghost"}
-                    size="default"
-                    className="w-full justify-start h-12"
-                    onClick={() => setSortBy("oldest")}
-                  >
-                    Сначала старые
-                  </Button>
-                  <Button
-                    variant={sortBy === "amount_desc" ? "secondary" : "ghost"}
-                    size="default"
-                    className="w-full justify-start h-12"
-                    onClick={() => setSortBy("amount_desc")}
-                  >
-                    По убыванию суммы
-                  </Button>
-                  <Button
-                    variant={sortBy === "amount_asc" ? "secondary" : "ghost"}
-                    size="default"
-                    className="w-full justify-start h-12"
-                    onClick={() => setSortBy("amount_asc")}
-                  >
-                    По возрастанию суммы
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
+      </StickySearchFilters>
 
       {/* Transactions List */}
       <div className="space-y-3">

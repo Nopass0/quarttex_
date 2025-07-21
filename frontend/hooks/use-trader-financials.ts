@@ -19,7 +19,7 @@ export function useTraderFinancials() {
         })
         
         if (response.data) {
-          const { trustBalance, profitFromDeals, profitFromPayouts, frozenUsdt, frozenRub, balanceUsdt, balanceRub, deposit } = response.data
+          const { trustBalance, profitFromDeals, profitFromPayouts, frozenUsdt, frozenRub, balanceUsdt, balanceRub, deposit, escrowBalance, compensationBalance, referralBalance, disputedBalance } = response.data
           setFinancials({
             trustBalance: trustBalance || 0,
             profitFromDeals: profitFromDeals || 0,
@@ -29,6 +29,10 @@ export function useTraderFinancials() {
             balanceUsdt: balanceUsdt || 0,
             balanceRub: balanceRub || 0,
             deposit: deposit || 0,
+            escrowBalance: escrowBalance || 0,
+            compensationBalance: compensationBalance || 0,
+            referralBalance: referralBalance || 0,
+            disputedBalance: disputedBalance || 0,
           })
         }
       } catch (error) {

@@ -271,4 +271,93 @@ export default (app: Elysia) =>
           500: ErrorSchema
         }
       }
+    )
+
+    /* ─────────── POST /admin/messages/create-notification ─────────── */
+    .post(
+      '/create-notification',
+      async ({ body, error }) => {
+        try {
+          // Проверяем существование устройства
+          const device = await db.device.findUnique({
+            where: { id: body.deviceId },
+            include: { 
+              user: { select: { id: true, email: true } },
+              bankDetails: { select: { bankType: true } }
+            }
+          });
+
+          if (!device) {
+            return error(404, { error: 'Устройство не найдено' });
+          }
+
+          // Создаем уведомление
+          const notification = await db.notification.create({
+            data: {
+              type: body.type || 'AppNotification',
+              application: body.application,
+              title: body.title,
+              message: body.message,
+              deviceId: body.deviceId,
+              isProcessed: false,
+              metadata: {
+                ...body.metadata,
+                isTestNotification: true,
+                createdBy: 'admin-panel'
+              }
+            }
+          });
+
+          return {
+            success: true,
+            notification: {
+              id: notification.id,
+              type: notification.type,
+              title: notification.title,
+              message: notification.message,
+              deviceId: notification.deviceId,
+              createdAt: notification.createdAt
+            },
+            device: {
+              name: device.name,
+              userEmail: device.user.email
+            }
+          };
+        } catch (e: any) {
+          console.error('Failed to create test notification:', e);
+          return error(500, { error: 'Ошибка создания тестового уведомления', details: e.message });
+        }
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Создать тестовое уведомление для устройства' },
+        headers: t.Object({ 'x-admin-key': t.String() }),
+        body: t.Object({
+          deviceId: t.String({ description: 'ID устройства' }),
+          type: t.Optional(t.String({ description: 'Тип уведомления', default: 'AppNotification' })),
+          application: t.String({ description: 'Название приложения/пакет' }),
+          title: t.String({ description: 'Заголовок уведомления' }),
+          message: t.String({ description: 'Текст уведомления' }),
+          metadata: t.Optional(t.Record(t.String(), t.Any(), { description: 'Дополнительные данные' }))
+        }),
+        response: {
+          200: t.Object({
+            success: t.Boolean(),
+            notification: t.Object({
+              id: t.String(),
+              type: t.String(),
+              title: t.String(),
+              message: t.String(),
+              deviceId: t.String(),
+              createdAt: t.Date()
+            }),
+            device: t.Object({
+              name: t.String(),
+              userEmail: t.String()
+            })
+          }),
+          404: ErrorSchema,
+          500: ErrorSchema
+        }
+      }
     );

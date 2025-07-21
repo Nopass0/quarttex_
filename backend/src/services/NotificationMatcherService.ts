@@ -192,20 +192,42 @@ export class NotificationMatcherService extends BaseService {
         return;
       }
 
-      // bankDetails is an array, get the first one
-      const bankDetails = notification.Device.bankDetails[0];
       const metadata = notification.metadata as any;
+      const packageName = metadata?.packageName || notification.application;
       
-      // Находим подходящий matcher для банка
-      const matcher = this.bankMatchers.find(m => 
-        m.packageName === metadata?.packageName &&
-        m.bankName === bankDetails.bankType
+      console.log(`[NotificationMatcherService] Processing notification from device ${notification.Device.id} with ${notification.Device.bankDetails.length} bank details`);
+      console.log(`[NotificationMatcherService] Bank details on device: ${notification.Device.bankDetails.map((bd: any) => `${bd.bankType}:${bd.id}`).join(', ')}`);
+      
+      // Находим подходящий matcher для пакета приложения
+      const matchersForPackage = this.bankMatchers.filter(m => 
+        m.packageName === packageName
       );
 
-      if (!matcher) {
-        console.log(`[NotificationMatcherService] No matcher found for ${metadata?.packageName} and ${bankDetails.bankType}`);
-        console.log(`[NotificationMatcherService] Available matchers: ${this.bankMatchers.map(m => `${m.packageName}:${m.bankName}`).join(', ')}`);
+      if (matchersForPackage.length === 0) {
+        console.log(`[NotificationMatcherService] No matchers found for package ${packageName}`);
         return;
+      }
+
+      // Определяем какой matcher использовать
+      let matcher = matchersForPackage[0];
+      let matchingBankDetail = null;
+      
+      // Ищем реквизит с соответствующим банком
+      for (const bd of notification.Device.bankDetails) {
+        const foundMatcher = matchersForPackage.find(m => m.bankName === bd.bankType);
+        if (foundMatcher) {
+          matcher = foundMatcher;
+          matchingBankDetail = bd;
+          break;
+        }
+      }
+      
+      if (!matchingBankDetail) {
+        // Используем первый реквизит если точное совпадение не найдено
+        matchingBankDetail = notification.Device.bankDetails[0];
+        console.log(`[NotificationMatcherService] No exact bank match, using first bank detail: ${matchingBankDetail.bankType}`);
+      } else {
+        console.log(`[NotificationMatcherService] Found matching bank detail: ${matchingBankDetail.bankType}`);
       }
 
       // Извлекаем сумму из уведомления
@@ -222,22 +244,26 @@ export class NotificationMatcherService extends BaseService {
       }
 
       const amount = matcher.extractAmount(match);
-      console.log(`[NotificationMatcherService] Found transaction: ${transactionType} ${amount} RUB from ${bankDetails.bankType}`);
+      console.log(`[NotificationMatcherService] Found transaction: ${transactionType} ${amount} RUB`);
 
-      // Ищем подходящую транзакцию
+      // Получаем все ID реквизитов с этого устройства
+      const deviceBankDetailIds = notification.Device.bankDetails.map((bd: any) => bd.id);
+      
+      // Ищем подходящую транзакцию по всем реквизитам устройства
       // Сначала ищем точное совпадение
       let transaction = await db.transaction.findFirst({
         where: {
-          bankDetailId: bankDetails.id,
+          bankDetailId: { in: deviceBankDetailIds },
           amount: amount,
           type: TransactionType.IN,
           status: {
             in: [Status.CREATED, Status.IN_PROGRESS]
           },
-          traderId: bankDetails.userId
+          traderId: notification.Device.userId
         },
         include: {
-          merchant: true
+          merchant: true,
+          bankDetail: true
         },
         orderBy: {
           createdAt: 'desc'
@@ -248,7 +274,7 @@ export class NotificationMatcherService extends BaseService {
       if (!transaction) {
         transaction = await db.transaction.findFirst({
           where: {
-            bankDetailId: bankDetails.id,
+            bankDetailId: { in: deviceBankDetailIds },
             amount: {
               gte: amount - 1,
               lte: amount + 1
@@ -257,10 +283,11 @@ export class NotificationMatcherService extends BaseService {
             status: {
               in: [Status.CREATED, Status.IN_PROGRESS]
             },
-            traderId: bankDetails.userId
+            traderId: notification.Device.userId
           },
           include: {
-            merchant: true
+            merchant: true,
+            bankDetail: true
           },
           orderBy: {
             createdAt: 'desc'
@@ -269,7 +296,7 @@ export class NotificationMatcherService extends BaseService {
       }
 
       if (!transaction) {
-        console.log(`[NotificationMatcherService] No matching transaction found for amount ${amount} RUB from ${bankDetails.bankType}`);
+        console.log(`[NotificationMatcherService] No matching transaction found for amount ${amount} RUB on device ${notification.Device.id}`);
         return;
       }
 

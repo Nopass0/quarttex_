@@ -212,6 +212,7 @@ model Transaction {
   feeInPercent         Float?
   frozenUsdtAmount     Float?
   kkkPercent           Float?
+  kkkOperation         KkkOperationType?
   callbackSent         Boolean             @default(false)
   receipts             Receipt[]
   requisites           BankDetail?         @relation(fields: [bankDetailId], references: [id])
@@ -310,6 +311,7 @@ model RateSettings {
   id         String   @id @default(cuid())
   methodId   String   @unique
   kkkPercent Float    @default(0)
+  kkkOperation KkkOperationType @default(MINUS)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   method     Method   @relation(fields: [methodId], references: [id])
@@ -1097,4 +1099,9 @@ enum MessagePriority {
   NORMAL
   HIGH
   URGENT
+}
+
+enum KkkOperationType {
+  PLUS
+  MINUS
 }

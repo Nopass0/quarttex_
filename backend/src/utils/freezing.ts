@@ -20,10 +20,17 @@ export function floorDown2(value: number): number {
  * Расчет скорректированного курса с учетом ККК
  * @param rateMerchant - курс мерчанта
  * @param kkkPercent - процент ККК (коэффициент корректировки курса)
+ * @param kkkOperation - операция для ККК (PLUS или MINUS)
  * @returns скорректированный курс, округленный вниз до сотых
  */
-export function calculateAdjustedRate(rateMerchant: number, kkkPercent: number): number {
-  const adjusted = rateMerchant * (1 - kkkPercent / 100);
+export function calculateAdjustedRate(
+  rateMerchant: number, 
+  kkkPercent: number,
+  kkkOperation: 'PLUS' | 'MINUS' = 'MINUS'
+): number {
+  const adjusted = kkkOperation === 'PLUS' 
+    ? rateMerchant * (1 + kkkPercent / 100)
+    : rateMerchant * (1 - kkkPercent / 100);
   return floorDown2(adjusted);
 }
 
@@ -53,20 +60,22 @@ export function calculateCommissionUsdt(frozenUsdt: number, feeInPercent: number
  * @param rateMerchant - курс мерчанта
  * @param kkkPercent - процент ККК
  * @param feeInPercent - процент комиссии на ввод
+ * @param kkkOperation - операция для ККК (PLUS или MINUS)
  * @returns объект с рассчитанными параметрами
  */
 export function calculateFreezingParams(
   amountRub: number,
   rateMerchant: number,
   kkkPercent: number,
-  feeInPercent: number
+  feeInPercent: number,
+  kkkOperation: 'PLUS' | 'MINUS' = 'MINUS'
 ): {
   adjustedRate: number;
   frozenUsdtAmount: number;
   calculatedCommission: number;
   totalRequired: number;
 } {
-  const adjustedRate = calculateAdjustedRate(rateMerchant, kkkPercent);
+  const adjustedRate = calculateAdjustedRate(rateMerchant, kkkPercent, kkkOperation);
   const frozenUsdtAmount = calculateFrozenUsdt(amountRub, adjustedRate);
   const calculatedCommission = calculateCommissionUsdt(frozenUsdtAmount, feeInPercent);
   const totalRequired = frozenUsdtAmount + calculatedCommission;

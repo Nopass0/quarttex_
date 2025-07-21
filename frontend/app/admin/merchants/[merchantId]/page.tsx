@@ -15,6 +15,7 @@ import { MerchantMilkDeals } from '@/components/admin/merchant-milk-deals'
 import { MerchantExtraSettlements } from '@/components/admin/merchant-extra-settlements'
 import { TestMerchantTransactions } from '@/components/admin/test-merchant-transactions'
 import { WellbitTestDialog } from '@/components/admin/wellbit-test-dialog'
+import { QuickTransactionCreate } from '@/components/admin/quick-transaction-create'
 
 type Merchant = {
   id: string
@@ -254,6 +255,13 @@ export default function MerchantDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Quick Transaction Creation */}
+          <QuickTransactionCreate 
+            merchantId={merchantId}
+            merchantToken={merchant.token}
+            merchantMethods={merchant.merchantMethods.filter(m => m.isEnabled)}
+          />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

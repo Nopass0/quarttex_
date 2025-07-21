@@ -49,6 +49,7 @@ interface Requisite {
   bankType: string
   recipientName: string
   isActive: boolean
+  isArchived: boolean
   dailyTurnover: number
   dailyLimit: number
   monthlyTurnover: number
@@ -219,10 +220,9 @@ export function FoldersEnhanced() {
       const folder = folders.find(f => f.id === folderId)
       if (!folder) return
 
-      if (activate) {
-        await traderApi.startAllRequisitesInFolder(folderId)
-      } else {
-        await traderApi.stopAllRequisitesInFolder(folderId)
+      // Archive/unarchive all requisites in folder
+      for (const requisite of folder.requisites) {
+        await traderApi.archiveRequisite(requisite.id, !activate)
       }
       
       // Update local state
@@ -230,7 +230,7 @@ export function FoldersEnhanced() {
         if (f.id === folderId) {
           return {
             ...f,
-            requisites: f.requisites.map(r => ({ ...r, isActive: activate }))
+            requisites: f.requisites.map(r => ({ ...r, isArchived: !activate, isActive: activate }))
           }
         }
         return f
@@ -245,10 +245,13 @@ export function FoldersEnhanced() {
 
   const handleToggleRequisite = async (requisiteId: string, activate: boolean) => {
     try {
+      // Archive/unarchive requisite
+      await traderApi.archiveRequisite(requisiteId, !activate)
+      
       const updatedFolders = folders.map(folder => ({
         ...folder,
         requisites: folder.requisites.map(r => 
-          r.id === requisiteId ? { ...r, isActive: activate } : r
+          r.id === requisiteId ? { ...r, isActive: activate, isArchived: !activate } : r
         )
       }))
       
@@ -303,7 +306,7 @@ export function FoldersEnhanced() {
         ) : (
           folders.map((folder) => {
             const isExpanded = expandedFolders.has(folder.id)
-            const activeCount = folder.requisites.filter(r => r.isActive).length
+            const activeCount = folder.requisites.filter(r => !r.isArchived).length
             const totalCount = folder.requisites.length
 
             return (
@@ -415,19 +418,19 @@ export function FoldersEnhanced() {
                                   </div>
                                   
                                   <Badge
-                                    variant={requisite.isActive ? "success" : "secondary"}
+                                    variant={!requisite.isArchived ? "success" : "secondary"}
                                     className={cn(
                                       "min-w-[80px] justify-center",
-                                      requisite.isActive 
+                                      !requisite.isArchived 
                                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
                                         : "dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
                                     )}
                                   >
-                                    {requisite.isActive ? "Активен" : "Выключен"}
+                                    {!requisite.isArchived ? "Активен" : "Архивирован"}
                                   </Badge>
                                   
                                   <Switch
-                                    checked={requisite.isActive}
+                                    checked={!requisite.isArchived}
                                     onCheckedChange={(checked) => handleToggleRequisite(requisite.id, checked)}
                                   />
                                 </div>

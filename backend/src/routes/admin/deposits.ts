@@ -1,19 +1,43 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { DepositStatus } from "@prisma/client";
+import { DepositStatus, DepositType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
+import { MASTER_KEY } from "@/utils/constants";
 
 export default new Elysia({ prefix: "/deposits" })
+  // Derive adminId and clientIp from request context
+  .derive(async ({ request, ip }) => {
+    const adminToken = request.headers.get("x-admin-key");
+    let adminId = "system";
+    
+    // If it's not the master key, find the admin
+    if (adminToken && adminToken !== MASTER_KEY) {
+      const admin = await db.admin.findUnique({
+        where: { token: adminToken },
+        select: { id: true }
+      });
+      if (admin) {
+        adminId = admin.id;
+      }
+    }
+    
+    return {
+      adminId,
+      clientIp: ip
+    };
+  })
   
   // Get all deposit requests
   .get("/", async ({ query }) => {
     try {
-      const { status, page = 1, limit = 50 } = query;
+      const { status, type, page = 1, limit = 50 } = query;
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
       const skip = (pageNum - 1) * limitNum;
 
-      const where = status ? { status: status as DepositStatus } : {};
+      const where: any = {};
+      if (status) where.status = status as DepositStatus;
+      if (type) where.type = type as DepositType;
 
       const [deposits, total] = await Promise.all([
         db.depositRequest.findMany({
@@ -59,6 +83,7 @@ export default new Elysia({ prefix: "/deposits" })
     detail: { summary: "Get all deposit requests" },
     query: t.Object({
       status: t.Optional(t.String()),
+      type: t.Optional(t.String()),
       page: t.Optional(t.String()),
       limit: t.Optional(t.String())
     }),
@@ -71,6 +96,7 @@ export default new Elysia({ prefix: "/deposits" })
           amountUSDT: t.Number(),
           address: t.String(),
           status: t.Enum(DepositStatus),
+          type: t.Enum(DepositType),
           txHash: t.Union([t.String(), t.Null()]),
           confirmations: t.Number(),
           createdAt: t.String(),
@@ -124,20 +150,28 @@ export default new Elysia({ prefix: "/deposits" })
           where: { id: deposit.id },
           data: {
             status: DepositStatus.CONFIRMED,
-            txHash,
+            txHash: txHash || deposit.txHash,
             confirmations: 3, // Assuming confirmed
             confirmedAt: new Date(),
             processedAt: new Date()
           }
         });
 
-        // Add to trader's trust balance
-        await prisma.user.update({
+        // Add to trader's balance based on deposit type
+        console.log(`Confirming deposit ${deposit.id}, type: ${deposit.type}, amount: ${deposit.amountUSDT}`);
+        
+        const balanceUpdate = deposit.type === DepositType.INSURANCE
+          ? { deposit: { increment: deposit.amountUSDT } }
+          : { trustBalance: { increment: deposit.amountUSDT } };
+          
+        console.log('Balance update:', balanceUpdate);
+        
+        const updatedUser = await prisma.user.update({
           where: { id: deposit.traderId },
-          data: {
-            trustBalance: { increment: deposit.amountUSDT }
-          }
+          data: balanceUpdate
         });
+        
+        console.log(`Updated user ${deposit.traderId} balance. New deposit: ${updatedUser.deposit}, trustBalance: ${updatedUser.trustBalance}`);
 
         // Log admin action
         await prisma.adminLog.create({

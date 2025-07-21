@@ -22,7 +22,8 @@ import {
   ChevronRight,
   Receipt,
   UserPlus,
-  DollarSign
+  DollarSign,
+  Folder
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
@@ -76,15 +77,15 @@ const traderNavItems: NavItem[] = [
     href: "/trader/messages",
     icon: MessageSquare,
   },
+  // {
+  //   title: "Выплаты",
+  //   href: "/trader/payouts",
+  //   icon: Receipt,
+  // },
   {
     title: "Финансы",
     href: "/trader/finances",
     icon: Wallet,
-  },
-  {
-    title: "Выплаты",
-    href: "/trader/payouts",
-    icon: Receipt,
   },
   {
     title: "Споры",
@@ -95,12 +96,17 @@ const traderNavItems: NavItem[] = [
         href: "/trader/disputes/deals",
         icon: FileText,
       },
-      {
-        title: "Выплаты",
-        href: "/trader/disputes/payouts",
-        icon: Receipt,
-      },
+      // {
+      //   title: "Выплаты",
+      //   href: "/trader/disputes/payouts",
+      //   icon: Receipt,
+      // },
     ],
+  },
+  {
+    title: "Папки",
+    href: "/trader/folders",
+    icon: Folder,
   },
 ];
 

@@ -25,11 +25,19 @@ import { Badge } from '@/components/ui/badge'
 import { Edit, RefreshCw, Plus, Trash2 } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { toast } from 'sonner'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 type RateSetting = {
   id: string
   methodId: string
   kkkPercent: number
+  kkkOperation: 'PLUS' | 'MINUS'
   createdAt: string
   updatedAt: string
   method: {
@@ -47,6 +55,7 @@ export function RateSettingsList() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedSetting, setSelectedSetting] = useState<RateSetting | null>(null)
   const [kkkPercent, setKkkPercent] = useState('')
+  const [kkkOperation, setKkkOperation] = useState<'PLUS' | 'MINUS'>('MINUS')
   const [selectedMethodId, setSelectedMethodId] = useState('')
   const { token: adminToken } = useAdminAuth()
 
@@ -92,6 +101,7 @@ export function RateSettingsList() {
   const openCreateDialog = () => {
     setSelectedSetting(null)
     setKkkPercent('')
+    setKkkOperation('MINUS')
     setSelectedMethodId('')
     setIsDialogOpen(true)
   }
@@ -99,6 +109,7 @@ export function RateSettingsList() {
   const openEditDialog = (setting: RateSetting) => {
     setSelectedSetting(setting)
     setKkkPercent(setting.kkkPercent.toString())
+    setKkkOperation(setting.kkkOperation || 'MINUS')
     setSelectedMethodId(setting.methodId)
     setIsDialogOpen(true)
   }
@@ -119,6 +130,7 @@ export function RateSettingsList() {
           },
           body: JSON.stringify({
             kkkPercent: kkkValue,
+            kkkOperation: kkkOperation,
           }),
         })
       } else {
@@ -132,6 +144,7 @@ export function RateSettingsList() {
           body: JSON.stringify({
             methodId: selectedMethodId,
             kkkPercent: kkkValue,
+            kkkOperation: kkkOperation,
           }),
         })
       }
@@ -214,6 +227,7 @@ export function RateSettingsList() {
               <TableHead>Код</TableHead>
               <TableHead>Тип</TableHead>
               <TableHead>ККК (%)</TableHead>
+              <TableHead>Операция</TableHead>
               <TableHead>Формула</TableHead>
               <TableHead>Обновлено</TableHead>
               <TableHead className="text-right">Действия</TableHead>
@@ -228,8 +242,15 @@ export function RateSettingsList() {
                 <TableCell>
                   <Badge variant="outline">{setting.kkkPercent}%</Badge>
                 </TableCell>
+                <TableCell>
+                  <Badge variant={setting.kkkOperation === 'PLUS' ? 'default' : 'secondary'}>
+                    {setting.kkkOperation === 'PLUS' ? '+' : '-'}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  Курс × {(100 - setting.kkkPercent) / 100}
+                  Курс × {setting.kkkOperation === 'PLUS' 
+                    ? ((100 + setting.kkkPercent) / 100).toFixed(2)
+                    : ((100 - setting.kkkPercent) / 100).toFixed(2)}
                 </TableCell>
                 <TableCell>
                   {new Date(setting.updatedAt).toLocaleDateString('ru-RU')}
@@ -301,16 +322,34 @@ export function RateSettingsList() {
                 onChange={(e) => setKkkPercent(e.target.value)}
                 placeholder="0"
               />
+            </div>
+            <div>
+              <Label htmlFor="kkk-operation">Операция ККК</Label>
+              <Select value={kkkOperation} onValueChange={(value: 'PLUS' | 'MINUS') => setKkkOperation(value)}>
+                <SelectTrigger id="kkk-operation">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MINUS">Минус (-)</SelectItem>
+                  <SelectItem value="PLUS">Плюс (+)</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="mt-2 space-y-1">
                 <p className="text-sm text-muted-foreground">
-                  Скорректированный курс = Курс мерчанта × (1 - ККК/100)
+                  Скорректированный курс = Курс мерчанта × (1 {kkkOperation === 'PLUS' ? '+' : '-'} ККК/100)
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Чем выше ККК, тем больше USDT будет заморожено
+                  {kkkOperation === 'PLUS' 
+                    ? 'При операции "+" курс увеличивается, USDT замораживается меньше'
+                    : 'При операции "-" курс уменьшается, USDT замораживается больше'}
                 </p>
                 {kkkPercent && (
                   <p className="text-sm font-medium">
-                    Пример: при курсе 100 и ККК {kkkPercent}% → скорректированный курс {(100 * (1 - parseFloat(kkkPercent) / 100)).toFixed(2)}
+                    Пример: при курсе 100 и ККК {kkkPercent}% → скорректированный курс {
+                      kkkOperation === 'PLUS'
+                        ? (100 * (1 + parseFloat(kkkPercent) / 100)).toFixed(2)
+                        : (100 * (1 - parseFloat(kkkPercent) / 100)).toFixed(2)
+                    }
                   </p>
                 )}
               </div>

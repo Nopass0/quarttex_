@@ -561,7 +561,7 @@ export default function TraderDashboardPage() {
                     Нет устройств
                   </div>
                 ) : (
-                  dashboardData?.devices.map((device: any) => {
+                  dashboardData?.devices.slice(0, 5).map((device: any) => {
                     const statusInfo = getDeviceStatusInfo(device);
                     
                     return (
@@ -648,7 +648,7 @@ export default function TraderDashboardPage() {
                     Споры не найдены
                   </div>
                 ) : (
-                  dashboardData?.openDisputes.map((dispute: any) => (
+                  dashboardData?.openDisputes.slice(0, 5).map((dispute: any) => (
                     <Link
                       key={dispute.id}
                       href={`/trader/disputes/${dispute.id}`}

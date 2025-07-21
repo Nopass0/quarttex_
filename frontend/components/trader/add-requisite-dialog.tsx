@@ -37,7 +37,7 @@ import { Loader2 } from "lucide-react";
 const formSchema = z.object({
   methodId: z.string().min(1, "Выберите метод"),
   bankType: z.string().min(1, "Выберите банк"),
-  cardNumber: z.string().min(16, "Введите корректный номер карты").max(20),
+  cardNumber: z.string().optional(),
   recipientName: z.string().min(3, "Введите имя получателя"),
   phoneNumber: z.string().optional(),
   minAmount: z.number().min(100),
@@ -134,15 +134,22 @@ export function AddRequisiteDialog({
     }
   };
 
-  const handleMethodChange = (methodId: string) => {
-    const method = methods.find(m => m.id === methodId);
-    setSelectedMethod(method);
+  const handleMethodChange = (methodType: string) => {
+    // Find first method with selected type
+    const method = methods.find(m => m.type === methodType);
+    setSelectedMethod(method || { id: methodType, name: methodType, type: methodType, minAmount: 1000, maxAmount: 100000, minPayin: 1000, maxPayin: 100000 });
+    
     if (method) {
       form.setValue("minAmount", method.minPayin || 1000);
       form.setValue("maxAmount", method.maxPayin || 100000);
-      // Clear bank selection when method changes
-      form.setValue("bankType", "");
+    } else {
+      // Set default values for method type
+      form.setValue("minAmount", 1000);
+      form.setValue("maxAmount", 100000);
     }
+    
+    // Clear bank selection when method changes
+    form.setValue("bankType", "");
   };
 
   const onSubmit = async (data: FormData) => {
@@ -154,11 +161,36 @@ export function AddRequisiteDialog({
         return;
       }
 
+      // Validate bank selection for all methods
+      if (!data.bankType) {
+        toast.error("Выберите банк");
+        return;
+      }
+      
+      // Validate required fields based on method type
+      if (selectedMethod.type === "c2c") {
+        if (!data.cardNumber) {
+          toast.error("Введите номер карты");
+          return;
+        }
+      }
+
+      if (selectedMethod.type === "sbp" && !data.phoneNumber) {
+        toast.error("Введите номер телефона");
+        return;
+      }
+
+      // Find actual method ID from methods list for API call
+      const actualMethod = methods.find(m => m.type === selectedMethod.type);
+      
       const requisiteData = {
         ...data,
         deviceId,
+        methodId: actualMethod?.id || data.methodId,
         methodType: selectedMethod.type,
         intervalMinutes: 5, // Default interval
+        // Set cardNumber as phoneNumber for SBP method
+        cardNumber: selectedMethod.type === "sbp" ? (data.phoneNumber || "") : (data.cardNumber || ""),
       };
 
       await traderApi.createRequisite(requisiteData);
@@ -192,34 +224,22 @@ export function AddRequisiteDialog({
               name="methodId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Метод оплаты</FormLabel>
+                  <FormLabel>Тип метода</FormLabel>
                   <Select
                     onValueChange={(value) => {
                       field.onChange(value);
                       handleMethodChange(value);
                     }}
                     value={field.value}
-                    disabled={loadingMethods}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={loadingMethods ? "Загрузка методов..." : "Выберите метод"} />
+                        <SelectValue placeholder="Выберите тип метода" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {methods.length === 0 && !loadingMethods && (
-                        <div className="p-2 text-sm text-gray-500">Нет доступных методов</div>
-                      )}
-                      {methods.map((method) => (
-                        <SelectItem key={method.id} value={method.id}>
-                          {method.name} ({method.type.toUpperCase()})
-                          {method.banks && method.banks.length > 0 && (
-                            <span className="text-xs text-gray-500 ml-2">
-                              - {method.banks.join(", ")}
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="sbp">СБП</SelectItem>
+                      <SelectItem value="c2c">C2C</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -232,57 +252,61 @@ export function AddRequisiteDialog({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="bankType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Банк</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!selectedMethod}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={
-                          !selectedMethod ? "Сначала выберите метод" : "Выберите банк"
-                        } />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {AVAILABLE_BANKS.map((bank) => (
-                        <SelectItem key={bank.code} value={bank.code}>
-                          {bank.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedMethod && (
+              <FormField
+                control={form.control}
+                name="bankType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Банк</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!selectedMethod}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={
+                            !selectedMethod ? "Сначала выберите метод" : "Выберите банк"
+                          } />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {AVAILABLE_BANKS.filter(bank => bank.code !== "SBP").map((bank) => (
+                          <SelectItem key={bank.code} value={bank.code}>
+                            {bank.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
-            <FormField
-              control={form.control}
-              name="cardNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Номер карты</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="1234 5678 9012 3456"
-                      {...field}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\s/g, "");
-                        field.onChange(value);
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedMethod?.type === "c2c" && (
+              <FormField
+                control={form.control}
+                name="cardNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Номер карты</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="1234 5678 9012 3456"
+                        {...field}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\s/g, "");
+                          field.onChange(value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -301,22 +325,24 @@ export function AddRequisiteDialog({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Номер телефона (опционально)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="+7 900 123 45 67" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Для СБП обязательно
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedMethod?.type === "sbp" && (
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Номер телефона</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+7 900 123 45 67" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Обязательно для СБП
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

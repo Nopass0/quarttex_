@@ -798,8 +798,8 @@ export default (app: Elysia) =>
           const method = await db.method.findUnique({
             where: { id: body.methodId }
           })
-          if (!method || !method.isEnabled) {
-            return error(404, { error: 'Метод не найден или неактивен' })
+          if (!method) {
+            return error(404, { error: 'Метод не найден' })
           }
 
           // Генерируем дефолтные значения если не указаны
@@ -835,12 +835,24 @@ export default (app: Elysia) =>
             return { success: true, transaction }
           } else {
             const responseText = await response.text()
-            console.error('Merchant API error response:', responseText)
+            console.error('[Admin Test IN] Merchant API error:', {
+              status: response.status,
+              response: responseText,
+              requestData: {
+                amount,
+                orderId,
+                methodId: body.methodId,
+                rate,
+                expired_at,
+                userIp,
+                callbackUri
+              }
+            })
             try {
               const errorData = JSON.parse(responseText)
               return error(response.status, errorData)
             } catch {
-              return error(response.status, { error: responseText })
+              return error(response.status, { error: responseText || 'Неизвестная ошибка' })
             }
           }
         } catch (e: any) {

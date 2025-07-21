@@ -64,11 +64,13 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/ui/simple-popover";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { TraderHeader } from "@/components/trader/trader-header";
 import { RequisiteInfoModal } from "@/components/requisites/requisite-info-modal";
+import { StickySearchFilters } from "@/components/ui/sticky-search-filters";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface Requisite {
   id: string;
@@ -110,8 +112,8 @@ export default function TraderRequisitesPage() {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "stopped" | "blocked">("all");
   const [filterDevice, setFilterDevice] = useState<string>("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [deviceSearch, setDeviceSearch] = useState("");
+  const [deviceSearchInternal, setDeviceSearchInternal] = useState("");
   const [selectedRequisiteForInfo, setSelectedRequisiteForInfo] =
     useState<Requisite | null>(null);
 
@@ -239,23 +241,15 @@ export default function TraderRequisitesPage() {
       switch (bulkAction) {
         case "stop":
           for (const id of selectedRequisites) {
-            await traderApi.stopRequisite(id);
+            await traderApi.archiveRequisite(id, true);
           }
           toast.success(`Остановлено реквизитов: ${selectedRequisites.length}`);
           break;
         case "start":
           for (const id of selectedRequisites) {
-            await traderApi.startRequisite(id);
+            await traderApi.archiveRequisite(id, false);
           }
           toast.success(`Запущено реквизитов: ${selectedRequisites.length}`);
-          break;
-        case "archive":
-          for (const id of selectedRequisites) {
-            await traderApi.deleteRequisite(id);
-          }
-          toast.success(
-            `Архивировано реквизитов: ${selectedRequisites.length}`,
-          );
           break;
       }
 
@@ -292,8 +286,8 @@ export default function TraderRequisitesPage() {
 
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "active" && !requisite.isArchived && requisite.hasDevice && requisite.device?.isOnline) ||
-        (filterStatus === "stopped" && (!requisite.hasDevice || !requisite.device?.isOnline) && !requisite.isArchived) ||
+        (filterStatus === "active" && !requisite.isArchived) ||
+        (filterStatus === "stopped" && requisite.isArchived) ||
         (filterStatus === "blocked" && requisite.isArchived);
 
       const matchesDevice =
@@ -397,14 +391,6 @@ export default function TraderRequisitesPage() {
               <p className="text-sm md:text-base text-gray-500">Управление платежными реквизитами</p>
             </div>
             <div className="flex items-center gap-2 md:gap-4">
-              <Button
-                onClick={() => setShowAddDialog(true)}
-                className="bg-[#006039] hover:bg-[#006039]/90 text-sm md:text-base"
-              >
-                <Plus className="h-4 w-4 mr-1 md:mr-2" />
-                <span className="hidden sm:inline">Добавить реквизит</span>
-                <span className="sm:hidden">Добавить</span>
-              </Button>
               <div className="hidden md:block">
                 <TraderHeader />
               </div>
@@ -412,50 +398,38 @@ export default function TraderRequisitesPage() {
           </div>
 
           {/* Search and Filters - Sticky */}
-          <div className="sticky top-0 z-10 bg-white dark:bg-[#0f0f0f] pb-3 md:pb-4 -mx-4 md:-mx-6 px-4 md:px-6 pt-2 shadow-sm dark:shadow-[#29382f]">
-            <div className="flex flex-col sm:flex-row gap-2">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
-                <Input
-                  placeholder="Поиск..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border h-10 md:h-12 text-sm md:text-base border-gray-300 dark:border-[#29382f] rounded-lg"
-                />
-              </div>
-
-              {/* Filters and Sort Container */}
-              <div className="flex gap-2">
-                {/* Filters */}
-                <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="default"
-                      className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base flex-1 sm:flex-initial"
-                    >
-                      <SlidersHorizontal className="h-4 w-4 text-[#006039]" />
-                      <span className="hidden sm:inline">Не выбраны</span>
-                      {(filterStatus !== "all" || filterDevice !== "all") && (
-                        <Badge className="ml-1 bg-[#006039] text-white">
-                          {[
-                            filterStatus !== "all",
-                            filterDevice !== "all",
-                          ].filter(Boolean).length}
-                        </Badge>
-                      )}
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 transition-colors",
-                          filtersOpen ? "text-[#006039]" : "text-gray-400"
-                        )}
-                      />
-                    </Button>
-                  </PopoverTrigger>
-                <PopoverContent align="end" className="w-[500px]" sideOffset={5}>
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-">Параметры поиска</h4>
+          <StickySearchFilters
+            searchPlaceholder="Поиск..."
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            activeFiltersCount={[filterStatus !== "all", filterDevice !== "all"].filter(Boolean).length}
+            onResetFilters={() => {
+              setFilterStatus("all");
+              setFilterDevice("all");
+              setDeviceSearch("");
+              setDeviceSearchInternal("");
+            }}
+            additionalButtons={
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base">
+                    <ArrowUpDown className="h-4 w-4 text-[#006039]" />
+                    <span className="hidden sm:inline">{sortOrder === "newest" ? "Сначала новые" : "Сначала старые"}</span>
+                    <span className="sm:hidden">{sortOrder === "newest" ? "Новые" : "Старые"}</span>
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSortOrder("newest")}>
+                    Сначала новые
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
+                    Сначала старые
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            }
+          >
 
                     {/* Status Filter */}
                     <div className="space-y-2">
@@ -474,10 +448,10 @@ export default function TraderRequisitesPage() {
                               {filterStatus === "all"
                                 ? "Все реквизиты"
                                 : filterStatus === "active"
-                                  ? "В работе"
+                                  ? "Активные"
                                   : filterStatus === "stopped"
-                                    ? "Остановлен"
-                                    : "Заблокирован"}
+                                    ? "Выключенные"
+                                    : "Архивированные"}
                             </span>
                             <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                           </Button>
@@ -506,7 +480,7 @@ export default function TraderRequisitesPage() {
                               )}
                               onClick={() => setFilterStatus("active")}
                             >
-                              В работе
+                              Активные
                             </Button>
                             <Button
                               variant="ghost"
@@ -518,7 +492,7 @@ export default function TraderRequisitesPage() {
                               )}
                               onClick={() => setFilterStatus("stopped")}
                             >
-                              Остановлен
+                              Выключенные
                             </Button>
                             <Button
                               variant="ghost"
@@ -530,7 +504,7 @@ export default function TraderRequisitesPage() {
                               )}
                               onClick={() => setFilterStatus("blocked")}
                             >
-                              Заблокирован
+                              Архивированные
                             </Button>
                           </div>
                         </PopoverContent>
@@ -565,9 +539,14 @@ export default function TraderRequisitesPage() {
                             <div className="relative">
                               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                               <Input
+                                id="device-search-input"
                                 placeholder="Поиск устройства"
-                                value={deviceSearch}
-                                onChange={(e) => setDeviceSearch(e.target.value)}
+                                value={deviceSearchInternal}
+                                onChange={(e) => {
+                                  setDeviceSearchInternal(e.target.value);
+                                  const debouncedValue = e.target.value;
+                                  setTimeout(() => setDeviceSearch(debouncedValue), 300);
+                                }}
                                 className="pl-9"
                               />
                             </div>
@@ -627,54 +606,7 @@ export default function TraderRequisitesPage() {
                       </Popover>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 h-12"
-                        onClick={() => {
-                          setFilterStatus("all");
-                          setFilterDevice("all");
-                          setDeviceSearch("");
-                        }}
-                      >
-                        Сбросить все
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 h-12 bg-[#006039] hover:bg-[#006039]/90"
-                        onClick={() => setFiltersOpen(false)}
-                      >
-                        Применить фильтры
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-                {/* Sort Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-1 md:gap-2 h-10 md:h-12 px-3 md:px-6 text-sm md:text-base flex-1 sm:flex-initial">
-                      <ArrowUpDown className="h-4 w-4 text-[#006039]" />
-                      <span className="hidden sm:inline">{sortOrder === "newest" ? "Сначала новые" : "Сначала старые"}</span>
-                      <span className="sm:hidden">{sortOrder === "newest" ? "Новые" : "Старые"}</span>
-                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setSortOrder("newest")}>
-                      Сначала новые
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
-                      Сначала старые
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          </div>
+          </StickySearchFilters>
 
           {/* Bulk Actions */}
           {selectedRequisites.length > 0 && (
@@ -696,12 +628,6 @@ export default function TraderRequisitesPage() {
                         <div className="flex items-center">
                           <PlayCircle className="mr-2 h-4 w-4 text-[#006039]" />
                           Запустить
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="archive">
-                        <div className="flex items-center">
-                          <Archive className="mr-2 h-4 w-4 text-[#006039]" />
-                          Архивировать
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -777,15 +703,13 @@ export default function TraderRequisitesPage() {
 
                           {/* Status Badge */}
                           <div className="flex-shrink-0">
-                            {!requisite.isArchived &&
-                            requisite.hasDevice &&
-                            requisite.device?.isOnline ? (
-                              <Badge className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-1">
-                                В работе
+                            {requisite.isArchived ? (
+                              <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs px-2 py-1">
+                                Остановлен
                               </Badge>
                             ) : (
-                              <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs px-2 py-1">
-                                Выключен
+                              <Badge className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-1">
+                                В работе
                               </Badge>
                             )}
                           </div>
@@ -874,15 +798,13 @@ export default function TraderRequisitesPage() {
 
                       {/* Status */}
                       <div className="flex-shrink-0">
-                        {!requisite.isArchived &&
-                        requisite.hasDevice &&
-                        requisite.device?.isOnline ? (
-                          <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
-                            В работе
+                        {requisite.isArchived ? (
+                          <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
+                            Остановлен
                           </div>
                         ) : (
-                          <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
-                            Выключен реквизит
+                          <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
+                            В работе
                           </div>
                         )}
                       </div>
@@ -1143,6 +1065,7 @@ export default function TraderRequisitesPage() {
               status: selectedRequisiteForInfo.isArchived
                 ? "inactive"
                 : "active",
+              isArchived: selectedRequisiteForInfo.isArchived,
               device: selectedRequisiteForInfo.device,
               stats: {
                 turnover24h: 0,

@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'com.chase.mobile'
+    namespace 'ru.akbars.mobile'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.chase.mobile"
+        applicationId "ru.akbars.mobile"
         minSdk 24
         targetSdk 34
         versionCode 1

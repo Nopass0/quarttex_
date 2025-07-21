@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import { Loader2, CreditCard, Plus, Trash2, Edit } from "lucide-react";
-import { RequisitesDialog } from "./requisites-dialog";
+import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
 import { cn } from "@/lib/utils";
 
 interface RequisitesListDialogProps {
@@ -128,6 +128,7 @@ export function RequisitesListDialog({
                 Добавить реквизит
               </Button>
             </div>
+            
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -300,10 +301,10 @@ export function RequisitesListDialog({
         </DialogContent>
       </Dialog>
 
-      <RequisitesDialog
+      <AddRequisiteDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
-        onRequisiteAdded={() => {
+        onSuccess={() => {
           fetchRequisites();
           setAddDialogOpen(false);
         }}
