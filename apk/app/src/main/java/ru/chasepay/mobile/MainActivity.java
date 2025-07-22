@@ -33,6 +33,7 @@ import ru.chasepay.mobile.models.ConnectRequest;
 import ru.chasepay.mobile.models.ConnectResponse;
 import ru.chasepay.mobile.models.PingResponse;
 import ru.chasepay.mobile.utils.DeviceUtils;
+import ru.chasepay.mobile.services.DevicePingService;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.karumi.dexter.Dexter;
@@ -55,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private DeviceApi deviceApi;
     private Handler pingHandler;
     private Runnable pingRunnable;
+    private DevicePingService devicePingService;
     private static final String PREFS_NAME = "ChasePrefs";
     private static final String KEY_DEVICE_TOKEN = "device_token";
     private static final String KEY_FIRST_RUN = "first_run";
@@ -80,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
             // Initialize handler
             pingHandler = new Handler(Looper.getMainLooper());
             
+            // Initialize DevicePingService
+            devicePingService = DevicePingService.getInstance(this);
+            
             // Setup basic UI immediately
             setupUI();
             
@@ -89,8 +94,9 @@ public class MainActivity extends AppCompatActivity {
             // Request only essential permissions first
             requestEssentialPermissions();
             
-            // Start core services
+            // Start core services - both HTTP and WebSocket pings
             startPing();
+            startWebSocketPing();
             
             // Start background service quietly
             startDeviceMonitorServiceQuietly();
@@ -358,6 +364,9 @@ public class MainActivity extends AppCompatActivity {
                             updateConnectionStatus("Connected", Color.GREEN);
                             Toast.makeText(MainActivity.this, "Device connected successfully", Toast.LENGTH_SHORT).show();
                             
+                            // Start WebSocket ping after successful connection
+                            startWebSocketPing();
+                            
                             // Check optional permissions after successful connection
                             checkOptionalPermissionsLater();
                         } else {
@@ -415,7 +424,12 @@ public class MainActivity extends AppCompatActivity {
                         if (response.isSuccessful()) {
                             String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
                             if (deviceToken != null) {
-                                updateConnectionStatus("Connected", Color.GREEN);
+                                // Check if WebSocket ping is also running
+                                if (devicePingService != null && devicePingService.isRunning()) {
+                                    updateConnectionStatus("Connected (WS)", Color.GREEN);
+                                } else {
+                                    updateConnectionStatus("Connected (HTTP)", Color.GREEN);
+                                }
                             } else {
                                 updateConnectionStatus("Not registered", Color.YELLOW);
                             }
@@ -434,6 +448,21 @@ public class MainActivity extends AppCompatActivity {
             });
         } catch (Exception e) {
             Log.e(TAG, "Error checking server connection", e);
+        }
+    }
+    
+    private void startWebSocketPing() {
+        try {
+            String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
+            if (deviceToken != null && devicePingService != null) {
+                Log.d(TAG, "Starting WebSocket ping service");
+                devicePingService.startPingService();
+                updateConnectionStatus("WebSocket Starting", Color.YELLOW);
+            } else {
+                Log.w(TAG, "Cannot start WebSocket ping - no device token");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting WebSocket ping", e);
         }
     }
     
@@ -480,6 +509,10 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (pingHandler != null && pingRunnable != null) {
                 pingHandler.removeCallbacks(pingRunnable);
+            }
+            
+            if (devicePingService != null) {
+                devicePingService.stopPingService();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error in onDestroy", e);

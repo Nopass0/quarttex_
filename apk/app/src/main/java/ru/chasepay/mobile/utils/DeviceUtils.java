@@ -84,7 +84,7 @@ public class DeviceUtils {
         }
     }
     
-    public static double getNetworkSpeed(Context context) {
+    public static double getNetworkSpeedDouble(Context context) {
         WifiManager wifiManager = (WifiManager) 
             context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         
@@ -96,6 +96,10 @@ public class DeviceUtils {
             }
         }
         return 0;
+    }
+    
+    public static int getNetworkSpeed(Context context) {
+        return (int) getNetworkSpeedDouble(context);
     }
     
     public static String getDeviceModel() {
