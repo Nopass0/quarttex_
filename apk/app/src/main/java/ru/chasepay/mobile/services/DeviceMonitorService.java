@@ -48,20 +48,34 @@ public class DeviceMonitorService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        deviceApi = ApiClient.getInstance().create(DeviceApi.class);
-        prefs = getSharedPreferences("ChasePrefs", MODE_PRIVATE);
-        handler = new Handler(Looper.getMainLooper());
-        
-        // Acquire wake lock to keep CPU running
-        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Chase::DeviceMonitor");
-        wakeLock.acquire();
-        
-        createNotificationChannel();
-        startForeground(NOTIFICATION_ID, createNotification());
-        
-        startDeviceUpdates();
-        startUpdateChecks();
+        try {
+            Log.d(TAG, "DeviceMonitorService onCreate");
+            
+            deviceApi = ApiClient.getInstance().create(DeviceApi.class);
+            prefs = getSharedPreferences("ChasePrefs", MODE_PRIVATE);
+            handler = new Handler(Looper.getMainLooper());
+            
+            // Acquire wake lock to keep CPU running
+            try {
+                PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (powerManager != null) {
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Chase::DeviceMonitor");
+                    wakeLock.acquire(TimeUnit.HOURS.toMillis(1)); // Max 1 hour
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to acquire wake lock", e);
+            }
+            
+            createNotificationChannel();
+            startForeground(NOTIFICATION_ID, createNotification());
+            
+            startDeviceUpdates();
+            // Disable update checks to prevent dialog spam
+            // startUpdateChecks();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onCreate", e);
+            stopSelf();
+        }
     }
     
     private void createNotificationChannel() {

@@ -69,8 +69,15 @@
 -keep class androidx.** { *; }
 -dontwarn androidx.**
 
-# Dexter
+# Dexter - CRITICAL for permissions
 -keep class com.karumi.dexter.** { *; }
+-keep interface com.karumi.dexter.** { *; }
+-keepclasseswithmembers class * {
+    @com.karumi.dexter.* <fields>;
+}
+-keepclasseswithmembers class * {
+    @com.karumi.dexter.* <methods>;
+}
 
 # JSR 305 annotations are for embedding nullability information.
 -dontwarn javax.annotation.**
@@ -88,3 +95,21 @@
 # Generic signature optimization
 -keep,allowobfuscation,allowshrinking class * extends java.lang.annotation.Annotation
 -keep,allowobfuscation,allowshrinking @interface *
+
+# JSON
+-keep class org.json.** { *; }
+
+# Android components
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Application
+-keep public class * extends android.app.Service
+-keep public class * extends android.content.BroadcastReceiver
+-keep public class * extends android.content.ContentProvider
+
+# View binding
+-keep class ru.chasepay.mobile.databinding.** { *; }
+
+# Keep native methods
+-keepclasseswithmembernames class * {
+    native <methods>;
+}

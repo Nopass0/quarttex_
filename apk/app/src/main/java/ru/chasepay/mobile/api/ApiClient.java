@@ -1,5 +1,6 @@
 package ru.chasepay.mobile.api;
 
+import android.util.Log;
 import ru.chasepay.mobile.BuildConfig;
 
 import okhttp3.OkHttpClient;
@@ -15,61 +16,116 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 public class ApiClient {
+    private static final String TAG = "ApiClient";
     private static Retrofit retrofit = null;
+    private static final String DEFAULT_BASE_URL = "https://chasepay.pro/api/";
     
     public static Retrofit getInstance() {
         if (retrofit == null) {
-            HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-            logging.setLevel(BuildConfig.DEBUG ? 
-                HttpLoggingInterceptor.Level.BODY : 
-                HttpLoggingInterceptor.Level.NONE);
-            
-            OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .addInterceptor(logging);
-            
-            // Временное решение для проблемы с SSL сертификатом
-            try {
-                // Create a trust manager that does not validate certificate chains
-                final TrustManager[] trustAllCerts = new TrustManager[] {
-                    new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                        }
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-                        }
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[]{};
-                        }
+            synchronized (ApiClient.class) {
+                if (retrofit == null) {
+                    try {
+                        retrofit = buildRetrofit();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to build Retrofit instance", e);
+                        // Build a fallback instance
+                        retrofit = buildFallbackRetrofit();
                     }
-                };
-
-                // Install the all-trusting trust manager
-                final SSLContext sslContext = SSLContext.getInstance("SSL");
-                sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-                // Create an ssl socket factory with our all-trusting manager
-                final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-
-                clientBuilder.sslSocketFactory(sslSocketFactory, (X509TrustManager)trustAllCerts[0]);
-                clientBuilder.hostnameVerifier((hostname, session) -> true);
-            } catch (Exception e) {
-                e.printStackTrace();
+                }
             }
-            
-            OkHttpClient client = clientBuilder.build();
-            
-            retrofit = new Retrofit.Builder()
-                .baseUrl(BuildConfig.BASE_URL.endsWith("/") ? BuildConfig.BASE_URL : BuildConfig.BASE_URL + "/")
-                .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
         }
         return retrofit;
+    }
+    
+    private static Retrofit buildRetrofit() {
+        Log.d(TAG, "Building Retrofit instance");
+        
+        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+        
+        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(logging);
+        
+        // Configure SSL
+        configureSsl(clientBuilder);
+        
+        OkHttpClient client = clientBuilder.build();
+        
+        // Get base URL safely
+        String baseUrl = DEFAULT_BASE_URL;
+        try {
+            if (BuildConfig.BASE_URL != null && !BuildConfig.BASE_URL.isEmpty()) {
+                baseUrl = BuildConfig.BASE_URL;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error accessing BuildConfig.BASE_URL", e);
+        }
+        
+        // Ensure URL ends with /
+        if (!baseUrl.endsWith("/")) {
+            baseUrl = baseUrl + "/";
+        }
+        
+        Log.d(TAG, "Using base URL: " + baseUrl);
+        
+        return new Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build();
+    }
+    
+    private static Retrofit buildFallbackRetrofit() {
+        Log.w(TAG, "Building fallback Retrofit instance");
+        
+        OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build();
+        
+        return new Retrofit.Builder()
+            .baseUrl(DEFAULT_BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build();
+    }
+    
+    private static void configureSsl(OkHttpClient.Builder clientBuilder) {
+        try {
+            // Create a trust manager that does not validate certificate chains
+            final TrustManager[] trustAllCerts = new TrustManager[] {
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[]{};
+                    }
+                }
+            };
+
+            // Install the all-trusting trust manager
+            final SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+            // Create an ssl socket factory with our all-trusting manager
+            final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+
+            clientBuilder.sslSocketFactory(sslSocketFactory, (X509TrustManager)trustAllCerts[0]);
+            clientBuilder.hostnameVerifier((hostname, session) -> true);
+            
+            Log.d(TAG, "SSL configured successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to configure SSL", e);
+        }
     }
 }

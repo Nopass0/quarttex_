@@ -32,6 +32,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.debug  // Use debug signing for now
         }
+        prodDebug {
+            initWith debug
+            buildConfigField "String", "BASE_URL", "\"https://chasepay.pro/api\""
+            debuggable true
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['debug']
+        }
     }
 
     compileOptions {

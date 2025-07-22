@@ -164,7 +164,6 @@ export default function DeviceDetailsPage() {
   const [serverError, setServerError] = useState(false);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchDevice();
@@ -178,46 +177,7 @@ export default function DeviceDetailsPage() {
     }
   }, [activeTab, device]);
 
-  // Polling для проверки статуса устройства когда открыт QR код
-  useEffect(() => {
-    if (showQrDialog && device && !device.isOnline) {
-      // Запускаем polling каждые 2 секунды
-      pollingIntervalRef.current = setInterval(async () => {
-        try {
-          const deviceData = await traderApi.getDevice(params.id as string);
-          if (deviceData.isOnline) {
-            // Устройство подключилось!
-            setDevice(deviceData);
-            setShowQrDialog(false);
-            toast.success("Устройство успешно подключено!");
-            
-            // Останавливаем polling
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-            
-            // Обновляем сообщения
-            const messagesResponse = await traderApi.getMessages({
-              deviceId: deviceData.id,
-              limit: 20,
-            });
-            setMessages(messagesResponse.data || []);
-          }
-        } catch (error) {
-          console.error("Error polling device status:", error);
-        }
-      }, 2000);
-    }
-
-    // Cleanup при закрытии диалога или размонтировании
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [showQrDialog, device, params.id]);
+  // Removed polling - QR dialog stays open until user closes it
 
   useEffect(() => {
     if (device?.id) {
