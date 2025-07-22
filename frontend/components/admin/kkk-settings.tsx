@@ -122,7 +122,7 @@ export function KkkSettings() {
 
         <div className="space-y-2">
           <Label htmlFor="rapiraKkk">Процент ККК (%) - Отображаемый курс на платформе</Label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Select value={rapiraOperation} onValueChange={(value: 'increase' | 'decrease') => setRapiraOperation(value)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -141,8 +141,17 @@ export function KkkSettings() {
               value={rapiraKkk}
               onChange={(e) => setRapiraKkk(e.target.value)}
               placeholder="0"
-              className="flex-1"
+              className="w-[120px]"
             />
+            {rapiraKkk && currentRapiraRate && (
+              <div className="flex-1 p-3 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border-2 border-purple-500 dark:border-purple-600">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                  Новый курс: <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                    {(currentRapiraRate * (1 + (parseFloat(rapiraKkk) / 100) * (rapiraOperation === 'decrease' ? -1 : 1))).toFixed(2)} ₽
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             Коэффициент корректировки курса Rapira для отображения на платформе
@@ -153,13 +162,6 @@ export function KkkSettings() {
                 Текущий курс Rapira: <span className="text-lg font-bold text-green-600 dark:text-green-400">{currentRapiraRate.toFixed(2)} ₽/USDT</span>
               </p>
             </div>
-          )}
-          {rapiraKkk && currentRapiraRate && (
-            <p className="text-xs text-muted-foreground">
-              Пример: при курсе {currentRapiraRate.toFixed(2)} → {rapiraOperation === 'increase' ? 'увеличить' : 'уменьшить'} на {rapiraKkk}% → отображаемый курс {
-                (currentRapiraRate * (1 + (parseFloat(rapiraKkk) / 100) * (rapiraOperation === 'decrease' ? -1 : 1))).toFixed(2)
-              } ₽
-            </p>
           )}
         </div>
       </div>
