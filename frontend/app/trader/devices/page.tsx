@@ -182,8 +182,15 @@ export default function DevicesPage() {
     deviceStatusWs.current.on('device-status-update', (update: DeviceStatusUpdate) => {
       console.log('[DevicesPage] Device status update:', update);
       
-      setDevices(prevDevices => 
-        prevDevices.map(device => 
+      setDevices(prevDevices => {
+        const device = prevDevices.find(d => d.id === update.deviceId);
+        
+        // If device is coming online and doesn't have firstConnectionAt, refresh devices list
+        if (device && update.isOnline && !device.firstConnectionAt) {
+          fetchDevices(); // Refresh to get updated firstConnectionAt
+        }
+        
+        return prevDevices.map(device => 
           device.id === update.deviceId 
             ? {
                 ...device,
@@ -193,8 +200,8 @@ export default function DevicesPage() {
                 status: update.isOnline ? "working" : "stopped"
               }
             : device
-        )
-      );
+        );
+      });
     });
     
     // Listen for device going offline

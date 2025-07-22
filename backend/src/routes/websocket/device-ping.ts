@@ -192,10 +192,15 @@ export const devicePingRoutes = new Elysia()
             console.log(`[DevicePing] Setting firstConnectionAt for device ${device.id}`);
           }
           
-          await db.device.update({
+          const updatedDevice = await db.device.update({
             where: { id: device.id },
             data: updateData
           });
+          
+          // Log the update result
+          if (!device.firstConnectionAt && updatedDevice.firstConnectionAt) {
+            console.log(`[DevicePing] Successfully set firstConnectionAt for device ${device.id}: ${updatedDevice.firstConnectionAt}`);
+          }
 
           // If device was offline and now online, re-enable bank details
           if (!wasOnline) {

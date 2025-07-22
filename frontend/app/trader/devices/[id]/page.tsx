@@ -188,15 +188,22 @@ export default function DeviceDetailsPage() {
       if (update.deviceId === params.id) {
         console.log('[DeviceDetailsPage] Device status update:', update);
         
-        setDevice(prevDevice => 
-          prevDevice ? {
+        setDevice(prevDevice => {
+          if (!prevDevice) return null;
+          
+          // If device is coming online and doesn't have firstConnectionAt, refresh device data
+          if (update.isOnline && !prevDevice.firstConnectionAt) {
+            fetchDevice(); // Refresh to get updated firstConnectionAt
+          }
+          
+          return {
             ...prevDevice,
             isOnline: update.isOnline,
             energy: update.batteryLevel ?? prevDevice.energy,
             batteryLevel: update.batteryLevel ?? prevDevice.batteryLevel,
             ethernetSpeed: update.networkSpeed ?? prevDevice.ethernetSpeed
-          } : null
-        );
+          };
+        });
       }
     });
     

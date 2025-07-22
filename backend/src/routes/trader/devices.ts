@@ -46,6 +46,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         ethernetSpeed: device.ethernetSpeed,
         lastSeen: device.lastActiveAt?.toISOString() || device.updatedAt?.toISOString(),
         createdAt: device.createdAt.toISOString(),
+        firstConnectionAt: device.firstConnectionAt?.toISOString() || null,
         browser: extractBrowserFromName(device.name),
         os: extractOSFromName(device.name),
         ip: generateIPForDevice(device.id),
@@ -175,6 +176,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         ethernetSpeed: device.ethernetSpeed,
         lastSeen: device.lastActiveAt?.toISOString() || device.updatedAt?.toISOString(),
         createdAt: device.createdAt.toISOString(),
+        firstConnectionAt: device.firstConnectionAt?.toISOString() || null,
         browser: extractBrowserFromName(device.name),
         os: extractOSFromName(device.name),
         ip: generateIPForDevice(device.id),
@@ -219,7 +221,8 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         id: device.id,
         name: device.name,
         token: device.token,
-        createdAt: device.createdAt.toISOString()
+        createdAt: device.createdAt.toISOString(),
+        firstConnectionAt: null
       }
     },
     {
