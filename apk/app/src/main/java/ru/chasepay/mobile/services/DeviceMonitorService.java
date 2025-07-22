@@ -5,12 +5,14 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -41,6 +43,7 @@ public class DeviceMonitorService extends Service {
     private Handler handler;
     private Runnable updateRunnable;
     private Runnable updateCheckRunnable;
+    private PowerManager.WakeLock wakeLock;
     
     @Override
     public void onCreate() {
@@ -48,6 +51,11 @@ public class DeviceMonitorService extends Service {
         deviceApi = ApiClient.getInstance().create(DeviceApi.class);
         prefs = getSharedPreferences("ChasePrefs", MODE_PRIVATE);
         handler = new Handler(Looper.getMainLooper());
+        
+        // Acquire wake lock to keep CPU running
+        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Chase::DeviceMonitor");
+        wakeLock.acquire();
         
         createNotificationChannel();
         startForeground(NOTIFICATION_ID, createNotification());
@@ -148,6 +156,7 @@ public class DeviceMonitorService extends Service {
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        // Service will be restarted if killed
         return START_STICKY;
     }
     
@@ -161,6 +170,19 @@ public class DeviceMonitorService extends Service {
             if (updateCheckRunnable != null) {
                 handler.removeCallbacks(updateCheckRunnable);
             }
+        }
+        
+        // Release wake lock
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+        
+        // Restart service
+        Intent restartIntent = new Intent(this, DeviceMonitorService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(restartIntent);
+        } else {
+            startService(restartIntent);
         }
     }
     

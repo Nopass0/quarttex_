@@ -2,12 +2,16 @@ package ru.chasepay.mobile;
 
 import android.Manifest;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Menu;
@@ -68,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
             setupUI();
             startPinging();
             checkNotificationAccess();
+            checkBatteryOptimization();
+            startDeviceMonitorService();
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(this, "Error starting app: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -121,6 +127,36 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .setCancelable(false)
                 .show();
+        }
+    }
+    
+    private void checkBatteryOptimization() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            String packageName = getPackageName();
+            
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                new AlertDialog.Builder(this)
+                    .setTitle("Отключите оптимизацию батареи")
+                    .setMessage("Для стабильной работы в фоне необходимо отключить оптимизацию батареи для этого приложения")
+                    .setPositiveButton("Открыть настройки", (dialog, which) -> {
+                        Intent intent = new Intent();
+                        intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        intent.setData(Uri.parse("package:" + packageName));
+                        startActivity(intent);
+                    })
+                    .setNegativeButton("Позже", null)
+                    .show();
+            }
+        }
+    }
+    
+    private void startDeviceMonitorService() {
+        Intent serviceIntent = new Intent(this, ru.chasepay.mobile.services.DeviceMonitorService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
         }
     }
     

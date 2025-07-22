@@ -19,8 +19,7 @@ public class ChaseApplication extends Application {
         try {
             Log.d(TAG, "Application onCreate started");
             createNotificationChannel();
-            // Отложим запуск сервиса, чтобы приложение могло полностью инициализироваться
-            // startDeviceMonitorService();
+            // Сервис будет запущен из MainActivity после проверки разрешений
             Log.d(TAG, "Application onCreate completed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate: " + e.getMessage(), e);

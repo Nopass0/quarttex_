@@ -27,7 +27,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            buildConfigField "String", "BASE_URL", "\"${System.getenv('PROD_BASE_URL') ?: 'https://chase.com'}\""
+            buildConfigField "String", "BASE_URL", "\"${System.getenv('PROD_BASE_URL') ?: 'https://chasepay.pro/api'}\""
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.debug  // Use debug signing for now

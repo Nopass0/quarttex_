@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { AuthLayout } from "@/components/layouts/auth-layout";
@@ -164,6 +164,7 @@ export default function DeviceDetailsPage() {
   const [serverError, setServerError] = useState(false);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchDevice();
@@ -176,6 +177,47 @@ export default function DeviceDetailsPage() {
       fetchDisputes();
     }
   }, [activeTab, device]);
+
+  // Polling для проверки статуса устройства когда открыт QR код
+  useEffect(() => {
+    if (showQrDialog && device && !device.isOnline) {
+      // Запускаем polling каждые 2 секунды
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const deviceData = await traderApi.getDevice(params.id as string);
+          if (deviceData.isOnline) {
+            // Устройство подключилось!
+            setDevice(deviceData);
+            setShowQrDialog(false);
+            toast.success("Устройство успешно подключено!");
+            
+            // Останавливаем polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            
+            // Обновляем сообщения
+            const messagesResponse = await traderApi.getMessages({
+              deviceId: deviceData.id,
+              limit: 20,
+            });
+            setMessages(messagesResponse.data || []);
+          }
+        } catch (error) {
+          console.error("Error polling device status:", error);
+        }
+      }, 2000);
+    }
+
+    // Cleanup при закрытии диалога или размонтировании
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [showQrDialog, device, params.id]);
 
   useEffect(() => {
     if (device?.id) {
@@ -1234,7 +1276,18 @@ export default function DeviceDetailsPage() {
 
             <div className="flex flex-col items-center space-y-4 py-4">
               {qrCodeUrl && (
-                <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 sm:w-64 sm:h-64" />
+                <div className="relative">
+                  <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 sm:w-64 sm:h-64" />
+                  {/* Индикатор ожидания подключения */}
+                  {!device.isOnline && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
+                      <div className="flex flex-col items-center space-y-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <span className="text-sm text-gray-600">Ожидание подключения...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               <div className="w-full space-y-2">
@@ -1256,6 +1309,21 @@ export default function DeviceDetailsPage() {
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
+              </div>
+              
+              {/* Статус подключения */}
+              <div className="flex items-center gap-2 text-sm">
+                {device.isOnline ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span className="text-green-600">Устройство подключено</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="h-4 w-4 text-gray-400 animate-pulse" />
+                    <span className="text-gray-500">Ожидание подключения устройства</span>
+                  </>
+                )}
               </div>
             </div>
 
