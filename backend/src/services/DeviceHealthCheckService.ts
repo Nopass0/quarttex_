@@ -4,11 +4,11 @@ import { db } from '../db';
 export class DeviceHealthCheckService extends BaseService {
   displayName = 'Проверка активности устройств';
   description = 'Отключает устройства, которые не отправляли health check больше заданного времени';
-  interval = 60000; // Проверяем каждую минуту
+  interval = 5000; // Проверяем каждые 5 секунд для быстрого реагирования
   enabledByDefault = true;
   tags = ['devices', 'monitoring'];
 
-  private healthCheckTimeout: number = 300; // 300 секунд (5 минут) по умолчанию
+  private healthCheckTimeout: number = 10; // 10 секунд - теперь используем WebSocket
 
   protected getPublicFields() {
     return {
@@ -21,7 +21,7 @@ export class DeviceHealthCheckService extends BaseService {
 
   async onStart() {
     // Получаем настройку таймаута из базы данных или используем значение по умолчанию
-    const savedTimeout = this.getSetting('healthCheckTimeout', 300);
+    const savedTimeout = this.getSetting('healthCheckTimeout', 10);
     this.healthCheckTimeout = savedTimeout;
     
     await this.logInfo('Сервис проверки активности устройств запущен', { 
@@ -113,8 +113,8 @@ export class DeviceHealthCheckService extends BaseService {
 
   // Метод для обновления таймаута
   async setHealthCheckTimeout(seconds: number) {
-    if (seconds < 60) {
-      throw new Error('Таймаут не может быть меньше 60 секунд');
+    if (seconds < 5) {
+      throw new Error('Таймаут не может быть меньше 5 секунд');
     }
     
     this.healthCheckTimeout = seconds;

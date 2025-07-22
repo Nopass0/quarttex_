@@ -24,6 +24,7 @@ import supportRoutes from "@/routes/support";
 import payoutWebSocketRoutes from "@/routes/websocket/payouts";
 import { disputeWebSocketRoutes } from "@/routes/websocket/disputes";
 import { dealDisputeWebSocketRoutes } from "@/routes/websocket/deal-disputes";
+import { devicePingRoutes } from "@/routes/websocket/device-ping";
 import wellbitRoutes from "@/routes/wellbit";
 
 import { Glob } from "bun";
@@ -278,7 +279,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(deviceHealthRoutes)
   .use(payoutWebSocketRoutes)
   .use(disputeWebSocketRoutes)
-  .use(dealDisputeWebSocketRoutes);
+  .use(dealDisputeWebSocketRoutes)
+  .use(devicePingRoutes);
 
 // Register all service endpoints
 for (const serviceApp of serviceApps) {
