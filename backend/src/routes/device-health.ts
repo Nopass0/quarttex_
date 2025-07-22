@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
 
-export const deviceHealthRoutes = new Elysia({ prefix: "/device" })
+export const deviceHealthRoutes = new Elysia({ prefix: "/api/device" })
   // Health check endpoint that only requires device token
   .post(
     "/health-check",

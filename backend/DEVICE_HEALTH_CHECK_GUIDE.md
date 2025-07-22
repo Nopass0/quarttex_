@@ -16,7 +16,7 @@
 ### 1. Эндпоинт Health Check
 
 ```
-POST /api/trader/devices/health-check
+POST /api/device/health-check
 ```
 
 ### 2. Заголовки
