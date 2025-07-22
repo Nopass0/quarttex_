@@ -792,9 +792,11 @@ export default function DeviceDetailsPage() {
                               <div className="mt-10 p-4 rounded-full bg-red-100 dark:bg-red-900/30">
                                 <GlobeLock className="w-10 h-10 text-red-500 dark:text-[#c64444]" />
                               </div>
-                              <p className="font-semibold text-[16px] mt-2 dark:text-[#eeeeee]">
-                                Ошибка подключения
-                              </p>
+                              {device.isWorking && (
+                                <p className="font-semibold text-[16px] mt-2 dark:text-[#eeeeee]">
+                                  Ошибка подключения
+                                </p>
+                              )}
                             </>
                           )}
                         </div>
