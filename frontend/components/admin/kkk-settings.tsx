@@ -84,7 +84,7 @@ export function KkkSettings() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="rapiraKkk">Процент ККК (%) - Rapira</Label>
+          <Label htmlFor="rapiraKkk">Процент ККК (%) - Отображаемый курс на платформе</Label>
           <Input
             id="rapiraKkk"
             type="number"
@@ -96,7 +96,7 @@ export function KkkSettings() {
             placeholder="Введите процент"
           />
           <p className="text-sm text-muted-foreground">
-            Коэффициент корректировки курса Rapira. Положительное значение увеличивает курс, отрицательное - уменьшает.
+            Коэффициент корректировки курса Rapira для отображения на платформе. Положительное значение увеличивает курс, отрицательное - уменьшает.
           </p>
           {rapiraKkk && (
             <p className="text-xs text-muted-foreground">
