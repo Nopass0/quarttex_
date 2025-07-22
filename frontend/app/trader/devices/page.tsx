@@ -188,7 +188,10 @@ export default function DevicesPage() {
         
         // If device is coming online and doesn't have firstConnectionAt, refresh devices list
         if (device && update.isOnline && !device.firstConnectionAt) {
-          fetchDevices(); // Refresh to get updated firstConnectionAt
+          console.log('[DevicesPage] Device came online without firstConnectionAt, refreshing...');
+          fetchDevices().then(() => {
+            console.log('[DevicesPage] Devices list refreshed after first connection');
+          });
         }
         
         return prevDevices.map(device => 
@@ -198,7 +201,7 @@ export default function DevicesPage() {
                 isOnline: update.isOnline,
                 energy: update.batteryLevel ?? device.energy,
                 ethernetSpeed: update.networkSpeed ?? device.ethernetSpeed,
-                status: update.isOnline ? "working" : "stopped"
+                isWorking: device.isWorking // Keep the working state, don't change it based on online status
               }
             : device
         );
@@ -229,14 +232,18 @@ export default function DevicesPage() {
 
   // Polling для проверки статуса нового устройства
   useEffect(() => {
-    if (deviceTokenDialogOpen && selectedDevice && !selectedDevice.isOnline) {
+    if (deviceTokenDialogOpen && selectedDevice) {
       // Запускаем polling каждые 2 секунды
       pollingIntervalRef.current = setInterval(async () => {
         try {
           const deviceData = await traderApi.getDevice(selectedDevice.id);
-          if (deviceData.isOnline) {
-            // Устройство подключилось!
-            setSelectedDevice(deviceData);
+          
+          // Update selected device with latest data
+          setSelectedDevice(deviceData);
+          
+          // Check if device just connected for the first time
+          if (!selectedDevice.firstConnectionAt && deviceData.firstConnectionAt) {
+            // Устройство подключилось впервые!
             setDeviceTokenDialogOpen(false);
             toast.success("Устройство успешно подключено!");
             

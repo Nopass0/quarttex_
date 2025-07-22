@@ -193,7 +193,11 @@ export default function DeviceDetailsPage() {
           
           // If device is coming online and doesn't have firstConnectionAt, refresh device data
           if (update.isOnline && !prevDevice.firstConnectionAt) {
-            fetchDevice(); // Refresh to get updated firstConnectionAt
+            console.log('[DeviceDetailsPage] Device came online without firstConnectionAt, refreshing...');
+            // Refresh device data to get firstConnectionAt
+            fetchDevice().then(() => {
+              console.log('[DeviceDetailsPage] Device data refreshed after first connection');
+            });
           }
           
           return {
@@ -246,16 +250,24 @@ export default function DeviceDetailsPage() {
 
   // Polling для проверки статуса устройства когда открыт QR код
   useEffect(() => {
-    if (showQrDialog && device && !device.isOnline) {
+    if (showQrDialog && device) {
       // Запускаем polling каждые 2 секунды
       pollingIntervalRef.current = setInterval(async () => {
         try {
           const deviceData = await traderApi.getDevice(params.id as string);
-          if (deviceData.isOnline) {
-            // Устройство подключилось!
-            setDevice(deviceData);
-            setShowQrDialog(false);
+          
+          console.log('[DeviceDetailsPage] Polling device status:', {
+            deviceId: deviceData.id,
+            isOnline: deviceData.isOnline,
+            firstConnectionAt: deviceData.firstConnectionAt,
+            previousFirstConnectionAt: device.firstConnectionAt
+          });
+          
+          // Check if device just got its first connection
+          if (!device.firstConnectionAt && deviceData.firstConnectionAt) {
+            console.log('[DeviceDetailsPage] Device got first connection!');
             toast.success("Устройство успешно подключено!");
+            setShowQrDialog(false);
             
             // Останавливаем polling
             if (pollingIntervalRef.current) {
@@ -270,6 +282,9 @@ export default function DeviceDetailsPage() {
             });
             setMessages(messagesResponse.data || []);
           }
+          
+          // Always update device data to get latest state
+          setDevice(deviceData);
         } catch (error) {
           console.error("Error polling device status:", error);
         }

@@ -190,7 +190,7 @@ export const devicePingRoutes = new Elysia()
           // Set firstConnectionAt if not already set
           if (!device.firstConnectionAt) {
             updateData.firstConnectionAt = new Date();
-            console.log(`[DevicePing] Setting firstConnectionAt for device ${device.id}`);
+            console.log(`[DevicePing] Setting firstConnectionAt for device ${device.id} (${device.name})`);
           }
           
           const updatedDevice = await db.device.update({
@@ -199,6 +199,12 @@ export const devicePingRoutes = new Elysia()
           });
           
           // Log the update result
+          console.log(`[DevicePing] Device ${device.id} update result:`, {
+            hadFirstConnectionAt: !!device.firstConnectionAt,
+            nowHasFirstConnectionAt: !!updatedDevice.firstConnectionAt,
+            firstConnectionAt: updatedDevice.firstConnectionAt
+          });
+          
           if (!device.firstConnectionAt && updatedDevice.firstConnectionAt) {
             console.log(`[DevicePing] Successfully set firstConnectionAt for device ${device.id}: ${updatedDevice.firstConnectionAt}`);
           }
