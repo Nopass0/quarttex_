@@ -75,7 +75,7 @@ interface Device {
   lastSeen?: string;
   stoppedAt?: string;
   createdAt: string;
-  firstConnectionAt?: string;
+  firstConnectionAt?: string | null;
   linkedBankDetails: number;
   status?: "working" | "stopped" | "unregistered";
   simNumber?: string;
@@ -187,7 +187,7 @@ export default function DevicesPage() {
         const device = prevDevices.find(d => d.id === update.deviceId);
         
         // If device is coming online and doesn't have firstConnectionAt, refresh devices list
-        if (device && update.isOnline && !device.firstConnectionAt) {
+        if (device && update.isOnline && device.firstConnectionAt == null) {
           console.log('[DevicesPage] Device came online without firstConnectionAt, refreshing...');
           fetchDevices().then(() => {
             console.log('[DevicesPage] Devices list refreshed after first connection');
@@ -242,7 +242,7 @@ export default function DevicesPage() {
           setSelectedDevice(deviceData);
           
           // Check if device just connected for the first time
-          if (!selectedDevice.firstConnectionAt && deviceData.firstConnectionAt) {
+          if (selectedDevice.firstConnectionAt == null && deviceData.firstConnectionAt != null) {
             // Устройство подключилось впервые!
             setDeviceTokenDialogOpen(false);
             toast.success("Устройство успешно подключено!");
@@ -417,7 +417,7 @@ export default function DevicesPage() {
       };
     }
 
-    if (!device.firstConnectionAt) {
+    if (device.firstConnectionAt == null) {
       return {
         title: "Ожидает первого подключения",
         description: "Отсканируйте QR код в приложении",

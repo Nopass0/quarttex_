@@ -139,10 +139,12 @@ export const devicePingRoutes = new Elysia()
 
     async message(ws, message) {
       try {
+        console.log(`[DevicePing] Received message:`, message.toString());
         const data = JSON.parse(message.toString());
         
         if (data.type === "ping" && data.deviceToken) {
           const deviceToken = data.deviceToken;
+          console.log(`[DevicePing] Processing ping from device token: ${deviceToken}`);
           
           // Find device by token
           const device = await db.device.findFirst({

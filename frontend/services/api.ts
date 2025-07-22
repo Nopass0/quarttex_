@@ -147,7 +147,9 @@ export const traderApi = {
     return response.data
   },
   getDevice: async (id: string) => {
-    const response = await traderApiInstance.get(`/trader/devices/${id}`)
+    const response = await traderApiInstance.get(`/trader/devices/${id}`, {
+      params: { _t: Date.now() } // Add timestamp to prevent caching
+    })
     return response.data
   },
   createDevice: async (data: { name: string }) => {

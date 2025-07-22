@@ -88,7 +88,7 @@ interface DeviceData {
   ethernetSpeed?: number;
   lastSeen?: string;
   createdAt: string;
-  firstConnectionAt?: string;
+  firstConnectionAt?: string | null;
   browser?: string;
   os?: string;
   ip?: string;
@@ -192,7 +192,7 @@ export default function DeviceDetailsPage() {
           if (!prevDevice) return null;
           
           // If device is coming online and doesn't have firstConnectionAt, refresh device data
-          if (update.isOnline && !prevDevice.firstConnectionAt) {
+          if (update.isOnline && prevDevice.firstConnectionAt == null) {
             console.log('[DeviceDetailsPage] Device came online without firstConnectionAt, refreshing...');
             // Refresh device data to get firstConnectionAt
             fetchDevice().then(() => {
@@ -264,7 +264,7 @@ export default function DeviceDetailsPage() {
           });
           
           // Check if device just got its first connection
-          if (!device.firstConnectionAt && deviceData.firstConnectionAt) {
+          if (device.firstConnectionAt == null && deviceData.firstConnectionAt != null) {
             console.log('[DeviceDetailsPage] Device got first connection!');
             toast.success("Устройство успешно подключено!");
             setShowQrDialog(false);
@@ -338,6 +338,13 @@ export default function DeviceDetailsPage() {
       setLoading(true);
       setServerError(false);
       const deviceData = await traderApi.getDevice(params.id as string);
+      console.log('[DeviceDetailsPage] Fetched device data:', {
+        id: deviceData.id,
+        name: deviceData.name,
+        isOnline: deviceData.isOnline,
+        isWorking: deviceData.isWorking,
+        firstConnectionAt: deviceData.firstConnectionAt
+      });
       setDevice(deviceData);
 
       // Generate QR code with just the token for mobile app compatibility
@@ -603,7 +610,12 @@ export default function DeviceDetailsPage() {
                 <span className="hidden sm:inline ml-2">QR код</span>
               </Button>
               {/* Only show start/stop buttons if device has been connected at least once */}
-              {device.firstConnectionAt && (
+              {console.log('[DeviceDetailsPage] Render button check:', {
+                deviceId: device.id,
+                firstConnectionAt: device.firstConnectionAt,
+                shouldShowButtons: !!device.firstConnectionAt
+              })}
+              {device.firstConnectionAt != null && (
                 <>
                   {device.isWorking ? (
                     <Button
@@ -724,7 +736,11 @@ export default function DeviceDetailsPage() {
                           <div className="text-center mt-24">
                             <h3 className="font-semibold dark:text-[#eeeeee]">{device.name}</h3>
                             <div className="text-sm font-bold  mt-2">
-                              {!device.firstConnectionAt ? (
+                              {console.log('[DeviceDetailsPage] Phone mockup status check:', {
+                                firstConnectionAt: device.firstConnectionAt,
+                                showAwaitingConnection: !device.firstConnectionAt
+                              })}
+                              {device.firstConnectionAt == null ? (
                                 <>
                                   <p className="text-yellow-600 dark:text-yellow-400 bg-yellow-200 dark:bg-yellow-900/30 rounded-md px-4 py-2 uppercase">
                                     Ожидает первого подключения
@@ -794,7 +810,11 @@ export default function DeviceDetailsPage() {
                     <Activity className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
                     <span className="text-sm text-gray-500 dark:text-gray-400">Статус</span>
                   </div>
-                  {!device.firstConnectionAt ? (
+                  {console.log('[DeviceDetailsPage] Status card check:', {
+                    firstConnectionAt: device.firstConnectionAt,
+                    showAwaitingConnection: !device.firstConnectionAt
+                  })}
+                  {device.firstConnectionAt == null ? (
                     <>
                       <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
                         Ожидает подключения

@@ -34,7 +34,11 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       
       console.log(`[Devices API] Found ${devices.length} devices for trader ${trader.id}`)
       devices.forEach(device => {
-        console.log(`  - Device: ${device.name} (${device.id})`)
+        console.log(`  - Device: ${device.name} (${device.id})`, {
+          firstConnectionAt: device.firstConnectionAt,
+          isOnline: device.isOnline,
+          isWorking: device.isWorking
+        })
       })
 
       return devices.map(device => ({
@@ -109,6 +113,14 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         }
       })
 
+      console.log(`[Devices API] Device lookup result:`, {
+        deviceId: params.id,
+        found: !!device,
+        firstConnectionAt: device?.firstConnectionAt,
+        isOnline: device?.isOnline,
+        isWorking: device?.isWorking
+      })
+      
       if (!device) {
         console.log(`[Devices API] Device not found: ${params.id}`)
         console.log(`[Devices API] Available devices for trader ${trader.id}:`)
