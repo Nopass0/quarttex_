@@ -1,4 +1,4 @@
-import { ServiceRegistry } from './registry';
+// Rapira service for fetching USDT/RUB rates
 
 interface RapiraCandle {
   0: number;  // timestamp
@@ -130,8 +130,5 @@ export class RapiraService {
     return this.getUsdtRubRate();
   }
 }
-
-// Register service
-ServiceRegistry.register('rapira', RapiraService);
 
 export const rapiraService = RapiraService.getInstance();
