@@ -23,7 +23,8 @@ import {
   Receipt,
   UserPlus,
   DollarSign,
-  Folder
+  Folder,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
@@ -32,6 +33,7 @@ import { useMerchantAuth } from "@/stores/merchant-auth";
 import { useAgentAuth } from "@/stores/agent-auth";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRapiraRate } from "@/hooks/use-rapira-rate";
 
 interface NavItem {
   title: string;
@@ -279,6 +281,7 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
   const { auth, store } = getAuthHooks();
   const user = auth?.user;
   const financials = variant === "trader" ? store?.financials : null;
+  const { rate: rapiraRate } = useRapiraRate();
 
   const getNavItems = () => {
     switch (variant) {
@@ -421,6 +424,25 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">
                       {financials.balanceUsdt.toFixed(2)} USDT
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {variant === "trader" && rapiraRate && (
+                <div className="mt-3 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-lg border-2 border-emerald-500 dark:border-emerald-600">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-base font-semibold text-gray-900 dark:text-gray-200">
+                      Ставка TRC-20
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 pl-7">
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                      {rapiraRate.rate.toFixed(2)}
+                    </span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      ₽/USDT
+                    </span>
                   </div>
                 </div>
               )}
