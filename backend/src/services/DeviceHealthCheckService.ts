@@ -8,7 +8,7 @@ export class DeviceHealthCheckService extends BaseService {
   enabledByDefault = true;
   tags = ['devices', 'monitoring'];
 
-  private healthCheckTimeout: number = 3000; // 3000 секунд (50 минут) по умолчанию
+  private healthCheckTimeout: number = 300; // 300 секунд (5 минут) по умолчанию
 
   protected getPublicFields() {
     return {
@@ -21,7 +21,7 @@ export class DeviceHealthCheckService extends BaseService {
 
   async onStart() {
     // Получаем настройку таймаута из базы данных или используем значение по умолчанию
-    const savedTimeout = this.getSetting('healthCheckTimeout', 3000);
+    const savedTimeout = this.getSetting('healthCheckTimeout', 300);
     this.healthCheckTimeout = savedTimeout;
     
     await this.logInfo('Сервис проверки активности устройств запущен', { 

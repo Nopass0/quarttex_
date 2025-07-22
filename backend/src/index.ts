@@ -15,6 +15,7 @@ import adminRoutes from "@/routes/admin";
 import merchantRoutes from "@/routes/merchant";
 import traderRoutes from "@/routes/trader";
 import deviceRoutes from "@/routes/trader/device";
+import { deviceHealthRoutes } from "@/routes/device-health";
 import agentRoutes from "@/routes/agent";
 import appDownloadRoutes from "@/routes/public/app-download";
 import appStaticRoutes from "@/routes/public/app-static";
@@ -270,6 +271,7 @@ const app = new Elysia({ prefix: "/api" })
   .group("/app", (app) => app.use(appDownloadRoutes).use(appStaticRoutes).use(appPageRoutes))
   .group("/support", (app) => app.use(supportRoutes))
   .use(agentRoutes)
+  .use(deviceHealthRoutes)
   .use(payoutWebSocketRoutes)
   .use(disputeWebSocketRoutes)
   .use(dealDisputeWebSocketRoutes);

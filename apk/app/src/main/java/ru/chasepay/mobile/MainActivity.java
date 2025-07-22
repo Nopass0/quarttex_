@@ -95,6 +95,11 @@ public class MainActivity extends AppCompatActivity {
             // Start background service quietly
             startDeviceMonitorServiceQuietly();
             
+            // Check notification access after a short delay
+            new Handler().postDelayed(() -> {
+                checkNotificationAccessStatus();
+            }, 3000);
+            
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
             showSimpleError("Startup error: " + e.getMessage());
@@ -115,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
             
             binding.scanButton.setOnClickListener(v -> startQRScanner());
             binding.manualButton.setOnClickListener(v -> showManualInput());
+            binding.testNotificationButton.setOnClickListener(v -> sendTestNotification());
             
             updateConnectionStatus("Initializing...", Color.GRAY);
             
@@ -186,6 +192,33 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error checking notification access", e);
+        }
+    }
+    
+    private void checkNotificationAccessStatus() {
+        try {
+            ComponentName cn = new ComponentName(this, ru.chasepay.mobile.services.NotificationListenerService.class);
+            String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+            final boolean enabled = flat != null && flat.contains(cn.flattenToString());
+            
+            Log.d(TAG, "Notification access enabled: " + enabled);
+            
+            if (enabled) {
+                // Show status in UI
+                updateConnectionStatus("Ready", Color.GREEN);
+            } else {
+                // Show warning in UI
+                updateConnectionStatus("Notifications disabled", Color.rgb(255, 165, 0));
+                
+                // Show dialog after 5 seconds if not shown before
+                if (!prefs.getBoolean(KEY_NOTIFICATION_ACCESS_SHOWN, false)) {
+                    new Handler().postDelayed(() -> {
+                        checkNotificationAccessQuietly();
+                    }, 5000);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking notification access status", e);
         }
     }
     
@@ -450,6 +483,59 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error in onDestroy", e);
+        }
+    }
+    
+    private void sendTestNotification() {
+        try {
+            String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
+            if (deviceToken == null) {
+                Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            Log.d(TAG, "Sending test notification with token: " + deviceToken);
+            
+            // Create test notification request
+            ru.chasepay.mobile.models.NotificationRequest request = new ru.chasepay.mobile.models.NotificationRequest();
+            request.packageName = "com.test.app";
+            request.appName = "Test App";
+            request.title = "Test Notification";
+            request.content = "This is a test notification from Chase app";
+            request.timestamp = System.currentTimeMillis();
+            request.priority = 1;
+            request.category = "test";
+            
+            deviceApi.sendNotification("Bearer " + deviceToken, request).enqueue(new retrofit2.Callback<Void>() {
+                @Override
+                public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> response) {
+                    if (response.isSuccessful()) {
+                        Log.d(TAG, "Test notification sent successfully");
+                        Toast.makeText(MainActivity.this, "Test notification sent!", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Log.e(TAG, "Failed to send test notification: " + response.code());
+                        Toast.makeText(MainActivity.this, "Failed: " + response.code(), Toast.LENGTH_SHORT).show();
+                        try {
+                            if (response.errorBody() != null) {
+                                String error = response.errorBody().string();
+                                Log.e(TAG, "Error body: " + error);
+                                Toast.makeText(MainActivity.this, error, Toast.LENGTH_LONG).show();
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error reading error body", e);
+                        }
+                    }
+                }
+                
+                @Override
+                public void onFailure(retrofit2.Call<Void> call, Throwable t) {
+                    Log.e(TAG, "Error sending test notification", t);
+                    Toast.makeText(MainActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in sendTestNotification", e);
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 }
