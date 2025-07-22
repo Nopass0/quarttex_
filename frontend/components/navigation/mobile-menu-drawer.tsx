@@ -24,7 +24,8 @@ import {
   UserPlus,
   DollarSign,
   Folder,
-  TrendingUp
+  TrendingUp,
+  PiggyBank
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
