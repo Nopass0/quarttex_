@@ -294,7 +294,7 @@ export const devicePingRoutes = new Elysia()
             } catch (error) {
               console.error(`[DevicePing] Error handling timeout for device ${device.id}:`, error);
             }
-          }, 10000); // 10 seconds timeout - increased for mobile network latency
+          }, 30000); // 30 seconds timeout - increased for mobile network latency and reconnection
 
           devicePingTimers.set(deviceToken, timer);
 

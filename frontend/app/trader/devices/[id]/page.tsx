@@ -78,6 +78,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
 import { getDeviceStatusWebSocket, DeviceStatusUpdate } from "@/services/device-status-ws";
 import { deviceWSManager } from "@/services/device-ws-manager";
+import { DeviceEmulator } from "@/services/device-emulator";
 
 interface DeviceData {
   id: string;
@@ -168,6 +169,7 @@ export default function DeviceDetailsPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
+  const deviceEmulatorRef = useRef<DeviceEmulator | null>(null);
 
   useEffect(() => {
     fetchDevice();
@@ -288,6 +290,12 @@ export default function DeviceDetailsPage() {
       if (params.id) {
         deviceWSManager.unsubscribeFromDevice(params.id as string);
       }
+      
+      // Cleanup device emulator if running
+      if (deviceEmulatorRef.current) {
+        deviceEmulatorRef.current.disconnect();
+        deviceEmulatorRef.current = null;
+      }
     };
   }, [params.id, device?.id]);
 
@@ -344,6 +352,28 @@ export default function DeviceDetailsPage() {
               limit: 20,
             });
             setMessages(messagesResponse.data || []);
+            
+            // Auto-start emulator in development mode to maintain connection
+            if (process.env.NODE_ENV === 'development' && !deviceEmulatorRef.current) {
+              console.log('[DeviceDetailsPage] Auto-starting device emulator for development');
+              setTimeout(() => {
+                if (deviceData.token) {
+                  const emulator = new DeviceEmulator({
+                    deviceToken: deviceData.token,
+                    pingInterval: 5000, // Send ping every 5 seconds
+                    reconnectDelay: 3000,
+                    maxReconnectAttempts: 10
+                  });
+                  
+                  emulator.on('connected', () => {
+                    console.log('[DeviceEmulator] Auto-connected to maintain device online status');
+                  });
+                  
+                  emulator.connect();
+                  deviceEmulatorRef.current = emulator;
+                }
+              }, 2000); // Wait 2 seconds before starting emulator
+            }
           }
           
           // Always update device data to get latest state
@@ -528,6 +558,56 @@ export default function DeviceDetailsPage() {
     }
   };
 
+  const startDeviceEmulator = () => {
+    if (!device?.token) {
+      toast.error("Токен устройства не найден");
+      return;
+    }
+    
+    // Stop existing emulator if any
+    if (deviceEmulatorRef.current) {
+      deviceEmulatorRef.current.disconnect();
+    }
+    
+    // Create new emulator
+    const emulator = new DeviceEmulator({
+      deviceToken: device.token,
+      pingInterval: 2000, // Send ping every 2 seconds
+      reconnectDelay: 3000,
+      maxReconnectAttempts: 10
+    });
+    
+    // Listen to emulator events
+    emulator.on('connected', () => {
+      console.log('[DeviceEmulator] Connected to server');
+      toast.success("Эмулятор устройства подключен");
+    });
+    
+    emulator.on('disconnected', () => {
+      console.log('[DeviceEmulator] Disconnected from server');
+      toast.warning("Эмулятор устройства отключен");
+    });
+    
+    emulator.on('ping', (data: any) => {
+      console.log('[DeviceEmulator] Sent ping:', data);
+    });
+    
+    emulator.on('pong', (data: any) => {
+      console.log('[DeviceEmulator] Received pong:', data);
+    });
+    
+    emulator.on('error', (error: any) => {
+      console.error('[DeviceEmulator] Error:', error);
+      toast.error("Ошибка эмулятора устройства");
+    });
+    
+    // Start emulator
+    emulator.connect();
+    deviceEmulatorRef.current = emulator;
+    
+    toast.info("Запущен эмулятор устройства для поддержания связи");
+  };
+
   const fetchDisputes = async () => {
     if (!device?.linkedBankDetails || device.linkedBankDetails.length === 0) {
       setDisputes([]);
@@ -672,6 +752,18 @@ export default function DeviceDetailsPage() {
                 <QrCode className="h-4 w-4" />
                 <span className="hidden sm:inline ml-2">QR код</span>
               </Button>
+              {/* Emulator button for development/testing */}
+              {process.env.NODE_ENV === 'development' && device?.token && !device.isOnline && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-2 sm:px-3 border-purple-500 text-purple-600 hover:bg-purple-50"
+                  onClick={startDeviceEmulator}
+                >
+                  <Smartphone className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-2">Эмулятор</span>
+                </Button>
+              )}
               {/* Only show start/stop buttons if device has been connected at least once */}
               {console.log('[DeviceDetailsPage] Render button check:', {
                 deviceId: device.id,
