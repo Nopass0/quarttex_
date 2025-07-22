@@ -91,7 +91,9 @@ public class DevicePingService extends WebSocketListener {
     private void connectWebSocket() {
         try {
             String baseUrl = ru.chasepay.mobile.BuildConfig.BASE_URL;
-            String wsUrl = baseUrl.replace("https://", "wss://").replace("http://", "ws://") + "/device-ping";
+            // Remove /api suffix if present and add /ws/device-ping
+            String wsBaseUrl = baseUrl.replace("/api", "").replace("https://", "wss://").replace("http://", "ws://");
+            String wsUrl = wsBaseUrl + "/ws/device-ping";
             
             Log.d(TAG, "Connecting to WebSocket: " + wsUrl);
             
@@ -205,9 +207,16 @@ public class DevicePingService extends WebSocketListener {
     
     @Override
     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-        Log.e(TAG, "WebSocket failure", t);
+        Log.e(TAG, "WebSocket failure: " + t.getMessage());
         if (isRunning) {
-            scheduleReconnect();
+            // Check if we still have a device token to reconnect
+            String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
+            if (deviceToken != null) {
+                Log.d(TAG, "Device token exists, will attempt reconnection");
+                scheduleReconnect();
+            } else {
+                Log.e(TAG, "No device token, cannot reconnect");
+            }
         }
     }
     
@@ -221,12 +230,19 @@ public class DevicePingService extends WebSocketListener {
     
     private void scheduleReconnect() {
         if (isRunning) {
-            Log.d(TAG, "Scheduling WebSocket reconnect in 5 seconds");
+            // Check if we have a device token before reconnecting
+            String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
+            if (deviceToken == null) {
+                Log.e(TAG, "Cannot reconnect - no device token");
+                return;
+            }
+            
+            Log.d(TAG, "Scheduling WebSocket reconnect in 2 seconds");
             handler.postDelayed(() -> {
                 if (isRunning) {
                     connectWebSocket();
                 }
-            }, 5000);
+            }, 2000); // Reduced to 2 seconds for faster reconnection
         }
     }
     

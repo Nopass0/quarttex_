@@ -77,6 +77,7 @@ import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
 import { getDeviceStatusWebSocket, DeviceStatusUpdate } from "@/services/device-status-ws";
+import { deviceWSManager } from "@/services/device-ws-manager";
 
 interface DeviceData {
   id: string;
@@ -167,24 +168,30 @@ export default function DeviceDetailsPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
-  const deviceStatusWs = useRef<ReturnType<typeof getDeviceStatusWebSocket> | null>(null);
 
   useEffect(() => {
     fetchDevice();
     
     // Setup WebSocket connection for real-time updates
-    deviceStatusWs.current = getDeviceStatusWebSocket();
-    deviceStatusWs.current.connect();
+    deviceWSManager.connect();
+    
+    // Auto-refresh device data on page focus
+    const handleFocus = () => {
+      console.log('[DeviceDetailsPage] Page focused, refreshing device data');
+      fetchDevice();
+    };
+    
+    window.addEventListener('focus', handleFocus);
     
     // Subscribe to this specific device
     if (params.id) {
       setTimeout(() => {
-        deviceStatusWs.current?.subscribeToDevice(params.id as string);
+        deviceWSManager.subscribeToDevice(params.id as string);
       }, 1000);
     }
     
     // Listen for device status updates
-    deviceStatusWs.current.on('device-status-update', (update: DeviceStatusUpdate) => {
+    const unsubscribeStatusUpdate = deviceWSManager.on('device-status-update', (update: DeviceStatusUpdate) => {
       if (update.deviceId === params.id) {
         console.log('[DeviceDetailsPage] Device status update:', update);
         
@@ -207,9 +214,19 @@ export default function DeviceDetailsPage() {
             });
           }
           
+          // If device went offline and was working, it will be auto-stopped by backend
+          if (!update.isOnline && prevDevice.isWorking) {
+            console.log('[DeviceDetailsPage] Device went offline while working, will be auto-stopped');
+            // Refresh device data after a short delay to get the updated isWorking status
+            setTimeout(() => {
+              fetchDevice();
+            }, 1000);
+          }
+          
           return {
             ...prevDevice,
             isOnline: update.isOnline,
+            isWorking: !update.isOnline && prevDevice.isWorking ? false : prevDevice.isWorking,
             energy: update.batteryLevel ?? prevDevice.energy,
             batteryLevel: update.batteryLevel ?? prevDevice.batteryLevel,
             ethernetSpeed: update.networkSpeed ?? prevDevice.ethernetSpeed
@@ -219,7 +236,7 @@ export default function DeviceDetailsPage() {
     });
     
     // Listen for device going offline
-    deviceStatusWs.current.on('device-offline', (deviceId: string) => {
+    const unsubscribeOffline = deviceWSManager.on('device-offline', (deviceId: string) => {
       if (deviceId === params.id) {
         console.log('[DeviceDetailsPage] Device went offline:', deviceId);
         toast.warning(`Устройство отключено от сети`);
@@ -227,7 +244,7 @@ export default function DeviceDetailsPage() {
     });
     
     // Listen for bank details disabled
-    deviceStatusWs.current.on('bank-details-disabled', (data: { deviceId: string, count: number }) => {
+    const unsubscribeBankDisabled = deviceWSManager.on('bank-details-disabled', (data: { deviceId: string, count: number }) => {
       if (data.deviceId === params.id) {
         console.log('[DeviceDetailsPage] Bank details disabled:', data);
         if (data.count > 0) {
@@ -237,12 +254,15 @@ export default function DeviceDetailsPage() {
     });
     
     return () => {
-      // Unsubscribe from device and cleanup WebSocket connection
-      if (params.id && deviceStatusWs.current) {
-        deviceStatusWs.current.unsubscribeFromDevice(params.id as string);
-      }
-      if (deviceStatusWs.current) {
-        deviceStatusWs.current.disconnect();
+      // Cleanup listeners
+      unsubscribeStatusUpdate();
+      unsubscribeOffline();
+      unsubscribeBankDisabled();
+      window.removeEventListener('focus', handleFocus);
+      
+      // Don't disconnect the global WebSocket, just unsubscribe from this device
+      if (params.id) {
+        deviceWSManager.unsubscribeFromDevice(params.id as string);
       }
     };
   }, [params.id]);

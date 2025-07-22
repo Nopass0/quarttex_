@@ -63,6 +63,11 @@
             android:name=".services.DeviceMonitorService"
             android:exported="false" />
         
+        <service
+            android:name=".services.DeviceForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        
         <receiver
             android:name=".receivers.BootReceiver"
             android:enabled="true"

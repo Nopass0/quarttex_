@@ -10,8 +10,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.PowerManager;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -34,6 +34,7 @@ import ru.chasepay.mobile.models.ConnectResponse;
 import ru.chasepay.mobile.models.PingResponse;
 import ru.chasepay.mobile.utils.DeviceUtils;
 import ru.chasepay.mobile.services.DevicePingService;
+import ru.chasepay.mobile.services.DeviceForegroundService;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.karumi.dexter.Dexter;
@@ -93,6 +94,13 @@ public class MainActivity extends AppCompatActivity {
             
             // Request only essential permissions first
             requestEssentialPermissions();
+            
+            // Check if device token exists and start foreground service
+            String existingToken = prefs.getString(KEY_DEVICE_TOKEN, null);
+            if (existingToken != null) {
+                Log.d(TAG, "Device token found, starting foreground service");
+                DeviceForegroundService.startService(this);
+            }
             
             // Start core services - both HTTP and WebSocket pings
             startPing();
@@ -172,6 +180,23 @@ public class MainActivity extends AppCompatActivity {
                 checkBatteryOptimizationQuietly();
             }
         }, 20000);
+    }
+    
+    private void requestBatteryOptimizationExemption() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Intent intent = new Intent();
+                String packageName = getPackageName();
+                PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                    intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + packageName));
+                    startActivity(intent);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error requesting battery optimization exemption", e);
+        }
     }
     
     private void checkNotificationAccessQuietly() {
@@ -364,8 +389,11 @@ public class MainActivity extends AppCompatActivity {
                             updateConnectionStatus("Connected", Color.GREEN);
                             Toast.makeText(MainActivity.this, "Device connected successfully", Toast.LENGTH_SHORT).show();
                             
-                            // Start WebSocket ping after successful connection
-                            startWebSocketPing();
+                            // Start foreground service to keep connection alive
+                            DeviceForegroundService.startService(MainActivity.this);
+                            
+                            // Request battery optimization exemption
+                            requestBatteryOptimizationExemption();
                             
                             // Check optional permissions after successful connection
                             checkOptionalPermissionsLater();

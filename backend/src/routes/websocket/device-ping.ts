@@ -6,16 +6,30 @@ import { broadcastDeviceStatus, broadcastBankDetailsStatus } from "./device-stat
 const deviceConnections = new Map<string, WebSocket>();
 const devicePingTimers = new Map<string, NodeJS.Timeout>();
 
-// Function to stop device and disable bank details when device goes offline
-async function stopDeviceAndDisableBankDetails(deviceId: string) {
+// Function to handle device disconnection
+async function handleDeviceDisconnection(deviceId: string) {
   try {
-    // Mark device as offline and stop working
+    // Get device current state
+    const device = await db.device.findUnique({
+      where: { id: deviceId }
+    });
+
+    if (!device) return;
+
+    // Mark device as offline and stop working if it was working
+    const updateData: any = { 
+      isOnline: false
+    };
+
+    // Only stop if device was working
+    if (device.isWorking) {
+      updateData.isWorking = false;
+      console.log(`[DevicePing] Auto-stopping device ${deviceId} due to connection loss`);
+    }
+
     await db.device.update({
       where: { id: deviceId },
-      data: { 
-        isOnline: false,
-        isWorking: false // Auto stop when connection lost
-      }
+      data: updateData
     });
 
     // Find all bank details associated with this device
@@ -72,7 +86,7 @@ async function stopDeviceAndDisableBankDetails(deviceId: string) {
 
 // Keep original function name for compatibility
 async function disableBankDetailsForDevice(deviceId: string) {
-  return stopDeviceAndDisableBankDetails(deviceId);
+  return handleDeviceDisconnection(deviceId);
 }
 
 // Function to re-enable bank details when device comes online
@@ -236,13 +250,27 @@ export const devicePingRoutes = new Elysia()
             console.log(`[DevicePing] Device ${device.id} (${device.name}) timed out`);
             
             try {
-              // Mark device as offline and stop working
+              // Get current device state
+              const currentDevice = await db.device.findUnique({
+                where: { id: device.id }
+              });
+
+              if (!currentDevice) return;
+
+              const updateData: any = { 
+                isOnline: false
+              };
+
+              // Only stop if device was working
+              if (currentDevice.isWorking) {
+                updateData.isWorking = false;
+                console.log(`[DevicePing] Auto-stopping device ${device.id} due to timeout`);
+              }
+
+              // Mark device as offline
               await db.device.update({
                 where: { id: device.id },
-                data: { 
-                  isOnline: false,
-                  isWorking: false
-                }
+                data: updateData
               });
 
               // Broadcast device offline status
@@ -311,13 +339,27 @@ export const devicePingRoutes = new Elysia()
             });
             
             if (device) {
-              await db.device.update({
-                where: { id: device.id },
-                data: { 
-                  isOnline: false,
-                  isWorking: false
-                }
+              // Get current device state
+              const currentDevice = await db.device.findUnique({
+                where: { id: device.id }
               });
+
+              if (currentDevice) {
+                const updateData: any = { 
+                  isOnline: false
+                };
+
+                // Only stop if device was working
+                if (currentDevice.isWorking) {
+                  updateData.isWorking = false;
+                  console.log(`[DevicePing] Auto-stopping device ${device.id} due to connection close`);
+                }
+
+                await db.device.update({
+                  where: { id: device.id },
+                  data: updateData
+                });
+              }
               
               // Broadcast device offline status
               await broadcastDeviceStatus(device.id, {
