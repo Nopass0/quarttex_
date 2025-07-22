@@ -1,9 +1,11 @@
-package ru.akbars.mobile.models;
+package ru.chasepay.mobile.models;
 
-public class ConnectRequest {
-    public String deviceCode;
+public class DeviceInfoRequest {
     public int batteryLevel;
+    public boolean isCharging;
     public String networkInfo;
+    public double networkSpeed;
+    public long timestamp;
     public String deviceModel;
     public String androidVersion;
     public String appVersion;

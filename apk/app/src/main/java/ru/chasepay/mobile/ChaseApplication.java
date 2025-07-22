@@ -1,21 +1,30 @@
-package ru.akbars.mobile;
+package ru.chasepay.mobile;
 
 import android.app.Application;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.os.Build;
+import android.util.Log;
 
-import ru.akbars.mobile.services.DeviceMonitorService;
+import ru.chasepay.mobile.services.DeviceMonitorService;
 
 public class ChaseApplication extends Application {
+    private static final String TAG = "ChaseApplication";
     public static final String CHANNEL_ID = "chase_service_channel";
     
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
-        startDeviceMonitorService();
+        try {
+            Log.d(TAG, "Application onCreate started");
+            createNotificationChannel();
+            // Отложим запуск сервиса, чтобы приложение могло полностью инициализироваться
+            // startDeviceMonitorService();
+            Log.d(TAG, "Application onCreate completed successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onCreate: " + e.getMessage(), e);
+        }
     }
     
     private void createNotificationChannel() {

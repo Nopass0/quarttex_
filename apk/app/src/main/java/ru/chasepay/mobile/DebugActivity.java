@@ -1,4 +1,4 @@
-package ru.akbars.mobile;
+package ru.chasepay.mobile;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -16,7 +16,7 @@ import android.content.pm.PackageManager;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 
-import ru.akbars.mobile.databinding.ActivityDebugBinding;
+import ru.chasepay.mobile.databinding.ActivityDebugBinding;
 
 public class DebugActivity extends AppCompatActivity {
     private ActivityDebugBinding binding;

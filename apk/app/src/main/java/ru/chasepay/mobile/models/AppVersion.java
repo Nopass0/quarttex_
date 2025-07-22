@@ -1,4 +1,4 @@
-package ru.akbars.mobile.models;
+package ru.chasepay.mobile.models;
 
 public class AppVersion {
     public String version;

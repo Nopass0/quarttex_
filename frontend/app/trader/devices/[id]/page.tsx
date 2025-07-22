@@ -217,14 +217,8 @@ export default function DeviceDetailsPage() {
       const deviceData = await traderApi.getDevice(params.id as string);
       setDevice(deviceData);
 
-      // Generate QR code
-      const qrData = JSON.stringify({
-        token: deviceData.token,
-        deviceId: deviceData.id,
-        timestamp: Date.now(),
-      });
-
-      const qrUrl = await QRCode.toDataURL(qrData, {
+      // Generate QR code with just the token for mobile app compatibility
+      const qrUrl = await QRCode.toDataURL(deviceData.token, {
         width: 300,
         margin: 2,
         color: {

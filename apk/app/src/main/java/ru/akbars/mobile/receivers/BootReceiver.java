@@ -1,11 +1,11 @@
-package ru.akbars.mobile.receivers;
+package ru.chasepay.mobile.receivers;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 
-import ru.akbars.mobile.services.DeviceMonitorService;
+import ru.chasepay.mobile.services.DeviceMonitorService;
 
 public class BootReceiver extends BroadcastReceiver {
     @Override

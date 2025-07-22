@@ -1,4 +1,4 @@
-package ru.akbars.mobile.models;
+package ru.chasepay.mobile.models;
 
 public class NotificationRequest {
     public String packageName;

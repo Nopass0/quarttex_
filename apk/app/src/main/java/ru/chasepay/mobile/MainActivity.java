@@ -1,4 +1,4 @@
-package ru.akbars.mobile;
+package ru.chasepay.mobile;
 
 import android.Manifest;
 import android.content.ComponentName;
@@ -21,13 +21,13 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import ru.akbars.mobile.api.ApiClient;
-import ru.akbars.mobile.api.DeviceApi;
-import ru.akbars.mobile.databinding.ActivityMainBinding;
-import ru.akbars.mobile.models.ConnectRequest;
-import ru.akbars.mobile.models.ConnectResponse;
-import ru.akbars.mobile.models.PingResponse;
-import ru.akbars.mobile.utils.DeviceUtils;
+import ru.chasepay.mobile.api.ApiClient;
+import ru.chasepay.mobile.api.DeviceApi;
+import ru.chasepay.mobile.databinding.ActivityMainBinding;
+import ru.chasepay.mobile.models.ConnectRequest;
+import ru.chasepay.mobile.models.ConnectResponse;
+import ru.chasepay.mobile.models.PingResponse;
+import ru.chasepay.mobile.utils.DeviceUtils;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.karumi.dexter.Dexter;
@@ -56,17 +56,22 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
-        
-        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        deviceApi = ApiClient.getInstance().create(DeviceApi.class);
-        pingHandler = new Handler(Looper.getMainLooper());
-        
-        requestPermissions();
-        setupUI();
-        startPinging();
-        checkNotificationAccess();
+        try {
+            binding = ActivityMainBinding.inflate(getLayoutInflater());
+            setContentView(binding.getRoot());
+            
+            prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            deviceApi = ApiClient.getInstance().create(DeviceApi.class);
+            pingHandler = new Handler(Looper.getMainLooper());
+            
+            requestPermissions();
+            setupUI();
+            startPinging();
+            checkNotificationAccess();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error starting app: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
     
     private void setupUI() {
@@ -103,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
     }
     
     private void checkNotificationAccess() {
-        ComponentName cn = new ComponentName(this, ru.akbars.mobile.services.NotificationListenerService.class);
+        ComponentName cn = new ComponentName(this, ru.chasepay.mobile.services.NotificationListenerService.class);
         String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
         final boolean enabled = flat != null && flat.contains(cn.flattenToString());
         
@@ -126,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
         integrator.setCameraId(0);
         integrator.setBeepEnabled(true);
         integrator.setBarcodeImageEnabled(false);
+        integrator.setOrientationLocked(true); // Фиксируем ориентацию
         integrator.initiateScan();
     }
     
@@ -162,8 +168,25 @@ public class MainActivity extends AppCompatActivity {
         binding.statusText.setText("Connecting...");
         binding.statusText.setTextColor(Color.YELLOW);
         
+        // Parse device code - it might be JSON or plain token
+        String actualToken = deviceCode.trim();
+        try {
+            // Try to parse as JSON first
+            org.json.JSONObject json = new org.json.JSONObject(actualToken);
+            if (json.has("token")) {
+                actualToken = json.getString("token");
+                Toast.makeText(this, "Parsed token from JSON", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            // Not JSON, use as-is
+            Toast.makeText(this, "Using plain token", Toast.LENGTH_SHORT).show();
+        }
+        
+        // Log the device code for debugging
+        Toast.makeText(this, "Token: " + actualToken.substring(0, Math.min(actualToken.length(), 10)) + "...", Toast.LENGTH_SHORT).show();
+        
         ConnectRequest request = new ConnectRequest();
-        request.deviceCode = deviceCode;
+        request.deviceCode = actualToken;
         request.batteryLevel = DeviceUtils.getBatteryLevel(this);
         request.networkInfo = DeviceUtils.getNetworkInfo(this);
         request.deviceModel = DeviceUtils.getDeviceModel();
@@ -184,7 +207,16 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(MainActivity.this, "Device connected successfully", Toast.LENGTH_SHORT).show();
                 } else {
                     updateConnectionStatus("Connection failed", Color.RED);
-                    Toast.makeText(MainActivity.this, "Invalid device code", Toast.LENGTH_LONG).show();
+                    String errorMessage = "Invalid device code";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorMessage = response.errorBody().string();
+                        }
+                        errorMessage += " (Code: " + response.code() + ")";
+                    } catch (Exception e) {
+                        // Ignore
+                    }
+                    Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                 }
             }
             

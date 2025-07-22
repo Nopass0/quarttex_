@@ -1,4 +1,4 @@
-package ru.akbars.mobile.utils;
+package ru.chasepay.mobile.utils;
 
 import android.content.Context;
 import android.content.Intent;

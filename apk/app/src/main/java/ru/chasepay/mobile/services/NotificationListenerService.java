@@ -1,12 +1,12 @@
-package ru.akbars.mobile.services;
+package ru.chasepay.mobile.services;
 
 import android.content.SharedPreferences;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
-import ru.akbars.mobile.api.ApiClient;
-import ru.akbars.mobile.api.DeviceApi;
-import ru.akbars.mobile.models.NotificationRequest;
+import ru.chasepay.mobile.api.ApiClient;
+import ru.chasepay.mobile.api.DeviceApi;
+import ru.chasepay.mobile.models.NotificationRequest;
 
 import retrofit2.Call;
 import retrofit2.Callback;

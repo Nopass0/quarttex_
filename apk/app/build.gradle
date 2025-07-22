@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'ru.akbars.mobile'
+    namespace 'ru.chasepay.mobile'
     compileSdk 34
 
     defaultConfig {
-        applicationId "ru.akbars.mobile"
+        applicationId "ru.chasepay.mobile"
         minSdk 24
         targetSdk 34
         versionCode 1
@@ -14,15 +14,23 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        debug {
+            // Uses Android debug keystore
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField "String", "BASE_URL", "\"${System.getenv('DEBUG_BASE_URL') ?: 'http://10.0.2.2:3000'}\""
             minifyEnabled false
+            signingConfig signingConfigs.debug
         }
         release {
             buildConfigField "String", "BASE_URL", "\"${System.getenv('PROD_BASE_URL') ?: 'https://chase.com'}\""
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug  // Use debug signing for now
         }
     }
 

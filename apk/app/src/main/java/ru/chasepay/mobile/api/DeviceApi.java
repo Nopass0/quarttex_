@@ -1,11 +1,11 @@
-package ru.akbars.mobile.api;
+package ru.chasepay.mobile.api;
 
-import ru.akbars.mobile.models.AppVersion;
-import ru.akbars.mobile.models.ConnectRequest;
-import ru.akbars.mobile.models.ConnectResponse;
-import ru.akbars.mobile.models.DeviceInfoRequest;
-import ru.akbars.mobile.models.NotificationRequest;
-import ru.akbars.mobile.models.PingResponse;
+import ru.chasepay.mobile.models.AppVersion;
+import ru.chasepay.mobile.models.ConnectRequest;
+import ru.chasepay.mobile.models.ConnectResponse;
+import ru.chasepay.mobile.models.DeviceInfoRequest;
+import ru.chasepay.mobile.models.NotificationRequest;
+import ru.chasepay.mobile.models.PingResponse;
 
 import retrofit2.Call;
 import retrofit2.http.Body;

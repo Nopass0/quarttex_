@@ -1,4 +1,4 @@
-package ru.akbars.mobile.utils;
+package ru.chasepay.mobile.utils;
 
 import android.app.DownloadManager;
 import android.content.Context;
@@ -13,10 +13,10 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.FileProvider;
 
-import ru.akbars.mobile.BuildConfig;
-import ru.akbars.mobile.api.ApiClient;
-import ru.akbars.mobile.api.DeviceApi;
-import ru.akbars.mobile.models.AppVersion;
+import ru.chasepay.mobile.BuildConfig;
+import ru.chasepay.mobile.api.ApiClient;
+import ru.chasepay.mobile.api.DeviceApi;
+import ru.chasepay.mobile.models.AppVersion;
 
 import java.io.File;
 

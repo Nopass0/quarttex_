@@ -1,4 +1,4 @@
-package ru.akbars.mobile.services;
+package ru.chasepay.mobile.services;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -15,13 +15,13 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import ru.akbars.mobile.MainActivity;
-import ru.akbars.mobile.R;
-import ru.akbars.mobile.api.ApiClient;
-import ru.akbars.mobile.api.DeviceApi;
-import ru.akbars.mobile.models.DeviceInfoRequest;
-import ru.akbars.mobile.utils.DeviceUtils;
-import ru.akbars.mobile.utils.UpdateChecker;
+import ru.chasepay.mobile.MainActivity;
+import ru.chasepay.mobile.R;
+import ru.chasepay.mobile.api.ApiClient;
+import ru.chasepay.mobile.api.DeviceApi;
+import ru.chasepay.mobile.models.DeviceInfoRequest;
+import ru.chasepay.mobile.utils.DeviceUtils;
+import ru.chasepay.mobile.utils.UpdateChecker;
 
 import java.util.concurrent.TimeUnit;
 
