@@ -448,6 +448,7 @@ model WithdrawalRequest {
 model RateSetting {
   id        Int      @id @default(1)
   value     Float
+  rapiraKkk Float    @default(0) // KKK для курса Rapira в процентах
   updatedAt DateTime @updatedAt
 }
 

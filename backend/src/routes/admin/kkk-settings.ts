@@ -13,8 +13,14 @@ export default (app: Elysia) =>
           where: { key: "kkk_percent" }
         });
 
+        // Get RateSetting for rapiraKkk
+        const rateSetting = await db.rateSetting.findFirst({
+          where: { id: 1 }
+        });
+
         return {
-          kkkPercent: kkkSetting ? parseFloat(kkkSetting.value) : 0
+          kkkPercent: kkkSetting ? parseFloat(kkkSetting.value) : 0,
+          rapiraKkk: rateSetting?.rapiraKkk || 0
         };
       },
       {
@@ -22,7 +28,8 @@ export default (app: Elysia) =>
         detail: { summary: "Получить настройку ККК" },
         response: {
           200: t.Object({
-            kkkPercent: t.Number()
+            kkkPercent: t.Number(),
+            rapiraKkk: t.Number()
           }),
           401: ErrorSchema,
           403: ErrorSchema,
@@ -34,7 +41,7 @@ export default (app: Elysia) =>
     .put(
       "",
       async ({ body }) => {
-        const { kkkPercent } = body;
+        const { kkkPercent, rapiraKkk } = body;
         
         // Upsert KKK setting in SystemConfig
         await db.systemConfig.upsert({
@@ -46,9 +53,30 @@ export default (app: Elysia) =>
           }
         });
 
+        // Update or create RateSetting for rapiraKkk
+        const existingRateSetting = await db.rateSetting.findFirst({
+          where: { id: 1 }
+        });
+
+        if (existingRateSetting) {
+          await db.rateSetting.update({
+            where: { id: 1 },
+            data: { rapiraKkk: rapiraKkk || 0 }
+          });
+        } else {
+          await db.rateSetting.create({
+            data: {
+              id: 1,
+              value: 0, // Default rate value
+              rapiraKkk: rapiraKkk || 0
+            }
+          });
+        }
+
         return {
           success: true,
-          kkkPercent
+          kkkPercent,
+          rapiraKkk: rapiraKkk || 0
         };
       },
       {
@@ -59,12 +87,18 @@ export default (app: Elysia) =>
             description: "Процент ККК",
             minimum: 0,
             maximum: 100
-          })
+          }),
+          rapiraKkk: t.Optional(t.Number({
+            description: "Процент ККК для Rapira",
+            minimum: -100,
+            maximum: 100
+          }))
         }),
         response: {
           200: t.Object({
             success: t.Boolean(),
-            kkkPercent: t.Number()
+            kkkPercent: t.Number(),
+            rapiraKkk: t.Number()
           }),
           401: ErrorSchema,
           403: ErrorSchema,

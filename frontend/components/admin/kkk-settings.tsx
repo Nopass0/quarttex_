@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 export function KkkSettings() {
   const [kkkPercent, setKkkPercent] = useState('')
+  const [rapiraKkk, setRapiraKkk] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { token: adminToken } = useAdminAuth()
 
@@ -29,6 +30,7 @@ export function KkkSettings() {
       
       const data = await response.json()
       setKkkPercent(data.kkkPercent.toString())
+      setRapiraKkk((data.rapiraKkk || 0).toString())
     } catch (error) {
       toast.error('Не удалось загрузить настройки ККК')
     } finally {
@@ -47,6 +49,7 @@ export function KkkSettings() {
         },
         body: JSON.stringify({
           kkkPercent: parseFloat(kkkPercent) || 0,
+          rapiraKkk: parseFloat(rapiraKkk) || 0,
         }),
       })
       
@@ -61,19 +64,48 @@ export function KkkSettings() {
   }
 
   return (
-    <div className="max-w-md space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="kkk">Процент ККК (%)</Label>
-        <Input
-          id="kkk"
-          type="number"
-          step="0.01"
-          min="0"
-          max="100"
-          value={kkkPercent}
-          onChange={(e) => setKkkPercent(e.target.value)}
-          placeholder="Введите процент"
-        />
+    <div className="max-w-md space-y-6">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="kkk">Процент ККК (%) - Общий</Label>
+          <Input
+            id="kkk"
+            type="number"
+            step="0.01"
+            min="-100"
+            max="100"
+            value={kkkPercent}
+            onChange={(e) => setKkkPercent(e.target.value)}
+            placeholder="Введите процент"
+          />
+          <p className="text-sm text-muted-foreground">
+            Общий коэффициент корректировки курса для расчетов
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="rapiraKkk">Процент ККК (%) - Rapira</Label>
+          <Input
+            id="rapiraKkk"
+            type="number"
+            step="0.01"
+            min="-100"
+            max="100"
+            value={rapiraKkk}
+            onChange={(e) => setRapiraKkk(e.target.value)}
+            placeholder="Введите процент"
+          />
+          <p className="text-sm text-muted-foreground">
+            Коэффициент корректировки курса Rapira. Положительное значение увеличивает курс, отрицательное - уменьшает.
+          </p>
+          {rapiraKkk && (
+            <p className="text-xs text-muted-foreground">
+              Пример: при курсе 78.89 и ККК {rapiraKkk}% → отображаемый курс {
+                (78.89 * (1 + parseFloat(rapiraKkk) / 100)).toFixed(2)
+              } ₽
+            </p>
+          )}
+        </div>
       </div>
 
       <Button
@@ -81,7 +113,7 @@ export function KkkSettings() {
         className="w-full bg-[#006039] hover:bg-[#005030]"
         disabled={isLoading}
       >
-        Сохранить
+        Сохранить настройки
       </Button>
     </div>
   )

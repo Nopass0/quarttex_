@@ -44,6 +44,7 @@ import { toast } from "sonner";
 import { Shield } from "lucide-react";
 import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal";
 import { ThemeSwitcher } from "@/components/ui/theme-toggle";
+import { useRapiraRate } from "@/hooks/use-rapira-rate";
 
 interface NavItem {
   title: string;
@@ -318,6 +319,7 @@ export function Sidebar({ variant }: SidebarProps) {
   const merchantLogout = merchantAuth.logout;
   const merchant = merchantAuth;
   const financials = useTraderFinancials();
+  const { rate: rapiraRate } = useRapiraRate();
 
   // Add Admins link for SUPER_ADMIN only
   const dynamicAdminNavItems = [...adminNavItems];
@@ -568,6 +570,35 @@ export function Sidebar({ variant }: SidebarProps) {
                   </div>
                 </div>
               </div>
+
+              {/* Курс Rapira */}
+              {rapiraRate && (
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <span className="text-sm font-medium text-purple-900 dark:text-purple-200">
+                        Курс Rapira
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-purple-900 dark:text-purple-200">
+                        {rapiraRate.rate.toFixed(2)}
+                      </span>
+                      <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                        ₽/USDT
+                      </span>
+                    </div>
+                  </div>
+                  {rapiraRate.kkk !== 0 && (
+                    <div className="mt-1">
+                      <span className="text-xs text-purple-600 dark:text-purple-400">
+                        КKК: {rapiraRate.kkk > 0 ? '+' : ''}{rapiraRate.kkk}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Download APK Button */}
               <div className="mt-6 p-3 bg-gradient-to-r from-[#006039]/10 to-[#006039]/5 rounded-lg border border-[#006039]/20">

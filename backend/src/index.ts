@@ -21,6 +21,7 @@ import agentRoutes from "@/routes/agent";
 import appDownloadRoutes from "@/routes/public/app-download";
 import appStaticRoutes from "@/routes/public/app-static";
 import appPageRoutes from "@/routes/public/app-page";
+import { rapiraRateRoutes } from "@/routes/public/rapira-rate";
 import supportRoutes from "@/routes/support";
 import payoutWebSocketRoutes from "@/routes/websocket/payouts";
 import { disputeWebSocketRoutes } from "@/routes/websocket/disputes";
@@ -280,6 +281,7 @@ const app = new Elysia({ prefix: "/api" })
   .use(agentRoutes)
   .use(deviceHealthRoutes)
   .use(deviceLongPollRoutes)
+  .use(rapiraRateRoutes)
   .use(payoutWebSocketRoutes)
   .use(disputeWebSocketRoutes)
   .use(dealDisputeWebSocketRoutes)
