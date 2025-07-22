@@ -67,7 +67,7 @@ export function KkkSettings() {
     <div className="max-w-md space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="kkk">Процент ККК (%) - Общий</Label>
+          <Label htmlFor="kkk">Процент ККК (%) - Для трейдеров</Label>
           <Input
             id="kkk"
             type="number"
@@ -79,7 +79,7 @@ export function KkkSettings() {
             placeholder="Введите процент"
           />
           <p className="text-sm text-muted-foreground">
-            Общий коэффициент корректировки курса для расчетов
+            Коэффициент корректировки курса для расчетов с трейдерами
           </p>
         </div>
 
