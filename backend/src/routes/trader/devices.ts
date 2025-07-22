@@ -455,6 +455,49 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
     }
   )
   
+  // Frontend ping endpoint to check device status
+  .post(
+    "/:id/ping",
+    async ({ trader, params }) => {
+      const device = await db.device.findFirst({
+        where: { 
+          id: params.id,
+          userId: trader.id
+        },
+        include: {
+          user: true
+        }
+      });
+
+      if (!device) {
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Return current device status
+      return {
+        success: true,
+        device: {
+          id: device.id,
+          name: device.name,
+          isOnline: device.isOnline,
+          isWorking: device.isWorking,
+          firstConnectionAt: device.firstConnectionAt?.toISOString() || null,
+          lastActiveAt: device.lastActiveAt?.toISOString() || null
+        }
+      };
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      detail: {
+        tags: ["trader", "devices"],
+        summary: "Ping device to check status"
+      }
+    }
+  )
+  
   // Mark device as connected (set firstConnectionAt)
   .patch(
     "/:id/mark-connected",

@@ -191,6 +191,10 @@ export const traderApi = {
     const response = await traderApiInstance.patch(`/trader/devices/${id}/mark-connected`)
     return response.data
   },
+  pingDevice: async (id: string) => {
+    const response = await traderApiInstance.post(`/trader/devices/${id}/ping`)
+    return response.data
+  },
   // Requisite status control
   startRequisite: async (id: string) => {
     const response = await traderApiInstance.patch(`/trader/bank-details/${id}/start`)

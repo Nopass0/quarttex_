@@ -183,6 +183,29 @@ export default function DeviceDetailsPage() {
     
     window.addEventListener('focus', handleFocus);
     
+    // Ping device every 5 seconds to check status
+    const pingInterval = setInterval(async () => {
+      if (device?.id) {
+        try {
+          const pingResult = await traderApi.pingDevice(device.id);
+          if (pingResult.success) {
+            // Update device status from ping response
+            setDevice(prevDevice => {
+              if (!prevDevice) return null;
+              return {
+                ...prevDevice,
+                isOnline: pingResult.device.isOnline,
+                isWorking: pingResult.device.isWorking,
+                lastActiveAt: pingResult.device.lastActiveAt
+              };
+            });
+          }
+        } catch (error) {
+          console.error('[DeviceDetailsPage] Ping error:', error);
+        }
+      }
+    }, 5000);
+    
     // Subscribe to this specific device
     if (params.id) {
       setTimeout(() => {
@@ -259,13 +282,14 @@ export default function DeviceDetailsPage() {
       unsubscribeOffline();
       unsubscribeBankDisabled();
       window.removeEventListener('focus', handleFocus);
+      clearInterval(pingInterval);
       
       // Don't disconnect the global WebSocket, just unsubscribe from this device
       if (params.id) {
         deviceWSManager.unsubscribeFromDevice(params.id as string);
       }
     };
-  }, [params.id]);
+  }, [params.id, device?.id]);
 
   useEffect(() => {
     if (activeTab === "deals" && device) {
@@ -682,8 +706,11 @@ export default function DeviceDetailsPage() {
                       className="h-8 px-3"
                       onClick={async () => {
                         try {
+                          // First ping to get fresh status
+                          const pingResult = await traderApi.pingDevice(device.id);
+                          
                           // Check if device is online before starting
-                          if (!device.isOnline) {
+                          if (!pingResult.device.isOnline) {
                             toast.error("Нет связи с устройством. Убедитесь, что приложение запущено и подключено к интернету");
                             return;
                           }
@@ -793,7 +820,11 @@ export default function DeviceDetailsPage() {
                                       ? "text-green-500 dark:text-green-300 bg-green-200 dark:bg-green-900/30"
                                       : "text-red-500 dark:text-red-300 bg-red-200 dark:bg-red-900/30"
                                   )}>
-                                    {device.isOnline ? "Подключено" : "Нет связи"}
+                                    {device.isOnline 
+                                      ? "Подключено" 
+                                      : device.lastActiveAt && new Date(device.lastActiveAt).getTime() > Date.now() - 30000
+                                        ? "Переподключение..."
+                                        : "Нет связи"}
                                   </p>
                                 </>
                               )}
