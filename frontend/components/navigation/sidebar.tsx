@@ -590,13 +590,6 @@ export function Sidebar({ variant }: SidebarProps) {
                       </span>
                     </div>
                   </div>
-                  {rapiraRate.kkk !== 0 && (
-                    <div className="mt-1">
-                      <span className="text-xs text-purple-600 dark:text-purple-400">
-                        КKК: {rapiraRate.kkk > 0 ? '+' : ''}{rapiraRate.kkk}%
-                      </span>
-                    </div>
-                  )}
                 </div>
               )}
 
