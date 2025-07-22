@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useRapiraRate } from '@/hooks/use-rapira-rate'
 
 export function KkkSettings() {
   const [kkkPercent, setKkkPercent] = useState('')
@@ -21,6 +22,7 @@ export function KkkSettings() {
   const [rapiraOperation, setRapiraOperation] = useState<'increase' | 'decrease'>('increase')
   const [isLoading, setIsLoading] = useState(false)
   const { token: adminToken } = useAdminAuth()
+  const { baseRate: currentRapiraRate } = useRapiraRate()
 
   useEffect(() => {
     fetchKkkSettings()
@@ -136,10 +138,15 @@ export function KkkSettings() {
           <p className="text-sm text-muted-foreground">
             Коэффициент корректировки курса Rapira для отображения на платформе
           </p>
-          {rapiraKkk && (
+          {currentRapiraRate && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Текущий курс Rapira: <span className="font-medium">{currentRapiraRate.toFixed(2)} ₽/USDT</span>
+            </p>
+          )}
+          {rapiraKkk && currentRapiraRate && (
             <p className="text-xs text-muted-foreground">
-              Пример: при курсе 78.89 → {rapiraOperation === 'increase' ? 'увеличить' : 'уменьшить'} на {rapiraKkk}% → отображаемый курс {
-                (78.89 * (1 + (parseFloat(rapiraKkk) / 100) * (rapiraOperation === 'decrease' ? -1 : 1))).toFixed(2)
+              Пример: при курсе {currentRapiraRate.toFixed(2)} → {rapiraOperation === 'increase' ? 'увеличить' : 'уменьшить'} на {rapiraKkk}% → отображаемый курс {
+                (currentRapiraRate * (1 + (parseFloat(rapiraKkk) / 100) * (rapiraOperation === 'decrease' ? -1 : 1))).toFixed(2)
               } ₽
             </p>
           )}

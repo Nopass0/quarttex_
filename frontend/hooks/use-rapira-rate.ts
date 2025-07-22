@@ -11,6 +11,7 @@ export function useRapiraRate() {
   const [rate, setRate] = useState<RapiraRate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [baseRate, setBaseRate] = useState<number | null>(null);
 
   const fetchRate = async () => {
     try {
@@ -24,6 +25,7 @@ export function useRapiraRate() {
       
       if (data.success) {
         setRate(data.data);
+        setBaseRate(data.data.baseRate);
         setError(null);
       } else {
         setError(data.error || 'Failed to fetch rate');
@@ -45,5 +47,5 @@ export function useRapiraRate() {
     return () => clearInterval(interval);
   }, []);
 
-  return { rate, loading, error, refetch: fetchRate };
+  return { rate, baseRate, loading, error, refetch: fetchRate };
 }
