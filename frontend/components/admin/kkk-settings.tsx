@@ -157,9 +157,9 @@ export function KkkSettings() {
             Коэффициент корректировки курса Rapira для отображения на платформе
           </p>
           {currentRapiraRate && (
-            <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-800/10 rounded-lg border-2 border-green-500 dark:border-green-600">
+            <div className="mt-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-lg border-2 border-emerald-500 dark:border-emerald-600">
               <p className="text-sm font-medium text-gray-900 dark:text-gray-200">
-                Текущий курс Rapira: <span className="text-lg font-bold text-green-600 dark:text-green-400">{currentRapiraRate.toFixed(2)} ₽/USDT</span>
+                Текущий курс Rapira: <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{currentRapiraRate.toFixed(2)} ₽/USDT</span>
               </p>
             </div>
           )}
