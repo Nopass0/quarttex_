@@ -114,29 +114,29 @@ const traderNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   {
-    title: "Главная",
-    href: "/admin/dashboard",
-    icon: Home,
-  },
-  {
     title: "Трейдеры",
     href: "/admin/traders",
     icon: Users,
   },
   {
-    title: "Мерчанты",
-    href: "/admin/merchants",
-    icon: Building2,
-  },
-  {
     title: "Агенты",
     href: "/admin/agents",
-    icon: Shield,
+    icon: Users,
   },
   {
-    title: "Транзакции",
-    href: "/admin/transactions",
-    icon: FileText,
+    title: "Сделки",
+    href: "/admin/deals",
+    icon: CreditCard,
+  },
+  {
+    title: "Депозиты",
+    href: "/admin/deposits",
+    icon: PiggyBank,
+  },
+  {
+    title: "Выплаты",
+    href: "/admin/payouts",
+    icon: DollarSign,
   },
   {
     title: "Споры",
@@ -144,9 +144,74 @@ const adminNavItems: NavItem[] = [
     icon: AlertCircle,
   },
   {
-    title: "Настройки",
-    href: "/admin/settings",
+    title: "Методы платежей",
+    href: "/admin/methods",
+    icon: Wallet,
+  },
+  {
+    title: "Настройки ККК",
+    href: "/admin/kkk-settings",
     icon: Settings,
+  },
+  {
+    title: "Настройки споров",
+    href: "/admin/dispute-settings",
+    icon: Clock,
+  },
+  {
+    title: "Мерчанты",
+    href: "/admin/merchants",
+    icon: CreditCard,
+  },
+  {
+    title: "Сервисы",
+    href: "/admin/services",
+    icon: Settings,
+  },
+  {
+    title: "Telegram-уведомления",
+    href: "/admin/telegram-notifications",
+    icon: Send,
+  },
+  {
+    title: "Платежи",
+    href: "/admin/payment-details",
+    icon: Receipt,
+  },
+  {
+    title: "Устройства",
+    href: "/admin/devices",
+    icon: Smartphone,
+  },
+  {
+    title: "Приложение",
+    href: "/admin/applications",
+    icon: Package,
+  },
+  {
+    title: "Техподдержка",
+    href: "/admin/support",
+    icon: Headphones,
+  },
+  {
+    title: "Метрики",
+    href: "/admin/metrics",
+    icon: BarChart3,
+  },
+  {
+    title: "Инструменты тестирования",
+    href: "/admin/test-tools",
+    icon: TestTube,
+  },
+  {
+    title: "Массовое удаление",
+    href: "/admin/bulk-delete",
+    icon: Trash2,
+  },
+  {
+    title: "Wellbit API",
+    href: "/wellbit/docs",
+    icon: BookOpen,
   },
 ];
 
@@ -288,7 +353,15 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
       case "trader":
         return traderNavItems;
       case "admin":
-        return adminNavItems;
+        const dynamicAdminNavItems = [...adminNavItems];
+        if (auth?.role === "SUPER_ADMIN") {
+          dynamicAdminNavItems.push({
+            title: "Администраторы",
+            href: "/admin/admins",
+            icon: Shield,
+          });
+        }
+        return dynamicAdminNavItems;
       case "agent":
         return agentNavItems;
       case "merchant":
