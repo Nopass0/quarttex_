@@ -76,6 +76,7 @@ import QRCode from "qrcode";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
+import { getDeviceStatusWebSocket, DeviceStatusUpdate } from "@/services/device-status-ws";
 
 interface DeviceData {
   id: string;
@@ -165,9 +166,66 @@ export default function DeviceDetailsPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
+  const deviceStatusWs = useRef<ReturnType<typeof getDeviceStatusWebSocket> | null>(null);
 
   useEffect(() => {
     fetchDevice();
+    
+    // Setup WebSocket connection for real-time updates
+    deviceStatusWs.current = getDeviceStatusWebSocket();
+    deviceStatusWs.current.connect();
+    
+    // Subscribe to this specific device
+    if (params.id) {
+      setTimeout(() => {
+        deviceStatusWs.current?.subscribeToDevice(params.id as string);
+      }, 1000);
+    }
+    
+    // Listen for device status updates
+    deviceStatusWs.current.on('device-status-update', (update: DeviceStatusUpdate) => {
+      if (update.deviceId === params.id) {
+        console.log('[DeviceDetailsPage] Device status update:', update);
+        
+        setDevice(prevDevice => 
+          prevDevice ? {
+            ...prevDevice,
+            isOnline: update.isOnline,
+            energy: update.batteryLevel ?? prevDevice.energy,
+            batteryLevel: update.batteryLevel ?? prevDevice.batteryLevel,
+            ethernetSpeed: update.networkSpeed ?? prevDevice.ethernetSpeed
+          } : null
+        );
+      }
+    });
+    
+    // Listen for device going offline
+    deviceStatusWs.current.on('device-offline', (deviceId: string) => {
+      if (deviceId === params.id) {
+        console.log('[DeviceDetailsPage] Device went offline:', deviceId);
+        toast.warning(`Устройство отключено от сети`);
+      }
+    });
+    
+    // Listen for bank details disabled
+    deviceStatusWs.current.on('bank-details-disabled', (data: { deviceId: string, count: number }) => {
+      if (data.deviceId === params.id) {
+        console.log('[DeviceDetailsPage] Bank details disabled:', data);
+        if (data.count > 0) {
+          toast.error(`Отключено ${data.count} реквизитов из-за потери связи с устройством`);
+        }
+      }
+    });
+    
+    return () => {
+      // Unsubscribe from device and cleanup WebSocket connection
+      if (params.id && deviceStatusWs.current) {
+        deviceStatusWs.current.unsubscribeFromDevice(params.id as string);
+      }
+      if (deviceStatusWs.current) {
+        deviceStatusWs.current.disconnect();
+      }
+    };
   }, [params.id]);
 
   useEffect(() => {

@@ -61,6 +61,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import QRCode from "qrcode";
 import { StickySearchFilters } from "@/components/ui/sticky-search-filters";
+import { getDeviceStatusWebSocket, DeviceStatusUpdate } from "@/services/device-status-ws";
 
 interface Device {
   id: string;
@@ -167,9 +168,54 @@ export default function DevicesPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterOnline, setFilterOnline] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const deviceStatusWs = useRef<ReturnType<typeof getDeviceStatusWebSocket> | null>(null);
 
   useEffect(() => {
     fetchDevices();
+    
+    // Setup WebSocket connection for real-time updates
+    deviceStatusWs.current = getDeviceStatusWebSocket();
+    deviceStatusWs.current.connect();
+    
+    // Listen for device status updates
+    deviceStatusWs.current.on('device-status-update', (update: DeviceStatusUpdate) => {
+      console.log('[DevicesPage] Device status update:', update);
+      
+      setDevices(prevDevices => 
+        prevDevices.map(device => 
+          device.id === update.deviceId 
+            ? {
+                ...device,
+                isOnline: update.isOnline,
+                energy: update.batteryLevel ?? device.energy,
+                ethernetSpeed: update.networkSpeed ?? device.ethernetSpeed,
+                status: update.isOnline ? "working" : "stopped"
+              }
+            : device
+        )
+      );
+    });
+    
+    // Listen for device going offline
+    deviceStatusWs.current.on('device-offline', (deviceId: string) => {
+      console.log('[DevicesPage] Device went offline:', deviceId);
+      toast.warning(`Устройство отключено от сети`);
+    });
+    
+    // Listen for bank details disabled
+    deviceStatusWs.current.on('bank-details-disabled', (data: { deviceId: string, count: number }) => {
+      console.log('[DevicesPage] Bank details disabled:', data);
+      if (data.count > 0) {
+        toast.error(`Отключено ${data.count} реквизитов из-за потери связи с устройством`);
+      }
+    });
+    
+    return () => {
+      // Cleanup WebSocket connection
+      if (deviceStatusWs.current) {
+        deviceStatusWs.current.disconnect();
+      }
+    };
   }, []);
 
   // Polling для проверки статуса нового устройства
@@ -552,16 +598,35 @@ export default function DevicesPage() {
                         </div>
 
                         {/* Online Status */}
-                        <div className="mt-2 flex items-center gap-2">
-                          <div
-                            className={cn(
-                              "w-2 h-2 rounded-full",
-                              device.isOnline ? "bg-green-500" : "bg-gray-400"
-                            )}
-                          />
-                          <p className="text-xs text-gray-600">
-                            {device.isOnline ? "Онлайн" : "Не в сети"}
-                          </p>
+                        <div className="mt-2 flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={cn(
+                                "w-2 h-2 rounded-full",
+                                device.isOnline ? "bg-green-500" : "bg-gray-400"
+                              )}
+                            />
+                            <p className="text-xs text-gray-600">
+                              {device.isOnline ? "Онлайн" : "Не в сети"}
+                            </p>
+                          </div>
+                          
+                          {device.isOnline && (
+                            <>
+                              {device.energy !== undefined && (
+                                <div className="flex items-center gap-1">
+                                  <Battery className="h-3 w-3 text-gray-500" />
+                                  <span className="text-xs text-gray-600">{device.energy}%</span>
+                                </div>
+                              )}
+                              {device.ethernetSpeed !== undefined && (
+                                <div className="flex items-center gap-1">
+                                  <Wifi className="h-3 w-3 text-gray-500" />
+                                  <span className="text-xs text-gray-600">{device.ethernetSpeed} Mbps</span>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -620,8 +685,25 @@ export default function DevicesPage() {
 
                     {/* Right Section - Online Status and Badge */}
                     <div className="flex items-center gap-6">
-                      <div className="text-right w-24">
-                        <p className="text-sm text-gray-500">Нет данных</p>
+                      <div className="text-right">
+                        {device.isOnline ? (
+                          <div className="space-y-1">
+                            {device.energy !== undefined && (
+                              <div className="flex items-center gap-2 justify-end">
+                                <Battery className="h-4 w-4 text-gray-500" />
+                                <span className="text-sm text-gray-600">{device.energy}%</span>
+                              </div>
+                            )}
+                            {device.ethernetSpeed !== undefined && (
+                              <div className="flex items-center gap-2 justify-end">
+                                <Wifi className="h-4 w-4 text-gray-500" />
+                                <span className="text-sm text-gray-600">{device.ethernetSpeed} Mbps</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">Нет данных</p>
+                        )}
                         <p
                           className={cn(
                             "text-sm font-medium mt-1",

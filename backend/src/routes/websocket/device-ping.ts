@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { db } from "@/db";
+import { broadcastDeviceStatus, broadcastBankDetailsStatus } from "./device-status";
 
 // Map to track active WebSocket connections by device token
 const deviceConnections = new Map<string, WebSocket>();
@@ -33,6 +34,12 @@ async function disableBankDetailsForDevice(deviceId: string) {
 
       console.log(`[DevicePing] Disabled bank detail ${bankDetail.id} for user ${bankDetail.userId}`);
     }
+
+    // Broadcast bank details disabled event
+    await broadcastBankDetailsStatus(deviceId, {
+      disabled: true,
+      count: bankDetails.length
+    });
 
     // Create notification about device disconnection
     await db.notification.create({
@@ -83,6 +90,12 @@ async function enableBankDetailsForDevice(deviceId: string) {
 
       console.log(`[DevicePing] Re-enabled bank detail ${bankDetail.id} for user ${device.userId}`);
     }
+
+    // Broadcast bank details enabled event
+    await broadcastBankDetailsStatus(deviceId, {
+      disabled: false,
+      count: bankDetails.length
+    });
 
     // Create notification about device reconnection
     await db.notification.create({
@@ -166,6 +179,13 @@ export const devicePingRoutes = new Elysia()
           if (!wasOnline) {
             await enableBankDetailsForDevice(device.id);
           }
+          
+          // Broadcast device status update
+          await broadcastDeviceStatus(device.id, {
+            isOnline: true,
+            batteryLevel: batteryLevel,
+            networkSpeed: networkSpeed
+          });
 
           // Set timer for 3 seconds - if no ping received, mark as offline
           const timer = setTimeout(async () => {
@@ -176,6 +196,11 @@ export const devicePingRoutes = new Elysia()
               await db.device.update({
                 where: { id: device.id },
                 data: { isOnline: false }
+              });
+
+              // Broadcast device offline status
+              await broadcastDeviceStatus(device.id, {
+                isOnline: false
               });
 
               // Disable bank details
@@ -242,6 +267,11 @@ export const devicePingRoutes = new Elysia()
               await db.device.update({
                 where: { id: device.id },
                 data: { isOnline: false }
+              });
+              
+              // Broadcast device offline status
+              await broadcastDeviceStatus(device.id, {
+                isOnline: false
               });
               
               await disableBankDetailsForDevice(device.id);
