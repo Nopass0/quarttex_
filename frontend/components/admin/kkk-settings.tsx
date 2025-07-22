@@ -144,9 +144,9 @@ export function KkkSettings() {
               className="w-[120px]"
             />
             {rapiraKkk && currentRapiraRate && (
-              <div className="flex-1 p-3 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border-2 border-purple-500 dark:border-purple-600">
+              <div className="flex-1 min-w-[200px] p-3 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 rounded-lg border-2 border-blue-500 dark:border-blue-600">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-200">
-                  Новый курс: <span className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                  Новый курс: <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
                     {(currentRapiraRate * (1 + (parseFloat(rapiraKkk) / 100) * (rapiraOperation === 'decrease' ? -1 : 1))).toFixed(2)} ₽
                   </span>
                 </p>
