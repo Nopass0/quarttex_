@@ -166,12 +166,48 @@ export default function DevicesPage() {
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterOnline, setFilterOnline] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchDevices();
   }, []);
 
-  // Removed polling - QR dialog stays open until user closes it
+  // Polling для проверки статуса нового устройства
+  useEffect(() => {
+    if (deviceTokenDialogOpen && selectedDevice && !selectedDevice.isOnline) {
+      // Запускаем polling каждые 2 секунды
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const deviceData = await traderApi.getDevice(selectedDevice.id);
+          if (deviceData.isOnline) {
+            // Устройство подключилось!
+            setSelectedDevice(deviceData);
+            setDeviceTokenDialogOpen(false);
+            toast.success("Устройство успешно подключено!");
+            
+            // Останавливаем polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            
+            // Обновляем список устройств
+            await fetchDevices();
+          }
+        } catch (error) {
+          console.error("Error polling device status:", error);
+        }
+      }, 2000);
+    }
+
+    // Cleanup при закрытии диалога или размонтировании
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [deviceTokenDialogOpen, selectedDevice]);
 
   const fetchDevices = async () => {
     setLoading(true);
