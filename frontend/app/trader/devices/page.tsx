@@ -74,6 +74,7 @@ interface Device {
   lastSeen?: string;
   stoppedAt?: string;
   createdAt: string;
+  firstConnectionAt?: string;
   linkedBankDetails: number;
   status?: "working" | "stopped" | "unregistered";
   simNumber?: string;
@@ -291,6 +292,7 @@ export default function DevicesPage() {
         ethernetSpeed: device.ethernetSpeed,
         lastSeen: device.lastSeen || device.createdAt,
         createdAt: device.createdAt,
+        firstConnectionAt: device.firstConnectionAt,
         linkedBankDetails: device.linkedBankDetails || 0,
         status: device.isOnline ? "working" : "stopped",
       }));
@@ -324,6 +326,7 @@ export default function DevicesPage() {
         linkedBankDetails: 0,
         status: "stopped",
         createdAt: createdDevice.createdAt,
+        firstConnectionAt: createdDevice.firstConnectionAt,
       };
 
       // Add to devices list
@@ -395,6 +398,18 @@ export default function DevicesPage() {
           className: "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
         },
         iconColor: "text-red-500 dark:text-red-400",
+      };
+    }
+
+    if (!device.firstConnectionAt) {
+      return {
+        title: "Ожидает первого подключения",
+        description: "Отсканируйте QR код в приложении",
+        badge: {
+          text: "Не подключено",
+          className: "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800",
+        },
+        iconColor: "text-yellow-500 dark:text-yellow-400",
       };
     }
 

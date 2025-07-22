@@ -6,9 +6,17 @@ import { broadcastDeviceStatus, broadcastBankDetailsStatus } from "./device-stat
 const deviceConnections = new Map<string, WebSocket>();
 const devicePingTimers = new Map<string, NodeJS.Timeout>();
 
-// Function to disable bank details when device goes offline
-async function disableBankDetailsForDevice(deviceId: string) {
+// Function to stop device and disable bank details when device goes offline
+async function stopDeviceAndDisableBankDetails(deviceId: string) {
   try {
+    // Mark device as offline - this effectively stops the device
+    await db.device.update({
+      where: { id: deviceId },
+      data: { 
+        isOnline: false
+      }
+    });
+
     // Find all bank details associated with this device
     const bankDetails = await db.bankDetail.findMany({
       where: {
@@ -23,7 +31,7 @@ async function disableBankDetailsForDevice(deviceId: string) {
       }
     });
 
-    console.log(`[DevicePing] Device ${deviceId} disconnected, disabling ${bankDetails.length} bank details`);
+    console.log(`[DevicePing] Device ${deviceId} disconnected, stopping device and disabling ${bankDetails.length} bank details`);
 
     // Disable all bank details for this device's user
     for (const bankDetail of bankDetails) {
@@ -46,7 +54,7 @@ async function disableBankDetailsForDevice(deviceId: string) {
       data: {
         type: 'DEVICE_DISCONNECTED',
         title: 'Устройство отключено',
-        message: `Устройство отключено. Реквизиты временно недоступны для сделок.`,
+        message: `Устройство отключено от сети. Устройство остановлено, реквизиты временно недоступны для сделок.`,
         deviceId: deviceId,
         metadata: {
           disconnectedAt: new Date().toISOString(),
@@ -57,8 +65,13 @@ async function disableBankDetailsForDevice(deviceId: string) {
     });
 
   } catch (error) {
-    console.error(`[DevicePing] Error disabling bank details for device ${deviceId}:`, error);
+    console.error(`[DevicePing] Error stopping device and disabling bank details for device ${deviceId}:`, error);
   }
+}
+
+// Keep original function name for compatibility
+async function disableBankDetailsForDevice(deviceId: string) {
+  return stopDeviceAndDisableBankDetails(deviceId);
 }
 
 // Function to re-enable bank details when device comes online
@@ -164,15 +177,24 @@ export const devicePingRoutes = new Elysia()
           const batteryLevel = data.batteryLevel !== undefined ? data.batteryLevel : device.energy;
           const networkSpeed = data.networkSpeed !== undefined ? data.networkSpeed : device.ethernetSpeed;
           
+          // Check if this is the first connection
+          const updateData: any = {
+            isOnline: true,
+            lastActiveAt: new Date(),
+            updatedAt: new Date(),
+            energy: batteryLevel,
+            ethernetSpeed: networkSpeed
+          };
+          
+          // Set firstConnectionAt if not already set
+          if (!device.firstConnectionAt) {
+            updateData.firstConnectionAt = new Date();
+            console.log(`[DevicePing] Setting firstConnectionAt for device ${device.id}`);
+          }
+          
           await db.device.update({
             where: { id: device.id },
-            data: {
-              isOnline: true,
-              lastActiveAt: new Date(),
-              updatedAt: new Date(),
-              energy: batteryLevel,
-              ethernetSpeed: networkSpeed
-            }
+            data: updateData
           });
 
           // If device was offline and now online, re-enable bank details

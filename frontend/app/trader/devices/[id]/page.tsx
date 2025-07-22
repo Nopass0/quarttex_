@@ -87,6 +87,7 @@ interface DeviceData {
   ethernetSpeed?: number;
   lastSeen?: string;
   createdAt: string;
+  firstConnectionAt?: string;
   browser?: string;
   os?: string;
   ip?: string;
@@ -579,44 +580,49 @@ export default function DeviceDetailsPage() {
                 <QrCode className="h-4 w-4" />
                 <span className="hidden sm:inline ml-2">QR код</span>
               </Button>
-              {device.isOnline ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-8 px-3"
-                  onClick={async () => {
-                    try {
-                      await traderApi.stopDevice(device.id);
-                      toast.success("Устройство остановлено");
-                      await fetchDevice();
-                    } catch (error) {
-                      console.error("Error stopping device:", error);
-                      toast.error("Не удалось остановить устройство");
-                    }
-                  }}
-                >
-                  <Pause className="h-4 w-4 mr-2" />
-                  Остановить
-                </Button>
-              ) : (
-                <Button
-                  className="bg-[#006039] hover:bg-[#006039]/90"
-                  size="sm"
-                  className="h-8 px-3"
-                  onClick={async () => {
-                    try {
-                      await traderApi.startDevice(device.id);
-                      toast.success("Устройство запущено");
-                      await fetchDevice();
-                    } catch (error) {
-                      console.error("Error starting device:", error);
-                      toast.error("Не удалось запустить устройство");
-                    }
-                  }}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Запустить
-                </Button>
+              {/* Only show start/stop buttons if device has been connected at least once */}
+              {device.firstConnectionAt && (
+                <>
+                  {device.isOnline ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 px-3"
+                      onClick={async () => {
+                        try {
+                          await traderApi.stopDevice(device.id);
+                          toast.success("Устройство остановлено");
+                          await fetchDevice();
+                        } catch (error) {
+                          console.error("Error stopping device:", error);
+                          toast.error("Не удалось остановить устройство");
+                        }
+                      }}
+                    >
+                      <Pause className="h-4 w-4 mr-2" />
+                      Остановить
+                    </Button>
+                  ) : (
+                    <Button
+                      className="bg-[#006039] hover:bg-[#006039]/90"
+                      size="sm"
+                      className="h-8 px-3"
+                      onClick={async () => {
+                        try {
+                          await traderApi.startDevice(device.id);
+                          toast.success("Устройство запущено");
+                          await fetchDevice();
+                        } catch (error) {
+                          console.error("Error starting device:", error);
+                          toast.error("Не удалось запустить устройство");
+                        }
+                      }}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Запустить
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -685,7 +691,13 @@ export default function DeviceDetailsPage() {
                           <div className="text-center mt-24">
                             <h3 className="font-semibold dark:text-[#eeeeee]">{device.name}</h3>
                             <div className="text-sm font-bold  mt-2">
-                              {device.isOnline ? (
+                              {!device.firstConnectionAt ? (
+                                <>
+                                  <p className="text-yellow-600 dark:text-yellow-400 bg-yellow-200 dark:bg-yellow-900/30 rounded-md px-4 py-2 uppercase">
+                                    Не подключено
+                                  </p>
+                                </>
+                              ) : device.isOnline ? (
                                 <>
                                   <p className="text-green-500 dark:text-green-300 bg-green-200 dark:bg-green-900/30 rounded-md px-4 py-2 uppercase">
                                     В работе
@@ -750,19 +762,34 @@ export default function DeviceDetailsPage() {
                     <Activity className="h-5 w-5 text-[#006039] dark:text-[#2d6a42]" />
                     <span className="text-sm text-gray-500 dark:text-gray-400">Статус</span>
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
-                    {device.isOnline ? "В работе" : "Не в работе"}
-                  </h3>
-                  <Badge 
-                    className={cn(
-                      "w-full justify-center py-2",
-                      device.isOnline 
-                        ? "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" 
-                        : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/50 dark:text-gray-400 dark:border-gray-700"
-                    )}
-                  >
-                    {device.isOnline ? "Активно" : "Остановлено"}
-                  </Badge>
+                  {!device.firstConnectionAt ? (
+                    <>
+                      <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
+                        Ожидает подключения
+                      </h3>
+                      <Badge 
+                        className="w-full justify-center py-2 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800"
+                      >
+                        Отсканируйте QR код
+                      </Badge>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
+                        {device.isOnline ? "В работе" : "Не в работе"}
+                      </h3>
+                      <Badge 
+                        className={cn(
+                          "w-full justify-center py-2",
+                          device.isOnline 
+                            ? "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" 
+                            : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/50 dark:text-gray-400 dark:border-gray-700"
+                        )}
+                      >
+                        {device.isOnline ? "Активно" : "Остановлено"}
+                      </Badge>
+                    </>
+                  )}
                 </Card>
 
                 {/* WiFi Status Card */}

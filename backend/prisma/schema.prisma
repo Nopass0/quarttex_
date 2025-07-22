@@ -360,6 +360,7 @@ model Device {
   updatedAt        DateTime       @updatedAt @map("updated_at")
   emulated         Boolean        @default(false)
   lastActiveAt     DateTime?
+  firstConnectionAt DateTime?     // Track first connection via QR code
   userId           String
   // Push notification tokens
   fcmToken         String?        // Firebase Cloud Messaging token
