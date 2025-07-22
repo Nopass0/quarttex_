@@ -1278,15 +1278,6 @@ export default function DeviceDetailsPage() {
               {qrCodeUrl && (
                 <div className="relative">
                   <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 sm:w-64 sm:h-64" />
-                  {/* Индикатор ожидания подключения */}
-                  {!device.isOnline && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
-                      <div className="flex flex-col items-center space-y-2">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <span className="text-sm text-gray-600">Ожидание подключения...</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1320,8 +1311,8 @@ export default function DeviceDetailsPage() {
                   </>
                 ) : (
                   <>
-                    <Clock className="h-4 w-4 text-gray-400 animate-pulse" />
-                    <span className="text-gray-500">Ожидание подключения устройства</span>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                    <span className="text-gray-500">Не подключено</span>
                   </>
                 )}
               </div>
