@@ -6,10 +6,19 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAdminAuth } from '@/stores/auth'
 import { toast } from 'sonner'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export function KkkSettings() {
   const [kkkPercent, setKkkPercent] = useState('')
+  const [kkkOperation, setKkkOperation] = useState<'increase' | 'decrease'>('decrease')
   const [rapiraKkk, setRapiraKkk] = useState('')
+  const [rapiraOperation, setRapiraOperation] = useState<'increase' | 'decrease'>('increase')
   const [isLoading, setIsLoading] = useState(false)
   const { token: adminToken } = useAdminAuth()
 
@@ -29,8 +38,13 @@ export function KkkSettings() {
       if (!response.ok) throw new Error('Failed to fetch KKK settings')
       
       const data = await response.json()
-      setKkkPercent(data.kkkPercent.toString())
-      setRapiraKkk((data.rapiraKkk || 0).toString())
+      const kkkValue = Math.abs(data.kkkPercent)
+      setKkkPercent(kkkValue.toString())
+      setKkkOperation(data.kkkPercent >= 0 ? 'increase' : 'decrease')
+      
+      const rapiraValue = Math.abs(data.rapiraKkk || 0)
+      setRapiraKkk(rapiraValue.toString())
+      setRapiraOperation((data.rapiraKkk || 0) >= 0 ? 'increase' : 'decrease')
     } catch (error) {
       toast.error('Не удалось загрузить настройки ККК')
     } finally {
@@ -48,8 +62,8 @@ export function KkkSettings() {
           'x-admin-key': adminToken || '',
         },
         body: JSON.stringify({
-          kkkPercent: parseFloat(kkkPercent) || 0,
-          rapiraKkk: parseFloat(rapiraKkk) || 0,
+          kkkPercent: (parseFloat(kkkPercent) || 0) * (kkkOperation === 'decrease' ? -1 : 1),
+          rapiraKkk: (parseFloat(rapiraKkk) || 0) * (rapiraOperation === 'decrease' ? -1 : 1),
         }),
       })
       
@@ -68,16 +82,28 @@ export function KkkSettings() {
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="kkk">Процент ККК (%) - Для трейдеров</Label>
-          <Input
-            id="kkk"
-            type="number"
-            step="0.01"
-            min="-100"
-            max="100"
-            value={kkkPercent}
-            onChange={(e) => setKkkPercent(e.target.value)}
-            placeholder="Введите процент"
-          />
+          <div className="flex gap-2">
+            <Select value={kkkOperation} onValueChange={(value: 'increase' | 'decrease') => setKkkOperation(value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="increase">Увеличить</SelectItem>
+                <SelectItem value="decrease">Уменьшить</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              id="kkk"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={kkkPercent}
+              onChange={(e) => setKkkPercent(e.target.value)}
+              placeholder="0"
+              className="flex-1"
+            />
+          </div>
           <p className="text-sm text-muted-foreground">
             Коэффициент корректировки курса для расчетов с трейдерами
           </p>
@@ -85,23 +111,35 @@ export function KkkSettings() {
 
         <div className="space-y-2">
           <Label htmlFor="rapiraKkk">Процент ККК (%) - Отображаемый курс на платформе</Label>
-          <Input
-            id="rapiraKkk"
-            type="number"
-            step="0.01"
-            min="-100"
-            max="100"
-            value={rapiraKkk}
-            onChange={(e) => setRapiraKkk(e.target.value)}
-            placeholder="Введите процент"
-          />
+          <div className="flex gap-2">
+            <Select value={rapiraOperation} onValueChange={(value: 'increase' | 'decrease') => setRapiraOperation(value)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="increase">Увеличить</SelectItem>
+                <SelectItem value="decrease">Уменьшить</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              id="rapiraKkk"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={rapiraKkk}
+              onChange={(e) => setRapiraKkk(e.target.value)}
+              placeholder="0"
+              className="flex-1"
+            />
+          </div>
           <p className="text-sm text-muted-foreground">
-            Коэффициент корректировки курса Rapira для отображения на платформе. Положительное значение увеличивает курс, отрицательное - уменьшает.
+            Коэффициент корректировки курса Rapira для отображения на платформе
           </p>
           {rapiraKkk && (
             <p className="text-xs text-muted-foreground">
-              Пример: при курсе 78.89 и ККК {rapiraKkk}% → отображаемый курс {
-                (78.89 * (1 + parseFloat(rapiraKkk) / 100)).toFixed(2)
+              Пример: при курсе 78.89 → {rapiraOperation === 'increase' ? 'увеличить' : 'уменьшить'} на {rapiraKkk}% → отображаемый курс {
+                (78.89 * (1 + (parseFloat(rapiraKkk) / 100) * (rapiraOperation === 'decrease' ? -1 : 1))).toFixed(2)
               } ₽
             </p>
           )}
