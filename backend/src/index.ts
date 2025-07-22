@@ -152,6 +152,10 @@ for await (const file of glob.scan({ cwd: scanRoot, absolute: true })) {
   }
 }
 
+// Create root app for health endpoint
+const rootApp = new Elysia()
+  .get("/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }));
+
 // Main application instance
 const app = new Elysia({ prefix: "/api" })
   .derive(() => ({
@@ -281,6 +285,9 @@ for (const serviceApp of serviceApps) {
   app.use(serviceApp);
 }
 
-app.listen(Bun.env.PORT ?? 3000);
+// Merge root app with main app
+rootApp.use(app);
 
-console.log(`🚀  Server listening on http://localhost:${app.server?.port}`);
+rootApp.listen(Bun.env.PORT ?? 3000);
+
+console.log(`🚀  Server listening on http://localhost:${rootApp.server?.port}`);
