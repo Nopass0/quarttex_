@@ -571,21 +571,21 @@ export function Sidebar({ variant }: SidebarProps) {
                 </div>
               </div>
 
-              {/* Курс Rapira */}
+              {/* Ставка TRC-20 */}
               {rapiraRate && (
-                <div className="p-4 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800/20 dark:to-gray-700/10 rounded-lg border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      <span className="text-sm font-medium text-purple-900 dark:text-purple-200">
-                        Курс Rapira
+                      <TrendingUp className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                        Ставка TRC-20
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-sm font-bold text-purple-900 dark:text-purple-200">
+                      <span className="text-sm font-bold text-gray-900 dark:text-gray-200">
                         {rapiraRate.rate.toFixed(2)}
                       </span>
-                      <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         ₽/USDT
                       </span>
                     </div>
