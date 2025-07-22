@@ -37,7 +37,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Search, Plus, Copy, Trash2, RefreshCw, Activity, Edit, Settings, MoreHorizontal } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Search, Plus, Copy, Trash2, RefreshCw, Activity, Edit, Settings, MoreHorizontal, Power, PowerOff } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { formatAmount } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -316,6 +317,37 @@ export function MerchantsList() {
     }
   }
 
+  const handleToggleDisabled = async (merchantId: string, disabled: boolean) => {
+    const merchant = merchants.find(m => m.id === merchantId)
+    if (!merchant) return
+
+    try {
+      setIsLoading(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || '',
+        },
+        body: JSON.stringify({
+          id: merchantId,
+          name: merchant.name,
+          disabled: disabled,
+          banned: merchant.banned || false,
+        }),
+      })
+      
+      if (!response.ok) throw new Error('Failed to update merchant status')
+      
+      await fetchMerchants()
+      toast.success(disabled ? 'Трафик мерчанта отключен' : 'Трафик мерчанта включен')
+    } catch (error) {
+      toast.error('Не удалось изменить статус мерчанта')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const openEditDialog = (merchant: Merchant) => {
     setSelectedMerchant(merchant)
     setEditFormData({
@@ -423,6 +455,7 @@ export function MerchantsList() {
               <TableHead>Баланс USDT</TableHead>
               <TableHead>Транзакции</TableHead>
               <TableHead>Трафик</TableHead>
+              <TableHead>Статус</TableHead>
               <TableHead>Дата создания</TableHead>
               <TableHead className="text-right">Действия</TableHead>
             </TableRow>
@@ -464,6 +497,18 @@ export function MerchantsList() {
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-[#006039]" />
                     <span className="text-sm font-medium">{getTrafficPercentage(merchant)}%</span>
+                  </div>
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!merchant.disabled}
+                      onCheckedChange={(checked) => handleToggleDisabled(merchant.id, !checked)}
+                      disabled={isLoading}
+                    />
+                    <span className="text-sm text-gray-600">
+                      {merchant.disabled ? 'Отключен' : 'Активен'}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>{new Date(merchant.createdAt).toLocaleDateString('ru-RU')}</TableCell>
@@ -613,13 +658,16 @@ export function MerchantsList() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">
-                Отключен
+                Трафик отключен
               </Label>
-              <div className="col-span-3">
-                <Checkbox
+              <div className="col-span-3 flex items-center gap-2">
+                <Switch
                   checked={editFormData.disabled}
                   onCheckedChange={(checked) => setEditFormData({ ...editFormData, disabled: !!checked })}
                 />
+                <span className="text-sm text-gray-600">
+                  {editFormData.disabled ? 'Отключен' : 'Активен'}
+                </span>
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">

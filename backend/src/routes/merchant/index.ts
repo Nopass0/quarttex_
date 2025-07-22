@@ -407,6 +407,11 @@ export default (app: Elysia) =>
     .post(
       "/transactions/create",
       async ({ body, merchant, set, error }) => {
+        // Проверяем, не отключен ли мерчант
+        if (merchant.disabled) {
+          return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
+        }
+        
         // По умолчанию тип транзакции IN
         const type = body.type || TransactionType.IN;
         
@@ -946,6 +951,11 @@ export default (app: Elysia) =>
     .post(
       "/transactions/in",
       async ({ body, merchant, set, error }) => {
+        // Проверяем, не отключен ли мерчант
+        if (merchant.disabled) {
+          return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
+        }
+        
         // Генерируем значения по умолчанию
         const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
         
@@ -1190,6 +1200,11 @@ export default (app: Elysia) =>
     .post(
       "/transactions/out",
       async ({ body, merchant, set, error }) => {
+        // Проверяем, не отключен ли мерчант
+        if (merchant.disabled) {
+          return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
+        }
+        
         // Генерируем значения по умолчанию
         const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
         
