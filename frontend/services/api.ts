@@ -187,6 +187,10 @@ export const traderApi = {
     const response = await traderApiInstance.patch(`/trader/devices/${id}/stop`)
     return response.data
   },
+  markDeviceConnected: async (id: string) => {
+    const response = await traderApiInstance.patch(`/trader/devices/${id}/mark-connected`)
+    return response.data
+  },
   // Requisite status control
   startRequisite: async (id: string) => {
     const response = await traderApiInstance.patch(`/trader/bank-details/${id}/start`)

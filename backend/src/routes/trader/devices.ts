@@ -455,6 +455,69 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
     }
   )
   
+  // Mark device as connected (set firstConnectionAt)
+  .patch(
+    "/:id/mark-connected",
+    async ({ trader, params }) => {
+      const device = await db.device.findFirst({
+        where: { 
+          id: params.id,
+          userId: trader.id
+        }
+      })
+
+      if (!device) {
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+
+      // Only update if not already set
+      if (!device.firstConnectionAt) {
+        const updated = await db.device.update({
+          where: { id: params.id },
+          data: { 
+            firstConnectionAt: new Date(),
+            isOnline: true,
+            lastActiveAt: new Date()
+          }
+        })
+
+        console.log(`[Devices API] Marked device ${params.id} as connected, firstConnectionAt: ${updated.firstConnectionAt}`)
+
+        return { 
+          success: true, 
+          message: "Device marked as connected",
+          device: {
+            id: updated.id,
+            name: updated.name,
+            firstConnectionAt: updated.firstConnectionAt?.toISOString(),
+            isOnline: updated.isOnline
+          }
+        }
+      }
+
+      return { 
+        success: true, 
+        message: "Device already connected",
+        device: {
+          id: device.id,
+          name: device.name,
+          firstConnectionAt: device.firstConnectionAt?.toISOString(),
+          isOnline: device.isOnline
+        }
+      }
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      detail: {
+        tags: ["trader", "devices"],
+        summary: "Mark device as connected"
+      }
+    }
+  )
+  
   // Start device
   .patch(
     "/:id/start",

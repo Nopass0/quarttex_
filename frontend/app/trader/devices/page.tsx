@@ -186,11 +186,16 @@ export default function DevicesPage() {
       setDevices(prevDevices => {
         const device = prevDevices.find(d => d.id === update.deviceId);
         
-        // If device is coming online and doesn't have firstConnectionAt, refresh devices list
+        // If device is coming online and doesn't have firstConnectionAt, mark it as connected
         if (device && update.isOnline && device.firstConnectionAt == null) {
-          console.log('[DevicesPage] Device came online without firstConnectionAt, refreshing...');
-          fetchDevices().then(() => {
-            console.log('[DevicesPage] Devices list refreshed after first connection');
+          console.log('[DevicesPage] Device came online without firstConnectionAt, marking as connected...');
+          traderApi.markDeviceConnected(update.deviceId).then(() => {
+            console.log('[DevicesPage] Device marked as connected, refreshing list...');
+            fetchDevices().then(() => {
+              console.log('[DevicesPage] Devices list refreshed after marking as connected');
+            });
+          }).catch(error => {
+            console.error('[DevicesPage] Error marking device as connected:', error);
           });
         }
         

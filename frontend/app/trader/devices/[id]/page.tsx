@@ -191,12 +191,19 @@ export default function DeviceDetailsPage() {
         setDevice(prevDevice => {
           if (!prevDevice) return null;
           
-          // If device is coming online and doesn't have firstConnectionAt, refresh device data
+          // If device is coming online and doesn't have firstConnectionAt, mark it as connected
           if (update.isOnline && prevDevice.firstConnectionAt == null) {
-            console.log('[DeviceDetailsPage] Device came online without firstConnectionAt, refreshing...');
-            // Refresh device data to get firstConnectionAt
-            fetchDevice().then(() => {
-              console.log('[DeviceDetailsPage] Device data refreshed after first connection');
+            console.log('[DeviceDetailsPage] Device came online without firstConnectionAt, marking as connected...');
+            
+            // Call API to mark device as connected
+            traderApi.markDeviceConnected(update.deviceId).then(() => {
+              console.log('[DeviceDetailsPage] Device marked as connected, refreshing data...');
+              // Refresh device data to get updated firstConnectionAt
+              fetchDevice().then(() => {
+                console.log('[DeviceDetailsPage] Device data refreshed after marking as connected');
+              });
+            }).catch(error => {
+              console.error('[DeviceDetailsPage] Error marking device as connected:', error);
             });
           }
           
@@ -262,6 +269,18 @@ export default function DeviceDetailsPage() {
             firstConnectionAt: deviceData.firstConnectionAt,
             previousFirstConnectionAt: device.firstConnectionAt
           });
+          
+          // If device came online but doesn't have firstConnectionAt, mark it as connected
+          if (deviceData.isOnline && device.firstConnectionAt == null && deviceData.firstConnectionAt == null) {
+            console.log('[DeviceDetailsPage] Device is online but no firstConnectionAt, marking as connected...');
+            try {
+              await traderApi.markDeviceConnected(device.id);
+              console.log('[DeviceDetailsPage] Device marked as connected');
+              // Next polling cycle will get the updated data
+            } catch (error) {
+              console.error('[DeviceDetailsPage] Error marking device as connected:', error);
+            }
+          }
           
           // Check if device just got its first connection
           if (device.firstConnectionAt == null && deviceData.firstConnectionAt != null) {
