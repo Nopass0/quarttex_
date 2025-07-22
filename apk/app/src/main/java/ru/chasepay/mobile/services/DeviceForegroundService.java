@@ -27,7 +27,7 @@ public class DeviceForegroundService extends Service {
     private static final String KEY_DEVICE_TOKEN = "device_token";
     
     private PowerManager.WakeLock wakeLock;
-    private DevicePingService pingService;
+    private UniversalConnectionService connectionService;
     private SharedPreferences prefs;
     private Handler handler;
     private Runnable wakeLockRenewer;
@@ -40,8 +40,8 @@ public class DeviceForegroundService extends Service {
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         handler = new Handler();
         
-        // Initialize ping service
-        pingService = DevicePingService.getInstance(this);
+        // Initialize universal connection service
+        connectionService = UniversalConnectionService.getInstance(this);
         
         // Acquire wake lock to keep CPU running
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
@@ -82,10 +82,9 @@ public class DeviceForegroundService extends Service {
         // Check if we have a device token
         String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
         if (deviceToken != null) {
-            // Start ping service
-            Log.d(TAG, "Starting ping service with existing token: " + deviceToken);
-            pingService.stopPingService(); // Stop any existing connection
-            pingService.startPingService();
+            // Start universal connection service
+            Log.d(TAG, "Starting connection service with existing token: " + deviceToken);
+            connectionService.start();
         } else {
             Log.w(TAG, "No device token found");
         }
@@ -104,9 +103,9 @@ public class DeviceForegroundService extends Service {
             handler.removeCallbacks(wakeLockRenewer);
         }
         
-        // Stop ping service
-        if (pingService != null) {
-            pingService.stopPingService();
+        // Stop connection service
+        if (connectionService != null) {
+            connectionService.stop();
         }
         
         // Release wake lock
@@ -158,7 +157,9 @@ public class DeviceForegroundService extends Service {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // Changed to HIGH priority
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build();
     }
     

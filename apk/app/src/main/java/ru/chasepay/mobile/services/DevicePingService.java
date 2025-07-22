@@ -33,6 +33,7 @@ public class DevicePingService extends WebSocketListener {
     private Runnable pingRunnable;
     private SharedPreferences prefs;
     private boolean isRunning = false;
+    private long lastPingTime = 0;
     
     private static DevicePingService instance;
     
@@ -91,9 +92,9 @@ public class DevicePingService extends WebSocketListener {
     private void connectWebSocket() {
         try {
             String baseUrl = ru.chasepay.mobile.BuildConfig.BASE_URL;
-            // Remove /api suffix if present and add /ws/device-ping
+            // Remove /api suffix if present and add /device-ping
             String wsBaseUrl = baseUrl.replace("/api", "").replace("https://", "wss://").replace("http://", "ws://");
-            String wsUrl = wsBaseUrl + "/ws/device-ping";
+            String wsUrl = wsBaseUrl + "/device-ping";
             
             Log.d(TAG, "Connecting to WebSocket: " + wsUrl);
             
@@ -114,7 +115,14 @@ public class DevicePingService extends WebSocketListener {
             @Override
             public void run() {
                 if (isRunning && webSocket != null) {
-                    sendPing();
+                    // Check if we haven't sent a ping in a while (network might be suspended)
+                    long currentTime = System.currentTimeMillis();
+                    if (lastPingTime > 0 && currentTime - lastPingTime > 10000) {
+                        Log.w(TAG, "Ping delayed by " + (currentTime - lastPingTime) + "ms, reconnecting...");
+                        reconnectWebSocket();
+                    } else {
+                        sendPing();
+                    }
                     handler.postDelayed(this, PING_INTERVAL);
                 }
             }
@@ -138,10 +146,13 @@ public class DevicePingService extends WebSocketListener {
             pingData.put("networkSpeed", getNetworkSpeed());
             pingData.put("timestamp", System.currentTimeMillis());
             
+            lastPingTime = System.currentTimeMillis();
             boolean sent = webSocket.send(pingData.toString());
             if (!sent) {
                 Log.w(TAG, "Failed to send ping - WebSocket not ready");
                 reconnectWebSocket();
+            } else {
+                Log.d(TAG, "Ping sent successfully at " + lastPingTime);
             }
             
         } catch (Exception e) {
@@ -171,6 +182,8 @@ public class DevicePingService extends WebSocketListener {
     @Override
     public void onOpen(WebSocket webSocket, Response response) {
         Log.d(TAG, "WebSocket connected");
+        // Notify universal service about successful connection
+        UniversalConnectionService.getInstance(context).notifySuccessfulConnection();
     }
     
     @Override
@@ -182,6 +195,8 @@ public class DevicePingService extends WebSocketListener {
             if ("pong".equals(type)) {
                 // Server responded to our ping
                 Log.d(TAG, "Received pong from server");
+                // Notify universal service about successful ping
+                UniversalConnectionService.getInstance(context).notifySuccessfulConnection();
             } else if ("error".equals(type)) {
                 String message = response.optString("message", "Unknown error");
                 Log.e(TAG, "Server error: " + message);

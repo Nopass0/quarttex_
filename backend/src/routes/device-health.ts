@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
+import { broadcastDeviceStatus } from "@/routes/websocket/device-status";
 
 export const deviceHealthRoutes = new Elysia({ prefix: "/api/device" })
   // Health check endpoint that only requires device token
@@ -27,15 +28,23 @@ export const deviceHealthRoutes = new Elysia({ prefix: "/api/device" })
       }
       
       // Update device status
+      const updateData: any = {
+        updatedAt: new Date(),
+        isOnline: true,
+        energy: body.batteryLevel,
+        ethernetSpeed: body.networkSpeed,
+        lastActiveAt: new Date()
+      };
+      
+      // Set firstConnectionAt if not already set
+      if (!device.firstConnectionAt) {
+        updateData.firstConnectionAt = new Date();
+        console.log(`[Device Health] Setting firstConnectionAt for device ${device.id} via health check`);
+      }
+      
       await db.device.update({
         where: { id: device.id },
-        data: {
-          updatedAt: new Date(),
-          isOnline: true,
-          energy: body.batteryLevel,
-          ethernetSpeed: body.networkSpeed,
-          lastActiveAt: new Date()
-        }
+        data: updateData
       });
       
       // Create health check log notification
@@ -55,6 +64,13 @@ export const deviceHealthRoutes = new Elysia({ prefix: "/api/device" })
       });
       
       console.log(`[Device Health] Health check received from device ${device.name} (${device.id})`);
+      
+      // Broadcast device status update
+      await broadcastDeviceStatus(device.id, {
+        isOnline: true,
+        batteryLevel: body.batteryLevel,
+        networkSpeed: body.networkSpeed
+      });
       
       return { 
         success: true,

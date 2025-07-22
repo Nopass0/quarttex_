@@ -148,7 +148,8 @@ async function enableBankDetailsForDevice(deviceId: string) {
 export const devicePingRoutes = new Elysia()
   .ws("/device-ping", {
     async open(ws) {
-      console.log(`[DevicePing] WebSocket connection opened`);
+      console.log(`[DevicePing] WebSocket connection opened from ${ws.data?.request?.headers?.origin || 'unknown'}`);
+      console.log(`[DevicePing] Headers:`, ws.data?.request?.headers);
     },
 
     async message(ws, message) {
@@ -293,7 +294,7 @@ export const devicePingRoutes = new Elysia()
             } catch (error) {
               console.error(`[DevicePing] Error handling timeout for device ${device.id}:`, error);
             }
-          }, 3000); // 3 seconds timeout
+          }, 5000); // 5 seconds timeout - increased for mobile network latency
 
           devicePingTimers.set(deviceToken, timer);
 
