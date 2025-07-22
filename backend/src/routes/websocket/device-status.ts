@@ -1,6 +1,5 @@
 import { Elysia } from "elysia";
 import { db } from "@/db";
-import jwt from "jsonwebtoken";
 
 // Map to track WebSocket connections
 const connections = new Map<string, { ws: WebSocket, userId: string, subscribedDevices: Set<string> }>();
@@ -96,28 +95,29 @@ export const deviceStatusRoutes = new Elysia()
 
         switch (data.type) {
           case "auth":
-            // Authenticate the connection
+            // Authenticate the connection using session token
             try {
-              const decoded = jwt.verify(data.token, process.env.JWT_SECRET!) as any;
+              const token = data.token;
               
-              // Check if trader exists
-              const user = await db.user.findUnique({
-                where: { id: decoded.id }
+              // Find session by token
+              const session = await db.session.findUnique({
+                where: { token },
+                include: { user: true }
               });
 
-              if (user) {
-                conn.userId = user.id;
-                console.log(`[DeviceStatus] Connection ${connId} authenticated as user ${user.id}`);
+              if (session && session.user && new Date() < session.expiredAt) {
+                conn.userId = session.user.id;
+                console.log(`[DeviceStatus] Connection ${connId} authenticated as user ${session.user.id}`);
                 
                 // Send auth success
                 ws.send(JSON.stringify({ 
                   type: "auth-success",
-                  userId: user.id
+                  userId: session.user.id
                 }));
 
                 // Send initial status for all user's devices
                 const devices = await db.device.findMany({
-                  where: { userId: user.id }
+                  where: { userId: session.user.id }
                 });
 
                 for (const device of devices) {
@@ -130,12 +130,14 @@ export const deviceStatusRoutes = new Elysia()
                     timestamp: new Date().toISOString()
                   }));
                 }
+              } else {
+                throw new Error("Invalid or expired session");
               }
             } catch (error) {
               console.error(`[DeviceStatus] Auth error:`, error);
               ws.send(JSON.stringify({ 
                 type: "auth-error",
-                message: "Invalid token"
+                message: "Invalid or expired token"
               }));
             }
             break;
