@@ -22,11 +22,20 @@ export function KkkSettings() {
   const [rapiraOperation, setRapiraOperation] = useState<'increase' | 'decrease'>('increase')
   const [isLoading, setIsLoading] = useState(false)
   const { token: adminToken } = useAdminAuth()
-  const { baseRate: currentRapiraRate } = useRapiraRate()
+  const { baseRate: currentRapiraRate, refetch: refetchRapiraRate } = useRapiraRate()
 
   useEffect(() => {
     fetchKkkSettings()
   }, [])
+
+  // Auto-refresh Rapira rate every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchRapiraRate()
+    }, 10000) // 10 seconds
+
+    return () => clearInterval(interval)
+  }, [refetchRapiraRate])
 
   const fetchKkkSettings = async () => {
     try {
