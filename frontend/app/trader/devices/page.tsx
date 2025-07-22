@@ -68,6 +68,7 @@ interface Device {
   name: string;
   token: string;
   isOnline: boolean;
+  isWorking: boolean;
   isRegistered: boolean;
   energy?: number;
   ethernetSpeed?: number;
@@ -294,6 +295,7 @@ export default function DevicesPage() {
         name: device.name,
         token: device.token,
         isOnline: device.isOnline || false,
+        isWorking: device.isWorking || false,
         isRegistered: true, // Assume all devices from API are registered
         energy: device.energy,
         ethernetSpeed: device.ethernetSpeed,
@@ -301,7 +303,7 @@ export default function DevicesPage() {
         createdAt: device.createdAt,
         firstConnectionAt: device.firstConnectionAt,
         linkedBankDetails: device.linkedBankDetails || 0,
-        status: device.isOnline ? "working" : "stopped",
+        status: device.isWorking ? "working" : "stopped",
       }));
 
       console.log("Mapped devices:", mappedDevices);
@@ -420,15 +422,15 @@ export default function DevicesPage() {
       };
     }
 
-    if (device.isOnline || device.status === "working") {
+    if (device.isWorking) {
       return {
         title: `Реквизиты: ${device.linkedBankDetails}`,
-        description: device.lastSeen ? `Последняя активность: ${device.lastSeen}` : "Активно",
+        description: device.isOnline ? "Активно" : "Нет связи, но работает",
         badge: {
           text: "В работе",
-          className: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+          className: "bg-green-100 text-green-700 border-green-300 dark:bg-green-800/30 dark:text-green-300 dark:border-green-600",
         },
-        iconColor: "text-gray-600 dark:text-gray-400",
+        iconColor: "text-green-600 dark:text-green-400",
       };
     }
 
@@ -568,8 +570,8 @@ export default function DevicesPage() {
                         className={cn(
                           "p-2 rounded-lg flex-shrink-0",
                           device.isRegistered 
-                            ? (device.isOnline || device.status === "working" 
-                              ? "bg-gray-100 dark:bg-gray-800" 
+                            ? (device.isWorking 
+                              ? "bg-green-100 dark:bg-green-800/30" 
                               : "bg-gray-50 dark:bg-gray-900/50")
                             : "bg-red-100 dark:bg-red-900/20",
                         )}
@@ -663,8 +665,8 @@ export default function DevicesPage() {
                         className={cn(
                           "p-3 rounded-lg",
                           device.isRegistered 
-                            ? (device.isOnline || device.status === "working" 
-                              ? "bg-gray-100 dark:bg-gray-800" 
+                            ? (device.isWorking 
+                              ? "bg-green-100 dark:bg-green-800/30" 
                               : "bg-gray-50 dark:bg-gray-900/50")
                             : "bg-red-100 dark:bg-red-900/20",
                         )}

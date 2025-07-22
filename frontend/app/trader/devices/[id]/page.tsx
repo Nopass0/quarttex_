@@ -83,6 +83,7 @@ interface DeviceData {
   name: string;
   token: string;
   isOnline: boolean;
+  isWorking: boolean;
   energy?: number;
   ethernetSpeed?: number;
   lastSeen?: string;
@@ -97,7 +98,6 @@ interface DeviceData {
   model?: string;
   fingerprint?: string;
   simNumber?: string;
-  isWorking?: boolean;
   lastHealthCheck?: string;
   linkedBankDetails?: any[];
   batteryLevel?: number;
@@ -590,7 +590,7 @@ export default function DeviceDetailsPage() {
               {/* Only show start/stop buttons if device has been connected at least once */}
               {device.firstConnectionAt && (
                 <>
-                  {device.isOnline ? (
+                  {device.isWorking ? (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -616,12 +616,23 @@ export default function DeviceDetailsPage() {
                       className="h-8 px-3"
                       onClick={async () => {
                         try {
+                          // Check if device is online before starting
+                          if (!device.isOnline) {
+                            toast.error("Нет связи с устройством. Убедитесь, что приложение запущено и подключено к интернету");
+                            return;
+                          }
+                          
                           await traderApi.startDevice(device.id);
                           toast.success("Устройство запущено");
                           await fetchDevice();
-                        } catch (error) {
+                        } catch (error: any) {
                           console.error("Error starting device:", error);
-                          toast.error("Не удалось запустить устройство");
+                          // Check if error is about no connection
+                          if (error.response?.data?.error) {
+                            toast.error(error.response.data.error);
+                          } else {
+                            toast.error("Не удалось запустить устройство");
+                          }
                         }
                       }}
                     >
@@ -701,19 +712,18 @@ export default function DeviceDetailsPage() {
                               {!device.firstConnectionAt ? (
                                 <>
                                   <p className="text-yellow-600 dark:text-yellow-400 bg-yellow-200 dark:bg-yellow-900/30 rounded-md px-4 py-2 uppercase">
-                                    Не подключено
-                                  </p>
-                                </>
-                              ) : device.isOnline ? (
-                                <>
-                                  <p className="text-green-500 dark:text-green-300 bg-green-200 dark:bg-green-900/30 rounded-md px-4 py-2 uppercase">
-                                    В работе
+                                    Ожидает первого подключения
                                   </p>
                                 </>
                               ) : (
                                 <>
-                                  <p className="text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-800/50 rounded-md px-4 py-2 uppercase">
-                                    Устройство не в работе
+                                  <p className={cn(
+                                    "rounded-md px-4 py-2 uppercase",
+                                    device.isOnline 
+                                      ? "text-green-500 dark:text-green-300 bg-green-200 dark:bg-green-900/30"
+                                      : "text-red-500 dark:text-red-300 bg-red-200 dark:bg-red-900/30"
+                                  )}>
+                                    {device.isOnline ? "Подключено" : "Нет связи"}
                                   </p>
                                 </>
                               )}
@@ -783,17 +793,17 @@ export default function DeviceDetailsPage() {
                   ) : (
                     <>
                       <h3 className="text-base sm:text-lg font-bold mb-2 dark:text-[#eeeeee]">
-                        {device.isOnline ? "В работе" : "Не в работе"}
+                        {device.isWorking ? "В работе" : "Не в работе"}
                       </h3>
                       <Badge 
                         className={cn(
                           "w-full justify-center py-2",
-                          device.isOnline 
-                            ? "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" 
+                          device.isWorking 
+                            ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-800/30 dark:text-green-300 dark:border-green-600" 
                             : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/50 dark:text-gray-400 dark:border-gray-700"
                         )}
                       >
-                        {device.isOnline ? "Активно" : "Остановлено"}
+                        {device.isWorking ? "Активно" : "Остановлено"}
                       </Badge>
                     </>
                   )}

@@ -9,11 +9,12 @@ const devicePingTimers = new Map<string, NodeJS.Timeout>();
 // Function to stop device and disable bank details when device goes offline
 async function stopDeviceAndDisableBankDetails(deviceId: string) {
   try {
-    // Mark device as offline - this effectively stops the device
+    // Mark device as offline and stop working
     await db.device.update({
       where: { id: deviceId },
       data: { 
-        isOnline: false
+        isOnline: false,
+        isWorking: false // Auto stop when connection lost
       }
     });
 
@@ -219,10 +220,13 @@ export const devicePingRoutes = new Elysia()
             console.log(`[DevicePing] Device ${device.id} (${device.name}) timed out`);
             
             try {
-              // Mark device as offline
+              // Mark device as offline and stop working
               await db.device.update({
                 where: { id: device.id },
-                data: { isOnline: false }
+                data: { 
+                  isOnline: false,
+                  isWorking: false
+                }
               });
 
               // Broadcast device offline status
@@ -293,7 +297,10 @@ export const devicePingRoutes = new Elysia()
             if (device) {
               await db.device.update({
                 where: { id: device.id },
-                data: { isOnline: false }
+                data: { 
+                  isOnline: false,
+                  isWorking: false
+                }
               });
               
               // Broadcast device offline status

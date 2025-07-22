@@ -355,6 +355,7 @@ model Device {
   energy           Float?
   ethernetSpeed    Float?
   isOnline         Boolean?
+  isWorking        Boolean        @default(false) // Working state controlled by user
   token            String?        @unique
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")

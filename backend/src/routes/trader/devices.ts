@@ -42,6 +42,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         name: device.name,
         token: device.token,
         isOnline: device.isOnline || false,
+        isWorking: device.isWorking || false,
         energy: device.energy,
         ethernetSpeed: device.ethernetSpeed,
         lastSeen: device.lastActiveAt?.toISOString() || device.updatedAt?.toISOString(),
@@ -172,6 +173,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         name: device.name,
         token: device.token,
         isOnline: device.isOnline || false,
+        isWorking: device.isWorking || false,
         energy: device.energy,
         ethernetSpeed: device.ethernetSpeed,
         lastSeen: device.lastActiveAt?.toISOString() || device.updatedAt?.toISOString(),
@@ -418,7 +420,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
 
       const updated = await db.device.update({
         where: { id: params.id },
-        data: { isOnline: false }
+        data: { isWorking: false }
       })
 
       return { 
@@ -427,6 +429,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         device: {
           id: updated.id,
           name: updated.name,
+          isWorking: updated.isWorking,
           isOnline: updated.isOnline
         }
       }
@@ -458,10 +461,20 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         })
       }
 
+      // Check if device is online before starting
+      if (!device.isOnline) {
+        return new Response(JSON.stringify({ 
+          error: "Нет связи с устройством. Убедитесь, что приложение запущено и подключено к интернету" 
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+
       const updated = await db.device.update({
         where: { id: params.id },
         data: { 
-          isOnline: true,
+          isWorking: true,
           lastActiveAt: new Date()
         }
       })
@@ -472,6 +485,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         device: {
           id: updated.id,
           name: updated.name,
+          isWorking: updated.isWorking,
           isOnline: updated.isOnline
         }
       }
