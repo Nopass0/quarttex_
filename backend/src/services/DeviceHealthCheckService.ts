@@ -50,7 +50,6 @@ export class DeviceHealthCheckService extends BaseService {
           bankDetails: {
             where: {
               isArchived: false,
-              isWorking: true,
             },
           },
         },
