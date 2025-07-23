@@ -35,6 +35,7 @@ import {
   Clock,
   Trash2,
   PiggyBank,
+  Lightbulb,
 } from "lucide-react";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
 import { useAgentAuth } from "@/stores/agent-auth";
@@ -43,6 +44,7 @@ import { useTraderFinancials } from "@/hooks/use-trader-financials";
 import { toast } from "sonner";
 import { Shield } from "lucide-react";
 import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal";
+import { IdeaModal } from "@/components/trader/idea-modal";
 import { ThemeSwitcher } from "@/components/ui/theme-toggle";
 import { useRapiraRate } from "@/hooks/use-rapira-rate";
 
@@ -222,6 +224,11 @@ const adminNavItems: NavItem[] = [
     href: "/wellbit/docs",
     icon: BookOpen,
   },
+  {
+    title: "Идеи",
+    href: "/admin/ideas",
+    icon: Lightbulb,
+  },
 ];
 
 const agentNavItems: NavItem[] = [
@@ -307,6 +314,7 @@ export function Sidebar({ variant }: SidebarProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [telegramModalOpen, setTelegramModalOpen] = useState(false);
+  const [ideaModalOpen, setIdeaModalOpen] = useState(false);
 
   const traderLogout = useTraderAuth((state) => state.logout);
   const adminAuth = useAdminAuth();
@@ -628,6 +636,16 @@ export function Sidebar({ variant }: SidebarProps) {
                   <span className="font-medium">Подключить ТГ</span>
                 </Button>
               </div>
+
+              {/* Propose Idea Button */}
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-gray-700 hover:text-gray-950 font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:text-gray-50 dark:hover:bg-gray-800"
+                onClick={() => setIdeaModalOpen(true)}
+              >
+                <Lightbulb className="h-5 w-5 text-yellow-500" />
+                <span>Предложить идею</span>
+              </Button>
             </div>
           )}
         </nav>
@@ -700,10 +718,16 @@ export function Sidebar({ variant }: SidebarProps) {
 
       {/* Telegram Connect Modal */}
       {variant === "trader" && (
-        <TelegramConnectModal
-          open={telegramModalOpen}
-          onOpenChange={setTelegramModalOpen}
-        />
+        <>
+          <TelegramConnectModal
+            open={telegramModalOpen}
+            onOpenChange={setTelegramModalOpen}
+          />
+          <IdeaModal
+            open={ideaModalOpen}
+            onOpenChange={setIdeaModalOpen}
+          />
+        </>
       )}
     </>
   );

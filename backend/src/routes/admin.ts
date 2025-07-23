@@ -49,6 +49,7 @@ import messagesRoutes from "@/routes/admin/messages";
 import dealDisputesRoutes from "@/routes/admin/deal-disputes";
 import withdrawalDisputesRoutes from "@/routes/admin/withdrawal-disputes";
 import bulkDeleteRoutes from "@/routes/admin/bulk-delete";
+import ideasRoutes from "@/routes/admin/ideas";
 // import { testToolsRoutes } from "@/routes/admin/test-tools";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
@@ -131,6 +132,7 @@ export default (app: Elysia) =>
     .group("/deal-disputes", (a) => dealDisputesRoutes(a))
     .group("/withdrawal-disputes", (a) => withdrawalDisputesRoutes(a))
     .group("/bulk-delete", (a) => a.use(bulkDeleteRoutes))
+    .group("/ideas", (a) => ideasRoutes(a))
     // .group("/test-tools", (a) => a.use(testToolsRoutes))
     .group("", (a) => metricsRoutes(a))
 

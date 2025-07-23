@@ -428,7 +428,7 @@ export default function AdminDealsPage() {
               <CardTitle>Фильтры</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSearch} className="flex gap-4">
+              <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <Input
                     placeholder="Поиск по ID, сумме или имени клиента"
@@ -438,9 +438,9 @@ export default function AdminDealsPage() {
                   />
                 </div>
                 {activeTab === 'all' && (
-                  <>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Статус" />
                       </SelectTrigger>
                       <SelectContent>
@@ -455,7 +455,7 @@ export default function AdminDealsPage() {
                       </SelectContent>
                     </Select>
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Тип" />
                       </SelectTrigger>
                       <SelectContent>
@@ -464,9 +464,9 @@ export default function AdminDealsPage() {
                         <SelectItem value="OUT">Исходящие (OUT)</SelectItem>
                       </SelectContent>
                     </Select>
-                  </>
+                  </div>
                 )}
-                <Button type="submit">
+                <Button type="submit" className="w-full sm:w-auto">
                   <Search className="h-4 w-4" />
                 </Button>
               </form>

@@ -72,7 +72,7 @@ export function TransactionFiltersNew({ filters, onFiltersChange }: TransactionF
   const currentSort = filters.sortBy ? `${filters.sortBy}-${filters.sortOrder}` : 'createdAt-desc'
 
   return (
-    <div className="flex gap-3 items-center">
+    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
       {/* Поиск по всем полям */}
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#006039]" />
@@ -80,12 +80,14 @@ export function TransactionFiltersNew({ filters, onFiltersChange }: TransactionF
           placeholder="Поиск по ID, Order ID, методу, сумме..."
           value={filters.search}
           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-          className="pl-9"
+          className="pl-9 w-full"
         />
       </div>
 
-      {/* Фильтры */}
-      <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+      {/* Фильтры и сортировка */}
+      <div className="flex gap-2">
+        {/* Фильтры */}
+        <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" className="gap-2">
             <Filter className="h-4 w-4 text-[#006039]" />
@@ -97,7 +99,7 @@ export function TransactionFiltersNew({ filters, onFiltersChange }: TransactionF
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80" align="end">
+        <PopoverContent className="w-[90vw] sm:w-80 max-w-80" align="end">
           <div className="grid gap-4">
             <div className="space-y-2">
               <h4 className="font-medium leading-none">Фильтры</h4>
@@ -221,7 +223,7 @@ export function TransactionFiltersNew({ filters, onFiltersChange }: TransactionF
             Сортировка
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64" align="end">
+        <PopoverContent className="w-[90vw] sm:w-64 max-w-64" align="end">
           <div className="grid gap-4">
             <div className="space-y-2">
               <h4 className="font-medium leading-none">Сортировка</h4>
@@ -254,6 +256,7 @@ export function TransactionFiltersNew({ filters, onFiltersChange }: TransactionF
           </div>
         </PopoverContent>
       </Popover>
+      </div>
     </div>
   )
 }

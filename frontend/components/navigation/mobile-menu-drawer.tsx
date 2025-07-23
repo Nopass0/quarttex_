@@ -32,7 +32,9 @@ import {
   Headphones,
   TestTube,
   Trash2,
-  BookOpen
+  BookOpen,
+  Download,
+  Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
@@ -42,6 +44,8 @@ import { useAgentAuth } from "@/stores/agent-auth";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRapiraRate } from "@/hooks/use-rapira-rate";
+import { TelegramConnectModal } from "@/components/trader/telegram-connect-modal";
+import { IdeaModal } from "@/components/trader/idea-modal";
 
 interface NavItem {
   title: string;
@@ -221,6 +225,11 @@ const adminNavItems: NavItem[] = [
     href: "/wellbit/docs",
     icon: BookOpen,
   },
+  {
+    title: "Идеи",
+    href: "/admin/ideas",
+    icon: Lightbulb,
+  },
 ];
 
 const agentNavItems: NavItem[] = [
@@ -291,6 +300,8 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchY, setTouchY] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [telegramModalOpen, setTelegramModalOpen] = useState(false);
+  const [ideaModalOpen, setIdeaModalOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Prevent body scroll when menu is open
@@ -442,11 +453,12 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -491,40 +503,74 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
                 </button>
               </div>
 
-              {/* Balance info for traders */}
+              {/* Balance info for traders - USDT only */}
               {variant === "trader" && financials && (
-                <div className="mt-3 flex gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Баланс RUB</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {financials.balanceRub.toFixed(2)} ₽
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Баланс USDT</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {financials.balanceUsdt.toFixed(2)} USDT
-                    </p>
-                  </div>
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Баланс USDT</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {financials.balanceUsdt.toFixed(2)} USDT
+                  </p>
                 </div>
               )}
 
               {variant === "trader" && rapiraRate && (
-                <div className="mt-3 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-lg border-2 border-emerald-500 dark:border-emerald-600">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-base font-semibold text-gray-900 dark:text-gray-200">
-                      Ставка TRC-20
-                    </span>
+                <div className="mt-2 p-2 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 rounded-lg border border-emerald-500 dark:border-emerald-600">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-200">
+                        TRC-20
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {rapiraRate.rate.toFixed(2)}
+                      </span>
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        ₽/USDT
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-1 pl-7">
-                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                      {rapiraRate.rate.toFixed(2)}
-                    </span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      ₽/USDT
-                    </span>
-                  </div>
+                </div>
+              )}
+
+              {/* Action buttons for traders */}
+              {variant === "trader" && (
+                <div className="mt-3 space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 text-sm border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    onClick={() => {
+                      setTelegramModalOpen(true);
+                      onClose();
+                    }}
+                  >
+                    <Send className="h-4 w-4" />
+                    <span>Подключить Telegram</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 text-sm text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-gray-50"
+                    onClick={() => {
+                      setIdeaModalOpen(true);
+                      onClose();
+                    }}
+                  >
+                    <Lightbulb className="h-4 w-4 text-yellow-500" />
+                    <span>Предложить идею</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 text-sm text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-gray-50"
+                    onClick={() => {
+                      window.open('/apk/chase.apk', '_blank');
+                    }}
+                  >
+                    <Download className="h-4 w-4 text-green-600" />
+                    <span>Скачать APK</span>
+                  </Button>
                 </div>
               )}
             </div>
@@ -620,7 +666,22 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
             </div>
           </motion.div>
         </>
+        )}
+      </AnimatePresence>
+      
+      {/* Modals */}
+      {variant === "trader" && (
+        <>
+          <TelegramConnectModal
+            open={telegramModalOpen}
+            onOpenChange={setTelegramModalOpen}
+          />
+          <IdeaModal
+            open={ideaModalOpen}
+            onOpenChange={setIdeaModalOpen}
+          />
+        </>
       )}
-    </AnimatePresence>
+    </>
   );
 }

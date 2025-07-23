@@ -3,7 +3,13 @@
 import { useState } from "react";
 import * as React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Copy, 
-  Play, 
-  Code, 
+import {
+  Copy,
+  Play,
+  Code,
   FileJson,
   Key,
   AlertCircle,
@@ -30,7 +36,7 @@ import {
   FileText,
   Link,
   ExternalLink,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,76 +71,812 @@ interface ApiEndpoint {
 
 const API_ENDPOINTS: ApiEndpoint[] = [
   // Общие
-  { method: "GET", path: "/api/merchant/connect", category: "general", description: "Информация о мерчанте", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: { id: "m1", name: "Shop" } }] },
-  { method: "GET", path: "/api/merchant/balance", category: "general", description: "Текущий баланс", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: { balance: 0 } }] },
-  { method: "GET", path: "/api/merchant/methods", category: "general", description: "Доступные методы", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: [] }] },
-  { method: "GET", path: "/api/merchant/enums", category: "general", description: "Enum значения", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: {} }] },
-  { method: "GET", path: "/api/merchant/traders/stats", category: "general", description: "Статистика трейдеров", headers: { "x-merchant-api-key": "API_KEY" }, responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  {
+    method: "GET",
+    path: "/api/merchant/connect",
+    category: "general",
+    description: "Информация о мерчанте",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    responses: [
+      { status: 200, description: "OK", example: { id: "m1", name: "Shop" } },
+    ],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/balance",
+    category: "general",
+    description: "Текущий баланс",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    responses: [{ status: 200, description: "OK", example: { balance: 0 } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/methods",
+    category: "general",
+    description: "Доступные методы",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    responses: [{ status: 200, description: "OK", example: [] }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/enums",
+    category: "general",
+    description: "Enum значения",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    responses: [{ status: 200, description: "OK", example: {} }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/traders/stats",
+    category: "general",
+    description: "Статистика трейдеров",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    responses: [{ status: 200, description: "OK", example: { success: true } }],
+  },
 
   // Транзакции
-  { 
-    method: "POST", 
-    path: "/api/merchant/transactions/in", 
-    category: "transactions", 
-    description: "Создание входящей транзакции (IN) с автоматическим подбором реквизита", 
-    headers: { "x-merchant-api-key": "API_KEY" }, 
+  {
+    method: "POST",
+    path: "/api/merchant/transactions/in",
+    category: "transactions",
+    description:
+      "Создание входящей транзакции (IN) с автоматическим подбором реквизита",
+    headers: { "x-merchant-api-key": "API_KEY" },
     body: [
-      { name: "amount", type: "number", required: true, description: "Сумма транзакции в рублях" },
-      { name: "orderId", type: "string", required: true, description: "Уникальный ID заказа от мерчанта" },
-      { name: "methodId", type: "string", required: true, description: "ID метода платежа" },
-      { name: "rate", type: "number", required: true, description: "Курс USDT/RUB" },
-      { name: "expired_at", type: "string", required: true, description: "ISO дата истечения транзакции" },
-      { name: "userIp", type: "string", required: false, description: "IP адрес пользователя" },
-      { name: "callbackUri", type: "string", required: false, description: "URL для callback уведомлений" }
-    ], 
-    responses: [{ status: 201, description: "Успешно создана IN транзакция", example: { id: "tx123", numericId: 1001, amount: 1000, status: "IN_PROGRESS", requisites: { cardNumber: "4111111111111111" } } }] 
+      {
+        name: "amount",
+        type: "number",
+        required: true,
+        description: "Сумма транзакции в рублях",
+      },
+      {
+        name: "orderId",
+        type: "string",
+        required: true,
+        description: "Уникальный ID заказа от мерчанта",
+      },
+      {
+        name: "methodId",
+        type: "string",
+        required: true,
+        description: "ID метода платежа",
+      },
+      {
+        name: "rate",
+        type: "number",
+        required: true,
+        description: "Курс USDT/RUB",
+      },
+      {
+        name: "expired_at",
+        type: "string",
+        required: true,
+        description: "ISO дата истечения транзакции",
+      },
+      {
+        name: "userIp",
+        type: "string",
+        required: false,
+        description: "IP адрес пользователя",
+      },
+      {
+        name: "callbackUri",
+        type: "string",
+        required: false,
+        description: "URL для callback уведомлений",
+      },
+    ],
+    responses: [
+      {
+        status: 201,
+        description: "Успешно создана IN транзакция",
+        example: {
+          id: "tx123",
+          numericId: 1001,
+          amount: 1000,
+          status: "IN_PROGRESS",
+          requisites: { cardNumber: "4111111111111111" },
+        },
+      },
+    ],
   },
-  { 
-    method: "POST", 
-    path: "/api/merchant/transactions/out", 
-    category: "transactions", 
-    description: "Создание исходящей транзакции (OUT)", 
-    headers: { "x-merchant-api-key": "API_KEY" }, 
+  {
+    method: "POST",
+    path: "/api/merchant/transactions/out",
+    category: "transactions",
+    description: "Создание исходящей транзакции (OUT)",
+    headers: { "x-merchant-api-key": "API_KEY" },
     body: [
-      { name: "amount", type: "number", required: true, description: "Сумма транзакции в рублях" },
-      { name: "orderId", type: "string", required: true, description: "Уникальный ID заказа от мерчанта" },
-      { name: "methodId", type: "string", required: true, description: "ID метода платежа" },
-      { name: "rate", type: "number", required: true, description: "Курс USDT/RUB" },
-      { name: "expired_at", type: "string", required: true, description: "ISO дата истечения транзакции" },
-      { name: "userIp", type: "string", required: false, description: "IP адрес пользователя" },
-      { name: "callbackUri", type: "string", required: false, description: "URL для callback уведомлений" }
-    ], 
-    responses: [{ status: 201, description: "Успешно создана OUT транзакция", example: { id: "tx123", numericId: 1001, amount: 1000, status: "IN_PROGRESS", requisites: null } }] 
+      {
+        name: "amount",
+        type: "number",
+        required: true,
+        description: "Сумма транзакции в рублях",
+      },
+      {
+        name: "orderId",
+        type: "string",
+        required: true,
+        description: "Уникальный ID заказа от мерчанта",
+      },
+      {
+        name: "methodId",
+        type: "string",
+        required: true,
+        description: "ID метода платежа",
+      },
+      {
+        name: "rate",
+        type: "number",
+        required: true,
+        description: "Курс USDT/RUB",
+      },
+      {
+        name: "expired_at",
+        type: "string",
+        required: true,
+        description: "ISO дата истечения транзакции",
+      },
+      {
+        name: "userIp",
+        type: "string",
+        required: false,
+        description: "IP адрес пользователя",
+      },
+      {
+        name: "callbackUri",
+        type: "string",
+        required: false,
+        description: "URL для callback уведомлений",
+      },
+    ],
+    responses: [
+      {
+        status: 201,
+        description: "Успешно создана OUT транзакция",
+        example: {
+          id: "tx123",
+          numericId: 1001,
+          amount: 1000,
+          status: "IN_PROGRESS",
+          requisites: null,
+        },
+      },
+    ],
   },
-  { method: "GET", path: "/api/merchant/transactions/list", category: "transactions", description: "Список транзакций", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
-  { method: "GET", path: "/api/merchant/transactions/by-order-id/:orderId", category: "transactions", description: "Транзакция по orderId", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "orderId", type: "string", required: true, description: "ID заказа" }], responses: [{ status: 200, description: "OK", example: { id: "tx" } }] },
-  { method: "PATCH", path: "/api/merchant/transactions/by-order-id/:orderId/cancel", category: "transactions", description: "Отмена транзакции", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "orderId", type: "string", required: true, description: "ID заказа" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "GET", path: "/api/merchant/transactions/status/:id", category: "transactions", description: "Статус транзакции", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { status: "READY" } }] },
-  { method: "POST", path: "/api/merchant/transactions/:id/receipt", category: "transactions", description: "Загрузка чека", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "fileData", type: "string", required: true, description: "base64" }], responses: [{ status: 201, description: "OK", example: { id: "r" } }] },
-  { method: "GET", path: "/api/merchant/transactions/:id/receipts", category: "transactions", description: "Получение чеков", headers: { "x-merchant-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: [] }] },
+  {
+    method: "GET",
+    path: "/api/merchant/transactions/list",
+    category: "transactions",
+    description: "Список транзакций",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "page",
+        type: "number",
+        required: false,
+        description: "Страница",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { data: [] } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/transactions/by-order-id/:orderId",
+    category: "transactions",
+    description: "Транзакция по orderId",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "orderId",
+        type: "string",
+        required: true,
+        description: "ID заказа",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { id: "tx" } }],
+  },
+  {
+    method: "PATCH",
+    path: "/api/merchant/transactions/by-order-id/:orderId/cancel",
+    category: "transactions",
+    description: "Отмена транзакции",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "orderId",
+        type: "string",
+        required: true,
+        description: "ID заказа",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { success: true } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/transactions/status/:id",
+    category: "transactions",
+    description: "Статус транзакции",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [{ name: "id", type: "string", required: true, description: "ID" }],
+    responses: [
+      { status: 200, description: "OK", example: { status: "READY" } },
+    ],
+  },
+  {
+    method: "POST",
+    path: "/api/merchant/transactions/:id/receipt",
+    category: "transactions",
+    description: "Загрузка чека",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [{ name: "id", type: "string", required: true, description: "ID" }],
+    body: [
+      {
+        name: "fileData",
+        type: "string",
+        required: true,
+        description: "base64",
+      },
+    ],
+    responses: [{ status: 201, description: "OK", example: { id: "r" } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/transactions/:id/receipts",
+    category: "transactions",
+    description: "Получение чеков",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [{ name: "id", type: "string", required: true, description: "ID" }],
+    responses: [{ status: 200, description: "OK", example: [] }],
+  },
 
   // Выплаты
-  { method: "POST", path: "/api/merchant/payouts", category: "payouts", description: "Создать выплату", headers: { "x-api-key": "API_KEY" }, body: [{ name: "amount", type: "number", required: true, description: "Сумма" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "GET", path: "/api/merchant/payouts/:id", category: "payouts", description: "Получить выплату", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "POST", path: "/api/merchant/payouts/:id/approve", category: "payouts", description: "Подтвердить выплату", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "POST", path: "/api/merchant/payouts/:id/dispute", category: "payouts", description: "Создать спор по выплате", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "PATCH", path: "/api/merchant/payouts/:id/cancel", category: "payouts", description: "Отмена выплаты", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "reasonCode", type: "string", required: true, description: "Причина" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "PATCH", path: "/api/merchant/payouts/:id/rate", category: "payouts", description: "Изменить курс", headers: { "x-api-key": "API_KEY" }, params: [{ name: "id", type: "string", required: true, description: "ID" }], body: [{ name: "merchantRate", type: "number", required: false, description: "Курс" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "GET", path: "/api/merchant/payouts", category: "payouts", description: "Список выплат", headers: { "x-api-key": "API_KEY" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
+  {
+    method: "POST",
+    path: "/api/merchant/payouts",
+    category: "payouts",
+    description:
+      "Создать выплату. Мерчант самостоятельно указывает реквизиты для выплаты (банк, тип карта/СБП, номер карты/телефона)",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    body: [
+      {
+        name: "amount",
+        type: "number",
+        required: true,
+        description: "Сумма выплаты в рублях (минимум 100)",
+        example: 5000,
+      },
+      {
+        name: "wallet",
+        type: "string",
+        required: true,
+        description:
+          "Номер карты (16 цифр) или номер телефона для СБП (+7XXXXXXXXXX)",
+        example: "4111111111111111",
+      },
+      {
+        name: "bank",
+        type: "string",
+        required: true,
+        description: "Код банка получателя (например: SBERBANK, TBANK, VTB)",
+        example: "SBERBANK",
+      },
+      {
+        name: "isCard",
+        type: "boolean",
+        required: true,
+        description: "true - выплата на карту, false - выплата по СБП",
+        example: true,
+      },
+      {
+        name: "merchantRate",
+        type: "number",
+        required: true,
+        description: "Курс USDT/RUB для расчета (минимум 1)",
+        example: 95.5,
+      },
+      {
+        name: "externalReference",
+        type: "string",
+        required: false,
+        description: "Внешний идентификатор для отслеживания",
+        example: "PAYOUT-12345",
+      },
+      {
+        name: "processingTime",
+        type: "number",
+        required: false,
+        description: "Время на обработку в минутах (5-60, по умолчанию 15)",
+        example: 15,
+      },
+      {
+        name: "webhookUrl",
+        type: "string",
+        required: false,
+        description: "URL для отправки уведомлений о статусе выплаты",
+        example: "https://example.com/webhook/payout",
+      },
+      {
+        name: "metadata",
+        type: "object",
+        required: false,
+        description: "Дополнительные данные в произвольном формате",
+        example: { userId: "user123", orderId: "order456" },
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "Выплата успешно создана",
+        example: {
+          success: true,
+          payout: {
+            id: "py_1a2b3c4d5e6f",
+            numericId: 10001,
+            amount: 5000,
+            amountUsdt: 52.35,
+            total: 5000,
+            totalUsdt: 52.35,
+            rate: 95.5,
+            wallet: "4111111111111111",
+            bank: "SBERBANK",
+            isCard: true,
+            status: "CREATED",
+            expireAt: "2024-03-10T15:30:00.000Z",
+            createdAt: "2024-03-10T12:30:00.000Z",
+          },
+        },
+      },
+      {
+        status: 400,
+        description: "Ошибка валидации",
+        example: { error: "Недостаточно средств на балансе" },
+      },
+    ],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/payouts/:id",
+    category: "payouts",
+    description: "Получить информацию о выплате по ID",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "id",
+        type: "string",
+        required: true,
+        description: "ID выплаты",
+        example: "py_1a2b3c4d5e6f",
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "Информация о выплате",
+        example: {
+          success: true,
+          payout: {
+            id: "py_1a2b3c4d5e6f",
+            numericId: 10001,
+            amount: 5000,
+            amountUsdt: 52.35,
+            total: 5000,
+            totalUsdt: 52.35,
+            rate: 95.5,
+            wallet: "4111111111111111",
+            bank: "SBERBANK",
+            isCard: true,
+            status: "ACTIVE",
+            expireAt: "2024-03-10T15:30:00.000Z",
+            createdAt: "2024-03-10T12:30:00.000Z",
+            acceptedAt: "2024-03-10T12:35:00.000Z",
+            confirmedAt: null,
+            cancelledAt: null,
+            proofFiles: [],
+            disputeFiles: [],
+            disputeMessage: null,
+            cancelReason: null,
+          },
+        },
+      },
+      {
+        status: 404,
+        description: "Выплата не найдена",
+        example: { error: "Payout not found" },
+      },
+    ],
+  },
+  {
+    method: "POST",
+    path: "/api/merchant/payouts/:id/dispute",
+    category: "payouts",
+    description: "Создать спор по выплате (оспорить выплату)",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "id",
+        type: "string",
+        required: true,
+        description: "ID выплаты",
+        example: "py_1a2b3c4d5e6f",
+      },
+    ],
+    body: [
+      {
+        name: "message",
+        type: "string",
+        required: true,
+        description: "Описание проблемы (минимум 10 символов)",
+        example: "Средства не получены на указанную карту",
+      },
+      {
+        name: "files",
+        type: "string[]",
+        required: false,
+        description: "Массив URL файлов-доказательств",
+        example: [
+          "https://example.com/proof1.jpg",
+          "https://example.com/screenshot.png",
+        ],
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "Спор создан",
+        example: {
+          success: true,
+          payout: {
+            id: "py_1a2b3c4d5e6f",
+            numericId: 10001,
+            status: "DISPUTED",
+          },
+        },
+      },
+      {
+        status: 400,
+        description: "Невозможно создать спор",
+        example: { error: "Выплата уже завершена или отменена" },
+      },
+    ],
+  },
+  {
+    method: "PATCH",
+    path: "/api/merchant/payouts/:id/cancel",
+    category: "payouts",
+    description: "Отменить выплату",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "id",
+        type: "string",
+        required: true,
+        description: "ID выплаты",
+        example: "py_1a2b3c4d5e6f",
+      },
+    ],
+    body: [
+      {
+        name: "reasonCode",
+        type: "string",
+        required: true,
+        description: "Код причины отмены (минимум 3 символа)",
+        example: "MERCHANT_REQUEST",
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "Выплата отменена",
+        example: {
+          success: true,
+          payout: {
+            id: "py_1a2b3c4d5e6f",
+            numericId: 10001,
+            status: "CANCELLED",
+            cancelledAt: "2024-03-10T13:00:00.000Z",
+            cancelReasonCode: "MERCHANT_REQUEST",
+          },
+        },
+      },
+      {
+        status: 400,
+        description: "Невозможно отменить",
+        example: { error: "Выплата уже обработана" },
+      },
+    ],
+  },
+  {
+    method: "PATCH",
+    path: "/api/merchant/payouts/:id/rate",
+    category: "payouts",
+    description: "Изменить курс или сумму выплаты",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "id",
+        type: "string",
+        required: true,
+        description: "ID выплаты",
+        example: "py_1a2b3c4d5e6f",
+      },
+    ],
+    body: [
+      {
+        name: "merchantRate",
+        type: "number",
+        required: false,
+        description: "Новый курс USDT/RUB",
+        example: 96.5,
+      },
+      {
+        name: "amount",
+        type: "number",
+        required: false,
+        description: "Новая сумма в рублях",
+        example: 5500,
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "Параметры обновлены",
+        example: {
+          success: true,
+          payout: {
+            id: "py_1a2b3c4d5e6f",
+            numericId: 10001,
+            amount: 5500,
+            merchantRate: 96.5,
+            rate: 94.5,
+            total: 5610,
+          },
+        },
+      },
+      {
+        status: 400,
+        description: "Невозможно изменить",
+        example: { error: "Выплата уже принята трейдером" },
+      },
+    ],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/payouts",
+    category: "payouts",
+    description: "Получить список выплат с фильтрацией",
+    headers: { "x-merchant-api-key": "API_KEY" },
+    params: [
+      {
+        name: "status",
+        type: "string",
+        required: false,
+        description: "Фильтр по статусу (можно несколько через запятую)",
+        example: "ACTIVE,CHECKING",
+      },
+      {
+        name: "direction",
+        type: "string",
+        required: false,
+        description: "Направление: IN (входящие) или OUT (исходящие)",
+        example: "OUT",
+      },
+      {
+        name: "dateFrom",
+        type: "string",
+        required: false,
+        description: "Дата начала периода (ISO 8601)",
+        example: "2024-03-01T00:00:00.000Z",
+      },
+      {
+        name: "dateTo",
+        type: "string",
+        required: false,
+        description: "Дата конца периода (ISO 8601)",
+        example: "2024-03-31T23:59:59.999Z",
+      },
+      {
+        name: "page",
+        type: "number",
+        required: false,
+        description: "Номер страницы (по умолчанию 1)",
+        example: 1,
+      },
+      {
+        name: "limit",
+        type: "number",
+        required: false,
+        description: "Количество записей на странице (1-100, по умолчанию 20)",
+        example: 20,
+      },
+    ],
+    responses: [
+      {
+        status: 200,
+        description: "Список выплат",
+        example: {
+          success: true,
+          data: [
+            {
+              id: "py_1a2b3c4d5e6f",
+              numericId: 10001,
+              status: "ACTIVE",
+              direction: "OUT",
+              amount: 5000,
+              rate: 95.5,
+              total: 5000,
+              wallet: "4111111111111111",
+              bank: "SBERBANK",
+              isCard: true,
+              externalReference: "PAYOUT-12345",
+              createdAt: "2024-03-10T12:30:00.000Z",
+              acceptedAt: "2024-03-10T12:35:00.000Z",
+              confirmedAt: null,
+              cancelledAt: null,
+              trader: {
+                numericId: 1001,
+                email: "trader@example.com",
+              },
+            },
+          ],
+          meta: {
+            total: 150,
+            page: 1,
+            limit: 20,
+            totalPages: 8,
+          },
+        },
+      },
+    ],
+  },
 
   // Споры по выплатам
-  { method: "POST", path: "/api/merchant/disputes/payout/:payoutId", category: "disputes", description: "Создать спор по выплате", headers: { Authorization: "Bearer" }, params: [{ name: "payoutId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "GET", path: "/api/merchant/disputes", category: "disputes", description: "Список споров", headers: { Authorization: "Bearer" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
-  { method: "GET", path: "/api/merchant/disputes/:disputeId", category: "disputes", description: "Получить спор", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { data: {} } }] },
-  { method: "POST", path: "/api/merchant/disputes/:disputeId/messages", category: "disputes", description: "Сообщение в споре", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
+  {
+    method: "POST",
+    path: "/api/merchant/disputes/payout/:payoutId",
+    category: "disputes",
+    description: "Создать спор по выплате",
+    headers: { Authorization: "Bearer" },
+    params: [
+      { name: "payoutId", type: "string", required: true, description: "ID" },
+    ],
+    body: [
+      {
+        name: "message",
+        type: "string",
+        required: true,
+        description: "Сообщение",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { success: true } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/disputes",
+    category: "disputes",
+    description: "Список споров",
+    headers: { Authorization: "Bearer" },
+    params: [
+      {
+        name: "page",
+        type: "number",
+        required: false,
+        description: "Страница",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { data: [] } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/disputes/:disputeId",
+    category: "disputes",
+    description: "Получить спор",
+    headers: { Authorization: "Bearer" },
+    params: [
+      { name: "disputeId", type: "string", required: true, description: "ID" },
+    ],
+    responses: [{ status: 200, description: "OK", example: { data: {} } }],
+  },
+  {
+    method: "POST",
+    path: "/api/merchant/disputes/:disputeId/messages",
+    category: "disputes",
+    description: "Сообщение в споре",
+    headers: { Authorization: "Bearer" },
+    params: [
+      { name: "disputeId", type: "string", required: true, description: "ID" },
+    ],
+    body: [
+      {
+        name: "message",
+        type: "string",
+        required: true,
+        description: "Сообщение",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { success: true } }],
+  },
 
   // Споры по сделкам
-  { method: "GET", path: "/api/merchant/deal-disputes/test", category: "deal-disputes", description: "Тест" , headers: { Authorization: "Bearer" }, responses: [{ status: 200, description: "OK", example: { message: "Deal disputes routes are working!" } }] },
-  { method: "POST", path: "/api/merchant/deal-disputes/deal/:dealId", category: "deal-disputes", description: "Создать спор по сделке", headers: { Authorization: "Bearer" }, params: [{ name: "dealId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-  { method: "GET", path: "/api/merchant/deal-disputes", category: "deal-disputes", description: "Список споров по сделкам", headers: { Authorization: "Bearer" }, params: [{ name: "page", type: "number", required: false, description: "Страница" }], responses: [{ status: 200, description: "OK", example: { data: [] } }] },
-  { method: "GET", path: "/api/merchant/deal-disputes/:disputeId", category: "deal-disputes", description: "Получить спор по сделке", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], responses: [{ status: 200, description: "OK", example: { data: {} } }] },
-  { method: "POST", path: "/api/merchant/deal-disputes/:disputeId/messages", category: "deal-disputes", description: "Сообщение в споре по сделке", headers: { Authorization: "Bearer" }, params: [{ name: "disputeId", type: "string", required: true, description: "ID" }], body: [{ name: "message", type: "string", required: true, description: "Сообщение" }], responses: [{ status: 200, description: "OK", example: { success: true } }] },
-
+  {
+    method: "GET",
+    path: "/api/merchant/deal-disputes/test",
+    category: "deal-disputes",
+    description: "Тест",
+    headers: { Authorization: "Bearer" },
+    responses: [
+      {
+        status: 200,
+        description: "OK",
+        example: { message: "Deal disputes routes are working!" },
+      },
+    ],
+  },
+  {
+    method: "POST",
+    path: "/api/merchant/deal-disputes/deal/:dealId",
+    category: "deal-disputes",
+    description: "Создать спор по сделке",
+    headers: { Authorization: "Bearer" },
+    params: [
+      { name: "dealId", type: "string", required: true, description: "ID" },
+    ],
+    body: [
+      {
+        name: "message",
+        type: "string",
+        required: true,
+        description: "Сообщение",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { success: true } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/deal-disputes",
+    category: "deal-disputes",
+    description: "Список споров по сделкам",
+    headers: { Authorization: "Bearer" },
+    params: [
+      {
+        name: "page",
+        type: "number",
+        required: false,
+        description: "Страница",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { data: [] } }],
+  },
+  {
+    method: "GET",
+    path: "/api/merchant/deal-disputes/:disputeId",
+    category: "deal-disputes",
+    description: "Получить спор по сделке",
+    headers: { Authorization: "Bearer" },
+    params: [
+      { name: "disputeId", type: "string", required: true, description: "ID" },
+    ],
+    responses: [{ status: 200, description: "OK", example: { data: {} } }],
+  },
+  {
+    method: "POST",
+    path: "/api/merchant/deal-disputes/:disputeId/messages",
+    category: "deal-disputes",
+    description: "Сообщение в споре по сделке",
+    headers: { Authorization: "Bearer" },
+    params: [
+      { name: "disputeId", type: "string", required: true, description: "ID" },
+    ],
+    body: [
+      {
+        name: "message",
+        type: "string",
+        required: true,
+        description: "Сообщение",
+      },
+    ],
+    responses: [{ status: 200, description: "OK", example: { success: true } }],
+  },
 ];
 
 const CATEGORIES = [
@@ -142,13 +884,15 @@ const CATEGORIES = [
   { id: "transactions", name: "Транзакции", icon: CreditCard },
   { id: "payouts", name: "Выплаты", icon: DollarSign },
   { id: "disputes", name: "Споры", icon: AlertCircle },
-  { id: "deal-disputes", name: "Споры по сделкам", icon: AlertCircle }
+  { id: "deal-disputes", name: "Споры по сделкам", icon: AlertCircle },
 ];
 
 export function ApiDocumentation() {
   const { merchant, token } = useMerchantAuth();
   const [selectedCategory, setSelectedCategory] = useState("general");
-  const [selectedEndpoint, setSelectedEndpoint] = useState<ApiEndpoint | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<ApiEndpoint | null>(
+    null,
+  );
   const [testingEndpoint, setTestingEndpoint] = useState<string | null>(null);
   const [testParams, setTestParams] = useState<Record<string, any>>({});
   const [testBody, setTestBody] = useState<string>("{}");
@@ -166,20 +910,23 @@ export function ApiDocumentation() {
     }
   }, []);
 
-  const filteredEndpoints = API_ENDPOINTS.filter(e => e.category === selectedCategory);
+  const filteredEndpoints = API_ENDPOINTS.filter(
+    (e) => e.category === selectedCategory,
+  );
 
   // Generate random test data
   const generateRandomData = (endpoint: ApiEndpoint) => {
     const data: Record<string, any> = {};
-    
+
     if (endpoint.body) {
-      endpoint.body.forEach(field => {
+      endpoint.body.forEach((field) => {
         switch (field.name) {
           case "amount":
             data[field.name] = Math.floor(Math.random() * 10000) + 100;
             break;
           case "orderId":
-            data[field.name] = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            data[field.name] =
+              `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             break;
           case "methodId":
             data[field.name] = "method_1"; // This should be replaced with actual method ID
@@ -193,10 +940,12 @@ export function ApiDocumentation() {
             data[field.name] = futureDate.toISOString();
             break;
           case "userIp":
-            data[field.name] = `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+            data[field.name] =
+              `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
             break;
           case "userId":
-            data[field.name] = `user_${Math.random().toString(36).substr(2, 9)}`;
+            data[field.name] =
+              `user_${Math.random().toString(36).substr(2, 9)}`;
             break;
           case "type":
             data[field.name] = Math.random() > 0.5 ? "IN" : "OUT";
@@ -204,7 +953,8 @@ export function ApiDocumentation() {
           case "callbackUri":
           case "successUri":
           case "failUri":
-            data[field.name] = `https://example.com/${field.name.replace("Uri", "")}`;
+            data[field.name] =
+              `https://example.com/${field.name.replace("Uri", "")}`;
             break;
           case "message":
           case "reason":
@@ -220,14 +970,15 @@ export function ApiDocumentation() {
             data[field.name] = 95.5 + Math.random() * 5;
             break;
           case "fileData":
-            data[field.name] = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+            data[field.name] =
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
             break;
           default:
             data[field.name] = field.example || `test_${field.name}`;
         }
       });
     }
-    
+
     return JSON.stringify(data, null, 2);
   };
 
@@ -245,10 +996,10 @@ export function ApiDocumentation() {
 
       // Build URL
       let url = `${baseUrl}${endpoint.path}`;
-      
+
       // Replace path params
       if (endpoint.params) {
-        endpoint.params.forEach(param => {
+        endpoint.params.forEach((param) => {
           if (param.name in testParams) {
             url = url.replace(`:${param.name}`, testParams[param.name]);
           }
@@ -256,10 +1007,12 @@ export function ApiDocumentation() {
       }
 
       // Add query params
-      const queryParams = endpoint.params?.filter(p => !endpoint.path.includes(`:${p.name}`)) || [];
+      const queryParams =
+        endpoint.params?.filter((p) => !endpoint.path.includes(`:${p.name}`)) ||
+        [];
       if (queryParams.length > 0) {
         const query = new URLSearchParams();
-        queryParams.forEach(param => {
+        queryParams.forEach((param) => {
           if (param.name in testParams && testParams[param.name]) {
             query.append(param.name, testParams[param.name]);
           }
@@ -273,21 +1026,17 @@ export function ApiDocumentation() {
       // Build request
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        ...endpoint.headers
+        ...endpoint.headers,
       };
 
       // Автоматически подставляем API токен мерчанта
       if (headers["x-merchant-api-key"]) {
         headers["x-merchant-api-key"] = token || "YOUR_API_KEY_HERE";
       }
-      if (headers["x-api-key"]) {
-        headers["x-api-key"] = token || "YOUR_API_KEY_HERE";
-      }
-      
 
       const options: RequestInit = {
         method: endpoint.method,
-        headers
+        headers,
       };
 
       if (["POST", "PUT", "PATCH"].includes(endpoint.method)) {
@@ -305,12 +1054,11 @@ export function ApiDocumentation() {
       setTestResponse({
         status: response.status,
         data,
-        headers: Object.fromEntries(response.headers.entries())
+        headers: Object.fromEntries(response.headers.entries()),
       });
-
     } catch (error: any) {
       setTestResponse({
-        error: error.message || "Ошибка выполнения запроса"
+        error: error.message || "Ошибка выполнения запроса",
       });
     } finally {
       setTestingEndpoint(null);
@@ -319,12 +1067,18 @@ export function ApiDocumentation() {
 
   const getMethodColor = (method: string) => {
     switch (method) {
-      case "GET": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
-      case "POST": return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
-      case "PUT": return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
-      case "DELETE": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-      case "PATCH": return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
-      default: return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
+      case "GET":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "POST":
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      case "PUT":
+        return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+      case "DELETE":
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+      case "PATCH":
+        return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
     }
   };
 
@@ -369,7 +1123,9 @@ export function ApiDocumentation() {
         <Card>
           <CardHeader className="flex flex-row items-center space-y-0 pb-2">
             <Shield className="h-4 w-4 mr-2 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium">Аутентификация</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Аутентификация
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground mb-2">
@@ -419,8 +1175,10 @@ export function ApiDocumentation() {
             <ScrollArea className="h-[600px]">
               {CATEGORIES.map((category) => {
                 const Icon = category.icon;
-                const count = API_ENDPOINTS.filter(e => e.category === category.id).length;
-                
+                const count = API_ENDPOINTS.filter(
+                  (e) => e.category === category.id,
+                ).length;
+
                 return (
                   <button
                     key={category.id}
@@ -430,7 +1188,7 @@ export function ApiDocumentation() {
                     }}
                     className={cn(
                       "w-full flex items-center justify-between px-4 py-3 text-left hover:bg-accent transition-colors",
-                      selectedCategory === category.id && "bg-accent"
+                      selectedCategory === category.id && "bg-accent",
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -453,7 +1211,7 @@ export function ApiDocumentation() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {CATEGORIES.find(c => c.id === selectedCategory)?.name}
+                  {CATEGORIES.find((c) => c.id === selectedCategory)?.name}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -464,7 +1222,9 @@ export function ApiDocumentation() {
                       onClick={() => {
                         setSelectedEndpoint(endpoint);
                         setTestParams({});
-                        if (["POST", "PUT", "PATCH"].includes(endpoint.method)) {
+                        if (
+                          ["POST", "PUT", "PATCH"].includes(endpoint.method)
+                        ) {
                           setTestBody(generateRandomData(endpoint));
                         } else {
                           setTestBody("{}");
@@ -472,7 +1232,12 @@ export function ApiDocumentation() {
                       }}
                       className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors text-left"
                     >
-                      <Badge className={cn("font-mono", getMethodColor(endpoint.method))}>
+                      <Badge
+                        className={cn(
+                          "font-mono",
+                          getMethodColor(endpoint.method),
+                        )}
+                      >
                         {endpoint.method}
                       </Badge>
                       <code className="flex-1 text-sm">{endpoint.path}</code>
@@ -490,7 +1255,12 @@ export function ApiDocumentation() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Badge className={cn("font-mono", getMethodColor(selectedEndpoint.method))}>
+                    <Badge
+                      className={cn(
+                        "font-mono",
+                        getMethodColor(selectedEndpoint.method),
+                      )}
+                    >
                       {selectedEndpoint.method}
                     </Badge>
                     <code className="text-lg">{selectedEndpoint.path}</code>
@@ -503,7 +1273,9 @@ export function ApiDocumentation() {
                     Назад
                   </Button>
                 </div>
-                <CardDescription>{selectedEndpoint.description}</CardDescription>
+                <CardDescription>
+                  {selectedEndpoint.description}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="docs">
@@ -517,131 +1289,188 @@ export function ApiDocumentation() {
                     {/* Headers */}
                     {selectedEndpoint.headers && (
                       <div>
-                        <h3 className="text-sm font-semibold mb-2">Заголовки</h3>
+                        <h3 className="text-sm font-semibold mb-2">
+                          Заголовки
+                        </h3>
                         <div className="bg-muted rounded-lg p-3">
-                          {Object.entries(selectedEndpoint.headers).map(([key, value]) => (
-                            <div key={key} className="flex items-center justify-between">
-                              <code className="text-sm">
-                                {key}: {value}
-                              </code>
-                              {key === "x-merchant-api-key" && merchant?.apiKey && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={() => copyToClipboard(merchant.apiKey, `header-${key}`)}
-                                >
-                                  {copied === `header-${key}` ? (
-                                    <Check className="h-3 w-3" />
-                                  ) : (
-                                    <Copy className="h-3 w-3" />
+                          {Object.entries(selectedEndpoint.headers).map(
+                            ([key, value]) => (
+                              <div
+                                key={key}
+                                className="flex items-center justify-between"
+                              >
+                                <code className="text-sm">
+                                  {key}: {value}
+                                </code>
+                                {key === "x-merchant-api-key" &&
+                                  merchant?.apiKey && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6"
+                                      onClick={() =>
+                                        copyToClipboard(
+                                          merchant.apiKey,
+                                          `header-${key}`,
+                                        )
+                                      }
+                                    >
+                                      {copied === `header-${key}` ? (
+                                        <Check className="h-3 w-3" />
+                                      ) : (
+                                        <Copy className="h-3 w-3" />
+                                      )}
+                                    </Button>
                                   )}
-                                </Button>
-                              )}
-                            </div>
-                          ))}
+                              </div>
+                            ),
+                          )}
                         </div>
                       </div>
                     )}
 
                     {/* Parameters */}
-                    {selectedEndpoint.params && selectedEndpoint.params.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold mb-2">Параметры</h3>
-                        <div className="space-y-2">
-                          {selectedEndpoint.params.map((param) => (
-                            <div key={param.name} className="border rounded-lg p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <code className="text-sm font-medium">{param.name}</code>
-                                <Badge variant={param.required ? "default" : "secondary"} className="text-xs">
-                                  {param.type}
-                                </Badge>
-                                {param.required && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    обязательный
+                    {selectedEndpoint.params &&
+                      selectedEndpoint.params.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-2">
+                            Параметры
+                          </h3>
+                          <div className="space-y-2">
+                            {selectedEndpoint.params.map((param) => (
+                              <div
+                                key={param.name}
+                                className="border rounded-lg p-3"
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <code className="text-sm font-medium">
+                                    {param.name}
+                                  </code>
+                                  <Badge
+                                    variant={
+                                      param.required ? "default" : "secondary"
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {param.type}
                                   </Badge>
+                                  {param.required && (
+                                    <Badge
+                                      variant="destructive"
+                                      className="text-xs"
+                                    >
+                                      обязательный
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {param.description}
+                                </p>
+                                {param.example && (
+                                  <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
+                                    {JSON.stringify(param.example)}
+                                  </code>
                                 )}
                               </div>
-                              <p className="text-sm text-muted-foreground">{param.description}</p>
-                              {param.example && (
-                                <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
-                                  {JSON.stringify(param.example)}
-                                </code>
-                              )}
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Body */}
-                    {selectedEndpoint.body && selectedEndpoint.body.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold mb-2">Тело запроса</h3>
-                        <div className="space-y-2">
-                          {selectedEndpoint.body.map((field) => (
-                            <div key={field.name} className="border rounded-lg p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <code className="text-sm font-medium">{field.name}</code>
-                                <Badge variant={field.required ? "default" : "secondary"} className="text-xs">
-                                  {field.type}
-                                </Badge>
-                                {field.required && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    обязательный
+                    {selectedEndpoint.body &&
+                      selectedEndpoint.body.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-2">
+                            Тело запроса
+                          </h3>
+                          <div className="space-y-2">
+                            {selectedEndpoint.body.map((field) => (
+                              <div
+                                key={field.name}
+                                className="border rounded-lg p-3"
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <code className="text-sm font-medium">
+                                    {field.name}
+                                  </code>
+                                  <Badge
+                                    variant={
+                                      field.required ? "default" : "secondary"
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {field.type}
                                   </Badge>
+                                  {field.required && (
+                                    <Badge
+                                      variant="destructive"
+                                      className="text-xs"
+                                    >
+                                      обязательный
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {field.description}
+                                </p>
+                                {field.example && (
+                                  <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
+                                    {JSON.stringify(field.example)}
+                                  </code>
                                 )}
                               </div>
-                              <p className="text-sm text-muted-foreground">{field.description}</p>
-                              {field.example && (
-                                <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
-                                  {JSON.stringify(field.example)}
-                                </code>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
 
-                        {/* Example body */}
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium mb-2">Пример запроса:</h4>
-                          <div className="relative">
-                            <pre className="bg-muted rounded-lg p-3 text-sm overflow-x-auto">
-                              {JSON.stringify(
-                                selectedEndpoint.body.reduce((acc, field) => {
-                                  acc[field.name] = field.example || `<${field.type}>`;
-                                  return acc;
-                                }, {} as any),
-                                null,
-                                2
-                              )}
-                            </pre>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="absolute top-2 right-2 h-6 w-6"
-                              onClick={() => copyToClipboard(
-                                JSON.stringify(
-                                  selectedEndpoint.body?.reduce((acc, field) => {
-                                    acc[field.name] = field.example || "";
+                          {/* Example body */}
+                          <div className="mt-4">
+                            <h4 className="text-sm font-medium mb-2">
+                              Пример запроса:
+                            </h4>
+                            <div className="relative">
+                              <pre className="bg-muted rounded-lg p-3 text-sm overflow-x-auto">
+                                {JSON.stringify(
+                                  selectedEndpoint.body.reduce((acc, field) => {
+                                    acc[field.name] =
+                                      field.example || `<${field.type}>`;
                                     return acc;
                                   }, {} as any),
                                   null,
-                                  2
-                                ),
-                                "example-body"
-                              )}
-                            >
-                              {copied === "example-body" ? (
-                                <Check className="h-3 w-3" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </Button>
+                                  2,
+                                )}
+                              </pre>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute top-2 right-2 h-6 w-6"
+                                onClick={() =>
+                                  copyToClipboard(
+                                    JSON.stringify(
+                                      selectedEndpoint.body?.reduce(
+                                        (acc, field) => {
+                                          acc[field.name] = field.example || "";
+                                          return acc;
+                                        },
+                                        {} as any,
+                                      ),
+                                      null,
+                                      2,
+                                    ),
+                                    "example-body",
+                                  )
+                                }
+                              >
+                                {copied === "example-body" ? (
+                                  <Check className="h-3 w-3" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Responses */}
                     <div>
@@ -650,10 +1479,18 @@ export function ApiDocumentation() {
                         {selectedEndpoint.responses.map((response, idx) => (
                           <div key={idx} className="border rounded-lg p-3">
                             <div className="flex items-center gap-2 mb-2">
-                              <Badge variant={response.status < 400 ? "default" : "destructive"}>
+                              <Badge
+                                variant={
+                                  response.status < 400
+                                    ? "default"
+                                    : "destructive"
+                                }
+                              >
                                 {response.status}
                               </Badge>
-                              <span className="text-sm">{response.description}</span>
+                              <span className="text-sm">
+                                {response.description}
+                              </span>
                             </div>
                             <pre className="bg-muted rounded p-2 text-xs overflow-x-auto">
                               {JSON.stringify(response.example, null, 2)}
@@ -669,45 +1506,60 @@ export function ApiDocumentation() {
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        Тестовые запросы отправляются на реальный API. Будьте осторожны!
+                        Тестовые запросы отправляются на реальный API. Будьте
+                        осторожны!
                       </AlertDescription>
                     </Alert>
 
                     {/* Test Parameters */}
-                    {selectedEndpoint.params && selectedEndpoint.params.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold mb-2">Параметры</h3>
-                        <div className="space-y-2">
-                          {selectedEndpoint.params.map((param) => (
-                            <div key={param.name}>
-                              <Label htmlFor={param.name}>
-                                {param.name}
-                                {param.required && <span className="text-red-500 ml-1">*</span>}
-                              </Label>
-                              <Input
-                                id={param.name}
-                                placeholder={param.example?.toString() || param.description}
-                                value={testParams[param.name] || ""}
-                                onChange={(e) => setTestParams({
-                                  ...testParams,
-                                  [param.name]: e.target.value
-                                })}
-                              />
-                            </div>
-                          ))}
+                    {selectedEndpoint.params &&
+                      selectedEndpoint.params.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-2">
+                            Параметры
+                          </h3>
+                          <div className="space-y-2">
+                            {selectedEndpoint.params.map((param) => (
+                              <div key={param.name}>
+                                <Label htmlFor={param.name}>
+                                  {param.name}
+                                  {param.required && (
+                                    <span className="text-red-500 ml-1">*</span>
+                                  )}
+                                </Label>
+                                <Input
+                                  id={param.name}
+                                  placeholder={
+                                    param.example?.toString() ||
+                                    param.description
+                                  }
+                                  value={testParams[param.name] || ""}
+                                  onChange={(e) =>
+                                    setTestParams({
+                                      ...testParams,
+                                      [param.name]: e.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Test Body */}
-                    {["POST", "PUT", "PATCH"].includes(selectedEndpoint.method) && (
+                    {["POST", "PUT", "PATCH"].includes(
+                      selectedEndpoint.method,
+                    ) && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <Label htmlFor="test-body">Тело запроса (JSON)</Label>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setTestBody(generateRandomData(selectedEndpoint))}
+                            onClick={() =>
+                              setTestBody(generateRandomData(selectedEndpoint))
+                            }
                           >
                             <Zap className="mr-2 h-3 w-3" />
                             Сгенерировать данные
@@ -725,7 +1577,7 @@ export function ApiDocumentation() {
                               return acc;
                             }, {} as any),
                             null,
-                            2
+                            2,
                           )}
                         />
                       </div>
@@ -758,12 +1610,20 @@ export function ApiDocumentation() {
                           {testResponse.error ? (
                             <Alert variant="destructive">
                               <AlertCircle className="h-4 w-4" />
-                              <AlertDescription>{testResponse.error}</AlertDescription>
+                              <AlertDescription>
+                                {testResponse.error}
+                              </AlertDescription>
                             </Alert>
                           ) : (
                             <>
                               <div className="flex items-center gap-2 mb-2">
-                                <Badge variant={testResponse.status < 400 ? "default" : "destructive"}>
+                                <Badge
+                                  variant={
+                                    testResponse.status < 400
+                                      ? "default"
+                                      : "destructive"
+                                  }
+                                >
                                   {testResponse.status}
                                 </Badge>
                                 <span className="text-sm text-muted-foreground">
@@ -786,6 +1646,155 @@ export function ApiDocumentation() {
         </div>
       </div>
 
+      {/* Payout Statuses */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Статусы выплат</CardTitle>
+          <CardDescription>
+            Все возможные статусы выплат и их описание
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge variant="secondary">CREATED</Badge>
+                <span className="text-xs text-muted-foreground">
+                  Начальный статус
+                </span>
+              </div>
+              <p className="text-sm">
+                Выплата создана и ожидает принятия трейдером. В этом статусе
+                выплата находится в общем пуле доступных выплат.
+              </p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  ACTIVE
+                </Badge>
+                <span className="text-xs text-muted-foreground">В работе</span>
+              </div>
+              <p className="text-sm">
+                Выплата принята трейдером к исполнению. Трейдер должен отправить
+                средства на указанные реквизиты в течение установленного
+                времени.
+              </p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  CHECKING
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  На проверке
+                </span>
+              </div>
+              <p className="text-sm">
+                Трейдер отправил средства и загрузил подтверждение. Ожидается
+                подтверждение от администратора. Администратор проверяет
+                транзакцию и может подтвердить выплату или вернуть её на
+                доработку.
+              </p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  COMPLETED
+                </Badge>
+                <span className="text-xs text-muted-foreground">Завершена</span>
+              </div>
+              <p className="text-sm">Выплата успешно завершена.</p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge variant="destructive">CANCELLED</Badge>
+                <span className="text-xs text-muted-foreground">Отменена</span>
+              </div>
+              <p className="text-sm">
+                Выплата отменена. Может быть отменена мерчантом, трейдером или
+                администратором.
+              </p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                  EXPIRED
+                </Badge>
+                <span className="text-xs text-muted-foreground">Истекла</span>
+              </div>
+              <p className="text-sm">
+                Время на выполнение выплаты истекло. Выплата автоматически
+                отменена системой.
+              </p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                  DISPUTED
+                </Badge>
+                <span className="text-xs text-muted-foreground">Спор</span>
+              </div>
+              <p className="text-sm">
+                По выплате открыт спор. Требуется вмешательство администратора
+                для разрешения конфликтной ситуации между мерчантом и трейдером.
+              </p>
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold">Жизненный цикл выплаты:</h4>
+            <div className="flex flex-wrap gap-2 items-center text-sm">
+              <Badge variant="secondary">CREATED</Badge>
+              <ChevronRight className="h-4 w-4" />
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                ACTIVE
+              </Badge>
+              <ChevronRight className="h-4 w-4" />
+              <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                CHECKING
+              </Badge>
+              <ChevronRight className="h-4 w-4" />
+              <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                COMPLETED
+              </Badge>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p className="mb-2">Альтернативные пути:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>
+                  Из любого статуса (кроме COMPLETED) →{" "}
+                  <Badge variant="destructive" className="ml-1">
+                    CANCELLED
+                  </Badge>
+                </li>
+                <li>
+                  Из статуса CHECKING →{" "}
+                  <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 ml-1">
+                    DISPUTED
+                  </Badge>
+                </li>
+                <li>
+                  Из статуса ACTIVE (если время истекло) →{" "}
+                  <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 ml-1">
+                    EXPIRED
+                  </Badge>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Code Examples */}
       <Card>
         <CardHeader>
@@ -806,30 +1815,46 @@ export function ApiDocumentation() {
             <TabsContent value="curl">
               <div className="relative">
                 <pre className="bg-muted rounded-lg p-4 text-sm overflow-x-auto">
-{`curl -X POST https://api.example.com/api/merchant/transactions \\
+                  {`# Создание выплаты
+curl -X POST ${baseUrl}/api/merchant/payouts \\
   -H "Content-Type: application/json" \\
   -H "x-merchant-api-key: YOUR_API_KEY" \\
   -d '{
-    "amount": 1000,
-    "orderId": "ORDER-123",
-    "description": "Оплата заказа #123"
-  }'`}
+    "amount": 5000,
+    "wallet": "4111111111111111",
+    "bank": "SBERBANK",
+    "isCard": true,
+    "merchantRate": 95.5,
+    "externalReference": "PAYOUT-12345",
+    "webhookUrl": "https://example.com/webhook/payout"
+  }'
+
+# Получение информации о выплате
+curl -X GET ${baseUrl}/api/merchant/payouts/py_1a2b3c4d5e6f \\
+  -H "x-merchant-api-key: YOUR_API_KEY"`}
                 </pre>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(
-                    `curl -X POST https://api.example.com/api/merchant/transactions \\
+                  onClick={() =>
+                    copyToClipboard(
+                      `# Создание выплаты
+curl -X POST ${baseUrl}/api/merchant/payouts \\
   -H "Content-Type: application/json" \\
   -H "x-merchant-api-key: YOUR_API_KEY" \\
   -d '{
-    "amount": 1000,
-    "orderId": "ORDER-123",
-    "description": "Оплата заказа #123"
+    "amount": 5000,
+    "wallet": "4111111111111111",
+    "bank": "SBERBANK",
+    "isCard": true,
+    "merchantRate": 95.5,
+    "externalReference": "PAYOUT-12345",
+    "webhookUrl": "https://example.com/webhook/payout"
   }'`,
-                    "curl-example"
-                  )}
+                      "curl-example",
+                    )
+                  }
                 >
                   {copied === "curl-example" ? (
                     <Check className="h-4 w-4" />
@@ -843,44 +1868,94 @@ export function ApiDocumentation() {
             <TabsContent value="javascript">
               <div className="relative">
                 <pre className="bg-muted rounded-lg p-4 text-sm overflow-x-auto">
-{`const response = await fetch('https://api.example.com/api/merchant/transactions', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-merchant-api-key': 'YOUR_API_KEY'
-  },
-  body: JSON.stringify({
-    amount: 1000,
-    orderId: 'ORDER-123',
-    description: 'Оплата заказа #123'
-  })
-});
+                  {`// Создание выплаты
+const createPayout = async () => {
+  const response = await fetch('${baseUrl}/api/merchant/payouts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-merchant-api-key': 'YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      amount: 5000,
+      wallet: '4111111111111111',
+      bank: 'SBERBANK',
+      isCard: true,
+      merchantRate: 95.5,
+      externalReference: 'PAYOUT-12345',
+      webhookUrl: 'https://example.com/webhook/payout'
+    })
+  });
 
-const data = await response.json();
-console.log(data);`}
+  const data = await response.json();
+  console.log('Payout created:', data);
+  return data;
+};
+
+// Проверка статуса выплаты
+const checkPayoutStatus = async (payoutId) => {
+  const response = await fetch(\`${baseUrl}/api/merchant/payouts/\${payoutId}\`, {
+    headers: {
+      'x-merchant-api-key': 'YOUR_API_KEY'
+    }
+  });
+
+  const data = await response.json();
+  console.log('Payout status:', data.payout.status);
+  return data;
+};
+
+// Создание спора по выплате
+const disputePayout = async (payoutId, message, files = []) => {
+  const response = await fetch(\`${baseUrl}/api/merchant/payouts/\${payoutId}/dispute\`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-merchant-api-key': 'YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      message: message,
+      files: files
+    })
+  });
+
+  const data = await response.json();
+  console.log('Dispute created:', data);
+  return data;
+};`}
                 </pre>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(
-                    `const response = await fetch('https://api.example.com/api/merchant/transactions', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-merchant-api-key': 'YOUR_API_KEY'
-  },
-  body: JSON.stringify({
-    amount: 1000,
-    orderId: 'ORDER-123',
-    description: 'Оплата заказа #123'
-  })
-});
+                  onClick={() =>
+                    copyToClipboard(
+                      `// Создание выплаты
+const createPayout = async () => {
+  const response = await fetch('${baseUrl}/api/merchant/payouts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-merchant-api-key': 'YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+      amount: 5000,
+      wallet: '4111111111111111',
+      bank: 'SBERBANK',
+      isCard: true,
+      merchantRate: 95.5,
+      externalReference: 'PAYOUT-12345',
+      webhookUrl: 'https://example.com/webhook/payout'
+    })
+  });
 
-const data = await response.json();
-console.log(data);`,
-                    "js-example"
-                  )}
+  const data = await response.json();
+  console.log('Payout created:', data);
+  return data;
+};`,
+                      "js-example",
+                    )
+                  }
                 >
                   {copied === "js-example" ? (
                     <Check className="h-4 w-4" />
@@ -894,34 +1969,99 @@ console.log(data);`,
             <TabsContent value="php">
               <div className="relative">
                 <pre className="bg-muted rounded-lg p-4 text-sm overflow-x-auto">
-{`<?php
-$data = [
-    'amount' => 1000,
-    'orderId' => 'ORDER-123',
-    'description' => 'Оплата заказа #123'
-];
+                  {`<?php
+// Создание выплаты
+function createPayout($apiKey) {
+    $data = [
+        'amount' => 5000,
+        'wallet' => '4111111111111111',
+        'bank' => 'SBERBANK',
+        'isCard' => true,
+        'merchantRate' => 95.5,
+        'externalReference' => 'PAYOUT-12345',
+        'webhookUrl' => 'https://example.com/webhook/payout'
+    ];
 
-$ch = curl_init('https://api.example.com/api/merchant/transactions');
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json',
-    'x-merchant-api-key: YOUR_API_KEY'
-]);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $ch = curl_init('${baseUrl}/api/merchant/payouts');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'x-merchant-api-key: ' . $apiKey
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-$response = curl_exec($ch);
-curl_close($ch);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
-$result = json_decode($response, true);
-print_r($result);`}
+    $result = json_decode($response, true);
+
+    if ($httpCode == 200) {
+        echo "Выплата создана: " . $result['payout']['id'] . PHP_EOL;
+        return $result['payout']['id'];
+    } else {
+        echo "Ошибка: " . $result['error'] . PHP_EOL;
+        return false;
+    }
+}
+
+// Проверка статуса выплаты
+function checkPayoutStatus($payoutId, $apiKey) {
+    $ch = curl_init('${baseUrl}/api/merchant/payouts/' . $payoutId);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'x-merchant-api-key: ' . $apiKey
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+    echo "Статус выплаты: " . $result['payout']['status'] . PHP_EOL;
+    return $result;
+}
+
+// Создание спора по выплате
+function disputePayout($payoutId, $message, $files, $apiKey) {
+    $data = [
+        'message' => $message,
+        'files' => $files
+    ];
+
+    $ch = curl_init('${baseUrl}/api/merchant/payouts/' . $payoutId . '/dispute');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'x-merchant-api-key: ' . $apiKey
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+    echo "Спор создан" . PHP_EOL;
+    return $result;
+}
+
+// Использование
+$apiKey = 'YOUR_API_KEY';
+$payoutId = createPayout($apiKey);
+if ($payoutId) {
+    checkPayoutStatus($payoutId, $apiKey);
+    // Если что-то пошло не так:
+    // disputePayout($payoutId, "Средства не получены", [], $apiKey);
+}`}
                 </pre>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(
-                    `<?php
+                  onClick={() =>
+                    copyToClipboard(
+                      `<?php
 $data = [
     'amount' => 1000,
     'orderId' => 'ORDER-123',
@@ -942,8 +2082,9 @@ curl_close($ch);
 
 $result = json_decode($response, true);
 print_r($result);`,
-                    "php-example"
-                  )}
+                      "php-example",
+                    )
+                  }
                 >
                   {copied === "php-example" ? (
                     <Check className="h-4 w-4" />
@@ -957,30 +2098,104 @@ print_r($result);`,
             <TabsContent value="python">
               <div className="relative">
                 <pre className="bg-muted rounded-lg p-4 text-sm overflow-x-auto">
-{`import requests
+                  {`import requests
 import json
 
-url = 'https://api.example.com/api/merchant/transactions'
-headers = {
-    'Content-Type': 'application/json',
-    'x-merchant-api-key': 'YOUR_API_KEY'
-}
-data = {
-    'amount': 1000,
-    'orderId': 'ORDER-123',
-    'description': 'Оплата заказа #123'
-}
+BASE_URL = '${baseUrl}'
+API_KEY = 'YOUR_API_KEY'
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
-print(result)`}
+# Создание выплаты
+def create_payout():
+    url = f'{BASE_URL}/api/merchant/payouts'
+    headers = {
+        'Content-Type': 'application/json',
+        'x-merchant-api-key': API_KEY
+    }
+    data = {
+        'amount': 5000,
+        'wallet': '4111111111111111',
+        'bank': 'SBERBANK',
+        'isCard': True,
+        'merchantRate': 95.5,
+        'externalReference': 'PAYOUT-12345',
+        'webhookUrl': 'https://example.com/webhook/payout'
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+
+    if response.status_code == 200:
+        result = response.json()
+        print(f"Выплата создана: {result['payout']['id']}")
+        return result['payout']['id']
+    else:
+        print(f"Ошибка: {response.json()['error']}")
+        return None
+
+# Проверка статуса выплаты
+def check_payout_status(payout_id):
+    url = f'{BASE_URL}/api/merchant/payouts/{payout_id}'
+    headers = {'x-merchant-api-key': API_KEY}
+
+    response = requests.get(url, headers=headers)
+    result = response.json()
+    print(f"Статус выплаты: {result['payout']['status']}")
+    return result
+
+# Создание спора по выплате
+def dispute_payout(payout_id, message, files=None):
+    url = f'{BASE_URL}/api/merchant/payouts/{payout_id}/dispute'
+    headers = {
+        'Content-Type': 'application/json',
+        'x-merchant-api-key': API_KEY
+    }
+    data = {
+        'message': message,
+        'files': files or []
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    result = response.json()
+    print(f"Спор создан, статус: {result['payout']['status']}")
+    return result
+
+# Отмена выплаты
+def cancel_payout(payout_id, reason_code):
+    url = f'{BASE_URL}/api/merchant/payouts/{payout_id}/cancel'
+    headers = {
+        'Content-Type': 'application/json',
+        'x-merchant-api-key': API_KEY
+    }
+    data = {
+        'reasonCode': reason_code
+    }
+
+    response = requests.patch(url, headers=headers, json=data)
+    result = response.json()
+    print(f"Выплата отменена: {result['payout']['cancelReasonCode']}")
+    return result
+
+# Использование
+if __name__ == '__main__':
+    # Создаем выплату
+    payout_id = create_payout()
+
+    if payout_id:
+        # Проверяем статус
+        check_payout_status(payout_id)
+
+        # Если что-то не так, создаем спор
+        # dispute_payout(payout_id, "Средства не получены")
+
+        # Или отменяем выплату
+        # cancel_payout(payout_id, "MERCHANT_REQUEST")`}
                 </pre>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(
-                    `import requests
+                  onClick={() =>
+                    copyToClipboard(
+                      `import requests
 import json
 
 url = 'https://api.example.com/api/merchant/transactions'
@@ -997,8 +2212,9 @@ data = {
 response = requests.post(url, headers=headers, json=data)
 result = response.json()
 print(result)`,
-                    "python-example"
-                  )}
+                      "python-example",
+                    )
+                  }
                 >
                   {copied === "python-example" ? (
                     <Check className="h-4 w-4" />

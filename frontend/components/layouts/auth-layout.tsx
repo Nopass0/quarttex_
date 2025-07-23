@@ -4,7 +4,6 @@ import { useState } from "react"
 import { Sidebar } from "@/components/navigation/sidebar"
 import { MobileBottomNav } from "@/components/navigation/mobile-bottom-nav"
 import { MobileMenuDrawer } from "@/components/navigation/mobile-menu-drawer"
-import { SupportChat } from "@/components/support/support-chat"
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -42,9 +41,6 @@ export function AuthLayout({ children, variant }: AuthLayoutProps) {
         isOpen={mobileMenuOpen} 
         onClose={() => setMobileMenuOpen(false)} 
       />
-      
-      {/* Support Chat */}
-      {variant !== "admin" && <SupportChat variant={variant} />}
     </div>
   )
 }

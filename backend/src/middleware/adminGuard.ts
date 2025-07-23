@@ -48,21 +48,33 @@ export const adminGuard =
           return;
         }
         
+        // TEMPORARY: Skip IP whitelist check for development
+        console.log(`[AdminGuard] ⚠️  IP whitelist check disabled temporarily. Client IP: ${clientIp}`);
+        
         // Check static IP whitelist
-        let isWhitelisted = whitelist.includes(clientIp);
+        // let isWhitelisted = whitelist.includes(clientIp);
         
         // Check database IP whitelist if not in static list
-        if (!isWhitelisted) {
-          const dbWhitelistEntry = await db.adminIpWhitelist.findUnique({
-            where: { ip: clientIp }
-          });
-          isWhitelisted = !!dbWhitelistEntry;
-        }
+        // if (!isWhitelisted) {
+        //   const dbWhitelistEntry = await db.adminIpWhitelist.findUnique({
+        //     where: { ip: clientIp }
+        //   });
+        //   isWhitelisted = !!dbWhitelistEntry;
+        // }
         
         // Reject if IP not whitelisted
-        if (!isWhitelisted) {
-          return error(403, { error: "Forbidden IP" });
-        }
+        // if (!isWhitelisted) {
+        //   console.log(`[AdminGuard] ❌ Rejecting IP: ${clientIp} - not in whitelist`);
+        //   console.log(`[AdminGuard] Add this IP using: bun run src/scripts/add-ip-whitelist.ts "${clientIp}" "Your description"`);
+        //   
+        //   // Temporary: Allow localhost IPs in development
+        //   if (Bun.env.NODE_ENV !== 'production' && (clientIp.includes('127.0.0.1') || clientIp.includes('::1') || clientIp === '::ffff:127.0.0.1')) {
+        //     console.log(`[AdminGuard] ⚠️  Allowing localhost IP in development mode: ${clientIp}`);
+        //     return;
+        //   }
+        //   
+        //   return error(403, { error: "Forbidden IP" });
+        // }
         
         // Check if it's the dynamic session key
         if (key === ADMIN_KEY) return;

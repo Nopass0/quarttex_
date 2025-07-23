@@ -277,7 +277,7 @@ export function FinancesList() {
       
       {/* Filters */}
       <Card className="p-4 dark:bg-[#29382f] dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#006039] dark:text-[#2d6a42] h-4 w-4" />
@@ -285,48 +285,52 @@ export function FinancesList() {
                 placeholder="Поиск по ID транзакции"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
+                className="pl-10 w-full dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee] dark:placeholder-gray-500"
               />
             </div>
           </div>
           
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
-              <SelectValue placeholder="Статус" />
-            </SelectTrigger>
-            <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
-              <SelectItem value="all">Все статусы</SelectItem>
-              <SelectItem value="CREATED">Создано</SelectItem>
-              <SelectItem value="IN_PROGRESS">В процессе</SelectItem>
-              <SelectItem value="READY">Готово</SelectItem>
-              <SelectItem value="EXPIRED">Истекло</SelectItem>
-              <SelectItem value="DISPUTE">Спор</SelectItem>
-              <SelectItem value="CANCELED">Отменено</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
+                <SelectValue placeholder="Статус" />
+              </SelectTrigger>
+              <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
+                <SelectItem value="all">Все статусы</SelectItem>
+                <SelectItem value="CREATED">Создано</SelectItem>
+                <SelectItem value="IN_PROGRESS">В процессе</SelectItem>
+                <SelectItem value="READY">Готово</SelectItem>
+                <SelectItem value="EXPIRED">Истекло</SelectItem>
+                <SelectItem value="DISPUTE">Спор</SelectItem>
+                <SelectItem value="CANCELED">Отменено</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-full sm:w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
+                <Calendar className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
+                <SelectValue placeholder="Период" />
+              </SelectTrigger>
+              <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
+                <SelectItem value="all">Все время</SelectItem>
+                <SelectItem value="today">Сегодня</SelectItem>
+                <SelectItem value="week">Эта неделя</SelectItem>
+                <SelectItem value="month">Этот месяц</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[180px] dark:bg-[#0f0f0f] dark:border-gray-600 dark:text-[#eeeeee]">
-              <Calendar className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
-              <SelectValue placeholder="Период" />
-            </SelectTrigger>
-            <SelectContent className="dark:bg-[#29382f] dark:border-gray-700">
-              <SelectItem value="all">Все время</SelectItem>
-              <SelectItem value="today">Сегодня</SelectItem>
-              <SelectItem value="week">Эта неделя</SelectItem>
-              <SelectItem value="month">Этот месяц</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
-            <Filter className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
-            Фильтры
-          </Button>
-          
-          <Button variant="outline" className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
-            <Download className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
-            Экспорт
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-initial dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
+              <Filter className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
+              <span className="hidden sm:inline">Фильтры</span>
+            </Button>
+            
+            <Button variant="outline" className="flex-1 sm:flex-initial dark:border-gray-600 dark:text-gray-300 dark:hover:bg-[#29382f]/50">
+              <Download className="mr-2 h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
+              <span className="hidden sm:inline">Экспорт</span>
+            </Button>
+          </div>
         </div>
       </Card>
       

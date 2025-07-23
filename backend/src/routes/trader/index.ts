@@ -15,6 +15,7 @@ import { traderWithdrawalsRoutes } from "./withdrawals";
 import { traderMessagesRoutes } from "./trader-messages";
 import { financeRoutes } from "./finance";
 import { btEntranceRoutes } from "./bt-entrance";
+import { ideaRoutes } from "./ideas";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
@@ -68,6 +69,7 @@ export default (app: Elysia) =>
     .use(traderPayoutsApi)
     .use(dashboardRoutes)
     .use(btEntranceRoutes)
+    .use(ideaRoutes)
     .get(
       "/dispute-settings",
       async () => {

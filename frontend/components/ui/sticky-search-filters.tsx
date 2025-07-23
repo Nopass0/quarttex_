@@ -150,7 +150,7 @@ export function StickySearchFilters({
             <PopoverContent 
               ref={popoverRef}
               align="end" 
-              className="w-[500px]" 
+              className="w-[90vw] sm:w-[500px] max-w-[500px]" 
               sideOffset={5}
               onFocusCapture={(e) => e.preventDefault()}
               onInteractOutside={(e) => {

@@ -260,6 +260,16 @@ const app = new Elysia({ prefix: "/api" })
   // Health check endpoint
   .get("/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }))
   .get("/api/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }))
+  // Temporary endpoint to get client IP
+  .use(ip())
+  .get("/api/get-my-ip", ({ ip: clientIp }) => {
+    console.log(`[GetMyIP] Client IP: ${clientIp}`);
+    return { 
+      ip: clientIp,
+      message: `Your IP is: ${clientIp}`,
+      command: `cd backend && bun run src/scripts/add-ip-whitelist.ts "${clientIp}" "My IP"`
+    };
+  })
   .get("/wellbit/openapi.yaml", async ({ set }) => {
     set.headers["content-type"] = "application/yaml";
     const path = join(process.cwd(), "../docs/openapi-v1.6.yaml");
