@@ -16,8 +16,20 @@ Place the following files in the `/ssl` directory:
 2. `certificate_ca.crt` - CA bundle with intermediate certificates  
 3. `certificate.key` - Private key
 
-The nginx container will automatically create `fullchain.crt` on startup by combining
-`certificate.crt` and `certificate_ca.crt`.
+### Create fullchain.crt (REQUIRED)
+
+Since the SSL directory is mounted as read-only for security, you must create the fullchain certificate on the host:
+
+```bash
+cd ssl/
+./create-fullchain.sh
+```
+
+Or manually:
+```bash
+cat ssl/certificate.crt ssl/certificate_ca.crt > ssl/fullchain.crt
+chmod 644 ssl/fullchain.crt
+```
 
 ### Alternative: Use existing fullchain
 
@@ -25,7 +37,7 @@ If you already have a fullchain certificate (e.g., from Let's Encrypt), you can:
 
 1. Place `fullchain.crt` in the `/ssl` directory
 2. Place `certificate.key` in the `/ssl` directory
-3. The container will use the existing fullchain.crt
+3. Skip the fullchain creation step
 
 ### SSL Certificate Providers
 
@@ -62,6 +74,11 @@ NODE_ENV=production
    cp /path/to/certificate.crt ssl/
    cp /path/to/certificate_ca.crt ssl/
    cp /path/to/certificate.key ssl/
+   
+   # Create fullchain certificate
+   cd ssl/
+   ./create-fullchain.sh
+   cd ..
    ```
 
 3. **Configure environment**
