@@ -28,8 +28,14 @@ class DeviceStatusWebSocket extends EventEmitter {
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('https:', 'wss:').replace('http:', 'ws:') || '';
-      const fullUrl = `${wsUrl}/device-status`;
+      let wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('https:', 'wss:').replace('http:', 'ws:') || '';
+      
+      // Remove /api from the end if it exists since we'll add it with the path
+      if (wsUrl.endsWith('/api')) {
+        wsUrl = wsUrl.slice(0, -4);
+      }
+      
+      const fullUrl = `${wsUrl}/api/device-status`;
 
       console.log('[DeviceStatusWS] Connecting to:', fullUrl);
 

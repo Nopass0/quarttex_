@@ -174,8 +174,7 @@ export default function DeviceDetailsPage() {
   useEffect(() => {
     fetchDevice();
     
-    // Setup WebSocket connection for real-time updates
-    deviceWSManager.connect();
+    // WebSocket connection is now handled by WebSocketProvider
     
     // Auto-refresh device data on page focus
     const handleFocus = () => {

@@ -175,9 +175,8 @@ export default function DevicesPage() {
   useEffect(() => {
     fetchDevices();
     
-    // Setup WebSocket connection for real-time updates
+    // WebSocket connection is now handled by WebSocketProvider
     deviceStatusWs.current = getDeviceStatusWebSocket();
-    deviceStatusWs.current.connect();
     
     // Listen for device status updates
     deviceStatusWs.current.on('device-status-update', (update: DeviceStatusUpdate) => {
@@ -228,10 +227,8 @@ export default function DevicesPage() {
     });
     
     return () => {
-      // Cleanup WebSocket connection
-      if (deviceStatusWs.current) {
-        deviceStatusWs.current.disconnect();
-      }
+      // WebSocket cleanup is now handled by WebSocketProvider
+      // Just remove event listeners if needed
     };
   }, []);
 

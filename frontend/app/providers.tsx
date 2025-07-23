@@ -3,6 +3,7 @@
 import { ServerCheck } from "@/components/server-check"
 import { AuthInitializer } from "@/components/auth/auth-initializer"
 import { ThemeProvider } from "@/providers/theme-provider"
+import { WebSocketProvider } from "@/providers/websocket-provider"
 import { useEffect } from "react"
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -76,9 +77,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <AuthInitializer />
-      <ServerCheck>
-        {children}
-      </ServerCheck>
+      <WebSocketProvider>
+        <ServerCheck>
+          {children}
+        </ServerCheck>
+      </WebSocketProvider>
     </ThemeProvider>
   )
 }
