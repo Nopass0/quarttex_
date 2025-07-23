@@ -19,6 +19,7 @@ import tradersRoutes from "./traders";
 import { disputesRoutes } from "./disputes";
 import { dealDisputesRoutes } from "./deal-disputes";
 import { calculateFreezingParams } from "@/utils/freezing";
+import { rapiraService } from "@/services/rapira.service";
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
 import { validateFileUpload } from "@/middleware/fileUploadValidation";
 
@@ -955,7 +956,7 @@ export default (app: Elysia) =>
         if (merchant.disabled) {
           return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
         }
-        
+
         // Генерируем значения по умолчанию
         const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
         
@@ -1049,9 +1050,16 @@ export default (app: Elysia) =>
         
         const feeInPercent = traderMerchant?.feeIn || 0;
         
+        let currentRate = body.rate;
+        if (currentRate === undefined) {
+          const rateSettingRecord = await db.rateSetting.findFirst({ where: { id: 1 } });
+          const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
+          currentRate = await rapiraService.getRateWithKkk(rapiraKkk);
+        }
+
         const freezingParams = calculateFreezingParams(
           body.amount,
-          body.rate,
+          currentRate,
           kkkPercent,
           feeInPercent,
           kkkOperation
@@ -1086,7 +1094,7 @@ export default (app: Elysia) =>
             commission: 0,
             clientName: `user_${Date.now()}`,
             status: Status.IN_PROGRESS,
-            rate: body.rate,
+            rate: currentRate,
             adjustedRate: freezingParams.adjustedRate,
             kkkPercent: kkkPercent,
             kkkOperation: kkkOperation,
@@ -1156,7 +1164,7 @@ export default (app: Elysia) =>
           amount: t.Number({ description: "Сумма транзакции в рублях" }),
           orderId: t.String({ description: "Уникальный ID заказа от мерчанта" }),
           methodId: t.String({ description: "ID метода платежа" }),
-          rate: t.Number({ description: "Курс USDT/RUB" }),
+          rate: t.Optional(t.Number({ description: "Курс USDT/RUB" })),
           expired_at: t.String({ description: "ISO дата истечения транзакции" }),
           userIp: t.Optional(t.String({ description: "IP адрес пользователя" })),
           callbackUri: t.Optional(t.String({ description: "URL для callback уведомлений" })),
