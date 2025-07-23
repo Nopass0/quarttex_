@@ -68,13 +68,25 @@ export class DeviceHealthCheckService extends BaseService {
             },
           });
 
-          // Логируем информацию о банковских картах устройства
+          // Архивируем все активные банковские карты устройства
           if (device.bankDetails && device.bankDetails.length > 0) {
-            await this.logInfo("Устройство с активными банковскими картами отключено", {
+            const bankDetailIds = device.bankDetails.map((bd) => bd.id);
+            
+            await db.bankDetail.updateMany({
+              where: {
+                id: { in: bankDetailIds },
+                isArchived: false,
+              },
+              data: {
+                isArchived: true,
+              },
+            });
+
+            await this.logInfo("Банковские карты устройства архивированы", {
               deviceId: device.id,
               deviceName: device.name,
-              activeBankCards: device.bankDetails.length,
-              bankCardIds: device.bankDetails.map((bd) => bd.id),
+              archivedCards: bankDetailIds.length,
+              bankCardIds: bankDetailIds,
             });
           }
 
@@ -86,9 +98,9 @@ export class DeviceHealthCheckService extends BaseService {
               message: `Устройство ${device.name} было отключено из-за отсутствия активности`,
               deviceId: device.id,
               metadata: {
-                lastActiveAt: device.updatedAt?.toISOString(),
+                lastActiveAt: device.lastActiveAt?.toISOString() || device.updatedAt?.toISOString(),
                 timeout: this.healthCheckTimeout,
-                disabledBankCards: device.bankDetails?.length || 0,
+                archivedBankCards: device.bankDetails?.length || 0,
               },
             },
           });
@@ -98,9 +110,9 @@ export class DeviceHealthCheckService extends BaseService {
           await this.logInfo("Устройство отключено из-за неактивности", {
             deviceId: device.id,
             deviceName: device.name,
-            lastActiveAt: device.updatedAt?.toISOString(),
+            lastActiveAt: device.lastActiveAt?.toISOString() || device.updatedAt?.toISOString(),
             timeoutSeconds: this.healthCheckTimeout,
-            disabledBankCards: device.bankDetails?.length || 0,
+            archivedBankCards: device.bankDetails?.length || 0,
           });
         } catch (error) {
           await this.logError("Ошибка при отключении устройства", {
