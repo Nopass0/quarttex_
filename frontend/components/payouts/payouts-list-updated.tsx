@@ -277,6 +277,7 @@ export function PayoutsList() {
   }, [teamEnabled]);
   
   useEffect(() => {
+    console.log(`🔄 TAB CHANGED to: "${activeTab}"`);
     // Refetch payouts when tab changes
     fetchPayouts();
   }, [activeTab]);
@@ -323,6 +324,8 @@ export function PayoutsList() {
   };
   
   const fetchPayouts = async (loadMore = false) => {
+    console.log(`🔄 FETCH PAYOUTS CALLED for tab: "${activeTab}", loadMore: ${loadMore}`);
+    
     if (loadMore) {
       setLoadingMore(true);
     } else {
@@ -358,12 +361,21 @@ export function PayoutsList() {
       const offset = loadMore ? page * limit : 0;
       
       
+      console.log(`📡 API CALL for tab "${activeTab}" with params:`, {
+        status,
+        search: searchId || searchRequisites || undefined,
+        limit,
+        offset,
+      });
+      
       const response = await payoutApi.getPayouts({
         status,
         search: searchId || searchRequisites || undefined,
         limit,
         offset,
       });
+      
+      console.log(`📨 API RESPONSE for tab "${activeTab}":`, response);
       
       
       if (response.success) {
@@ -400,6 +412,7 @@ export function PayoutsList() {
           setPayouts(prev => [...prev, ...formattedPayouts]);
           setPage(prev => prev + 1);
         } else {
+          console.log(`📝 SETTING PAYOUTS for tab "${activeTab}": ${formattedPayouts.length} payouts`);
           setPayouts(formattedPayouts);
           setPage(1);
         }
@@ -407,7 +420,7 @@ export function PayoutsList() {
         setHasMore(formattedPayouts.length === limit);
       }
     } catch (error) {
-      console.error("Failed to fetch payouts:", error);
+      console.error(`❌ FETCH PAYOUTS ERROR for tab "${activeTab}":`, error);
       // Don't use mock data, just show empty state
       if (!loadMore) {
         setPayouts([]);
@@ -1293,9 +1306,12 @@ export function PayoutsList() {
 
           <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
             <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
+              {(() => {
+                console.log(`🎨 RENDERING for tab "${activeTab}": ${filteredPayouts.length} payouts`);
+                return filteredPayouts.map((payout) => (
+                  <PayoutCard key={payout.id} payout={payout} />
+                ));
+              })()}
               {loadingMore && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
