@@ -213,17 +213,8 @@ export class TelegramService extends BaseService {
     payout: Payout,
     event: string
   ) {
-    const merchant = await db.merchant.findUnique({
-      where: { id: merchantId },
-      select: {
-        telegramChatId: true,
-        telegramBotToken: true,
-      },
-    });
-    
-    if (!merchant?.telegramChatId || !merchant?.telegramBotToken) {
-      return;
-    }
+    // Skip Telegram notifications for merchants as they don't have telegram fields
+    return;
     
     const eventText: Record<string, string> = {
       ACTIVE: "принята трейдером",

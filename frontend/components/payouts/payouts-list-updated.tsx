@@ -203,23 +203,28 @@ export function PayoutsList() {
     } else if (payout.status === "checking") {
       return "Проверка";
     } else if (payout.status === "active") {
-      return "В работе";
+      // For active payouts, show remaining time
+      return formatRemainingTime(payout.expire_at);
     } else if (payout.status === "disputed") {
       return "Спор";
     } else if (payout.status === "expired" || expiresAt < now) {
       return "Истекло";
     } else if (payout.status === "created") {
+      // For created payouts, show remaining time
       return formatRemainingTime(payout.expire_at);
     } else {
       return formatRemainingTime(payout.expire_at);
     }
   };
 
+  // State to force re-render for timers
+  const [, setTimerTick] = useState(0);
+
   // Update timer every second
   useEffect(() => {
     const interval = setInterval(() => {
       // Force re-render to update timers
-      setBalanceInput((prev) => prev);
+      setTimerTick(prev => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -529,7 +534,9 @@ export function PayoutsList() {
 
   const PayoutCard = ({ payout }: { payout: Payout }) => {
     const isNotAccepted = payout.status === "created";
-    const showTimer = payout.status === "created" || payout.status === "active";
+    // Show timer for payouts that have an expiration time and are not yet completed/cancelled
+    const showTimer = (payout.status === "created" || payout.status === "active") && 
+                     new Date(payout.expire_at).getTime() > new Date().getTime();
     
     return (
     <ContextMenu>
