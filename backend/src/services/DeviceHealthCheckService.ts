@@ -5,11 +5,11 @@ export class DeviceHealthCheckService extends BaseService {
   displayName = "Проверка активности устройств";
   description =
     "Отключает устройства, которые не отправляли health check больше заданного времени";
-  interval = 50; // Проверяем каждые 50мс
+  interval = 10; // Проверяем каждые 10мс
   enabledByDefault = true;
   tags = ["devices", "monitoring"];
 
-  private healthCheckTimeout: number = 0.07; // 70 миллисекунд
+  private healthCheckTimeout: number = 0.03; // 30 миллисекунд
 
   protected getPublicFields() {
     return {
@@ -22,7 +22,7 @@ export class DeviceHealthCheckService extends BaseService {
 
   async onStart() {
     // Получаем настройку таймаута из базы данных или используем значение по умолчанию
-    const savedTimeout = this.getSetting("healthCheckTimeout", 0.07);
+    const savedTimeout = this.getSetting("healthCheckTimeout", 0.03);
     this.healthCheckTimeout = savedTimeout;
 
     await this.logInfo("Сервис проверки активности устройств запущен", {
