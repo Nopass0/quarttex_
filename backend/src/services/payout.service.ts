@@ -615,7 +615,6 @@ export class PayoutService {
       offset?: number;
     }
   ) {
-    console.log(`PayoutService.getTraderPayouts called for trader ${traderId} with filters:`, filters);
     
     const baseConditions: Prisma.PayoutWhereInput[] = [];
     
@@ -642,7 +641,6 @@ export class PayoutService {
       OR: baseConditions,
     };
     
-    console.log(`Base conditions for trader ${traderId}:`, JSON.stringify(baseConditions, null, 2));
     
     // Exclude expired payouts from results
     if (!filters.status || !filters.status.includes("EXPIRED")) {
@@ -686,14 +684,6 @@ export class PayoutService {
       db.payout.count({ where }),
     ]);
     
-    console.log(`Returning ${payouts.length} payouts (total: ${total}) for trader ${traderId}`);
-    if (payouts.length > 0) {
-      console.log('First few payouts:', payouts.slice(0, 3).map(p => ({ 
-        id: p.numericId, 
-        status: p.status, 
-        traderId: p.traderId 
-      })));
-    }
     
     return { payouts, total };
   }

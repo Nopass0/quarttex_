@@ -357,7 +357,6 @@ export function PayoutsList() {
       const limit = 20;
       const offset = loadMore ? page * limit : 0;
       
-      console.log(`Fetching payouts for tab "${activeTab}" with status: "${status}"`);
       
       const response = await payoutApi.getPayouts({
         status,
@@ -366,9 +365,13 @@ export function PayoutsList() {
         offset,
       });
       
-      console.log(`Received ${response.payouts?.length || 0} payouts for tab "${activeTab}"`);
       
       if (response.success) {
+        console.log(`Tab "${activeTab}": API returned ${response.payouts.length} payouts`);
+        if (response.payouts.length > 0) {
+          console.log('Sample statuses:', response.payouts.slice(0, 3).map(p => ({ id: p.numericId, status: p.status })));
+        }
+        
         // Convert API payouts to component format
         const formattedPayouts: Payout[] = response.payouts.map(p => ({
           id: p.numericId,
@@ -387,6 +390,11 @@ export function PayoutsList() {
           confirmed_at: p.confirmedAt,
           status: p.status.toLowerCase() as any,
         }));
+        
+        console.log(`Tab "${activeTab}": After formatting, ${formattedPayouts.length} payouts`);
+        if (formattedPayouts.length > 0) {
+          console.log('Formatted statuses:', formattedPayouts.slice(0, 3).map(p => ({ id: p.id, status: p.status })));
+        }
         
         if (loadMore) {
           setPayouts(prev => [...prev, ...formattedPayouts]);
@@ -553,6 +561,11 @@ export function PayoutsList() {
     }
     return true;
   });
+  
+  console.log(`Tab "${activeTab}": After local filtering, ${filteredPayouts.length} payouts (from ${payouts.length} total)`);
+  if (filteredPayouts.length !== payouts.length) {
+    console.log('Some payouts were filtered out locally');
+  }
 
   const PayoutCard = ({ payout }: { payout: Payout }) => {
     const isNotAccepted = payout.status === "created";
