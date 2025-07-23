@@ -50,6 +50,8 @@ export default function MerchantDetailPage() {
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false)
   const [showTestDialog, setShowTestDialog] = useState(false)
   
+  console.log('MerchantDetailPage: Rendering with merchantId:', merchantId)
+  
   // Проверяем, является ли мерчант тестовым или Wellbit
   const isTestMerchant = merchant?.name?.toLowerCase() === 'test'
   const isWellbitMerchant = merchant?.name?.toLowerCase() === 'wellbit'
@@ -91,6 +93,10 @@ export default function MerchantDetailPage() {
   }
 
   const fetchMerchant = async () => {
+    console.log('fetchMerchant: Starting fetch for merchantId:', merchantId)
+    console.log('fetchMerchant: Admin token:', adminToken)
+    console.log('fetchMerchant: API URL:', `${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/${merchantId}`)
+    
     try {
       setIsLoading(true)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/${merchantId}`, {
@@ -98,12 +104,16 @@ export default function MerchantDetailPage() {
           'x-admin-key': adminToken || '',
         },
       })
+      console.log('fetchMerchant: Response status:', response.status)
+      
       if (!response.ok) {
         throw new Error('Failed to fetch merchant')
       }
       const data = await response.json()
+      console.log('fetchMerchant: Received data:', data)
       setMerchant(data)
     } catch (error) {
+      console.error('fetchMerchant: Error:', error)
       toast.error('Не удалось загрузить данные мерчанта')
       router.push('/admin/merchants')
     } finally {
@@ -260,6 +270,7 @@ export default function MerchantDetailPage() {
           <QuickTransactionCreate 
             merchantId={merchantId}
             merchantToken={merchant.token}
+            merchantName={merchant.name}
             merchantMethods={merchant.merchantMethods.filter(m => m.isEnabled)}
           />
 

@@ -198,10 +198,10 @@ export function PayoutsList() {
       return "Отменено";
     } else if (payout.status === "checking") {
       return "Проверка";
-    } else if (payout.status === "created") {
-      return "Создана";
     } else if (payout.status === "expired" || expiresAt < now) {
       return "Истекло";
+    } else if (payout.status === "created" || payout.status === "active") {
+      return formatRemainingTime(payout.expire_at);
     } else {
       return formatRemainingTime(payout.expire_at);
     }
