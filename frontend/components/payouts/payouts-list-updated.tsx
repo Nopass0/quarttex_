@@ -78,7 +78,7 @@ interface Payout {
   expire_at: string;
   confirmed_at: string | null;
   cancelled_at?: string | null;
-  status?: "created" | "active" | "checking" | "expired" | "completed" | "cancelled";
+  status?: "created" | "active" | "checking" | "completed" | "cancelled" | "expired" | "disputed";
   cancelReason?: string;
   proofFiles?: string[];
 }
@@ -181,6 +181,10 @@ export function PayoutsList() {
       return "bg-purple-100 text-purple-700";
     } else if (payout.status === "created") {
       return "bg-yellow-100 text-yellow-700";
+    } else if (payout.status === "active") {
+      return "bg-blue-100 text-blue-700";
+    } else if (payout.status === "disputed") {
+      return "bg-orange-100 text-orange-700";
     } else if (payout.status === "expired" || expiresAt < now) {
       return "bg-gray-100 text-gray-700";
     } else {
@@ -198,9 +202,13 @@ export function PayoutsList() {
       return "Отменено";
     } else if (payout.status === "checking") {
       return "Проверка";
+    } else if (payout.status === "active") {
+      return "В работе";
+    } else if (payout.status === "disputed") {
+      return "Спор";
     } else if (payout.status === "expired" || expiresAt < now) {
       return "Истекло";
-    } else if (payout.status === "created" || payout.status === "active") {
+    } else if (payout.status === "created") {
       return formatRemainingTime(payout.expire_at);
     } else {
       return formatRemainingTime(payout.expire_at);
