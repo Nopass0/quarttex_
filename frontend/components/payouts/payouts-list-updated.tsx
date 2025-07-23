@@ -147,6 +147,35 @@ export function PayoutsList() {
     toast.success(`${label} скопирован`);
   };
 
+  // Timer component that updates independently
+  const Timer = ({ expireAt }: { expireAt: string }) => {
+    const [, setTick] = useState(0);
+
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setTick(prev => prev + 1);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }, []);
+
+    const now = new Date().getTime();
+    const expiresAtTime = new Date(expireAt).getTime();
+    const diff = expiresAtTime - now;
+
+    if (diff <= 0) return <span>Истекло</span>;
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    if (hours > 0) {
+      return <span>{hours.toString().padStart(2, "0")}:{minutes.toString().padStart(2, "0")}</span>;
+    } else {
+      return <span>{minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}</span>;
+    }
+  };
+
   const formatRemainingTime = (expire_at: string) => {
     const now = new Date().getTime();
     const expiresAt = new Date(expire_at).getTime();
@@ -203,32 +232,21 @@ export function PayoutsList() {
     } else if (payout.status === "checking") {
       return "Проверка";
     } else if (payout.status === "active") {
-      // For active payouts, show remaining time
-      return formatRemainingTime(payout.expire_at);
+      // For active payouts, return Timer component
+      return <Timer expireAt={payout.expire_at} />;
     } else if (payout.status === "disputed") {
       return "Спор";
     } else if (payout.status === "expired" || expiresAt < now) {
       return "Истекло";
     } else if (payout.status === "created") {
-      // For created payouts, show remaining time
-      return formatRemainingTime(payout.expire_at);
+      // For created payouts, return Timer component
+      return <Timer expireAt={payout.expire_at} />;
     } else {
-      return formatRemainingTime(payout.expire_at);
+      return <Timer expireAt={payout.expire_at} />;
     }
   };
 
-  // State to force re-render for timers
-  const [, setTimerTick] = useState(0);
-
-  // Update timer every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Force re-render to update timers
-      setTimerTick(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Remove global timer update to prevent list flickering
   
   // Handle scroll to load more
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -339,12 +357,16 @@ export function PayoutsList() {
       const limit = 20;
       const offset = loadMore ? page * limit : 0;
       
+      console.log(`Fetching payouts for tab "${activeTab}" with status: "${status}"`);
+      
       const response = await payoutApi.getPayouts({
         status,
         search: searchId || searchRequisites || undefined,
         limit,
         offset,
       });
+      
+      console.log(`Received ${response.payouts?.length || 0} payouts for tab "${activeTab}"`);
       
       if (response.success) {
         // Convert API payouts to component format
@@ -557,7 +579,7 @@ export function PayoutsList() {
           <div className="grid grid-cols-[40px_60px_140px_1fr_160px_160px_100px_180px] gap-4 items-center h-full px-5 py-5 max-xl:grid-cols-1 max-xl:gap-2 max-xl:h-auto">
             {/* Timer Text */}
             <div className="text-xs font-medium text-red-600 max-xl:text-center max-xl:text-lg max-xl:mb-2">
-              {showTimer ? formatRemainingTime(payout.expire_at) : ""}
+              {showTimer ? <Timer expireAt={payout.expire_at} /> : ""}
             </div>
             
             {/* Icon */}
