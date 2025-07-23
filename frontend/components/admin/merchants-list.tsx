@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
-import { Search, Plus, Copy, Trash2, RefreshCw, Activity, Edit, Settings, MoreHorizontal, Power, PowerOff } from 'lucide-react'
+import { Search, Plus, Copy, Trash2, RefreshCw, Activity, Edit, Settings, MoreHorizontal, Power, PowerOff, DollarSign } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { formatAmount } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -53,6 +53,7 @@ type Merchant = {
   paidTx: number
   disabled?: boolean
   banned?: boolean
+  countInRubEquivalent?: boolean
 }
 
 type Method = {
@@ -89,6 +90,7 @@ export function MerchantsList() {
     name: '',
     disabled: false,
     banned: false,
+    countInRubEquivalent: false,
   })
 
   useEffect(() => {
@@ -220,6 +222,7 @@ export function MerchantsList() {
           name: editFormData.name,
           disabled: editFormData.disabled,
           banned: editFormData.banned,
+          countInRubEquivalent: editFormData.countInRubEquivalent,
         }),
       })
       
@@ -354,6 +357,7 @@ export function MerchantsList() {
       name: merchant.name,
       disabled: merchant.disabled || false,
       banned: merchant.banned || false,
+      countInRubEquivalent: merchant.countInRubEquivalent || false,
     })
     setIsEditDialogOpen(true)
   }
@@ -561,6 +565,16 @@ export function MerchantsList() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="w-full justify-start"
+                          onClick={() => router.push(`/admin/merchants/${merchant.id}/settlements`)}
+                          disabled={isLoading}
+                        >
+                          <DollarSign className="h-4 w-4 mr-2 text-[#006039]" />
+                          Сеттлы
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => handleDeleteMerchant(merchant.id)}
                           disabled={isLoading}
@@ -679,6 +693,20 @@ export function MerchantsList() {
                   checked={editFormData.banned}
                   onCheckedChange={(checked) => setEditFormData({ ...editFormData, banned: !!checked })}
                 />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Подсчет в рублевом эквиваленте
+              </Label>
+              <div className="col-span-3 flex items-center gap-2">
+                <Switch
+                  checked={editFormData.countInRubEquivalent}
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, countInRubEquivalent: !!checked })}
+                />
+                <span className="text-sm text-gray-600">
+                  {editFormData.countInRubEquivalent ? 'Включен' : 'Выключен'}
+                </span>
               </div>
             </div>
           </div>

@@ -55,7 +55,7 @@ export default (app: Elysia) =>
         try {
           const m = await db.merchant.create({
             data: { name: body.name, token: randomBytes(32).toString('hex') },
-            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, apiKeyPublic: true, apiKeyPrivate: true, disabled: true, banned: true }
+            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, apiKeyPublic: true, apiKeyPrivate: true, disabled: true, banned: true, countInRubEquivalent: true }
           })
           return new Response(JSON.stringify(toISO(m)), {
             status: 201,
@@ -180,7 +180,7 @@ export default (app: Elysia) =>
       async () => {
         /* 1. Получаем мерчантов */
         const merchants = await db.merchant.findMany({
-          select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, apiKeyPublic: true, apiKeyPrivate: true, disabled: true, banned: true }
+          select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, apiKeyPublic: true, apiKeyPrivate: true, disabled: true, banned: true, countInRubEquivalent: true }
         })
 
         if (!merchants.length) return []
@@ -239,8 +239,9 @@ export default (app: Elysia) =>
               name: body.name,
               disabled: body.disabled,
               banned: body.banned,
+              countInRubEquivalent: body.countInRubEquivalent,
             },
-            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, disabled: true, banned: true, apiKeyPublic: true, apiKeyPrivate: true }
+            select: { id: true, name: true, token: true, createdAt: true, balanceUsdt: true, disabled: true, banned: true, apiKeyPublic: true, apiKeyPrivate: true, countInRubEquivalent: true }
           })
           return toISO(merchant)
         } catch (e) {
@@ -261,9 +262,79 @@ export default (app: Elysia) =>
           name: t.String(),
           disabled: t.Optional(t.Boolean()),
           banned: t.Optional(t.Boolean()),
+          countInRubEquivalent: t.Optional(t.Boolean()),
         }),
         response: {
-          200: t.Intersect([MerchantBase, t.Object({ disabled: t.Boolean(), banned: t.Boolean() })]),
+          200: t.Intersect([MerchantBase, t.Object({ disabled: t.Boolean(), banned: t.Boolean(), countInRubEquivalent: t.Boolean() })]),
+          404: ErrorSchema
+        }
+      }
+    )
+
+    /* ───────── GET /admin/merchant/:id/settlements ───────── */
+    .get(
+      '/:id/settlements',
+      async ({ params: { id }, error }) => {
+        const merchant = await db.merchant.findUnique({
+          where: { id },
+          include: {
+            settlements: {
+              orderBy: { createdAt: 'desc' },
+              include: {
+                _count: {
+                  select: { transactions: true }
+                }
+              }
+            }
+          }
+        })
+        
+        if (!merchant) return error(404, { error: 'Мерчант не найден' })
+        
+        // Подсчет суммы готовой к сеттлу
+        const pendingTransactions = await db.transaction.findMany({
+          where: {
+            merchantId: id,
+            type: TransactionType.IN,
+            status: Status.READY,
+            settlementId: null,
+          },
+          include: { method: true },
+        })
+        
+        let pendingAmount = 0
+        for (const tx of pendingTransactions) {
+          if (tx.rate && tx.method) {
+            const netAmount = tx.amount - (tx.amount * tx.method.commissionPayin) / 100
+            pendingAmount += netAmount / tx.rate
+          }
+        }
+        
+        return {
+          settlements: merchant.settlements.map(s => ({
+            id: s.id,
+            amount: s.amount,
+            createdAt: s.createdAt.toISOString(),
+            transactionCount: s._count.transactions
+          })),
+          pendingAmount
+        }
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Получить сеттлы мерчанта' },
+        headers: AuthHeader,
+        params: t.Object({ id: t.String() }),
+        response: {
+          200: t.Object({
+            settlements: t.Array(t.Object({
+              id: t.String(),
+              amount: t.Number(),
+              createdAt: t.String(),
+              transactionCount: t.Number(),
+            })),
+            pendingAmount: t.Number(),
+          }),
           404: ErrorSchema
         }
       }
