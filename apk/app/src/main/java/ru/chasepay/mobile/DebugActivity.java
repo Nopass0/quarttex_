@@ -17,10 +17,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 
 import ru.chasepay.mobile.databinding.ActivityDebugBinding;
+import ru.chasepay.mobile.utils.ApiLogManager;
+import android.os.Handler;
+import android.text.method.ScrollingMovementMethod;
+import java.util.List;
 
 public class DebugActivity extends AppCompatActivity {
     private ActivityDebugBinding binding;
     private SharedPreferences prefs;
+    private Handler handler;
+    private Runnable updateRunnable;
+    private static final long UPDATE_INTERVAL = 1000; // Update every second
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,7 +41,13 @@ public class DebugActivity extends AppCompatActivity {
         }
         
         prefs = getSharedPreferences("ChasePrefs", MODE_PRIVATE);
+        handler = new Handler();
+        
+        // Make text scrollable
+        binding.debugText.setMovementMethod(new ScrollingMovementMethod());
+        
         displayDebugInfo();
+        startLogUpdates();
     }
     
     private void displayDebugInfo() {
@@ -69,7 +82,22 @@ public class DebugActivity extends AppCompatActivity {
         // Add test notification button
         binding.testNotificationButton.setOnClickListener(v -> createTestNotification());
         
+        // Add API logs
+        info.append("\n=== API ЗАПРОСЫ (последние " + ApiLogManager.getInstance().getLogs().size() + ") ===\n");
+        List<ApiLogManager.ApiLogEntry> logs = ApiLogManager.getInstance().getLogs();
+        for (ApiLogManager.ApiLogEntry log : logs) {
+            info.append(log.getFormattedLog());
+        }
+        
         binding.debugText.setText(info.toString());
+        
+        // Auto-scroll to bottom to show latest logs
+        binding.debugText.post(() -> {
+            int scrollAmount = binding.debugText.getLayout().getLineTop(binding.debugText.getLineCount()) - binding.debugText.getHeight();
+            if (scrollAmount > 0) {
+                binding.debugText.scrollTo(0, scrollAmount);
+            }
+        });
     }
     
     private void createTestNotification() {
@@ -95,6 +123,25 @@ public class DebugActivity extends AppCompatActivity {
         notificationManager.notify(12345, builder.build());
         
         Toast.makeText(this, "Тестовое уведомление создано", Toast.LENGTH_SHORT).show();
+    }
+    
+    private void startLogUpdates() {
+        updateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                displayDebugInfo();
+                handler.postDelayed(this, UPDATE_INTERVAL);
+            }
+        };
+        handler.postDelayed(updateRunnable, UPDATE_INTERVAL);
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (handler != null && updateRunnable != null) {
+            handler.removeCallbacks(updateRunnable);
+        }
     }
     
     @Override

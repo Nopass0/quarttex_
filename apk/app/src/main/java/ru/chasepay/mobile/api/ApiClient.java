@@ -40,14 +40,14 @@ public class ApiClient {
     private static Retrofit buildRetrofit() {
         Log.d(TAG, "Building Retrofit instance");
         
-        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-        logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+        // Use custom logging interceptor
+        LoggingInterceptor customLogger = new LoggingInterceptor();
         
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            .addInterceptor(logging);
+            .addInterceptor(customLogger);
         
         // Configure SSL
         configureSsl(clientBuilder);

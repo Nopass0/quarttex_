@@ -287,10 +287,48 @@ export default new Elysia()
   // Simple test endpoint that ALWAYS returns the exact required format
   .get(
     "/ping", 
-    () => ({ 
-      status: "success", 
-      message: "Device API is working" 
-    })
+    async (context) => {
+      try {
+        // Get device from context set by middleware
+        const authResult = await withDeviceAuth(context);
+        if (!authResult || !authResult.device) {
+          return context.error(401, {
+            status: "error",
+            message: "Device authentication failed",
+          });
+        }
+        
+        const device = authResult.device;
+        
+        // Update device last active time
+        await db.device.update({
+          where: { id: device.id },
+          data: {
+            lastActiveAt: new Date(),
+            isOnline: true
+          }
+        });
+        
+        return { 
+          status: "success", 
+          message: "Device API is working" 
+        };
+      } catch (err) {
+        console.error("Error in ping endpoint:", err);
+        return context.error(500, {
+          status: "error",
+          message: "Internal server error"
+        });
+      }
+    },
+    {
+      headers: AuthHeaders,
+      response: {
+        200: SuccessResponseDTO,
+        401: ErrorResponseDTO,
+        500: ErrorResponseDTO,
+      },
+    }
   )
   // Test endpoint that accepts POST and returns the same structure
   .post(
@@ -430,6 +468,7 @@ export default new Elysia()
         // Update device info based on the request
         const updateData: any = {
           isOnline: true,
+          lastActiveAt: new Date(),
         };
 
         // Transfer all specific DB fields we want to store

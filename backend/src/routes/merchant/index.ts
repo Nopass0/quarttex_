@@ -574,9 +574,14 @@ export default (app: Elysia) =>
               // Проверяем, что трейдер активно работает (trafficEnabled true)
               trafficEnabled: true
             },
+            // Проверяем, что устройство банковской карты работает
+            OR: [
+              { deviceId: null }, // Карта без устройства
+              { device: { isWorking: true, isOnline: true } } // Или устройство активно
+            ]
           },
           orderBy: { updatedAt: "asc" }, // LRU-очередь
-          include: { user: true },
+          include: { user: true, device: true },
         });
 
         console.log(`[Merchant] Поиск реквизитов: methodType=${method.type}, isArchived=false, user.banned=false, deposit>0, teamId!=null, trafficEnabled=true`);
@@ -584,7 +589,7 @@ export default (app: Elysia) =>
         
         // Логируем все найденные реквизиты
         pool.forEach((bd, index) => {
-          console.log(`[Merchant] Реквизит ${index + 1}: id=${bd.id}, archived=${bd.isArchived}, methodType=${bd.methodType}, user.banned=${bd.user.banned}, deposit=${bd.user.deposit}, teamId=${bd.user.teamId}, minAmount=${bd.minAmount}, maxAmount=${bd.maxAmount}, trustBalance=${bd.user.trustBalance}`);
+          console.log(`[Merchant] Реквизит ${index + 1}: id=${bd.id}, archived=${bd.isArchived}, methodType=${bd.methodType}, user.banned=${bd.user.banned}, deposit=${bd.user.deposit}, teamId=${bd.user.teamId}, minAmount=${bd.minAmount}, maxAmount=${bd.maxAmount}, trustBalance=${bd.user.trustBalance}, device=${bd.device ? `${bd.device.name} (working:${bd.device.isWorking}, online:${bd.device.isOnline})` : 'NO_DEVICE'}`);
         });
 
         let chosen: (typeof pool)[number] | null = null;
