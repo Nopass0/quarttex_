@@ -25,7 +25,14 @@ import {
   DollarSign,
   Folder,
   TrendingUp,
-  PiggyBank
+  PiggyBank,
+  Clock,
+  Send,
+  BarChart3,
+  Headphones,
+  TestTube,
+  Trash2,
+  BookOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
