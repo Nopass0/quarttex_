@@ -422,7 +422,19 @@ export function PayoutsList() {
     } catch (error: any) {
       console.error("Failed to accept payout:", error);
       const errorMessage = error.response?.data?.error || "Не удалось принять выплату";
-      toast.error(errorMessage);
+      
+      // Provide more specific error messages
+      if (errorMessage.includes("Insufficient RUB balance")) {
+        toast.error("Недостаточно средств на балансе RUB для принятия выплаты");
+      } else if (errorMessage.includes("Maximum simultaneous payouts reached")) {
+        toast.error("Достигнут лимит одновременных выплат");
+      } else if (errorMessage.includes("expired")) {
+        toast.error("Выплата истекла");
+      } else if (errorMessage.includes("already accepted")) {
+        toast.error("Выплата уже принята другим трейдером");
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
   
