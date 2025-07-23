@@ -277,7 +277,6 @@ export function PayoutsList() {
   }, [teamEnabled]);
   
   useEffect(() => {
-    console.log(`🔄 TAB CHANGED to: "${activeTab}"`);
     // Refetch payouts when tab changes
     fetchPayouts();
   }, [activeTab]);
@@ -324,8 +323,6 @@ export function PayoutsList() {
   };
   
   const fetchPayouts = async (loadMore = false) => {
-    console.log(`🔄 FETCH PAYOUTS CALLED for tab: "${activeTab}", loadMore: ${loadMore}`);
-    
     if (loadMore) {
       setLoadingMore(true);
     } else {
@@ -361,13 +358,6 @@ export function PayoutsList() {
       const offset = loadMore ? page * limit : 0;
       
       
-      console.log(`📡 API CALL for tab "${activeTab}" with params:`, {
-        status,
-        search: searchId || searchRequisites || undefined,
-        limit,
-        offset,
-      });
-      
       const response = await payoutApi.getPayouts({
         status,
         search: searchId || searchRequisites || undefined,
@@ -375,44 +365,34 @@ export function PayoutsList() {
         offset,
       });
       
-      console.log(`📨 API RESPONSE for tab "${activeTab}":`, response);
-      
       
       if (response.success) {
-        console.log(`Tab "${activeTab}": API returned ${response.payouts.length} payouts`);
-        if (response.payouts.length > 0) {
-          console.log('Sample statuses:', response.payouts.slice(0, 3).map(p => ({ id: p.numericId, status: p.status })));
-        }
-        
         // Convert API payouts to component format
-        const formattedPayouts: Payout[] = response.payouts.map(p => ({
-          id: p.numericId,
-          uuid: p.id, // Store the UUID for API calls
-          amount: p.amount,
-          amountUsdt: p.amountUsdt,
-          wallet: p.wallet,
-          bank: p.bank,
-          total: p.total,
-          totalUsdt: p.totalUsdt,
-          rate: p.rate,
-          isCard: p.isCard,
-          created_at: p.createdAt,
-          accepted_at: p.acceptedAt,
-          expire_at: p.expireAt,
-          confirmed_at: p.confirmedAt,
-          status: p.status.toLowerCase() as any,
-        }));
-        
-        console.log(`Tab "${activeTab}": After formatting, ${formattedPayouts.length} payouts`);
-        if (formattedPayouts.length > 0) {
-          console.log('Formatted statuses:', formattedPayouts.slice(0, 3).map(p => ({ id: p.id, status: p.status })));
-        }
+        const formattedPayouts: Payout[] = response.payouts.map(p => {
+          console.log(`Converting payout ${p.numericId}: ${p.status} -> ${p.status.toLowerCase()}`);
+          return {
+            id: p.numericId,
+            uuid: p.id, // Store the UUID for API calls
+            amount: p.amount,
+            amountUsdt: p.amountUsdt,
+            wallet: p.wallet,
+            bank: p.bank,
+            total: p.total,
+            totalUsdt: p.totalUsdt,
+            rate: p.rate,
+            isCard: p.isCard,
+            created_at: p.createdAt,
+            accepted_at: p.acceptedAt,
+            expire_at: p.expireAt,
+            confirmed_at: p.confirmedAt,
+            status: p.status.toLowerCase() as any,
+          };
+        });
         
         if (loadMore) {
           setPayouts(prev => [...prev, ...formattedPayouts]);
           setPage(prev => prev + 1);
         } else {
-          console.log(`📝 SETTING PAYOUTS for tab "${activeTab}": ${formattedPayouts.length} payouts`);
           setPayouts(formattedPayouts);
           setPage(1);
         }
@@ -420,7 +400,7 @@ export function PayoutsList() {
         setHasMore(formattedPayouts.length === limit);
       }
     } catch (error) {
-      console.error(`❌ FETCH PAYOUTS ERROR for tab "${activeTab}":`, error);
+      console.error("Failed to fetch payouts:", error);
       // Don't use mock data, just show empty state
       if (!loadMore) {
         setPayouts([]);
@@ -574,13 +554,10 @@ export function PayoutsList() {
     }
     return true;
   });
-  
-  console.log(`Tab "${activeTab}": After local filtering, ${filteredPayouts.length} payouts (from ${payouts.length} total)`);
-  if (filteredPayouts.length !== payouts.length) {
-    console.log('Some payouts were filtered out locally');
-  }
 
   const PayoutCard = ({ payout }: { payout: Payout }) => {
+    console.log(`Rendering PayoutCard for payout ${payout.id} with status: ${payout.status}`);
+    
     const isNotAccepted = payout.status === "created";
     // Show timer for payouts that have an expiration time and are not yet completed/cancelled
     const showTimer = (payout.status === "created" || payout.status === "active") && 
@@ -1306,12 +1283,9 @@ export function PayoutsList() {
 
           <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
             <div className="p-6 space-y-4">
-              {(() => {
-                console.log(`🎨 RENDERING for tab "${activeTab}": ${filteredPayouts.length} payouts`);
-                return filteredPayouts.map((payout) => (
-                  <PayoutCard key={payout.id} payout={payout} />
-                ));
-              })()}
+              {filteredPayouts.map((payout) => (
+                <PayoutCard key={payout.id} payout={payout} />
+              ))}
               {loadingMore && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />

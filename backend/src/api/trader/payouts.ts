@@ -14,7 +14,6 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
 
       try {
         const statusFilter = query.status?.split(",") as any;
-        console.log(`🔍 API: trader ${trader.id} requesting payouts with status:`, statusFilter);
         
         const { payouts, total } = await payoutService.getTraderPayouts(
           trader.id,
@@ -27,10 +26,6 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
         );
         
 
-        console.log(`📊 API: returning ${payouts.length} payouts to trader ${trader.id}`);
-        if (payouts.length > 0) {
-          console.log('Sample payouts:', payouts.slice(0, 3).map(p => ({ id: p.numericId, status: p.status, traderId: p.traderId })));
-        }
 
         return {
           success: true,

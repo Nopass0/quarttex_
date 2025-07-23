@@ -615,7 +615,6 @@ export class PayoutService {
       offset?: number;
     }
   ) {
-    console.log(`🔧 PayoutService: getting payouts for trader ${traderId} with filters:`, filters);
     
     // For traders, show ALL payouts by status (not just assigned to them)
     const where: Prisma.PayoutWhereInput = {};
@@ -792,10 +791,6 @@ export class PayoutService {
       db.payout.count({ where }),
     ]);
     
-    console.log(`🎯 PayoutService: found ${payouts.length} payouts for trader ${traderId}`);
-    if (payouts.length > 0) {
-      console.log('Sample results:', payouts.slice(0, 3).map(p => ({ id: p.numericId, status: p.status, traderId: p.traderId })));
-    }
     
     return { payouts, total };
   }
