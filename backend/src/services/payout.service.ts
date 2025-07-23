@@ -615,31 +615,52 @@ export class PayoutService {
       offset?: number;
     }
   ) {
+    console.log(`🔧 PayoutService: getting payouts for trader ${traderId} with filters:`, filters);
     
-    const baseConditions: Prisma.PayoutWhereInput[] = [];
+    // For traders, show ALL payouts by status (not just assigned to them)
+    const where: Prisma.PayoutWhereInput = {};
     
-    // Condition 1: Payouts assigned to this trader
-    const traderCondition: Prisma.PayoutWhereInput = { traderId };
+    // Filter by status if provided
     if (filters.status?.length) {
-      traderCondition.status = { in: filters.status };
+      where.status = { in: filters.status };
     }
-    baseConditions.push(traderCondition);
     
-    // Condition 2: Available payouts in the pool (only CREATED status)
-    // Only show pool payouts when no status filter or when CREATED is included
+    // Exclude expired CREATED payouts from pool
     if (!filters.status || filters.status.includes("CREATED")) {
-      baseConditions.push({
-        traderId: null,
-        status: "CREATED",
-        expireAt: {
-          gt: new Date() // Only show non-expired payouts
+      where.OR = [
+        // Show CREATED payouts that are not expired
+        {
+          status: "CREATED",
+          expireAt: { gt: new Date() }
+        },
+        // Show all other statuses
+        {
+          status: { not: "CREATED" }
         }
-      });
+      ];
+      
+      // If we're filtering by status and CREATED is included, adjust the logic
+      if (filters.status?.length && filters.status.includes("CREATED")) {
+        if (filters.status.length === 1) {
+          // Only CREATED requested
+          where.OR = [{
+            status: "CREATED",
+            expireAt: { gt: new Date() }
+          }];
+        } else {
+          // CREATED + other statuses
+          where.OR = [
+            {
+              status: "CREATED",
+              expireAt: { gt: new Date() }
+            },
+            {
+              status: { in: filters.status.filter(s => s !== "CREATED") }
+            }
+          ];
+        }
+      }
     }
-    
-    const where: Prisma.PayoutWhereInput = {
-      OR: baseConditions,
-    };
     
     
     // Exclude expired payouts from results
@@ -770,6 +791,11 @@ export class PayoutService {
       }),
       db.payout.count({ where }),
     ]);
+    
+    console.log(`🎯 PayoutService: found ${payouts.length} payouts for trader ${traderId}`);
+    if (payouts.length > 0) {
+      console.log('Sample results:', payouts.slice(0, 3).map(p => ({ id: p.numericId, status: p.status, traderId: p.traderId })));
+    }
     
     return { payouts, total };
   }
