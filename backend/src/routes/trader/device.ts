@@ -287,42 +287,78 @@ export default new Elysia()
   // Simple test endpoint that ALWAYS returns the exact required format
   .get(
     "/ping", 
+    () => ({ 
+      status: "success", 
+      message: "Device API is working" 
+    })
+  )
+  // Health check endpoint that updates device activity
+  .post(
+    "/health-check",
     async (context) => {
       try {
-        // Get device from context set by middleware
-        const authResult = await withDeviceAuth(context);
-        if (!authResult || !authResult.device) {
-          return context.error(401, {
+        const { headers, body, error } = context;
+        
+        // Check for device token in header
+        const deviceToken = headers["x-device-token"];
+        if (!deviceToken) {
+          return error(401, {
             status: "error",
-            message: "Device authentication failed",
+            message: "Missing device token",
           });
         }
         
-        const device = authResult.device;
-        
-        // Update device last active time
-        await db.device.update({
-          where: { id: device.id },
-          data: {
-            lastActiveAt: new Date(),
-            isOnline: true
-          }
+        const device = await db.device.findFirst({
+          where: { token: deviceToken },
         });
         
-        return { 
-          status: "success", 
-          message: "Device API is working" 
+        if (!device) {
+          return error(401, {
+            status: "error",
+            message: "Invalid device token",
+          });
+        }
+        
+        // Update device info
+        const updateData: any = {
+          lastActiveAt: new Date(),
+          isOnline: true,
+        };
+        
+        // Update battery level if provided
+        if (body && typeof body === 'object' && 'batteryLevel' in body) {
+          updateData.energy = body.batteryLevel;
+        }
+        
+        await db.device.update({
+          where: { id: device.id },
+          data: updateData,
+        });
+        
+        return {
+          status: "success",
+          message: "Health check received",
         };
       } catch (err) {
-        console.error("Error in ping endpoint:", err);
+        console.error("Error in health check:", err);
         return context.error(500, {
           status: "error",
-          message: "Internal server error"
+          message: "Internal server error",
         });
       }
     },
     {
-      headers: AuthHeaders,
+      headers: t.Object({
+        "x-device-token": t.String({
+          description: "Device token for authentication",
+        }),
+      }),
+      body: t.Optional(
+        t.Object({
+          batteryLevel: t.Optional(t.Number()),
+          networkSpeed: t.Optional(t.String()),
+        })
+      ),
       response: {
         200: SuccessResponseDTO,
         401: ErrorResponseDTO,
