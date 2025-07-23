@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_FIRST_RUN = "first_run";
     private static final String KEY_NOTIFICATION_ACCESS_SHOWN = "notification_access_shown";
     private static final String KEY_BATTERY_OPT_SHOWN = "battery_opt_shown";
-    private static final long PING_INTERVAL = 1; // 1ms - практически непрерывно
+    private static final long PING_INTERVAL = 1000; // 1 секунда - оптимально для стабильности
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {

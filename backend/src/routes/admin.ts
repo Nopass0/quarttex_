@@ -50,6 +50,7 @@ import dealDisputesRoutes from "@/routes/admin/deal-disputes";
 import withdrawalDisputesRoutes from "@/routes/admin/withdrawal-disputes";
 import bulkDeleteRoutes from "@/routes/admin/bulk-delete";
 import ideasRoutes from "@/routes/admin/ideas";
+import testRoutes from "@/routes/admin/test";
 // import { testToolsRoutes } from "@/routes/admin/test-tools";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
@@ -133,8 +134,68 @@ export default (app: Elysia) =>
     .group("/withdrawal-disputes", (a) => withdrawalDisputesRoutes(a))
     .group("/bulk-delete", (a) => a.use(bulkDeleteRoutes))
     .group("/ideas", (a) => ideasRoutes(a))
+    .group("/test", (a) => testRoutes(a))
     // .group("/test-tools", (a) => a.use(testToolsRoutes))
     .group("", (a) => metricsRoutes(a))
+
+    /* ───────────────── Quick access endpoints ───────────────── */
+    .get("/methods", async () => {
+      const methods = await db.method.findMany();
+      return methods;
+    }, {
+      tags: ["admin"],
+      headers: authHeader,
+      response: {
+        200: t.Array(t.Object({
+          id: t.String(),
+          code: t.String(),
+          name: t.String(),
+          type: t.Enum(MethodType),
+          currency: t.Enum(Currency),
+        })),
+        401: ErrorSchema,
+        403: ErrorSchema,
+      },
+    })
+    
+    .get("/devices", async () => {
+      const devices = await db.device.findMany({
+        include: {
+          user: {
+            include: {
+              trader: true
+            }
+          }
+        },
+        orderBy: {
+          lastActiveAt: "desc"
+        }
+      });
+      
+      return devices.map(device => ({
+        id: device.id,
+        name: device.name,
+        token: device.token,
+        isOnline: device.isOnline,
+        userId: device.userId,
+        trader: device.user?.trader
+      }));
+    }, {
+      tags: ["admin"],
+      headers: authHeader,
+      response: {
+        200: t.Array(t.Object({
+          id: t.String(),
+          name: t.String(),
+          token: t.String(),
+          isOnline: t.Boolean(),
+          userId: t.String(),
+          trader: t.Optional(t.Any())
+        })),
+        401: ErrorSchema,
+        403: ErrorSchema,
+      },
+    })
 
     /* ───────────────── enums ───────────────── */
     .get("/enums/status", () => Object.values(Status), {

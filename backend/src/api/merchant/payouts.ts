@@ -89,7 +89,9 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         externalReference: t.Optional(t.String()),
         processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60 })),
         webhookUrl: t.Optional(t.String({ format: "uri" })),
-        metadata: t.Optional(t.Any()),
+        metadata: t.Optional(t.Object({
+          isMock: t.Optional(t.Boolean()),
+        }, { additionalProperties: true })),
       }),
     }
   )

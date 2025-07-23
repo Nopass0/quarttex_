@@ -441,7 +441,7 @@ export default (app: Elysia) =>
                 clientName: userId, // Используем userId как имя клиента
                 status: Status.MILK,
                 rate: body.rate,
-                isMock: false,
+                isMock: body.isMock || false,
                 error: msg,
               },
             });
@@ -523,7 +523,7 @@ export default (app: Elysia) =>
               clientName: userId,
               status: Status.IN_PROGRESS,
               rate: body.rate,
-              isMock: false,
+              isMock: body.isMock || false,
             },
             include: {
               method: {
@@ -820,7 +820,7 @@ export default (app: Elysia) =>
               clientName: userId, // Используем userId как имя клиента
               status: Status.IN_PROGRESS,
               rate: body.rate,
-              isMock: false,
+              isMock: body.isMock || false,
               bankDetailId: chosen.id, // FK на BankDetail
               traderId: chosen.userId,
               // Новые поля для заморозки
@@ -923,6 +923,7 @@ export default (app: Elysia) =>
           callbackUri: t.Optional(t.String({ description: "URL для callback уведомлений" })),
           successUri: t.Optional(t.String({ description: "URL для уведомления об успешной оплате" })),
           failUri: t.Optional(t.String({ description: "URL для уведомления о неудачной оплате" })),
+          isMock: t.Optional(t.Boolean({ description: "Флаг для создания тестовой транзакции" })),
         }),
 
         response: {
@@ -1121,7 +1122,7 @@ export default (app: Elysia) =>
             feeInPercent: feeInPercent,
             frozenUsdtAmount: freezingParams.frozenUsdtAmount,
             calculatedCommission: freezingParams.calculatedCommission,
-            isMock: false,
+            isMock: body.isMock || false,
             bankDetailId: chosen.id,
             traderId: chosen.userId,
           },
@@ -1188,6 +1189,7 @@ export default (app: Elysia) =>
           expired_at: t.String({ description: "ISO дата истечения транзакции" }),
           userIp: t.Optional(t.String({ description: "IP адрес пользователя" })),
           callbackUri: t.Optional(t.String({ description: "URL для callback уведомлений" })),
+          isMock: t.Optional(t.Boolean({ description: "Флаг для создания тестовой транзакции" })),
         }),
         response: {
           201: t.Object({
@@ -1290,7 +1292,7 @@ export default (app: Elysia) =>
             clientName: `user_${Date.now()}`,
             status: Status.IN_PROGRESS,
             rate: body.rate,
-            isMock: false,
+            isMock: body.isMock || false,
           },
           include: {
             method: {
@@ -1330,6 +1332,7 @@ export default (app: Elysia) =>
           expired_at: t.String({ description: "ISO дата истечения транзакции" }),
           userIp: t.Optional(t.String({ description: "IP адрес пользователя" })),
           callbackUri: t.Optional(t.String({ description: "URL для callback уведомлений" })),
+          isMock: t.Optional(t.Boolean({ description: "Флаг для создания тестовой транзакции" })),
         }),
         response: {
           201: t.Object({
