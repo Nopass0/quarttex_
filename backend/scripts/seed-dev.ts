@@ -1,6 +1,7 @@
 import { db } from '../src/db'
 import { Currency, MethodType } from '@prisma/client'
 import { randomBytes } from 'crypto'
+import { sha256 } from '../src/utils/hash'
 
 async function seedDevelopment() {
   try {
@@ -24,7 +25,7 @@ async function seedDevelopment() {
       create: {
         email: 'trader@test.com',
         name: 'Test Trader',
-        password: 'test123', // In production, this should be hashed
+        password: await sha256('test123'), // Properly hashed password
         balanceUsdt: 10000,
         balanceRub: 0,
         frozenUsdt: 0,

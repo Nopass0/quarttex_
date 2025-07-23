@@ -20,6 +20,8 @@ import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
 import { dashboardRoutes } from "@/api/trader/dashboard";
+import { payoutFiltersApi } from "@/api/trader/payout-filters";
+import { banksApi } from "@/api/trader/banks";
 
 /**
  * Маршруты для трейдера
@@ -68,6 +70,8 @@ export default (app: Elysia) =>
     .use(financeRoutes)
     .use(traderPayoutsApi)
     .use(dashboardRoutes)
+    .use(payoutFiltersApi)
+    .use(banksApi)
     .use(btEntranceRoutes)
     .use(ideaRoutes)
     .get(

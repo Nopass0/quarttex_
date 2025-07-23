@@ -84,12 +84,15 @@ export class PayoutMonitorService extends BaseService {
       console.log(`[PayoutMonitorService] Found ${unassignedPayouts.length} unassigned payouts`);
 
 
-      // Find eligible traders
+      // Find eligible traders with their filters
       const eligibleTraders = await db.user.findMany({
         where: {
           banned: false,
           trafficEnabled: true,
           // Remove balance check here - we'll check it per payout below
+        },
+        include: {
+          payoutFilters: true,
         },
         orderBy: {
           createdAt: "asc", // FIFO distribution
@@ -104,9 +107,85 @@ export class PayoutMonitorService extends BaseService {
         const availableTraders = [];
 
         for (const trader of eligibleTraders) {
-          // Check if trader has enough RUB balance (must cover total amount including fees)
-          if (trader.balanceRub < payout.total) {
+          // Check if this trader previously had this payout
+          if (payout.previousTraderIds && payout.previousTraderIds.includes(trader.id)) {
             continue;
+          }
+
+          // Check if trader has enough RUB balance for the payout amount
+          if (trader.balanceRub < payout.amount) {
+            continue;
+          }
+
+          // Check trader's filters
+          if (trader.payoutFilters) {
+            const filters = trader.payoutFilters;
+            
+            // Check max payout amount filter
+            if (filters.maxPayoutAmount > 0 && payout.amount > filters.maxPayoutAmount) {
+              continue;
+            }
+
+            // Check traffic type filter
+            if (filters.trafficTypes.length > 0) {
+              const payoutTrafficType = payout.isCard ? "card" : "sbp";
+              if (!filters.trafficTypes.includes(payoutTrafficType) && !filters.trafficTypes.includes("both")) {
+                continue;
+              }
+            }
+
+            // Check bank type filter
+            if (filters.bankTypes.length > 0 && payout.bank) {
+              // Convert bank name to BankType enum value
+              const bankTypeMap: { [key: string]: string } = {
+                "Сбербанк": "SBERBANK",
+                "Райффайзен": "RAIFFEISEN",
+                "Газпромбанк": "GAZPROMBANK",
+                "Почта Банк": "POCHTABANK",
+                "ВТБ": "VTB",
+                "Россельхозбанк": "ROSSELKHOZBANK",
+                "Альфа-банк": "ALFABANK",
+                "Уралсиб": "URALSIB",
+                "Локо-Банк": "LOKOBANK",
+                "Ак Барс": "AKBARS",
+                "МКБ": "MKB",
+                "Банк Санкт-Петербург": "SPBBANK",
+                "МТС Банк": "MTSBANK",
+                "Промсвязьбанк": "PROMSVYAZBANK",
+                "Озон Банк": "OZONBANK",
+                "Открытие": "OTKRITIE",
+                "Ренессанс": "RENAISSANCE",
+                "ОТП Банк": "OTPBANK",
+                "Авангард": "AVANGARD",
+                "Владбизнесбанк": "VLADBUSINESSBANK",
+                "Таврический": "TAVRICHESKIY",
+                "Фора-Банк": "FORABANK",
+                "БКС Банк": "BCSBANK",
+                "Хоум Кредит": "HOMECREDIT",
+                "ББР Банк": "BBRBANK",
+                "Кредит Европа Банк": "CREDITEUROPE",
+                "РНКБ": "RNKB",
+                "УБРиР": "UBRIR",
+                "Генбанк": "GENBANK",
+                "Синара": "SINARA",
+                "Абсолют Банк": "ABSOLUTBANK",
+                "МТС Деньги": "MTSMONEY",
+                "Свой Банк": "SVOYBANK",
+                "ТрансКапиталБанк": "TRANSKAPITALBANK",
+                "Долинск": "DOLINSK",
+                "Т-Банк": "TBANK",
+                "Совкомбанк": "SOVCOMBANK",
+                "Росбанк": "ROSBANK",
+                "ЮниКредит": "UNICREDIT",
+                "Ситибанк": "CITIBANK",
+                "Русский Стандарт": "RUSSIANSTANDARD"
+              };
+
+              const payoutBankType = bankTypeMap[payout.bank];
+              if (payoutBankType && !filters.bankTypes.includes(payoutBankType as any)) {
+                continue;
+              }
+            }
           }
 
           // Check trader's current active payout count
@@ -170,14 +249,21 @@ export class PayoutMonitorService extends BaseService {
       }
 
 
-      // Find eligible traders
+      // Find eligible traders, excluding those who previously worked with this payout
       const traders = await db.user.findMany({
         where: {
           banned: false,
           trafficEnabled: true,
           balanceRub: {
-            gte: payout.total, // Must have enough balance for total amount including fees
+            gte: payout.amount, // Must have enough RUB balance for payout amount
           },
+          // Exclude traders who previously had this payout
+          id: {
+            notIn: payout.previousTraderIds || [],
+          },
+        },
+        include: {
+          payoutFilters: true,
         },
         orderBy: {
           createdAt: "asc",
@@ -188,6 +274,76 @@ export class PayoutMonitorService extends BaseService {
       let notificationsSent = 0;
 
       for (const trader of traders) {
+        // Check trader's filters
+        if (trader.payoutFilters) {
+          const filters = trader.payoutFilters;
+          
+          // Check max payout amount filter
+          if (filters.maxPayoutAmount > 0 && payout.amount > filters.maxPayoutAmount) {
+            continue;
+          }
+
+          // Check traffic type filter
+          if (filters.trafficTypes.length > 0) {
+            const payoutTrafficType = payout.isCard ? "card" : "sbp";
+            if (!filters.trafficTypes.includes(payoutTrafficType) && !filters.trafficTypes.includes("both")) {
+              continue;
+            }
+          }
+
+          // Check bank type filter
+          if (filters.bankTypes.length > 0 && payout.bank) {
+            const bankTypeMap: { [key: string]: string } = {
+              "Сбербанк": "SBERBANK",
+              "Райффайзен": "RAIFFEISEN",
+              "Газпромбанк": "GAZPROMBANK",
+              "Почта Банк": "POCHTABANK",
+              "ВТБ": "VTB",
+              "Россельхозбанк": "ROSSELKHOZBANK",
+              "Альфа-банк": "ALFABANK",
+              "Уралсиб": "URALSIB",
+              "Локо-Банк": "LOKOBANK",
+              "Ак Барс": "AKBARS",
+              "МКБ": "MKB",
+              "Банк Санкт-Петербург": "SPBBANK",
+              "МТС Банк": "MTSBANK",
+              "Промсвязьбанк": "PROMSVYAZBANK",
+              "Озон Банк": "OZONBANK",
+              "Открытие": "OTKRITIE",
+              "Ренессанс": "RENAISSANCE",
+              "ОТП Банк": "OTPBANK",
+              "Авангард": "AVANGARD",
+              "Владбизнесбанк": "VLADBUSINESSBANK",
+              "Таврический": "TAVRICHESKIY",
+              "Фора-Банк": "FORABANK",
+              "БКС Банк": "BCSBANK",
+              "Хоум Кредит": "HOMECREDIT",
+              "ББР Банк": "BBRBANK",
+              "Кредит Европа Банк": "CREDITEUROPE",
+              "РНКБ": "RNKB",
+              "УБРиР": "UBRIR",
+              "Генбанк": "GENBANK",
+              "Синара": "SINARA",
+              "Абсолют Банк": "ABSOLUTBANK",
+              "МТС Деньги": "MTSMONEY",
+              "Свой Банк": "SVOYBANK",
+              "ТрансКапиталБанк": "TRANSKAPITALBANK",
+              "Долинск": "DOLINSK",
+              "Т-Банк": "TBANK",
+              "Совкомбанк": "SOVCOMBANK",
+              "Росбанк": "ROSBANK",
+              "ЮниКредит": "UNICREDIT",
+              "Ситибанк": "CITIBANK",
+              "Русский Стандарт": "RUSSIANSTANDARD"
+            };
+
+            const payoutBankType = bankTypeMap[payout.bank];
+            if (payoutBankType && !filters.bankTypes.includes(payoutBankType as any)) {
+              continue;
+            }
+          }
+        }
+
         // Check trader's active payout count
         const activeCount = await db.payout.count({
           where: {

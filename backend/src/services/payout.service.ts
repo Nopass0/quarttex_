@@ -79,6 +79,21 @@ export class PayoutService {
       : amount * (1 + feePercent / 100);
     const totalUsdt = total / rate;
     
+    // First check if there are any traders with sufficient RUB balance
+    const eligibleTradersCount = await db.user.count({
+      where: {
+        banned: false,
+        trafficEnabled: true,
+        balanceRub: {
+          gte: amount, // Check RUB balance against payout amount
+        },
+      },
+    });
+
+    if (eligibleTradersCount === 0) {
+      throw new Error(`No traders available with sufficient RUB balance. Required: ${amount} RUB`);
+    }
+
     // Create payout with expiration time
     const expireAt = new Date();
     expireAt.setMinutes(expireAt.getMinutes() + processingTime);
@@ -125,13 +140,17 @@ export class PayoutService {
     } catch (error) {
       console.log("PayoutMonitorService not available, using fallback distribution");
       
-      // Fallback: Find eligible traders
+      // Fallback: Find eligible traders, excluding those who previously had this payout
       const traders = await db.user.findMany({
         where: {
           banned: false,
           trafficEnabled: true,
-          payoutBalance: {
-            gte: payout.total, // Has enough balance
+          balanceRub: {
+            gte: payout.amount, // Has enough RUB balance
+          },
+          // Exclude traders who previously had this payout
+          id: {
+            notIn: payout.previousTraderIds || [],
           },
           // TODO: Add filters for traffic type and banks
         },
@@ -190,13 +209,13 @@ export class PayoutService {
       throw new Error("Payout has expired");
     }
     
-    // Check trader's payout balance
+    // Check trader's RUB balance for payouts
     const trader = await db.user.findUnique({
       where: { id: traderId },
     });
     
-    if (!trader || trader.payoutBalance < payout.total) {
-      throw new Error("Insufficient payout balance");
+    if (!trader || trader.balanceRub < payout.amount) {
+      throw new Error(`Insufficient RUB balance. Required: ${payout.amount}, Available: ${trader.balanceRub || 0}`);
     }
     
     // Count current payouts for the trader
@@ -212,7 +231,7 @@ export class PayoutService {
       throw new Error(`Maximum simultaneous payouts reached (${trader.maxSimultaneousPayouts})`);
     }
     
-    // Accept payout and freeze balance
+    // Accept payout and freeze RUB balance
     const [updatedPayout] = await db.$transaction([
       db.payout.update({
         where: { id: payoutId },
@@ -227,8 +246,8 @@ export class PayoutService {
       db.user.update({
         where: { id: traderId },
         data: {
-          payoutBalance: { decrement: payout.total },
-          frozenPayoutBalance: { increment: payout.total },
+          balanceRub: { decrement: payout.amount },
+          frozenRub: { increment: payout.amount },
         },
       }),
     ]);
@@ -331,7 +350,7 @@ export class PayoutService {
       throw new Error("No trader assigned to payout");
     }
     
-    // Complete payout and release frozen balance to trader's USDT balance
+    // Complete payout: consume frozen RUB and add USDT to balance
     const [updatedPayout] = await db.$transaction([
       db.payout.update({
         where: { id: payoutId },
@@ -340,8 +359,8 @@ export class PayoutService {
       db.user.update({
         where: { id: payout.traderId },
         data: {
-          frozenPayoutBalance: { decrement: payout.total },
-          balanceUsdt: { increment: payout.totalUsdt },
+          frozenRub: { decrement: payout.amount }, // Consume frozen RUB
+          balanceUsdt: { increment: payout.totalUsdt }, // Add USDT to balance
           profitFromPayouts: { increment: payout.totalUsdt - payout.amountUsdt },
         },
       }),
@@ -409,13 +428,17 @@ export class PayoutService {
           cancelReasonCode: reasonCode,
           disputeFiles: files || [],
           disputeMessage: reason,
+          // Add trader to previousTraderIds to prevent reassignment
+          previousTraderIds: {
+            push: traderId,
+          },
         },
       }),
       db.user.update({
         where: { id: traderId },
         data: {
-          frozenPayoutBalance: { decrement: payout.total },
-          payoutBalance: { increment: payout.total },
+          frozenRub: { decrement: payout.amount },
+          balanceRub: { increment: payout.amount },
         },
       }),
     ];
@@ -493,8 +516,8 @@ export class PayoutService {
         db.user.update({
           where: { id: payout.traderId },
           data: {
-            frozenPayoutBalance: { decrement: payout.total },
-            payoutBalance: { increment: payout.total },
+            frozenRub: { decrement: payout.amount },
+            balanceRub: { increment: payout.amount },
           },
         })
       );

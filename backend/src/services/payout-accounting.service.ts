@@ -143,6 +143,10 @@ export class PayoutAccountingService {
           disputeFiles: files || [],
           disputeMessage: reason,
           sumToWriteOffUSDT: null, // Clear the USDT calculation
+          // Add trader to previousTraderIds to prevent reassignment
+          previousTraderIds: {
+            push: traderId,
+          },
         },
       }),
       db.user.update({

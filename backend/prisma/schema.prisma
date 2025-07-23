@@ -89,6 +89,7 @@ model User {
   withdrawalRequests     WithdrawalRequest[]
   messages               Message[]
   ideas                  Idea[]
+  payoutFilters          PayoutFilters?
 }
 
 model Session {
@@ -669,6 +670,7 @@ model Payout {
   cancelReasonCode     String?
   externalReference    String?
   sumToWriteOffUSDT    Float?
+  previousTraderIds    String[]          @default([])
   merchant             Merchant          @relation(fields: [merchantId], references: [id])
   trader               User?             @relation("TraderPayouts", fields: [traderId], references: [id])
   rateAudits           PayoutRateAudit[]
@@ -1134,4 +1136,16 @@ enum IdeaStatus {
   ACCEPTED
   REJECTED
   IMPLEMENTED
+}
+
+model PayoutFilters {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  trafficTypes    String[] @default([]) // ["card", "sbp", "both"]
+  bankTypes       BankType[] @default([])
+  maxPayoutAmount Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id])
 }

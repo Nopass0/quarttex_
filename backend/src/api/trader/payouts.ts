@@ -238,6 +238,82 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     }
   )
   
+  // Get payout details
+  .get(
+    "/:id",
+    async ({ params, trader, set }) => {
+      try {
+        // Check if params.id is a UUID or numeric ID
+        let payoutRecord;
+        if (params.id.length > 10) {
+          // UUID format
+          payoutRecord = await db.payout.findFirst({
+            where: { id: params.id },
+            include: { merchant: true }
+          });
+        } else {
+          // Numeric ID format
+          const numericId = parseInt(params.id);
+          payoutRecord = await db.payout.findFirst({
+            where: { numericId },
+            include: { merchant: true }
+          });
+        }
+        
+        if (!payoutRecord) {
+          set.status = 404;
+          return { error: "Payout not found" };
+        }
+        
+        // Check if trader has access to this payout
+        const hasAccess = payoutRecord.traderId === trader.id || 
+                         payoutRecord.status === "CREATED";
+        
+        if (!hasAccess) {
+          set.status = 403;
+          return { error: "Access denied" };
+        }
+        
+        return {
+          success: true,
+          payout: {
+            id: payoutRecord.numericId,
+            uuid: payoutRecord.id,
+            amount: payoutRecord.amount,
+            amountUsdt: payoutRecord.amountUsdt,
+            total: payoutRecord.total,
+            totalUsdt: payoutRecord.totalUsdt,
+            rate: payoutRecord.rate,
+            wallet: payoutRecord.wallet,
+            bank: payoutRecord.bank,
+            isCard: payoutRecord.isCard,
+            status: payoutRecord.status,
+            expireAt: payoutRecord.expireAt,
+            createdAt: payoutRecord.createdAt,
+            acceptedAt: payoutRecord.acceptedAt,
+            confirmedAt: payoutRecord.confirmedAt,
+            cancelledAt: payoutRecord.cancelledAt,
+            merchantName: payoutRecord.merchant.name,
+            // Include dispute files from previous traders
+            disputeFiles: payoutRecord.disputeFiles || [],
+            disputeMessage: payoutRecord.disputeMessage || null,
+            cancelReason: payoutRecord.cancelReason || null,
+            // Include proof files if trader owns this payout
+            proofFiles: payoutRecord.traderId === trader.id ? payoutRecord.proofFiles : [],
+          },
+        };
+      } catch (error: any) {
+        set.status = 400;
+        return { error: error.message };
+      }
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+    }
+  )
+  
   // Get payout balance
   .get("/balance", async ({ trader, set }) => {
     try {

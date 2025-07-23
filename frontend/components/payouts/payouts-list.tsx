@@ -79,6 +79,14 @@ interface Payout {
   commission?: number;
 }
 
+interface PayoutDetails extends Payout {
+  uuid: string;
+  disputeFiles?: string[];
+  disputeMessage?: string;
+  cancelReason?: string;
+  proofFiles?: string[];
+}
+
 const statusConfig = {
   PENDING: {
     label: "Ожидает",
@@ -106,6 +114,8 @@ export function PayoutsList() {
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
+  const [selectedPayoutDetails, setSelectedPayoutDetails] = useState<PayoutDetails | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -184,77 +194,58 @@ export function PayoutsList() {
         setLoadingMore(true);
       }
 
-      // Mock data for now
-      const mockPayouts: Payout[] = [
-        {
-          id: "550e8400-e29b-41d4-a716-446655440000",
-          numericId: 1001,
-          amount: 150.5,
-          currency: "USDT",
-          status: "COMPLETED",
-          method: "card",
-          recipientName: "Иван Иванов",
-          cardNumber: "4276 **** **** 1234",
-          bankType: "SBERBANK",
-          createdAt: new Date(
-            Date.now() - 2 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          completedAt: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          transactionHash: "0x1234567890abcdef",
-          commission: 3.01,
+      const limit = 10;
+      const offset = (page - 1) * limit;
+      
+      const response = await traderApi.get("/api/trader/payouts", {
+        params: {
+          limit,
+          offset,
+          status: filterStatus !== "all" ? filterStatus : undefined,
+          search: searchQuery || undefined,
         },
-        {
-          id: "550e8400-e29b-41d4-a716-446655440001",
-          numericId: 1002,
-          amount: 75.25,
-          currency: "USDT",
-          status: "PROCESSING",
-          method: "wallet",
-          walletAddress: "0xAbCdEf1234567890",
-          createdAt: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          commission: 1.5,
-        },
-        {
-          id: "550e8400-e29b-41d4-a716-446655440002",
-          numericId: 1003,
-          amount: 200.0,
-          currency: "USDT",
-          status: "PENDING",
-          method: "card",
-          recipientName: "Петр Петров",
-          cardNumber: "5536 **** **** 3055",
-          bankType: "TBANK",
-          createdAt: new Date().toISOString(),
-          commission: 4.0,
-        },
-      ];
+      });
 
-      if (page === 1) {
-        setPayouts(mockPayouts);
+      if (response.data.success) {
+        const newPayouts = response.data.payouts.map((p: any) => ({
+          id: p.id || p.uuid, // Use numeric ID for display, UUID for API calls
+          numericId: p.numericId || p.id,
+          amount: p.amount,
+          currency: "RUB", // Payouts are in RUB
+          status: p.status,
+          method: p.isCard ? "card" : "wallet",
+          recipientName: p.bank?.split(" - ")[1], // Extract name from bank field
+          cardNumber: p.isCard ? p.wallet : undefined,
+          walletAddress: !p.isCard ? p.wallet : undefined,
+          bankType: p.bank?.split(" - ")[0], // Extract bank type
+          createdAt: p.createdAt,
+          completedAt: p.confirmedAt,
+          commission: p.totalUsdt - p.amountUsdt, // Calculate commission
+        }));
 
-        // Calculate stats
-        const completed = mockPayouts.filter((p) => p.status === "COMPLETED");
-        const totalAmount = completed.reduce((sum, p) => sum + p.amount, 0);
-        const totalCommission = completed.reduce(
-          (sum, p) => sum + (p.commission || 0),
-          0,
-        );
+        if (page === 1) {
+          setPayouts(newPayouts);
 
-        setStats({
-          totalPayouts: completed.length,
-          totalAmount: totalAmount,
-          profit: totalCommission,
-          currency: "USDT",
-        });
-      } else {
-        setPayouts((prev) => [...prev, ...mockPayouts]);
+          // Calculate stats
+          const completed = newPayouts.filter((p: Payout) => p.status === "COMPLETED");
+          const totalAmount = completed.reduce((sum: number, p: Payout) => sum + p.amount, 0);
+          const totalCommission = completed.reduce(
+            (sum: number, p: Payout) => sum + (p.commission || 0),
+            0,
+          );
+
+          setStats({
+            totalPayouts: completed.length,
+            totalAmount: totalAmount,
+            profit: totalCommission,
+            currency: "RUB",
+          });
+        } else {
+          setPayouts((prev) => [...prev, ...newPayouts]);
+        }
+
+        setHasMore(newPayouts.length === limit);
       }
-
-      setHasMore(mockPayouts.length === 10);
     } catch (error) {
       console.error("Error fetching payouts:", error);
       toast.error("Не удалось загрузить выплаты");
@@ -268,6 +259,26 @@ export function PayoutsList() {
     if (!loadingMore && hasMore) {
       setPage((prev) => prev + 1);
     }
+  };
+
+  const fetchPayoutDetails = async (payout: Payout) => {
+    try {
+      setLoadingDetails(true);
+      const response = await traderApi.get(`/api/trader/payouts/${payout.id}`);
+      if (response.data.success) {
+        setSelectedPayoutDetails(response.data.payout);
+      }
+    } catch (error) {
+      console.error("Error fetching payout details:", error);
+      toast.error("Не удалось загрузить детали выплаты");
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handlePayoutClick = (payout: Payout) => {
+    setSelectedPayout(payout);
+    fetchPayoutDetails(payout);
   };
 
   const filteredAndSortedPayouts = payouts
@@ -685,7 +696,7 @@ export function PayoutsList() {
               <Card
                 key={payout.id}
                 className="p-6 hover:shadow-lg transition-all duration-300 cursor-pointer"
-                onClick={() => setSelectedPayout(payout)}
+                onClick={() => handlePayoutClick(payout)}
               >
                 <div className="flex items-start justify-between">
                   {/* Left Section */}
@@ -827,7 +838,10 @@ export function PayoutsList() {
       {/* Payout Details Dialog */}
       <Dialog
         open={!!selectedPayout}
-        onOpenChange={() => setSelectedPayout(null)}
+        onOpenChange={() => {
+          setSelectedPayout(null);
+          setSelectedPayoutDetails(null);
+        }}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -976,6 +990,83 @@ export function PayoutsList() {
                   )}
                 </div>
               </div>
+
+              {/* Dispute Information */}
+              {loadingDetails ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                selectedPayoutDetails && (
+                  <>
+                    {/* Cancel Reason */}
+                    {selectedPayoutDetails.cancelReason && (
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Причина отмены</h4>
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div className="space-y-2">
+                              <p className="text-sm">{selectedPayoutDetails.cancelReason}</p>
+                              {selectedPayoutDetails.disputeMessage && (
+                                <p className="text-sm text-gray-600">
+                                  Сообщение: {selectedPayoutDetails.disputeMessage}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dispute Files from Previous Traders */}
+                    {selectedPayoutDetails.disputeFiles && selectedPayoutDetails.disputeFiles.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Файлы от предыдущих трейдеров</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {selectedPayoutDetails.disputeFiles.map((file, index) => (
+                            <a
+                              key={index}
+                              href={file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                              <FileText className="h-5 w-5 text-gray-500" />
+                              <span className="text-sm truncate">
+                                Файл {index + 1}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Proof Files */}
+                    {selectedPayoutDetails.proofFiles && selectedPayoutDetails.proofFiles.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Подтверждающие документы</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {selectedPayoutDetails.proofFiles.map((file, index) => (
+                            <a
+                              key={index}
+                              href={file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                              <FileText className="h-5 w-5 text-green-600" />
+                              <span className="text-sm truncate">
+                                Документ {index + 1}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )
+              )}
 
               {/* Timeline */}
               <div className="space-y-4">
