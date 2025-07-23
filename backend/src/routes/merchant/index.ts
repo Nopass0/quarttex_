@@ -623,6 +623,21 @@ export default (app: Elysia) =>
             continue;
           }
 
+          // Проверяем наличие транзакции с той же суммой в статусе IN_PROGRESS на этом реквизите
+          const existingTransaction = await db.transaction.findFirst({
+            where: {
+              bankDetailId: bd.id,
+              amount: amount,
+              status: Status.IN_PROGRESS,
+              type: TransactionType.IN,
+            }
+          });
+
+          if (existingTransaction) {
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: уже есть транзакция на сумму ${amount} в статусе IN_PROGRESS`);
+            continue;
+          }
+
           const [
             {
               _sum: { amount: daySum },
