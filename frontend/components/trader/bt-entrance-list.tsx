@@ -20,6 +20,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { CustomCalendarPopover } from "@/components/ui/custom-calendar-popover";
@@ -54,7 +60,7 @@ const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
   const bankLogos: Record<string, string> = {
     SBERBANK: "/bank-logos/sberbank.svg",
     TBANK: "/bank-logos/tbank.svg",
-    TINKOFF: "/bank-logos/tinkoff.svg",
+    TINK: "/bank-logos/tbank.svg", // Map TINK to TBANK logo
     ALFABANK: "/bank-logos/alfabank.svg",
     VTB: "/bank-logos/vtb.svg",
     RAIFFEISEN: "/bank-logos/raiffeisen.svg",
@@ -191,7 +197,11 @@ const formatCardNumber = (cardNumber: string) => {
   return cardNumber.replace(/(\d{4})(\d{2})(\d+)(\d{4})/, "$1 $2** **** $4");
 };
 
-export function BtEntranceList() {
+interface BtEntranceListProps {
+  onAddRequisiteClick?: () => void;
+}
+
+export function BtEntranceList({ onAddRequisiteClick }: BtEntranceListProps = {}) {
   const { user } = useTraderAuth();
   const [requisites, setRequisites] = useState<BtRequisite[]>([]);
   const [devices, setDevices] = useState<BtDevice[]>([]);
@@ -199,6 +209,8 @@ export function BtEntranceList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("requisites");
+  const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
+  const [addRequisiteLoading, setAddRequisiteLoading] = useState(false);
 
   // Filters for requisites
   const [showFilters, setShowFilters] = useState(false);
@@ -422,7 +434,7 @@ export function BtEntranceList() {
         </div>
         <div className="flex gap-2">
           {activeTab === "requisites" ? (
-            <Button onClick={() => toast.info("Функция добавления реквизитов в разработке")}>
+            <Button onClick={() => onAddRequisiteClick ? onAddRequisiteClick() : setShowAddRequisiteDialog(true)}>
               <CreditCard className="h-4 w-4 mr-2" />
               Добавить реквизит
             </Button>
@@ -772,6 +784,274 @@ export function BtEntranceList() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Add Requisite Dialog - only show if not inside another dialog */}
+      {!onAddRequisiteClick && (
+        <Dialog open={showAddRequisiteDialog} onOpenChange={setShowAddRequisiteDialog}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Добавление реквизита БТ-входа</DialogTitle>
+            </DialogHeader>
+            <AddBtRequisiteForm
+              onSuccess={(newRequisite) => {
+                setRequisites([newRequisite, ...requisites]);
+                setShowAddRequisiteDialog(false);
+                toast.success("Реквизит успешно добавлен");
+              }}
+              onCancel={() => setShowAddRequisiteDialog(false)}
+              loading={addRequisiteLoading}
+              setLoading={setAddRequisiteLoading}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
+  );
+}
+
+// Inline form component for adding BT requisites
+export function AddBtRequisiteForm({ 
+  onSuccess, 
+  onCancel, 
+  loading, 
+  setLoading 
+}: {
+  onSuccess: (requisite: BtRequisite) => void;
+  onCancel: () => void;
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
+}) {
+  const [formData, setFormData] = useState({
+    methodType: "c2c",
+    bankType: "",
+    cardNumber: "",
+    recipientName: "",
+    phoneNumber: "",
+    minAmount: 100,
+    maxAmount: 100000,
+    dailyLimit: 500000,
+    monthlyLimit: 10000000,
+    intervalMinutes: 5,
+  });
+
+  const banks = [
+    { code: "SBER", name: "Сбербанк" },
+    { code: "TBANK", name: "Т-Банк" },
+    { code: "VTB", name: "ВТБ" },
+    { code: "ALFA", name: "Альфа-Банк" },
+    { code: "RAIFF", name: "Райффайзен" },
+    { code: "GAZPROM", name: "Газпромбанк" },
+    { code: "OZON", name: "Озон Банк" },
+    { code: "POCHTA", name: "Почта Банк" },
+    { code: "RSHB", name: "Россельхозбанк" },
+    { code: "MTS", name: "МТС Банк" },
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.bankType) {
+      toast.error("Выберите банк");
+      return;
+    }
+
+    if (formData.methodType === "c2c" && !formData.cardNumber) {
+      toast.error("Введите номер карты");
+      return;
+    }
+
+    if (formData.methodType === "sbp" && !formData.phoneNumber) {
+      toast.error("Введите номер телефона для СБП");
+      return;
+    }
+
+    if (!formData.recipientName) {
+      toast.error("Введите имя получателя");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await traderApi.createBtRequisite({
+        ...formData,
+        cardNumber: formData.methodType === "c2c" ? formData.cardNumber : "",
+        phoneNumber: formData.methodType === "sbp" ? formData.phoneNumber : undefined,
+      });
+      onSuccess(response.data);
+    } catch (error: any) {
+      console.error("Failed to create BT requisite:", error);
+      toast.error(error.response?.data?.error || "Не удалось создать реквизит");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Method Type */}
+        <div className="space-y-2">
+          <Label>Способ оплаты</Label>
+          <Select
+            value={formData.methodType}
+            onValueChange={(value) => setFormData({ ...formData, methodType: value })}
+            disabled={loading}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="c2c">Карта → Карта</SelectItem>
+              <SelectItem value="sbp">СБП</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Bank */}
+        <div className="space-y-2">
+          <Label>Банк</Label>
+          <Select
+            value={formData.bankType}
+            onValueChange={(value) => setFormData({ ...formData, bankType: value })}
+            disabled={loading}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Выберите банк" />
+            </SelectTrigger>
+            <SelectContent>
+              {banks.map((bank) => (
+                <SelectItem key={bank.code} value={bank.code}>
+                  {bank.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Card Number or Phone */}
+        {formData.methodType === "c2c" ? (
+          <div className="space-y-2">
+            <Label>Номер карты</Label>
+            <Input
+              type="text"
+              placeholder="1234 5678 9012 3456"
+              value={formData.cardNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\s/g, "");
+                if (/^\d*$/.test(value) && value.length <= 16) {
+                  setFormData({ ...formData, cardNumber: value });
+                }
+              }}
+              disabled={loading}
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Номер телефона</Label>
+            <Input
+              type="tel"
+              placeholder="+7 (900) 123-45-67"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              disabled={loading}
+            />
+          </div>
+        )}
+
+        {/* Recipient Name */}
+        <div className="space-y-2">
+          <Label>Имя получателя</Label>
+          <Input
+            type="text"
+            placeholder="Иван Иванов"
+            value={formData.recipientName}
+            onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Min Amount */}
+        <div className="space-y-2">
+          <Label>Мин. сумма</Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.minAmount}
+            onChange={(e) => setFormData({ ...formData, minAmount: Number(e.target.value) })}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Max Amount */}
+        <div className="space-y-2">
+          <Label>Макс. сумма</Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.maxAmount}
+            onChange={(e) => setFormData({ ...formData, maxAmount: Number(e.target.value) })}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Daily Limit */}
+        <div className="space-y-2">
+          <Label>Дневной лимит</Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.dailyLimit}
+            onChange={(e) => setFormData({ ...formData, dailyLimit: Number(e.target.value) })}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Monthly Limit */}
+        <div className="space-y-2">
+          <Label>Месячный лимит</Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.monthlyLimit}
+            onChange={(e) => setFormData({ ...formData, monthlyLimit: Number(e.target.value) })}
+            disabled={loading}
+          />
+        </div>
+
+        {/* Interval */}
+        <div className="space-y-2">
+          <Label>Интервал (мин)</Label>
+          <Input
+            type="number"
+            min="1"
+            value={formData.intervalMinutes}
+            onChange={(e) => setFormData({ ...formData, intervalMinutes: Number(e.target.value) })}
+            disabled={loading}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+        >
+          Отмена
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Создание...
+            </>
+          ) : (
+            "Создать реквизит"
+          )}
+        </Button>
+      </div>
+    </form>
   );
 }

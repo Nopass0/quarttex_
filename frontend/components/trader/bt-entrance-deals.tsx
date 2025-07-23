@@ -28,7 +28,7 @@ import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import { useTraderAuth } from "@/stores/auth";
 import { formatAmount } from "@/lib/utils";
-import { BtEntranceList } from "./bt-entrance-list";
+import { BtEntranceList, AddBtRequisiteForm } from "./bt-entrance-list";
 import {
   Loader2,
   Search,
@@ -57,7 +57,7 @@ const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
   const bankLogos: Record<string, string> = {
     SBERBANK: "/bank-logos/sberbank.svg",
     TBANK: "/bank-logos/tbank.svg",
-    TINKOFF: "/bank-logos/tinkoff.svg",
+    TINK: "/bank-logos/tbank.svg", // Map TINK to TBANK logo
     ALFABANK: "/bank-logos/alfabank.svg",
     VTB: "/bank-logos/vtb.svg",
     RAIFFEISEN: "/bank-logos/raiffeisen.svg",
@@ -192,6 +192,7 @@ export function BtEntranceDeals() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("deals");
   const [showRequisitesDialog, setShowRequisitesDialog] = useState(false);
+  const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -283,7 +284,45 @@ export function BtEntranceDeals() {
               <DialogHeader>
                 <DialogTitle>Управление реквизитами БТ-входа</DialogTitle>
               </DialogHeader>
-              <BtEntranceList />
+              <BtEntranceList 
+                onAddRequisiteClick={() => {
+                  setShowRequisitesDialog(false);
+                  setShowAddRequisiteDialog(true);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Requisite Dialog */}
+          <Dialog 
+            open={showAddRequisiteDialog} 
+            onOpenChange={(open) => {
+              setShowAddRequisiteDialog(open);
+              if (!open) {
+                // When closing add requisite dialog, reopen the requisites list dialog
+                setShowRequisitesDialog(true);
+              }
+            }}
+          >
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Добавление реквизита БТ-входа</DialogTitle>
+              </DialogHeader>
+              <AddBtRequisiteForm
+                onSuccess={async (newRequisite) => {
+                  toast.success("Реквизит успешно добавлен");
+                  setShowAddRequisiteDialog(false);
+                  // Reopen the requisites list dialog
+                  setShowRequisitesDialog(true);
+                }}
+                onCancel={() => {
+                  setShowAddRequisiteDialog(false);
+                  // Reopen the requisites list dialog
+                  setShowRequisitesDialog(true);
+                }}
+                loading={false}
+                setLoading={() => {}}
+              />
             </DialogContent>
           </Dialog>
         </div>

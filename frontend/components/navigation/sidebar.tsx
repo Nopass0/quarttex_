@@ -90,11 +90,11 @@ const traderNavItems: NavItem[] = [
     href: "/trader/messages",
     icon: MessageSquare,
   },
-  // {
-  //   title: "Выплаты",
-  //   href: "/trader/payouts",
-  //   icon: DollarSign,
-  // },
+  {
+    title: "Выплаты",
+    href: "/trader/payouts",
+    icon: DollarSign,
+  },
   {
     title: "Финансы",
     href: "/trader/finances",
@@ -109,11 +109,11 @@ const traderNavItems: NavItem[] = [
         href: "/trader/disputes/deals",
         icon: FileText,
       },
-      // {
-      //   title: "Выплаты",
-      //   href: "/trader/disputes/payouts",
-      //   icon: DollarSign,
-      // },
+      {
+        title: "Выплаты",
+        href: "/trader/disputes/payouts",
+        icon: DollarSign,
+      },
     ],
   },
   {

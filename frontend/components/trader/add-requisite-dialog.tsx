@@ -67,7 +67,7 @@ interface AddRequisiteDialogProps {
 
 const AVAILABLE_BANKS = [
   { code: "SBER", name: "Сбербанк" },
-  { code: "TINK", name: "Тинькофф" },
+  { code: "TBANK", name: "Т-Банк" },
   { code: "VTB", name: "ВТБ" },
   { code: "ALFA", name: "Альфа-Банк" },
   { code: "GAZPROM", name: "Газпромбанк" },

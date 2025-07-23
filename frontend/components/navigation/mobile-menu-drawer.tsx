@@ -91,11 +91,11 @@ const traderNavItems: NavItem[] = [
     href: "/trader/messages",
     icon: MessageSquare,
   },
-  // {
-  //   title: "Выплаты",
-  //   href: "/trader/payouts",
-  //   icon: Receipt,
-  // },
+  {
+    title: "Выплаты",
+    href: "/trader/payouts",
+    icon: Receipt,
+  },
   {
     title: "Финансы",
     href: "/trader/finances",
@@ -110,11 +110,11 @@ const traderNavItems: NavItem[] = [
         href: "/trader/disputes/deals",
         icon: FileText,
       },
-      // {
-      //   title: "Выплаты",
-      //   href: "/trader/disputes/payouts",
-      //   icon: Receipt,
-      // },
+      {
+        title: "Выплаты",
+        href: "/trader/disputes/payouts",
+        icon: Receipt,
+      },
     ],
   },
   {

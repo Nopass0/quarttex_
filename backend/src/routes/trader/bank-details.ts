@@ -188,7 +188,7 @@ export default (app: Elysia) =>
         // Map frontend bank type to database enum
         const bankTypeMap: Record<string, string> = {
           "SBER": "SBERBANK",
-          "TINK": "TINKOFF",
+          "TINK": "TBANK",
           "VTB": "VTB",
           "ALFA": "ALFABANK",
           "GAZPROM": "GAZPROMBANK",
@@ -284,7 +284,7 @@ export default (app: Elysia) =>
         // Map frontend bank type to database enum for updates
         const bankTypeMap: Record<string, string> = {
           "SBER": "SBERBANK",
-          "TINK": "TINKOFF",
+          "TINK": "TBANK",
           "VTB": "VTB",
           "ALFA": "ALFABANK",
           "GAZPROM": "GAZPROMBANK",

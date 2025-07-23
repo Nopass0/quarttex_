@@ -319,10 +319,13 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         });
       }
 
+      // Map TINK to TBANK for consistency
+      const bankType = body.bankType === 'TINK' ? 'TBANK' : body.bankType;
+
       const requisite = await db.bankDetail.create({
         data: {
           cardNumber: body.cardNumber,
-          bankType: body.bankType as BankType,
+          bankType: bankType as BankType,
           methodType: body.methodType as MethodType,
           recipientName: body.recipientName,
           phoneNumber: body.phoneNumber,
@@ -378,13 +381,20 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         return error(404, { error: "BT реквизит не найден" });
       }
 
+      // Map TINK to TBANK for consistency if bankType is being updated
+      const updateData = {
+        ...body,
+        dailyLimit: body.dailyLimit ?? 0,
+        monthlyLimit: body.monthlyLimit ?? 0,
+      };
+      
+      if (updateData.bankType === 'TINK') {
+        updateData.bankType = 'TBANK';
+      }
+
       const requisite = await db.bankDetail.update({
         where: { id: params.id },
-        data: {
-          ...body,
-          dailyLimit: body.dailyLimit ?? 0,
-          monthlyLimit: body.monthlyLimit ?? 0,
-        },
+        data: updateData,
       });
       
       return formatBtRequisite(requisite, 0, 0);
