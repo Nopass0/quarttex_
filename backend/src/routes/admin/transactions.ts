@@ -347,7 +347,13 @@ export default (app: Elysia) =>
             isMock: true
           })
 
-          const hook = await notifyByStatus(trx)
+          const hook = await notifyByStatus({
+            id: trx.id,
+            status: trx.status,
+            successUri: trx.successUri,
+            failUri: trx.failUri,
+            callbackUri: trx.callbackUri,
+          })
 
           return { transaction: trx, hook }
         } catch (e) {
@@ -571,7 +577,13 @@ export default (app: Elysia) =>
             }
           }
 
-          const hook = await notifyByStatus(trx);
+          const hook = await notifyByStatus({
+            id: trx.id,
+            status: trx.status,
+            successUri: trx.successUri,
+            failUri: trx.failUri,
+            callbackUri: trx.callbackUri,
+          });
           return { transaction: trx, hook };
         } catch (e) {
           if (

@@ -810,6 +810,7 @@ export default (app: Elysia) =>
           status: updatedTransaction.status,
           successUri: updatedTransaction.successUri,
           failUri: updatedTransaction.failUri,
+          callbackUri: updatedTransaction.callbackUri,
         });
 
         return {
