@@ -284,13 +284,63 @@ export default new Elysia()
       message: "Internal server error"
     };
   })
-  // Simple test endpoint that ALWAYS returns the exact required format
+  // Simple test endpoint that updates device activity if token provided
   .get(
     "/ping", 
-    () => ({ 
-      status: "success", 
-      message: "Device API is working" 
-    })
+    async ({ headers, error }) => {
+      try {
+        // Check for device token in header (optional)
+        const deviceToken = headers["x-device-token"];
+        
+        if (deviceToken) {
+          // If token provided, update device status
+          const device = await db.device.findFirst({
+            where: { token: deviceToken },
+          });
+          
+          if (device) {
+            // Update device activity
+            await db.device.update({
+              where: { id: device.id },
+              data: {
+                lastActiveAt: new Date(),
+                updatedAt: new Date(),
+                isOnline: true,
+                // If device was offline and had isWorking=false, restore it
+                ...(device.isOnline === false && device.isWorking === false ? { isWorking: true } : {})
+              }
+            });
+            
+            // If device was offline, restore its bank cards
+            if (!device.isOnline) {
+              await db.bankDetail.updateMany({
+                where: {
+                  deviceId: device.id,
+                  isArchived: true,
+                },
+                data: {
+                  isArchived: false,
+                }
+              });
+              
+              console.log(`[Device Ping] Device ${device.name} restored online with bank cards`);
+            }
+          }
+        }
+        
+        return { 
+          status: "success", 
+          message: "Device API is working" 
+        };
+      } catch (err) {
+        console.error("Error in ping endpoint:", err);
+        // Even on error, return success for basic connectivity check
+        return { 
+          status: "success", 
+          message: "Device API is working" 
+        };
+      }
+    }
   )
   // Health check endpoint that updates device activity
   .post(

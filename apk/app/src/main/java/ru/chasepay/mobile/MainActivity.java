@@ -445,7 +445,12 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (deviceApi == null) return;
             
-            deviceApi.ping().enqueue(new Callback<PingResponse>() {
+            String deviceToken = prefs.getString(KEY_DEVICE_TOKEN, null);
+            Call<PingResponse> pingCall = (deviceToken != null) 
+                ? deviceApi.pingWithToken(deviceToken)
+                : deviceApi.ping();
+                
+            pingCall.enqueue(new Callback<PingResponse>() {
                 @Override
                 public void onResponse(Call<PingResponse> call, Response<PingResponse> response) {
                     try {

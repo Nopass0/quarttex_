@@ -17,6 +17,9 @@ public interface DeviceApi {
     @GET("device/ping")
     Call<PingResponse> ping();
     
+    @GET("device/ping")
+    Call<PingResponse> pingWithToken(@Header("x-device-token") String token);
+    
     @POST("device/connect")
     Call<ConnectResponse> connect(@Body ConnectRequest request);
     
