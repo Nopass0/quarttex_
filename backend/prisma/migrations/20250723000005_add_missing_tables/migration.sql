@@ -1,9 +1,4 @@
--- CreateEnum (skip if exists)
-DO $$ BEGIN
-    CREATE TYPE "IdeaStatus" AS ENUM ('PENDING', 'REVIEWING', 'ACCEPTED', 'REJECTED', 'IMPLEMENTED');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- Enum "IdeaStatus" already exists from previous migration, skip creation
 
 -- CreateEnum
 DO $$ BEGIN
@@ -320,19 +315,7 @@ CREATE TABLE IF NOT EXISTS "DealDisputeFile" (
     CONSTRAINT "DealDisputeFile_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE IF NOT EXISTS "Idea" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
-    "status" "IdeaStatus" NOT NULL DEFAULT 'PENDING',
-    "adminNotes" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Idea_pkey" PRIMARY KEY ("id")
-);
+-- Table "Idea" already exists from previous migration, skip creation
 
 -- CreateIndex
 CREATE UNIQUE INDEX IF NOT EXISTS "Agent_email_key" ON "Agent"("email");
@@ -418,14 +401,7 @@ CREATE INDEX IF NOT EXISTS "DealDisputeMessage_senderId_idx" ON "DealDisputeMess
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "DealDisputeFile_messageId_idx" ON "DealDisputeFile"("messageId");
 
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "Idea_userId_idx" ON "Idea"("userId");
-
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "Idea_status_idx" ON "Idea"("status");
-
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "Idea_createdAt_idx" ON "Idea"("createdAt");
+-- Indexes for "Idea" already exist from previous migration, skip creation
 
 -- AddForeignKey
 ALTER TABLE "AgentSession" ADD CONSTRAINT "AgentSession_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "Agent"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -496,5 +472,4 @@ ALTER TABLE "DealDisputeMessage" ADD CONSTRAINT "DealDisputeMessage_disputeId_fk
 -- AddForeignKey
 ALTER TABLE "DealDisputeFile" ADD CONSTRAINT "DealDisputeFile_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "DealDisputeMessage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "Idea" ADD CONSTRAINT "Idea_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Foreign key "Idea_userId_fkey" already exists from previous migration, skip creation
