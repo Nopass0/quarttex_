@@ -1,10 +1,55 @@
 import { BaseService } from "./BaseService";
 import { db } from "@/db";
-import { PayoutStatus, Prisma } from "@prisma/client";
+import { PayoutStatus, Prisma, BankType } from "@prisma/client";
 import { broadcastPayoutUpdate } from "@/routes/websocket/payouts";
 import { ServiceRegistry } from "./ServiceRegistry";
 import { payoutAccountingService } from "./payout-accounting.service";
 import type { TelegramService } from "./TelegramService";
+
+// Map bank display names to enum values for comparison
+const bankNameToEnum: Record<string, BankType> = {
+  "Сбербанк": BankType.SBERBANK,
+  "Райффайзен": BankType.RAIFFEISEN,
+  "Газпромбанк": BankType.GAZPROMBANK,
+  "Почта Банк": BankType.POCHTABANK,
+  "ВТБ": BankType.VTB,
+  "Россельхозбанк": BankType.ROSSELKHOZBANK,
+  "Альфа-банк": BankType.ALFABANK,
+  "Уралсиб": BankType.URALSIB,
+  "Локо-Банк": BankType.LOKOBANK,
+  "Ак Барс": BankType.AKBARS,
+  "МКБ": BankType.MKB,
+  "Банк Санкт-Петербург": BankType.SPBBANK,
+  "МТС Банк": BankType.MTSBANK,
+  "Промсвязьбанк": BankType.PROMSVYAZBANK,
+  "Озон Банк": BankType.OZONBANK,
+  "Открытие": BankType.OTKRITIE,
+  "Ренессанс": BankType.RENAISSANCE,
+  "ОТП Банк": BankType.OTPBANK,
+  "Авангард": BankType.AVANGARD,
+  "Владбизнесбанк": BankType.VLADBUSINESSBANK,
+  "Таврический": BankType.TAVRICHESKIY,
+  "Фора-Банк": BankType.FORABANK,
+  "БКС Банк": BankType.BCSBANK,
+  "Хоум Кредит": BankType.HOMECREDIT,
+  "ББР Банк": BankType.BBRBANK,
+  "Кредит Европа Банк": BankType.CREDITEUROPE,
+  "РНКБ": BankType.RNKB,
+  "УБРиР": BankType.UBRIR,
+  "Генбанк": BankType.GENBANK,
+  "Синара": BankType.SINARA,
+  "Абсолют Банк": BankType.ABSOLUTBANK,
+  "МТС Деньги": BankType.MTSMONEY,
+  "Свой Банк": BankType.SVOYBANK,
+  "ТрансКапиталБанк": BankType.TRANSKAPITALBANK,
+  "Долинск": BankType.DOLINSK,
+  "Т-Банк": BankType.TBANK,
+  "Совкомбанк": BankType.SOVCOMBANK,
+  "Росбанк": BankType.ROSBANK,
+  "ЮниКредит": BankType.UNICREDIT,
+  "Ситибанк": BankType.CITIBANK,
+  "Русский Стандарт": BankType.RUSSIANSTANDARD,
+};
 
 interface TraderCandidate {
   id: string;
@@ -13,6 +58,11 @@ interface TraderCandidate {
   frozenRub: number;
   maxSimultaneousPayouts: number;
   activePayouts: number;
+  filters?: {
+    trafficTypes: string[];
+    bankTypes: string[];
+    maxPayoutAmount: number;
+  } | null;
 }
 
 export default class PayoutRedistributionService extends BaseService {
@@ -20,12 +70,13 @@ export default class PayoutRedistributionService extends BaseService {
   private isProcessing = false;
   public readonly autoStart = true; // Enable auto-start
   private lastRunTime = 0;
-  private readonly RUN_INTERVAL_MS = 30000; // Run every 30 seconds
+  private readonly RUN_INTERVAL_MS = 1000; // Run every 1 second
+  private traderQueuePosition: Map<string, number> = new Map(); // For round-robin distribution
 
   constructor() {
     super();
-    // Set the tick interval to 5 seconds for checking
-    this.interval = 5000;
+    // Set the tick interval to 1 second for checking
+    this.interval = 1000;
   }
 
   protected async onStart(): Promise<void> {
@@ -56,7 +107,7 @@ export default class PayoutRedistributionService extends BaseService {
     }
   }
 
-  private async redistributePayouts(): Promise<void> {
+  public async redistributePayouts(): Promise<void> {
     if (this.isProcessing) {
       await this.logDebug("Redistribution already in progress, skipping");
       return;
@@ -81,6 +132,11 @@ export default class PayoutRedistributionService extends BaseService {
             include: {
               traderMerchants: true
             }
+          },
+          blacklistEntries: {
+            select: {
+              traderId: true
+            }
           }
         },
         orderBy: {
@@ -88,7 +144,7 @@ export default class PayoutRedistributionService extends BaseService {
         }
       });
 
-      await this.logDebug(`Found ${unassignedPayouts.length} unassigned payouts`);
+      await this.logInfo(`[PayoutRedistribution] Found ${unassignedPayouts.length} unassigned payouts`);
 
       // Process in batches for better performance
       for (let i = 0; i < unassignedPayouts.length; i += this.BATCH_SIZE) {
@@ -123,21 +179,53 @@ export default class PayoutRedistributionService extends BaseService {
     let assigned = 0;
     
     // Get all potential traders with their current payout counts
-    const traders = await this.getEligibleTraders();
+    const allTraders = await this.getEligibleTraders();
+    
+    // Create a working copy of traders list for round-robin
+    let availableTraders = [...allTraders];
     
     for (const payout of payouts) {
-      const trader = await this.findSuitableTrader(payout, traders);
+      // Filter traders for this specific payout
+      const suitableTraders = await this.filterSuitableTradersForPayout(payout, availableTraders);
       
-      if (trader) {
-        try {
-          await this.assignPayoutToTrader(payout, trader);
-          assigned++;
-          
-          // Update trader's active payout count in our cache
-          trader.activePayouts++;
-        } catch (error) {
-          await this.logError(`Failed to assign payout ${payout.id}`, { error });
+      if (suitableTraders.length === 0) {
+        // No suitable traders from current queue, try with full list
+        const allSuitableTraders = await this.filterSuitableTradersForPayout(payout, allTraders);
+        if (allSuitableTraders.length === 0) {
+          await this.logInfo(`[PayoutRedistribution] No suitable traders found for payout ${payout.id}`, {
+            payoutId: payout.id,
+            amount: payout.amount,
+            bank: payout.bank,
+            isCard: payout.isCard,
+            merchantId: payout.merchantId,
+            totalTradersChecked: allTraders.length
+          });
+          continue;
         }
+        // Reset available traders for this payout
+        availableTraders = [...allSuitableTraders];
+      }
+      
+      // Take the first trader from the queue
+      const trader = availableTraders.shift()!;
+      
+      try {
+        await this.assignPayoutToTrader(payout, trader);
+        assigned++;
+        
+        // Update trader's active payout count
+        trader.activePayouts++;
+        
+        // Add trader to the end of queue for round-robin
+        availableTraders.push(trader);
+        
+        // Also update in the main list
+        const traderInMainList = allTraders.find(t => t.id === trader.id);
+        if (traderInMainList) {
+          traderInMainList.activePayouts++;
+        }
+      } catch (error) {
+        await this.logError(`Failed to assign payout ${payout.id}`, { error });
       }
     }
     
@@ -151,6 +239,9 @@ export default class PayoutRedistributionService extends BaseService {
         trafficEnabled: true,
         balanceRub: {
           gt: 0 // Has RUB balance for payouts
+        },
+        deposit: {
+          gte: 1000 // Minimum deposit requirement
         }
       },
       select: {
@@ -163,14 +254,31 @@ export default class PayoutRedistributionService extends BaseService {
           select: {
             payouts: {
               where: {
-                status: {
-                  in: [PayoutStatus.ACTIVE, PayoutStatus.CHECKING]
-                }
+                // Count both assigned (CREATED with traderId) and active payouts
+                OR: [
+                  { status: PayoutStatus.ACTIVE },
+                  { status: PayoutStatus.CHECKING },
+                  { 
+                    status: PayoutStatus.CREATED,
+                    traderId: { not: null }
+                  }
+                ]
               }
             }
           }
-        }
+        },
+        payoutFilters: true
       }
+    });
+
+    await this.logInfo(`[PayoutRedistribution] Found ${traders.length} eligible traders`, {
+      traders: traders.map(t => ({
+        email: t.email,
+        balanceRub: t.balanceRub,
+        activePayouts: t._count.payouts,
+        maxSimultaneous: t.maxSimultaneousPayouts,
+        trafficEnabled: t.trafficEnabled
+      }))
     });
 
     return traders.map(trader => ({
@@ -179,14 +287,22 @@ export default class PayoutRedistributionService extends BaseService {
       balanceRub: trader.balanceRub,
       frozenRub: trader.frozenRub,
       maxSimultaneousPayouts: trader.maxSimultaneousPayouts,
-      activePayouts: trader._count.payouts
+      activePayouts: trader._count.payouts,
+      filters: trader.payoutFilters
     }));
   }
 
-  private async findSuitableTrader(
+  private async filterSuitableTradersForPayout(
     payout: any,
     traders: TraderCandidate[]
-  ): Promise<TraderCandidate | null> {
+  ): Promise<TraderCandidate[]> {
+    // Log blacklist entries for debugging
+    if (payout.blacklistEntries && payout.blacklistEntries.length > 0) {
+      await this.logDebug(`Payout ${payout.id} has blacklist entries:`, {
+        blacklistedTraders: payout.blacklistEntries.map((entry: any) => entry.traderId)
+      });
+    }
+    
     // Filter traders based on criteria
     const eligibleTraders = traders.filter(trader => {
       // Skip if trader has reached simultaneous payout limit
@@ -199,8 +315,14 @@ export default class PayoutRedistributionService extends BaseService {
         return false;
       }
 
-      // Skip if this was the previous trader (from cancelReason metadata)
-      if (payout.cancelReason?.includes(`traderId:${trader.id}`)) {
+      // Skip if this trader is in the blacklist (previously cancelled this payout)
+      if (payout.previousTraderIds && payout.previousTraderIds.includes(trader.id)) {
+        return false;
+      }
+
+      // Check PayoutBlacklist table
+      const isBlacklisted = payout.blacklistEntries?.some(entry => entry.traderId === trader.id);
+      if (isBlacklisted) {
         return false;
       }
 
@@ -214,42 +336,60 @@ export default class PayoutRedistributionService extends BaseService {
         return false;
       }
 
+      // Check trader filters if they exist
+      if (trader.filters) {
+        // Check traffic type filter
+        const trafficTypes = trader.filters.trafficTypes || [];
+        if (trafficTypes.length > 0) {
+          const payoutTrafficType = payout.isCard ? "card" : "sbp";
+          if (!trafficTypes.includes(payoutTrafficType)) {
+            return false;
+          }
+        }
+
+        // Check bank filter
+        const bankTypes = trader.filters.bankTypes || [];
+        if (bankTypes.length > 0) {
+          // Convert payout bank name to enum value for comparison
+          const payoutBankEnum = bankNameToEnum[payout.bank];
+          if (!payoutBankEnum || !bankTypes.includes(payoutBankEnum)) {
+            return false;
+          }
+        }
+
+        // Check max payout amount
+        const maxAmount = trader.filters.maxPayoutAmount || 0;
+        if (maxAmount > 0 && payout.amount > maxAmount) {
+          return false;
+        }
+      }
+
       return true;
     });
 
-    if (eligibleTraders.length === 0) {
-      return null;
-    }
-
-    // Sort by available balance (descending) and active payouts (ascending)
-    eligibleTraders.sort((a, b) => {
-      // Prioritize traders with fewer active payouts
-      if (a.activePayouts !== b.activePayouts) {
-        return a.activePayouts - b.activePayouts;
-      }
-      // Then by available RUB balance
-      return b.balanceRub - a.balanceRub;
-    });
-
-    return eligibleTraders[0];
+    return eligibleTraders;
   }
 
   private async assignPayoutToTrader(
     payout: any,
     trader: TraderCandidate
   ): Promise<void> {
-    // Use accounting service for proper balance handling
-    const updatedPayout = await payoutAccountingService.reassignPayoutWithAccounting(
+    // Use new method that only assigns without accepting
+    const updatedPayout = await payoutAccountingService.assignPayoutToTrader(
       payout.id,
       trader.id
     );
 
-    await this.logInfo(`Assigned payout ${payout.id} to trader ${trader.email}`);
+    await this.logInfo(`Assigned payout ${payout.id} to trader ${trader.email} (not accepted yet)`, {
+      payoutId: payout.id,
+      traderId: trader.id,
+      blacklistCount: payout.blacklistEntries?.length || 0
+    });
 
-    // Send WebSocket notification
+    // Send WebSocket notification - status remains CREATED
     broadcastPayoutUpdate(
       updatedPayout.id,
-      "ACTIVE",
+      "CREATED",
       updatedPayout,
       payout.merchantId,
       trader.id
@@ -262,7 +402,7 @@ export default class PayoutRedistributionService extends BaseService {
     // Send Telegram notification
     const telegramService = this.getTelegramService();
     if (telegramService) {
-      await telegramService.notifyTraderPayoutAssigned(trader.id, updatedPayout);
+      await telegramService.notifyTraderNewPayout(trader.id, updatedPayout);
     }
   }
 

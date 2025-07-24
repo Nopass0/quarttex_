@@ -594,7 +594,14 @@ export default function DevicesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-base truncate">{device.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-base truncate">{device.name}</h3>
+                              {device.linkedBankDetails > 0 && (
+                                <Badge className="bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 text-xs px-1.5 py-0.5 flex-shrink-0">
+                                  {device.linkedBankDetails}
+                                </Badge>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1 mt-1">
                               <p className="text-xs text-gray-500 font-mono truncate">
                                 {device.token.substring(0, 8)}...
@@ -687,7 +694,14 @@ export default function DevicesPage() {
 
                       {/* Device Name and Token */}
                       <div>
-                        <h3 className="font-semibold text-lg">{device.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{device.name}</h3>
+                          {device.linkedBankDetails > 0 && (
+                            <Badge className="bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 text-xs">
+                              {device.linkedBankDetails} реквизит{device.linkedBankDetails === 1 ? '' : device.linkedBankDetails < 5 ? 'а' : 'ов'}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-gray-500 font-mono">
                             {device.token.substring(0, 10)}...

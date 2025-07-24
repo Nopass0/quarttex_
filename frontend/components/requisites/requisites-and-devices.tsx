@@ -543,6 +543,12 @@ export function RequisitesAndDevices() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem
+                              onClick={() => router.push(`/trader/devices/${device.id}`)}
+                            >
+                              <Smartphone className="mr-2 h-4 w-4" />
+                              Подробнее
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onClick={() => trustDevice(device.id)}
                             >
                               <Shield className="mr-2 h-4 w-4" />

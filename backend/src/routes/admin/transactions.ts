@@ -25,6 +25,7 @@ import {
 import ErrorSchema from '@/types/error'
 import { notifyByStatus } from '@/utils/notify'
 import axios from 'axios'
+import { roundDown2 } from '@/utils/rounding'
 
 /* ───────────────────── helpers ───────────────────── */
 
@@ -537,7 +538,7 @@ export default (app: Elysia) =>
                 });
 
                 // Начисляем прибыль трейдеру
-                const profit = (existing.frozenUsdtAmount - actualSpent) + existing.calculatedCommission;
+                const profit = roundDown2((existing.frozenUsdtAmount - actualSpent) + existing.calculatedCommission);
                 if (profit > 0) {
                   await prisma.user.update({
                     where: { id: existing.traderId },
@@ -822,49 +823,113 @@ export default (app: Elysia) =>
           const userIp = body.userIp || `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
           const callbackUri = body.callbackUri || ''
 
-          // Делаем запрос от имени тестового мерчанта
-          const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3000'}/api`
-          const response = await fetch(`${baseUrl}/merchant/transactions/in`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-merchant-api-key': testMerchant.token
+          // Create the transaction directly instead of calling the merchant API
+          // This avoids middleware issues and is simpler for test transactions
+          
+          // Find available bank requisite for the method
+          const pool = await db.bankDetail.findMany({
+            where: {
+              isArchived: false,
+              methodType: method.type,
+              user: { 
+                banned: false,
+                deposit: { gt: 0 },
+                teamId: { not: null },
+                trafficEnabled: true
+              },
+              OR: [
+                { deviceId: null },
+                { device: { isWorking: true, isOnline: true } }
+              ]
             },
-            body: JSON.stringify({
-              amount,
-              orderId,
-              methodId: body.methodId,
-              rate,
-              expired_at,
-              userIp,
-              callbackUri
-            })
+            orderBy: { updatedAt: "asc" },
+            include: { user: true }
           })
 
-          if (response.ok) {
-            const transaction = await response.json()
-            set.status = 201
-            return { success: true, transaction }
-          } else {
-            const responseText = await response.text()
-            console.error('[Admin Test IN] Merchant API error:', {
-              status: response.status,
-              response: responseText,
-              requestData: {
-                amount,
-                orderId,
-                methodId: body.methodId,
-                rate,
-                expired_at,
-                userIp,
-                callbackUri
+          let chosen = null
+          for (const bd of pool) {
+            if (amount < bd.minAmount || amount > bd.maxAmount) continue
+            if (amount < bd.user.minAmountPerRequisite || amount > bd.user.maxAmountPerRequisite) continue
+            chosen = bd
+            break
+          }
+
+          if (!chosen) {
+            return error(409, { error: "NO_REQUISITE: подходящий реквизит не найден" })
+          }
+
+          // Create test transaction
+          const transaction = await db.transaction.create({
+            data: {
+              merchantId: testMerchant.id,
+              amount,
+              assetOrBank: chosen.cardNumber,
+              orderId,
+              methodId: body.methodId,
+              currency: "RUB",
+              userId: `test_user_${Date.now()}`,
+              userIp,
+              callbackUri,
+              successUri: "",
+              failUri: "",
+              type: "IN",
+              expired_at: new Date(expired_at),
+              commission: 0,
+              clientName: `Test User`,
+              status: "IN_PROGRESS",
+              rate,
+              isMock: true,
+              bankDetailId: chosen.id,
+              traderId: chosen.userId
+            },
+            include: {
+              method: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  type: true,
+                  currency: true,
+                  commissionPayin: true
+                }
+              },
+              requisites: {
+                select: {
+                  id: true,
+                  bankType: true,
+                  cardNumber: true,
+                  recipientName: true,
+                  user: { select: { id: true, name: true } }
+                }
               }
-            })
-            try {
-              const errorData = JSON.parse(responseText)
-              return error(response.status, errorData)
-            } catch {
-              return error(response.status, { error: responseText || 'Неизвестная ошибка' })
+            }
+          })
+
+          const crypto = rate && transaction.method 
+            ? (transaction.amount / rate) * (1 - transaction.method.commissionPayin / 100)
+            : null
+
+          set.status = 201
+          return { 
+            success: true, 
+            transaction: {
+              id: transaction.id,
+              numericId: transaction.numericId,
+              amount: transaction.amount,
+              crypto,
+              status: transaction.status,
+              traderId: transaction.traderId,
+              requisites: transaction.requisites && {
+                id: transaction.requisites.id,
+                bankType: transaction.requisites.bankType,
+                cardNumber: transaction.requisites.cardNumber,
+                recipientName: transaction.requisites.recipientName,
+                traderName: transaction.requisites.user.name
+              },
+              createdAt: transaction.createdAt.toISOString(),
+              updatedAt: transaction.updatedAt.toISOString(),
+              expired_at: transaction.expired_at.toISOString(),
+              method: transaction.method
             }
           }
         } catch (e: any) {
@@ -901,6 +966,37 @@ export default (app: Elysia) =>
       '/test/out',
       async ({ body, set, error, headers }) => {
         try {
+          // First, check if test merchant exists and get its countInRubEquivalent setting
+          const testMerchant = await db.merchant.findFirst({
+            where: { name: 'test' }
+          })
+
+          if (!testMerchant) {
+            return error(404, { error: 'Тестовый мерчант не найден. Сначала создайте мерчанта с именем "test"' })
+          }
+
+          // Prepare request data based on merchant's countInRubEquivalent setting
+          const payoutData: any = {
+            amount: body.amount,
+            wallet: body.assetOrBank || `7${Math.floor(Math.random() * 9000000000 + 1000000000)}`, // Используем assetOrBank как wallet
+            bank: 'Сбербанк', // Дефолтный банк
+            isCard: true,
+            direction: 'OUT',
+            metadata: {
+              orderId: body.orderId,
+              userIp: body.userIp,
+              clientName: body.clientName
+            }
+          }
+
+          // Only include rate if countInRubEquivalent is false
+          if (!testMerchant.countInRubEquivalent) {
+            payoutData.rate = body.rate || (95 + Math.random() * 10)
+          } else if (body.rate !== undefined) {
+            // If rate is passed but countInRubEquivalent is true, return error
+            return error(400, { error: "Курс не должен передаваться при включенных расчетах в рублях у мерчанта" })
+          }
+
           // Перенаправляем на правильный эндпоинт для создания выплат
           const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || '3000'}/api`
           const response = await fetch(`${baseUrl}/admin/payouts/test`, {
@@ -909,19 +1005,7 @@ export default (app: Elysia) =>
               'Content-Type': 'application/json',
               'x-admin-key': headers['x-admin-key'] || '' // Используем тот же admin key из запроса
             },
-            body: JSON.stringify({
-              amount: body.amount,
-              wallet: body.assetOrBank, // Используем assetOrBank как wallet
-              bank: 'Сбербанк', // Дефолтный банк
-              isCard: true,
-              rate: body.rate,
-              direction: 'OUT',
-              metadata: {
-                orderId: body.orderId,
-                userIp: body.userIp,
-                clientName: body.clientName
-              }
-            })
+            body: JSON.stringify(payoutData)
           })
 
           if (response.ok) {

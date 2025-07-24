@@ -113,6 +113,12 @@ interface Transaction {
   amount: number;
   status: string;
   createdAt: string;
+  deviceId?: string;
+  requisites?: {
+    id: string;
+    cardNumber: string;
+    bankType: string;
+  };
   merchant?: {
     name: string;
   };
@@ -425,6 +431,13 @@ export default function DeviceDetailsPage() {
     }
   }, [device?.id]);
 
+  // Load transactions when deals tab is selected
+  useEffect(() => {
+    if (activeTab === 'deals' && device?.id) {
+      fetchTransactions();
+    }
+  }, [activeTab, device?.id]);
+
   const fetchDevice = async () => {
     try {
       setLoading(true);
@@ -525,10 +538,7 @@ export default function DeviceDetailsPage() {
   };
 
   const fetchTransactions = async () => {
-    if (!device?.linkedBankDetails || device.linkedBankDetails.length === 0) {
-      setTransactions([]);
-      return;
-    }
+    if (!device) return;
 
     try {
       setLoadingTransactions(true);
@@ -537,11 +547,42 @@ export default function DeviceDetailsPage() {
       const response = await traderApi.getTransactions({ limit: 1000 });
       const allTransactions = response.data || response.transactions || [];
       
-      // Фильтруем транзакции, связанные с реквизитами этого устройства
-      const deviceRequisiteIds = device.linkedBankDetails.map(bd => bd.id);
-      const deviceTransactions = allTransactions.filter((transaction: any) => 
-        deviceRequisiteIds.includes(transaction.bankDetailId)
-      );
+      // Get all requisites (bank details) linked to this device
+      const deviceRequisiteIds = device.linkedBankDetails?.map(bd => bd.id) || device.bankDetails?.map(bd => bd.id) || [];
+      
+      console.log('Device ID:', device.id);
+      console.log('Device linkedBankDetails:', device.linkedBankDetails);
+      console.log('Device bankDetails:', device.bankDetails);
+      console.log('Device requisite IDs:', deviceRequisiteIds);
+      console.log('All transactions:', allTransactions.length);
+      if (allTransactions.length > 0) {
+        console.log('Sample transaction:', allTransactions[0]);
+      }
+      
+      // Filter transactions that used requisites from this device or have matching deviceId
+      const deviceTransactions = allTransactions.filter((tx: any) => {
+        // Check if transaction has requisites and if those requisites belong to this device
+        if (!tx.requisites) return false;
+        
+        // Check by requisite ID
+        const matchByRequisiteId = deviceRequisiteIds.includes(tx.requisites.id);
+        
+        // Also check by deviceId if available
+        const matchByDeviceId = tx.deviceId === device.id;
+        
+        // Check by bankDetailId (legacy field)
+        const matchByBankDetailId = tx.bankDetailId && deviceRequisiteIds.includes(tx.bankDetailId);
+        
+        const match = matchByRequisiteId || matchByDeviceId || matchByBankDetailId;
+        
+        if (match) {
+          console.log(`Transaction ${tx.id} matches: requisiteId=${tx.requisites?.id}, deviceId=${tx.deviceId}, bankDetailId=${tx.bankDetailId}`);
+        }
+        
+        return match;
+      });
+      
+      console.log('Filtered transactions:', deviceTransactions.length);
       
       // Сортируем по дате создания (новые сначала)
       deviceTransactions.sort((a: any, b: any) => 

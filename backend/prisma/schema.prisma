@@ -90,6 +90,8 @@ model User {
   messages               Message[]
   ideas                  Idea[]
   payoutFilters          PayoutFilters?
+  payoutCancellations    PayoutCancellation[]
+  payoutBlacklist        PayoutBlacklist[]
 }
 
 model Session {
@@ -169,6 +171,7 @@ model Method {
   rateSettings     RateSettings?
   traderMerchants  TraderMerchant[]
   Transaction      Transaction[]
+  payouts          Payout[]
 }
 
 model MerchantMethod {
@@ -384,6 +387,7 @@ model Notification {
   id          String           @id @default(cuid())
   type        NotificationType
   application String?
+  packageName String?
   title       String?
   message     String
   metadata    Json?
@@ -671,10 +675,14 @@ model Payout {
   externalReference    String?
   sumToWriteOffUSDT    Float?
   previousTraderIds    String[]          @default([])
+  methodId             String
   merchant             Merchant          @relation(fields: [merchantId], references: [id])
   trader               User?             @relation("TraderPayouts", fields: [traderId], references: [id])
+  method               Method            @relation(fields: [methodId], references: [id])
   rateAudits           PayoutRateAudit[]
   disputes             WithdrawalDispute[]
+  cancellationHistory  PayoutCancellation[]
+  blacklistEntries     PayoutBlacklist[]
 
   @@index([status, traderId])
   @@index([merchantId, status])
@@ -1148,4 +1156,34 @@ model PayoutFilters {
   updatedAt       DateTime @updatedAt
   
   user            User     @relation(fields: [userId], references: [id])
+}
+
+model PayoutCancellation {
+  id              String   @id @default(cuid())
+  payoutId        String
+  traderId        String
+  reason          String
+  reasonCode      String?
+  files           String[]
+  createdAt       DateTime @default(now())
+  
+  payout          Payout   @relation(fields: [payoutId], references: [id])
+  trader          User     @relation(fields: [traderId], references: [id])
+  
+  @@index([payoutId])
+  @@index([traderId])
+}
+
+model PayoutBlacklist {
+  id              String   @id @default(cuid())
+  payoutId        String
+  traderId        String
+  createdAt       DateTime @default(now())
+  
+  payout          Payout   @relation(fields: [payoutId], references: [id])
+  trader          User     @relation(fields: [traderId], references: [id])
+  
+  @@unique([payoutId, traderId])
+  @@index([payoutId])
+  @@index([traderId])
 }

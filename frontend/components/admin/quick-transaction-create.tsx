@@ -70,14 +70,19 @@ export function QuickTransactionCreate({
 
       if (isTestMerchant) {
         // Для тестового мерчанта используем специальный эндпоинт
-        const data = {
+        const data: any = {
           methodId,
           amount: parseFloat(amount),
-          rate: 95 + Math.random() * 10,
           orderId: `QUICK_${transactionType}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
           expired_at: new Date(Date.now() + 3600000).toISOString(),
           userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
         };
+
+        // For OUT transactions, don't include rate - let backend handle it based on merchant settings
+        // For IN transactions, always include rate as merchant API expects it
+        if (transactionType === "IN") {
+          data.rate = 95 + Math.random() * 10;
+        }
 
         const endpoint = transactionType === "IN" ? "in" : "out";
         const response = await fetch(
@@ -205,14 +210,19 @@ export function QuickTransactionCreate({
 
         if (isTestMerchant) {
           // Для тестового мерчанта
-          const data = {
+          const data: any = {
             methodId: selectedMethodId,
             amount: Math.floor(Math.random() * 9000) + 1000,
-            rate: 95 + Math.random() * 10,
             orderId: `BATCH_${transactionType}_${Date.now()}_${i}_${Math.random().toString(36).substring(7)}`,
             expired_at: new Date(Date.now() + 3600000).toISOString(),
             userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
           };
+
+          // For OUT transactions, don't include rate - let backend handle it based on merchant settings
+          // For IN transactions, always include rate as merchant API expects it
+          if (transactionType === "IN") {
+            data.rate = 95 + Math.random() * 10;
+          }
 
           const endpoint = transactionType === "IN" ? "in" : "out";
           const response = await fetch(

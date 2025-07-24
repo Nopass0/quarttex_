@@ -58,6 +58,18 @@ interface Payout {
   cancelReason?: string
   disputeMessage?: string
   proofFiles?: string[]
+  cancellationHistory?: Array<{
+    id: string
+    reason: string
+    reasonCode?: string | null
+    files: string[]
+    createdAt: string
+    trader: {
+      id: string
+      name: string
+      email: string
+    }
+  }>
   merchant?: {
     name: string
   }
@@ -93,6 +105,8 @@ export default function AdminPayoutsPage() {
     action: 'approve'
   })
   const [rejectReason, setRejectReason] = useState('')
+  const [testPayoutDialog, setTestPayoutDialog] = useState(false)
+  const [testPayoutLoading, setTestPayoutLoading] = useState(false)
 
   useEffect(() => {
     loadPayouts()
@@ -161,6 +175,48 @@ export default function AdminPayoutsPage() {
         {config.label}
       </Badge>
     )
+  }
+
+  const handleCreateTestPayouts = async (count: number = 5) => {
+    setTestPayoutLoading(true)
+    try {
+      // First, check if test merchant exists and get its countInRubEquivalent setting
+      const testMerchant = await adminApiInstance.get('/admin/merchants', {
+        params: { search: 'test' }
+      })
+      
+      const merchant = testMerchant.data?.data?.find((m: any) => m.name === 'test')
+      const countInRubEquivalent = merchant?.countInRubEquivalent || false
+      
+      // Prepare request data based on merchant setting
+      const requestData: any = {
+        count,
+        direction: 'OUT',
+        isCard: true,
+      }
+      
+      // Only include rate if countInRubEquivalent is false
+      if (!countInRubEquivalent) {
+        requestData.rate = 95 + Math.random() * 5
+      }
+      
+      const result = await api.createTestPayouts(requestData)
+      
+      if (result.success) {
+        toast.success(`Создано ${result.created} тестовых выплат`, {
+          description: result.failed > 0 ? `Не удалось создать: ${result.failed}` : undefined
+        })
+        loadPayouts()
+        setTestPayoutDialog(false)
+      } else {
+        throw new Error(result.error || 'Ошибка создания выплат')
+      }
+    } catch (error: any) {
+      console.error('Test payouts error:', error)
+      toast.error(error.response?.data?.error || error.message || 'Ошибка создания тестовых выплат')
+    } finally {
+      setTestPayoutLoading(false)
+    }
   }
 
   const handleReviewPayout = async (payoutId: string, action: 'approve' | 'reject') => {
@@ -303,13 +359,54 @@ export default function AdminPayoutsPage() {
                   {selectedPayout.proofFiles.map((file, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                       <FileText className="h-4 w-4 text-gray-600" />
-                      <span className="text-sm flex-1">{file}</span>
+                      <span className="text-sm flex-1">{file.includes('-') ? file.split('-').slice(1).join('-') : file}</span>
                       <Button size="sm" variant="ghost" onClick={() => {
-                        // TODO: Implement file download
-                        toast.info('Загрузка файлов будет доступна позже')
+                        window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/uploads/payouts/${file}`, '_blank')
                       }}>
                         <Download className="h-4 w-4" />
                       </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedPayout.cancellationHistory && selectedPayout.cancellationHistory.length > 0 && (
+              <div>
+                <Label className="text-gray-600">История отмен</Label>
+                <div className="mt-2 space-y-3">
+                  {selectedPayout.cancellationHistory.map((cancellation, index) => (
+                    <div key={index} className="p-3 bg-yellow-50 rounded border-l-4 border-yellow-400">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          <span className="text-sm font-medium">
+                            Трейдер: {cancellation.trader.email} (#{cancellation.trader.id.slice(-6)})
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {formatDate(cancellation.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">
+                        <strong>Причина:</strong> {cancellation.reason}
+                      </p>
+                      {cancellation.files && cancellation.files.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-600 mb-1">Файлы:</p>
+                          {cancellation.files.map((file, fileIndex) => (
+                            <div key={fileIndex} className="flex items-center gap-2 p-2 bg-white rounded">
+                              <FileText className="h-4 w-4 text-gray-600" />
+                              <span className="text-xs flex-1">{file.includes('-') ? file.split('-').slice(1).join('-') : file}</span>
+                              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => {
+                                window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/uploads/payouts/${file}`, '_blank')
+                              }}>
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -514,6 +611,14 @@ export default function AdminPayoutsPage() {
               <TrendingUp className="h-4 w-4 mr-2" />
               Настройки ставок
             </Button>
+            <Button 
+              onClick={() => setTestPayoutDialog(true)}
+              variant="outline"
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Создать тестовые выплаты
+            </Button>
           </div>
 
           <Card>
@@ -701,6 +806,72 @@ export default function AdminPayoutsPage() {
 
         <PayoutDetailsDialog />
         <ReviewActionDialog />
+        
+        {/* Test Payouts Dialog */}
+        <Dialog open={testPayoutDialog} onOpenChange={setTestPayoutDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Создать тестовые выплаты</DialogTitle>
+              <DialogDescription>
+                Выберите количество тестовых выплат для создания. 
+                Выплаты будут созданы с случайными параметрами для тестового мерчанта.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="text-sm text-gray-600">
+                <p className="mb-2">ℹ️ Курс будет определен автоматически в зависимости от настроек тестового мерчанта:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>Если "Расчеты в рублях" включены - курс берется из системы</li>
+                  <li>Если "Расчеты в рублях" выключены - используется случайный курс</li>
+                </ul>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => handleCreateTestPayouts(1)}
+                  disabled={testPayoutLoading}
+                  className="h-20 flex flex-col items-center justify-center gap-2"
+                >
+                  <span className="text-2xl font-bold">1</span>
+                  <span className="text-sm">выплата</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleCreateTestPayouts(5)}
+                  disabled={testPayoutLoading}
+                  className="h-20 flex flex-col items-center justify-center gap-2 border-blue-300 bg-blue-50 hover:bg-blue-100"
+                >
+                  <span className="text-2xl font-bold text-blue-700">5</span>
+                  <span className="text-sm text-blue-700">выплат</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleCreateTestPayouts(10)}
+                  disabled={testPayoutLoading}
+                  className="h-20 flex flex-col items-center justify-center gap-2"
+                >
+                  <span className="text-2xl font-bold">10</span>
+                  <span className="text-sm">выплат</span>
+                </Button>
+              </div>
+              
+              {testPayoutLoading && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Создание выплат...</span>
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setTestPayoutDialog(false)}>
+                Отмена
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </AuthLayout>
     </ProtectedRoute>
   )

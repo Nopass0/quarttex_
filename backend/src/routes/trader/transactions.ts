@@ -4,6 +4,7 @@ import { Prisma, Status, TransactionType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { traderGuard } from "@/middleware/traderGuard";
 import { notifyByStatus } from "@/utils/notify";
+import { roundDown2 } from "@/utils/rounding";
 
 /**
  * Маршруты для управления транзакциями трейдера
@@ -754,7 +755,7 @@ export default (app: Elysia) =>
               });
 
               // Начисляем прибыль трейдеру (комиссия)
-              const profit = txWithFreezing.calculatedCommission;
+              const profit = roundDown2(txWithFreezing.calculatedCommission);
               if (profit > 0) {
                 await prisma.user.update({
                   where: { id: trader.id },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
   X,
@@ -22,10 +22,12 @@ import {
   Check,
   Loader2,
   Upload,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { motion, AnimatePresence } from "framer-motion";
 // import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +63,9 @@ import { useTraderAuth } from "@/stores/auth";
 import { traderApi } from "@/services/api";
 import { payoutApi, type Payout as ApiPayout } from "@/services/payout-api";
 import { useRouter } from "next/navigation";
+import { useTraderFinancials } from "@/hooks/use-trader-financials";
+import { fileUploadService } from "@/services/file-upload";
+import { filtersApi } from "@/services/filters-api";
 
 interface Payout {
   id: number;
@@ -71,6 +76,8 @@ interface Payout {
   bank: string;
   total: number;
   totalUsdt: number;
+  actualTotalUsdt?: number; // Actual total based on trader's fee
+  traderFeeOut?: number; // Trader's fee percentage
   rate: number;
   isCard: boolean;
   created_at: string;
@@ -81,6 +88,24 @@ interface Payout {
   status?: "created" | "active" | "checking" | "completed" | "cancelled" | "expired" | "disputed";
   cancelReason?: string;
   proofFiles?: string[];
+  disputeFiles?: string[];
+  disputeMessage?: string;
+  cancellationHistory?: Array<{
+    id: string;
+    reason: string;
+    reasonCode?: string | null;
+    files: string[];
+    createdAt: string;
+    trader: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
+  metadata?: {
+    fio?: string;
+    [key: string]: any;
+  };
 }
 
 interface TraderProfile {
@@ -92,9 +117,10 @@ interface TraderProfile {
 export function PayoutsList() {
   const router = useRouter();
   const logout = useTraderAuth((state) => state.logout);
-  const [selectedTrafficType, setSelectedTrafficType] = useState<number[]>([]);
-  const [selectedBanks, setSelectedBanks] = useState<number[]>([]);
-  const [selectedCardBanks, setSelectedCardBanks] = useState<number[]>([]);
+  const { fetchFinancials } = useTraderFinancials();
+  const [selectedTrafficType, setSelectedTrafficType] = useState<string[]>([]);
+  const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
+  const [selectedCardBanks, setSelectedCardBanks] = useState<string[]>([]);
   const [balanceInput, setBalanceInput] = useState("");
   const [showIdSearch, setShowIdSearch] = useState(false);
   const [searchId, setSearchId] = useState("");
@@ -111,6 +137,7 @@ export function PayoutsList() {
   const [selectedPayoutForAction, setSelectedPayoutForAction] = useState<number | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofFiles, setProofFiles] = useState<File[]>([]);
+  const [cancelFiles, setCancelFiles] = useState<File[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -122,6 +149,9 @@ export function PayoutsList() {
     total: 0,
   });
   const [activeTab, setActiveTab] = useState("all");
+  const [availableBanks, setAvailableBanks] = useState<string[]>([]);
+  const [availableCardBanks, setAvailableCardBanks] = useState<string[]>([]);
+  const [availableSbpBanks, setAvailableSbpBanks] = useState<string[]>([]);
 
   // Bank logos mapping
   const bankLogos: Record<string, string> = {
@@ -147,33 +177,46 @@ export function PayoutsList() {
     toast.success(`${label} скопирован`);
   };
 
-  // Timer component that updates independently
-  const Timer = ({ expireAt }: { expireAt: string }) => {
-    const [, setTick] = useState(0);
+  // Enhanced Timer component with visual indicators
+  const Timer = ({ expireAt, isAccepted = false }: { expireAt: string; isAccepted?: boolean }) => {
+    const [currentTime, setCurrentTime] = useState(Date.now());
 
     useEffect(() => {
       const interval = setInterval(() => {
-        setTick(prev => prev + 1);
+        setCurrentTime(Date.now());
       }, 1000);
 
       return () => clearInterval(interval);
     }, []);
 
-    const now = new Date().getTime();
     const expiresAtTime = new Date(expireAt).getTime();
-    const diff = expiresAtTime - now;
+    const diff = expiresAtTime - currentTime;
 
-    if (diff <= 0) return <span>Истекло</span>;
+    if (diff <= 0) {
+      return (
+        <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100/80 rounded-full">
+          <Clock className="h-3 w-3 text-gray-500" />
+          <span className="text-xs text-gray-600 font-medium">Истекло</span>
+        </div>
+      );
+    }
 
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const minutes = Math.floor(diff / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    if (hours > 0) {
-      return <span>{hours.toString().padStart(2, "0")}:{minutes.toString().padStart(2, "0")}</span>;
-    } else {
-      return <span>{minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}</span>;
-    }
+    // Always use red color for the timer badge
+    const bgClass = "bg-red-100/80";
+    const textClass = diff <= 5 * 60 * 1000 ? "text-red-700 font-semibold animate-pulse" : "text-red-700";
+    const iconClass = "text-red-600";
+
+    return (
+      <div className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full", bgClass)}>
+        <Clock className={cn("h-3 w-3", iconClass)} />
+        <span className={cn("text-xs tabular-nums", textClass)}>
+          {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+        </span>
+      </div>
+    );
   };
 
   const formatRemainingTime = (expire_at: string) => {
@@ -202,7 +245,8 @@ export function PayoutsList() {
     const now = new Date().getTime();
     const expiresAt = new Date(payout.expire_at).getTime();
 
-    if (payout.status === "completed" || payout.confirmed_at) {
+    // Check status first, ignore confirmed_at for color determination
+    if (payout.status === "completed") {
       return "bg-green-100 text-green-700";
     } else if (payout.status === "cancelled") {
       return "bg-red-100 text-red-700";
@@ -225,24 +269,25 @@ export function PayoutsList() {
     const now = new Date().getTime();
     const expiresAt = new Date(payout.expire_at).getTime();
 
-    if (payout.status === "completed" || payout.confirmed_at) {
+    // Check status first, then other conditions
+    if (payout.status === "completed") {
       return "Выплачено";
     } else if (payout.status === "cancelled") {
       return "Отменено";
     } else if (payout.status === "checking") {
       return "Проверка";
-    } else if (payout.status === "active") {
-      // For active payouts, return Timer component
-      return <Timer expireAt={payout.expire_at} />;
     } else if (payout.status === "disputed") {
       return "Спор";
+    } else if (payout.status === "active") {
+      // For active payouts (accepted), show timer for confirmation deadline
+      return <Timer expireAt={payout.expire_at} isAccepted={true} />;
     } else if (payout.status === "expired" || expiresAt < now) {
       return "Истекло";
     } else if (payout.status === "created") {
-      // For created payouts, return Timer component
-      return <Timer expireAt={payout.expire_at} />;
+      // For created payouts (not accepted), show timer for acceptance deadline
+      return <Timer expireAt={payout.expire_at} isAccepted={false} />;
     } else {
-      return <Timer expireAt={payout.expire_at} />;
+      return <Timer expireAt={payout.expire_at} isAccepted={false} />;
     }
   };
 
@@ -265,11 +310,21 @@ export function PayoutsList() {
       setTeamEnabled(savedTeamState === "true");
     }
 
+    // Load banks first
+    loadBanks();
+
     // Fetch initial data
     fetchTraderProfile();
     fetchPayouts();
     fetchPayoutBalance();
   }, []);
+  
+  // Load filters after banks are loaded
+  useEffect(() => {
+    if (availableBanks.length > 0) {
+      loadFilters();
+    }
+  }, [availableBanks]);
 
   useEffect(() => {
     // Save team state to localStorage whenever it changes
@@ -279,6 +334,16 @@ export function PayoutsList() {
   useEffect(() => {
     // Refetch payouts when tab changes
     fetchPayouts();
+  }, [activeTab]);
+
+  // Periodically refetch payouts to get updates from server
+  useEffect(() => {
+    const refetchInterval = setInterval(() => {
+      // Only refetch from server, don't force re-render of existing items
+      fetchPayouts();
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(refetchInterval);
   }, [activeTab]);
 
   // Infinite scroll handler for window
@@ -307,10 +372,92 @@ export function PayoutsList() {
           numericId: response.numericId || 0,
           email: response.email || "trader@example.com",
         });
+        // Initialize teamEnabled from profile
+        setTeamEnabled(response.teamEnabled || false);
       }
     } catch (error) {
       console.error("Failed to fetch trader profile:", error);
       // Don't set mock data, just leave it null
+    }
+  };
+  
+  const fetchPayoutDetails = async (payoutId: string) => {
+    try {
+      const response = await payoutApi.getPayoutDetails(payoutId);
+      if (response.success) {
+        return response.payout;
+      }
+    } catch (error) {
+      console.error("Failed to fetch payout details:", error);
+    }
+    return null;
+  };
+  
+  const loadFilters = async () => {
+    try {
+      const response = await filtersApi.getFilters();
+      if (response.success) {
+        setSelectedTrafficType(response.filters.trafficTypes);
+        
+        // Разделяем банки на СБП и карточные
+        const sbpBanks: string[] = [];
+        const cardBanks: string[] = [];
+        
+        response.filters.bankTypes.forEach(bank => {
+          // Проверяем, что банк существует в списке доступных банков
+          if (availableBanks.includes(bank)) {
+            if (bank === "СБП") {
+              sbpBanks.push(bank);
+            } else {
+              cardBanks.push(bank);
+            }
+          }
+        });
+        
+        setSelectedBanks(sbpBanks);
+        setSelectedCardBanks(cardBanks);
+        
+        // Устанавливаем баланс, если он больше 0
+        if (response.filters.maxPayoutAmount > 0) {
+          setBalanceInput(response.filters.maxPayoutAmount.toString());
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load filters:", error);
+    }
+  };
+  
+  const loadBanks = async () => {
+    try {
+      // Load banks for cards
+      const cardResponse = await filtersApi.getBanksList('card');
+      if (cardResponse.success) {
+        setAvailableCardBanks(cardResponse.banks);
+      }
+
+      // Load banks for SBP
+      const sbpResponse = await filtersApi.getBanksList('sbp');
+      if (sbpResponse.success) {
+        setAvailableSbpBanks(sbpResponse.banks);
+      }
+
+      // For backward compatibility
+      setAvailableBanks([...cardResponse.banks, ...sbpResponse.banks]);
+    } catch (error) {
+      console.error("Failed to load banks:", error);
+    }
+  };
+  
+  const saveFilters = async () => {
+    try {
+      const allBanks = [...selectedBanks, ...selectedCardBanks];
+      await filtersApi.saveFilters({
+        trafficTypes: selectedTrafficType,
+        bankTypes: allBanks,
+        maxPayoutAmount: parseFloat(balanceInput) || 0,
+      });
+    } catch (error) {
+      console.error("Failed to save filters:", error);
     }
   };
 
@@ -357,6 +504,7 @@ export function PayoutsList() {
       const limit = 20;
       const offset = loadMore ? page * limit : 0;
       
+      console.log(`Fetching payouts for tab: ${activeTab}, status filter: ${status}`);
       
       const response = await payoutApi.getPayouts({
         status,
@@ -365,11 +513,18 @@ export function PayoutsList() {
         offset,
       });
       
+      console.log(`API Response for ${activeTab}:`, response);
       
       if (response.success) {
         // Convert API payouts to component format
         const formattedPayouts: Payout[] = response.payouts.map(p => {
-          console.log(`Converting payout ${p.numericId}: ${p.status} -> ${p.status.toLowerCase()}`);
+          console.log(`Converting payout ${p.numericId}:`, {
+            status: `${p.status} -> ${p.status.toLowerCase()}`,
+            actualTotalUsdt: p.actualTotalUsdt,
+            traderFeeOut: p.traderFeeOut,
+            totalUsdt: p.totalUsdt,
+            amountUsdt: p.amountUsdt
+          });
           return {
             id: p.numericId,
             uuid: p.id, // Store the UUID for API calls
@@ -379,6 +534,8 @@ export function PayoutsList() {
             bank: p.bank,
             total: p.total,
             totalUsdt: p.totalUsdt,
+            actualTotalUsdt: p.actualTotalUsdt,
+            traderFeeOut: p.traderFeeOut,
             rate: p.rate,
             isCard: p.isCard,
             created_at: p.createdAt,
@@ -386,6 +543,7 @@ export function PayoutsList() {
             expire_at: p.expireAt,
             confirmed_at: p.confirmedAt,
             status: p.status.toLowerCase() as any,
+            metadata: p.metadata,
           };
         });
         
@@ -459,8 +617,13 @@ export function PayoutsList() {
       console.error("Failed to accept payout:", error);
       const errorMessage = error.response?.data?.error || "Не удалось принять выплату";
       
+      // Always refresh the list after error to get the latest state
+      fetchPayouts();
+      
       // Provide more specific error messages
-      if (errorMessage.includes("Insufficient RUB balance")) {
+      if (errorMessage.includes("not available for acceptance") || errorMessage.includes("already accepted")) {
+        toast.error("Выплата уже принята другим трейдером");
+      } else if (errorMessage.includes("Insufficient RUB balance")) {
         toast.error("Недостаточно средств на балансе RUB для принятия выплаты");
       } else if (errorMessage.includes("Maximum simultaneous payouts reached")) {
         toast.error("Достигнут лимит одновременных выплат");
@@ -484,13 +647,11 @@ export function PayoutsList() {
       const payout = payouts.find(p => p.id === payoutId);
       if (!payout) return;
       
-      // TODO: Implement file upload when backend endpoint is ready
-      // For now, use mock proof URLs with proper URL format
-      const mockProofUrls = proofFiles.map((file, index) => 
-        `https://example.com/proof_${Date.now()}_${index}_${file.name}`
-      );
+      // Upload files first
+      toast.info("Загрузка файлов...");
+      const uploadedUrls = await fileUploadService.uploadFiles(proofFiles);
       
-      const response = await payoutApi.confirmPayout(payout.uuid, mockProofUrls);
+      const response = await payoutApi.confirmPayout(payout.uuid, uploadedUrls);
       if (response.success) {
         toast.success("Выплата подтверждена");
         setConfirmDialogOpen(false);
@@ -498,6 +659,8 @@ export function PayoutsList() {
         setSelectedPayoutForAction(null);
         fetchPayouts();
         fetchPayoutBalance();
+        // Update trader financials immediately
+        fetchFinancials();
       }
     } catch (error: any) {
       console.error("Failed to confirm payout:", error);
@@ -516,12 +679,19 @@ export function PayoutsList() {
       const payout = payouts.find(p => p.id === payoutId);
       if (!payout) return;
       
-      // TODO: Add file upload support for cancellation
-      const response = await payoutApi.cancelPayout(payout.uuid, cancelReason);
+      // Upload files if any
+      let uploadedUrls: string[] = [];
+      if (cancelFiles.length > 0) {
+        toast.info("Загрузка файлов...");
+        uploadedUrls = await fileUploadService.uploadFiles(cancelFiles);
+      }
+      
+      const response = await payoutApi.cancelPayout(payout.uuid, cancelReason, undefined, uploadedUrls);
       if (response.success) {
         toast.success("Выплата отменена");
         setCancelDialogOpen(false);
         setCancelReason("");
+        setCancelFiles([]);
         setSelectedPayoutForAction(null);
         fetchPayouts();
         fetchPayoutBalance();
@@ -534,30 +704,39 @@ export function PayoutsList() {
   };
 
   // Filter payouts locally (server already filters by status)
-  const filteredPayouts = payouts.filter((payout) => {
-    // Hide all expired payouts
-    const now = new Date().getTime();
-    const expiresAt = new Date(payout.expire_at).getTime();
-    if (payout.status === "expired" || (expiresAt < now && payout.status === "created")) {
-      return false;
-    }
-    
-    if (searchId && !payout.id.toString().includes(searchId)) {
-      return false;
-    }
-    if (
-      searchRequisites &&
-      !payout.wallet.toLowerCase().includes(searchRequisites.toLowerCase()) &&
-      !payout.bank.toLowerCase().includes(searchRequisites.toLowerCase())
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const filteredPayouts = useMemo(() => {
+    return payouts.filter((payout) => {
+      const now = new Date().getTime();
+      const expiresAt = new Date(payout.expire_at).getTime();
+      
+      // Hide expired payouts that were not accepted (created status)
+      if (payout.status === "expired") {
+        return false;
+      }
+      
+      // Hide created payouts that have expired (not accepted in time)
+      if (payout.status === "created" && expiresAt < now) {
+        return false;
+      }
+      
+      // Note: Active payouts (accepted) should remain visible even if expired
+      // They will show "Истекло" status but won't disappear
+      
+      if (searchId && !payout.id.toString().includes(searchId)) {
+        return false;
+      }
+      if (
+        searchRequisites &&
+        !payout.wallet.toLowerCase().includes(searchRequisites.toLowerCase()) &&
+        !payout.bank.toLowerCase().includes(searchRequisites.toLowerCase())
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [payouts, searchId, searchRequisites]);
 
-  const PayoutCard = ({ payout }: { payout: Payout }) => {
-    console.log(`Rendering PayoutCard for payout ${payout.id} with status: ${payout.status}`);
-    
+  const PayoutCard = React.memo(({ payout }: { payout: Payout }) => {
     const isNotAccepted = payout.status === "created";
     // Show timer for payouts that have an expiration time and are not yet completed/cancelled
     const showTimer = (payout.status === "created" || payout.status === "active") && 
@@ -568,10 +747,21 @@ export function PayoutsList() {
       <ContextMenuTrigger>
         <div
           className="bg-card rounded-lg border border-border hover:bg-accent transition-colors cursor-pointer mb-4 min-h-[100px] max-xl:h-auto relative overflow-hidden"
-          onClick={() => {
+          onClick={async () => {
             // Only show details for accepted payouts
             if (payout.status !== "created") {
-              setSelectedPayout(payout);
+              // Fetch full details with files
+              const details = await fetchPayoutDetails(payout.uuid);
+              if (details) {
+                setSelectedPayout({
+                  ...payout,
+                  disputeFiles: details.disputeFiles,
+                  disputeMessage: details.disputeMessage,
+                  proofFiles: details.proofFiles,
+                });
+              } else {
+                setSelectedPayout(payout);
+              }
             }
           }}
         >
@@ -629,14 +819,22 @@ export function PayoutsList() {
               </div>
               {payout.accepted_at && (
                 <div className="text-xs text-green-600">
-                  Принято: {format(new Date(payout.accepted_at), "HH:mm", {
+                  Принято: {format(new Date(payout.accepted_at), "dd.MM.yyyy HH:mm", {
                     locale: ru,
                   })}
                 </div>
               )}
               {payout.confirmed_at && (
                 <div className="text-xs text-blue-600">
-                  Завершено: {format(new Date(payout.confirmed_at), "HH:mm", {
+                  Завершено: {format(new Date(payout.confirmed_at), "dd.MM.yyyy HH:mm", {
+                    locale: ru,
+                  })}
+                </div>
+              )}
+              {/* Show expiration date for active and created statuses */}
+              {(payout.status === "active" || payout.status === "created") && (
+                <div className="text-xs text-orange-600">
+                  Истекает: {format(new Date(payout.expire_at), "dd.MM.yyyy HH:mm", {
                     locale: ru,
                   })}
                 </div>
@@ -687,6 +885,11 @@ export function PayoutsList() {
                     <div className="text-sm text-gray-500 truncate">
                       {payout.bank}
                     </div>
+                    {payout.metadata?.fio && (
+                      <div className="text-xs text-gray-600 truncate font-medium">
+                        {payout.metadata.fio}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -737,19 +940,30 @@ export function PayoutsList() {
               {isNotAccepted ? (
                 <>
                   <div className="font-medium text-base text-gray-400">
-                    ••••• ₽
+                    ••• USDT
                   </div>
                   <div className="text-sm text-gray-400">
-                    ••• USDT
+                    ••••• ₽
                   </div>
                 </>
               ) : (
                 <>
                   <div className="font-medium text-base">
-                    {payout.total.toLocaleString("ru-RU")} ₽
+                    {(() => {
+                      const profit = (payout.actualTotalUsdt || payout.totalUsdt) - payout.amountUsdt;
+                      console.log('Payout profit calculation:', {
+                        id: payout.id,
+                        actualTotalUsdt: payout.actualTotalUsdt,
+                        totalUsdt: payout.totalUsdt,
+                        amountUsdt: payout.amountUsdt,
+                        traderFeeOut: payout.traderFeeOut,
+                        profit
+                      });
+                      return profit.toFixed(2);
+                    })()} USDT
                   </div>
                   <div className="text-sm text-gray-500">
-                    {payout.totalUsdt.toFixed(2)} USDT
+                    {(((payout.actualTotalUsdt || payout.totalUsdt) - payout.amountUsdt) * payout.rate).toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
                   </div>
                 </>
               )}
@@ -855,10 +1069,27 @@ export function PayoutsList() {
         <ContextMenuItem onClick={() => copyToClipboard(payout.bank, "Банк")}>
           Копировать банк
         </ContextMenuItem>
+        {payout.metadata?.fio && (
+          <ContextMenuItem onClick={() => copyToClipboard(payout.metadata.fio!, "ФИО")}>
+            Копировать ФИО
+          </ContextMenuItem>
+        )}
         {payout.status !== "created" && (
           <>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => setSelectedPayout(payout)}>
+            <ContextMenuItem onClick={async () => {
+              const details = await fetchPayoutDetails(payout.uuid);
+              if (details) {
+                setSelectedPayout({
+                  ...payout,
+                  disputeFiles: details.disputeFiles,
+                  disputeMessage: details.disputeMessage,
+                  proofFiles: details.proofFiles,
+                });
+              } else {
+                setSelectedPayout(payout);
+              }
+            }}>
               <Eye className="h-4 w-4 mr-2" />
               Подробнее
             </ContextMenuItem>
@@ -867,7 +1098,7 @@ export function PayoutsList() {
       </ContextMenuContent>
     </ContextMenu>
     );
-  };
+  });
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -883,7 +1114,17 @@ export function PayoutsList() {
             <Switch
               id="team-switch"
               checked={teamEnabled}
-              onCheckedChange={setTeamEnabled}
+              onCheckedChange={async (checked) => {
+                setTeamEnabled(checked);
+                try {
+                  await traderApi.updateProfile({ teamEnabled: checked });
+                  toast.success(checked ? "Получение выплат включено" : "Получение выплат выключено");
+                } catch (error) {
+                  console.error("Failed to update team status:", error);
+                  setTeamEnabled(!checked); // Revert on error
+                  toast.error("Не удалось обновить статус");
+                }
+              }}
             />
           </div>
 
@@ -943,12 +1184,12 @@ export function PayoutsList() {
                       "СБП"
                     ) : (
                       <div className="flex gap-1">
-                        {selectedTrafficType.includes(1) && (
+                        {selectedTrafficType.includes("sbp") && (
                           <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
                             СБП
                           </Badge>
                         )}
-                        {selectedTrafficType.includes(2) && (
+                        {selectedTrafficType.includes("card") && (
                           <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
                             Карты
                           </Badge>
@@ -961,37 +1202,41 @@ export function PayoutsList() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[200px]">
                 <DropdownMenuCheckboxItem
-                  checked={selectedTrafficType.includes(1)}
+                  checked={selectedTrafficType.includes("sbp")}
                   onCheckedChange={(checked) => {
                     if (checked) {
-                      setSelectedTrafficType([...selectedTrafficType, 1]);
+                      const newTypes = [...selectedTrafficType, "sbp"];
+                      setSelectedTrafficType(newTypes);
+                      saveFilters();
                     } else {
-                      setSelectedTrafficType(
-                        selectedTrafficType.filter((t) => t !== 1),
-                      );
+                      const newTypes = selectedTrafficType.filter((t) => t !== "sbp");
+                      setSelectedTrafficType(newTypes);
+                      saveFilters();
                     }
                   }}
                   className="cursor-pointer"
                 >
-                  {selectedTrafficType.includes(1) && (
+                  {selectedTrafficType.includes("sbp") && (
                     <Check className="h-4 w-4 mr-2" />
                   )}
                   СБП
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
-                  checked={selectedTrafficType.includes(2)}
+                  checked={selectedTrafficType.includes("card")}
                   onCheckedChange={(checked) => {
                     if (checked) {
-                      setSelectedTrafficType([...selectedTrafficType, 2]);
+                      const newTypes = [...selectedTrafficType, "card"];
+                      setSelectedTrafficType(newTypes);
+                      saveFilters();
                     } else {
-                      setSelectedTrafficType(
-                        selectedTrafficType.filter((t) => t !== 2),
-                      );
+                      const newTypes = selectedTrafficType.filter((t) => t !== "card");
+                      setSelectedTrafficType(newTypes);
+                      saveFilters();
                     }
                   }}
                   className="cursor-pointer"
                 >
-                  {selectedTrafficType.includes(2) && (
+                  {selectedTrafficType.includes("card") && (
                     <Check className="h-4 w-4 mr-2" />
                   )}
                   Карты
@@ -1014,12 +1259,12 @@ export function PayoutsList() {
                       "Выберите банки"
                     ) : (
                       <div className="flex gap-1">
-                        {selectedBanks.slice(0, 2).map((index) => (
+                        {selectedBanks.slice(0, 2).map((bank) => (
                           <Badge
-                            key={index}
+                            key={bank}
                             className="h-5 px-2 bg-green-100 text-green-700 border-green-200"
                           >
-                            {Object.keys(bankLogos)[index]}
+                            {bank}
                           </Badge>
                         ))}
                         {selectedBanks.length > 2 && (
@@ -1037,22 +1282,24 @@ export function PayoutsList() {
                 align="start"
                 className="w-[250px] max-h-[300px] overflow-y-auto"
               >
-                {Object.keys(bankLogos).map((bank, index) => (
+                {availableSbpBanks.map((bank) => (
                   <DropdownMenuCheckboxItem
                     key={bank}
-                    checked={selectedBanks.includes(index)}
+                    checked={selectedBanks.includes(bank)}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedBanks([...selectedBanks, index]);
+                        const newBanks = [...selectedBanks, bank];
+                        setSelectedBanks(newBanks);
+                        saveFilters();
                       } else {
-                        setSelectedBanks(
-                          selectedBanks.filter((b) => b !== index),
-                        );
+                        const newBanks = selectedBanks.filter((b) => b !== bank);
+                        setSelectedBanks(newBanks);
+                        saveFilters();
                       }
                     }}
                     className="cursor-pointer"
                   >
-                    {selectedBanks.includes(index) && (
+                    {selectedBanks.includes(bank) && (
                       <Check className="h-4 w-4 mr-2" />
                     )}
                     {bank}
@@ -1078,19 +1325,14 @@ export function PayoutsList() {
                       "Выберите банки"
                     ) : (
                       <div className="flex gap-1">
-                        {selectedCardBanks.slice(0, 2).map((index) => {
-                          const banks = Object.keys(bankLogos).filter(
-                            (bank) => bank !== "СБП",
-                          );
-                          return (
-                            <Badge
-                              key={index}
-                              className="h-5 px-2 bg-green-100 text-green-700 border-green-200"
-                            >
-                              {banks[index]}
-                            </Badge>
-                          );
-                        })}
+                        {selectedCardBanks.slice(0, 2).map((bank) => (
+                          <Badge
+                            key={bank}
+                            className="h-5 px-2 bg-green-100 text-green-700 border-green-200"
+                          >
+                            {bank}
+                          </Badge>
+                        ))}
                         {selectedCardBanks.length > 2 && (
                           <Badge className="h-5 px-2 bg-green-100 text-green-700 border-green-200">
                             +{selectedCardBanks.length - 2}
@@ -1106,24 +1348,24 @@ export function PayoutsList() {
                 align="start"
                 className="w-[250px] max-h-[300px] overflow-y-auto"
               >
-                {Object.keys(bankLogos)
-                  .filter((bank) => bank !== "СБП")
-                  .map((bank, index) => (
+                {availableCardBanks.map((bank) => (
                     <DropdownMenuCheckboxItem
                       key={bank}
-                      checked={selectedCardBanks.includes(index)}
+                      checked={selectedCardBanks.includes(bank)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedCardBanks([...selectedCardBanks, index]);
+                          const newBanks = [...selectedCardBanks, bank];
+                          setSelectedCardBanks(newBanks);
+                          saveFilters();
                         } else {
-                          setSelectedCardBanks(
-                            selectedCardBanks.filter((b) => b !== index),
-                          );
+                          const newBanks = selectedCardBanks.filter((b) => b !== bank);
+                          setSelectedCardBanks(newBanks);
+                          saveFilters();
                         }
                       }}
                       className="cursor-pointer"
                     >
-                      {selectedCardBanks.includes(index) && (
+                      {selectedCardBanks.includes(bank) && (
                         <Check className="h-4 w-4 mr-2" />
                       )}
                       {bank}
@@ -1141,6 +1383,7 @@ export function PayoutsList() {
                 placeholder="0.00"
                 value={balanceInput}
                 onChange={(e) => setBalanceInput(e.target.value)}
+                onBlur={saveFilters}
                 className="h-12 w-32 focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
               <Button 
@@ -1183,7 +1426,6 @@ export function PayoutsList() {
 
         {/* Tab Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-        {activeTab === "all" && (
           <>
           {/* Mobile Search - Only visible on small screens */}
           <div className="xl:hidden bg-card px-6 py-3 border-b">
@@ -1276,16 +1518,27 @@ export function PayoutsList() {
               )}
             </div>
             <div>Сумма</div>
-            <div>Сумма к списанию</div>
+            <div>Прибыль</div>
             <div>Курс</div>
             <div>Статус</div>
           </div>
 
           <div className="flex-1 overflow-y-auto" onScroll={handleScroll}>
             <div className="p-6 space-y-4">
-              {filteredPayouts.map((payout) => (
-                <PayoutCard key={payout.id} payout={payout} />
-              ))}
+              <AnimatePresence mode="popLayout">
+                {filteredPayouts.map((payout) => (
+                  <motion.div
+                    key={payout.id}
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <PayoutCard payout={payout} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               {loadingMore && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-[#006039]" />
@@ -1301,9 +1554,6 @@ export function PayoutsList() {
             </div>
           </div>
           </>
-        )}
-
-        {/* Other tabs remain the same structure */}
         </div>
       </Tabs>
 
@@ -1430,12 +1680,12 @@ export function PayoutsList() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">К списанию</p>
+                  <p className="text-sm text-gray-500">Прибыль с выплаты</p>
                   <p className="font-medium">
-                    {selectedPayout.total.toLocaleString("ru-RU")} ₽
+                    {((selectedPayout.actualTotalUsdt || selectedPayout.totalUsdt) - selectedPayout.amountUsdt).toFixed(2)} USDT
                   </p>
                   <p className="text-sm text-gray-600">
-                    {selectedPayout.totalUsdt.toFixed(2)} USDT
+                    {(((selectedPayout.actualTotalUsdt || selectedPayout.totalUsdt) - selectedPayout.amountUsdt) * selectedPayout.rate).toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
                   </p>
                 </div>
               </div>
@@ -1446,14 +1696,87 @@ export function PayoutsList() {
                     {selectedPayout.proofFiles.map((file, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                         <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-sm">{file}</span>
+                        <span className="text-sm">{file.includes('-') ? file.split('-').slice(1).join('-') : file}</span>
                         <Button
                           size="sm"
                           variant="ghost"
                           className="ml-auto"
                           onClick={() => {
-                            // TODO: Implement download when backend is ready
-                            toast.info("Загрузка файлов будет доступна позже");
+                            window.open(`${process.env.NEXT_PUBLIC_API_URL}/uploads/payouts/${file}`, '_blank');
+                          }}
+                        >
+                          Скачать
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedPayout.cancellationHistory && selectedPayout.cancellationHistory.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">История отмен от предыдущих трейдеров</p>
+                  <div className="space-y-4 max-h-60 overflow-y-auto">
+                    {selectedPayout.cancellationHistory.map((cancellation, index) => (
+                      <div key={index} className="p-3 bg-yellow-50 rounded border-l-4 border-yellow-400">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          <span className="text-sm font-medium text-yellow-800">
+                            Трейдер: {cancellation.trader.name} (#{cancellation.trader.id.slice(-6)})
+                          </span>
+                          <span className="text-xs text-gray-500 ml-auto">
+                            {format(new Date(cancellation.createdAt), "dd.MM.yyyy HH:mm", { locale: ru })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 mb-2">
+                          <strong>Причина:</strong> {cancellation.reason}
+                        </p>
+                        {cancellation.files && cancellation.files.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-600 mb-1">Прикрепленные файлы:</p>
+                            {cancellation.files.map((file, fileIndex) => (
+                              <div key={fileIndex} className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-600">
+                                  {file.includes('-') ? file.split('-').slice(1).join('-') : file}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => {
+                                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/uploads/payouts/${file}`, '_blank');
+                                  }}
+                                >
+                                  Скачать
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Legacy dispute files support */}
+              {selectedPayout.disputeFiles && selectedPayout.disputeFiles.length > 0 && 
+               (!selectedPayout.cancellationHistory || selectedPayout.cancellationHistory.length === 0) && (
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">Файлы от предыдущего трейдера (legacy)</p>
+                  {selectedPayout.disputeMessage && (
+                    <p className="text-sm text-gray-600 mb-2">Причина отмены: {selectedPayout.disputeMessage}</p>
+                  )}
+                  <div className="space-y-2">
+                    {selectedPayout.disputeFiles.map((file, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-yellow-50 rounded">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm">{file.includes('-') ? file.split('-').slice(1).join('-') : file}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ml-auto"
+                          onClick={() => {
+                            window.open(`${process.env.NEXT_PUBLIC_API_URL}/uploads/payouts/${file}`, '_blank');
                           }}
                         >
                           Скачать
@@ -1539,18 +1862,34 @@ export function PayoutsList() {
                   accept="image/*,.pdf"
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
-                    // TODO: Implement file upload
-                    toast.info("Загрузка файлов будет доступна позже");
+                    setCancelFiles(files);
+                    if (files.length > 0) {
+                      toast.info(`Выбрано ${files.length} файл(ов)`);
+                    }
                   }}
                 />
                 <label
                   htmlFor="cancel-files"
                   className="cursor-pointer flex flex-col items-center"
                 >
-                  <Upload className="h-6 w-6 text-gray-400 mb-1" />
-                  <p className="text-sm text-gray-600">
-                    Нажмите для загрузки файлов
-                  </p>
+                  {cancelFiles.length > 0 ? (
+                    <>
+                      <CheckCircle className="h-6 w-6 text-green-600 mb-1" />
+                      <p className="text-sm font-medium">
+                        {cancelFiles.length} файл(ов) выбрано
+                      </p>
+                      <div className="text-xs text-gray-500 mt-1 max-w-full overflow-hidden text-ellipsis">
+                        {cancelFiles.map(f => f.name).join(", ")}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-6 w-6 text-gray-400 mb-1" />
+                      <p className="text-sm text-gray-600">
+                        Нажмите для загрузки файлов
+                      </p>
+                    </>
+                  )}
                 </label>
               </div>
             </div>
@@ -1560,6 +1899,7 @@ export function PayoutsList() {
                 onClick={() => {
                   setCancelDialogOpen(false);
                   setCancelReason("");
+                  setCancelFiles([]);
                   setSelectedPayoutForAction(null);
                 }}
               >

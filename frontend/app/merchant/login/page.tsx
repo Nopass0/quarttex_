@@ -55,7 +55,7 @@ export default function MerchantLoginPage() {
         const data = JSON.parse(responseText)
         setAuth(apiToken, data.sessionToken, data.merchant.id, data.merchant.name)
         toast.success("Вход выполнен успешно")
-        router.push("/merchant/transactions")
+        router.push("/merchant")
       } catch (e) {
         throw new Error("Ошибка при обработке ответа сервера")
       }

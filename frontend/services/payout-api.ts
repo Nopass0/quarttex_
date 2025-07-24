@@ -7,6 +7,8 @@ export interface Payout {
   amountUsdt: number;
   total: number;
   totalUsdt: number;
+  actualTotalUsdt?: number;
+  traderFeeOut?: number;
   rate: number;
   wallet: string;
   bank: string;
@@ -18,6 +20,7 @@ export interface Payout {
   confirmedAt?: string | null;
   cancelledAt?: string | null;
   merchantName?: string;
+  metadata?: any;
 }
 
 export interface PayoutBalance {
@@ -70,9 +73,11 @@ export const payoutApi = {
   },
 
   // Cancel payout
-  async cancelPayout(payoutId: string, reason: string) {
+  async cancelPayout(payoutId: string, reason: string, reasonCode?: string, files?: string[]) {
     const response = await traderApiInstance.post(`/trader/payouts/${payoutId}/cancel`, {
       reason,
+      reasonCode,
+      files,
     });
     return response.data as {
       success: boolean;
@@ -115,6 +120,32 @@ export const payoutApi = {
     return response.data as {
       success: boolean;
       url: string;
+    };
+  },
+  
+  // Get payout details
+  async getPayoutDetails(payoutId: string) {
+    const response = await traderApiInstance.get(`/trader/payouts/${payoutId}`);
+    return response.data as {
+      success: boolean;
+      payout: Payout & {
+        disputeFiles?: string[];
+        disputeMessage?: string;
+        proofFiles?: string[];
+        cancelReason?: string;
+        cancellationHistory?: Array<{
+          id: string;
+          reason: string;
+          reasonCode?: string | null;
+          files: string[];
+          createdAt: string;
+          trader: {
+            id: string;
+            name: string;
+            email: string;
+          };
+        }>;
+      };
     };
   },
 };

@@ -49,6 +49,7 @@ type Merchant = {
   token: string
   createdAt: string
   balanceUsdt: number
+  balanceRub?: number
   totalTx: number
   paidTx: number
   disabled?: boolean
@@ -351,6 +352,38 @@ export function MerchantsList() {
     }
   }
 
+  const handleToggleRubCalculation = async (merchantId: string, countInRubEquivalent: boolean) => {
+    const merchant = merchants.find(m => m.id === merchantId)
+    if (!merchant) return
+
+    try {
+      setIsLoading(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || '',
+        },
+        body: JSON.stringify({
+          id: merchantId,
+          name: merchant.name,
+          disabled: merchant.disabled || false,
+          banned: merchant.banned || false,
+          countInRubEquivalent: countInRubEquivalent,
+        }),
+      })
+      
+      if (!response.ok) throw new Error('Failed to update merchant rub calculation setting')
+      
+      await fetchMerchants()
+      toast.success(countInRubEquivalent ? 'Расчеты в рублях включены' : 'Расчеты в рублях отключены')
+    } catch (error) {
+      toast.error('Не удалось изменить настройку расчетов')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const openEditDialog = (merchant: Merchant) => {
     setSelectedMerchant(merchant)
     setEditFormData({
@@ -456,10 +489,11 @@ export function MerchantsList() {
               <TableHead>Название</TableHead>
               <TableHead>ID</TableHead>
               <TableHead>API ключ</TableHead>
-              <TableHead>Баланс USDT</TableHead>
+              <TableHead>Баланс (рубли)</TableHead>
               <TableHead>Транзакции</TableHead>
               <TableHead>Трафик</TableHead>
               <TableHead>Статус</TableHead>
+              <TableHead>Расчеты в рублях</TableHead>
               <TableHead>Дата создания</TableHead>
               <TableHead className="text-right">Действия</TableHead>
             </TableRow>
@@ -490,7 +524,7 @@ export function MerchantsList() {
                     </Button>
                   </div>
                 </TableCell>
-                <TableCell>${formatAmount(merchant.balanceUsdt)}</TableCell>
+                <TableCell>{formatAmount(merchant.balanceRub || 0)} ₽</TableCell>
                 <TableCell>
                   <div className="text-sm">
                     <div>{merchant.totalTx} всего</div>
@@ -512,6 +546,18 @@ export function MerchantsList() {
                     />
                     <span className="text-sm text-gray-600">
                       {merchant.disabled ? 'Отключен' : 'Активен'}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={merchant.countInRubEquivalent || false}
+                      onCheckedChange={(checked) => handleToggleRubCalculation(merchant.id, checked)}
+                      disabled={isLoading}
+                    />
+                    <span className="text-sm text-gray-600">
+                      {merchant.countInRubEquivalent ? 'Включено' : 'Отключено'}
                     </span>
                   </div>
                 </TableCell>

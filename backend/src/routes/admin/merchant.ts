@@ -11,7 +11,7 @@
 
 import { Elysia, t } from 'elysia'
 import { db } from '@/db'
-import { Prisma, Status, TransactionType } from '@prisma/client'
+import { Prisma, Status, TransactionType, PayoutStatus } from '@prisma/client'
 import ErrorSchema from '@/types/error'
 import { randomBytes } from 'node:crypto'
 
@@ -28,14 +28,16 @@ const MerchantBase = t.Object({
   disabled: t.Boolean(),
   banned: t.Boolean(),
   createdAt: t.String(),
-  balanceUsdt: t.Number()
+  balanceUsdt: t.Number(),
+  countInRubEquivalent: t.Boolean()
 })
 
 const MerchantWithCounters = t.Intersect([
   MerchantBase,
   t.Object({
     totalTx: t.Number({ description: 'Всего транзакций' }),
-    paidTx:  t.Number({ description: 'Транзакций со статусом READY' })
+    paidTx:  t.Number({ description: 'Транзакций со статусом READY' }),
+    balanceRub: t.Number({ description: 'Баланс в рублях с учетом комиссий' })
   })
 ])
 
@@ -211,14 +213,67 @@ export default (app: Elysia) =>
           groupedPaid.map((g) => [g.merchantId, g._count._all])
         )
 
-        /* 4. Формируем ответ */
-        return merchants.map((m) =>
-          ({
-            ...toISO(m),
-            totalTx: totalMap[m.id] ?? 0,
-            paidTx:  paidMap[m.id]  ?? 0
-          }) as typeof MerchantWithCounters.static
-        )
+        // Рассчитываем рублевый баланс для каждого мерчанта
+        const merchantsWithRubBalance = await Promise.all(
+          merchants.map(async (m) => {
+            // Получаем успешные транзакции мерчанта
+            const successfulTransactions = await db.transaction.findMany({
+              where: {
+                merchantId: m.id,
+                status: Status.READY,
+              },
+              select: {
+                amount: true,
+                type: true,
+                method: {
+                  select: {
+                    commissionPayin: true,
+                    commissionPayout: true,
+                  },
+                },
+              },
+            });
+
+            // Получаем успешные выплаты мерчанта
+            const successfulPayouts = await db.payout.findMany({
+              where: {
+                merchantId: m.id,
+                status: PayoutStatus.COMPLETED,
+              },
+              select: {
+                amount: true,
+                feePercent: true,
+              },
+            });
+
+            // Рассчитываем рублевый баланс
+            let balanceRub = 0;
+
+            // Добавляем транзакции
+            for (const tx of successfulTransactions) {
+              const commission = tx.type === TransactionType.IN 
+                ? tx.method.commissionPayin 
+                : tx.method.commissionPayout;
+              const netAmount = tx.amount * (1 - commission / 100);
+              balanceRub += netAmount;
+            }
+
+            // Добавляем выплаты (для выплат комиссия прибавляется к сумме)
+            for (const payout of successfulPayouts) {
+              const netAmount = payout.amount * (1 + payout.feePercent / 100);
+              balanceRub -= netAmount; // Выплаты уменьшают баланс
+            }
+
+            return {
+              ...toISO(m),
+              totalTx: totalMap[m.id] ?? 0,
+              paidTx: paidMap[m.id] ?? 0,
+              balanceRub: Math.round(balanceRub * 100) / 100, // Округляем до копеек
+            };
+          })
+        );
+
+        return merchantsWithRubBalance;
       },
       {
         tags: ['admin'],
@@ -357,10 +412,57 @@ export default (app: Elysia) =>
         
         if (!merchant) return error(404, { error: 'Мерчант не найден' })
         
+        // Рассчитываем рублевый баланс
+        const successfulTransactions = await db.transaction.findMany({
+          where: {
+            merchantId: id,
+            status: Status.READY,
+          },
+          select: {
+            amount: true,
+            type: true,
+            method: {
+              select: {
+                commissionPayin: true,
+                commissionPayout: true,
+              },
+            },
+          },
+        });
+
+        const successfulPayouts = await db.payout.findMany({
+          where: {
+            merchantId: id,
+            status: PayoutStatus.COMPLETED,
+          },
+          select: {
+            amount: true,
+            feePercent: true,
+          },
+        });
+
+        let balanceRub = 0;
+
+        // Добавляем транзакции
+        for (const tx of successfulTransactions) {
+          const commission = tx.type === TransactionType.IN 
+            ? tx.method.commissionPayin 
+            : tx.method.commissionPayout;
+          const netAmount = tx.amount * (1 - commission / 100);
+          balanceRub += netAmount;
+        }
+
+        // Добавляем выплаты (для выплат комиссия прибавляется к сумме)
+        for (const payout of successfulPayouts) {
+          const netAmount = payout.amount * (1 + payout.feePercent / 100);
+          balanceRub -= netAmount; // Выплаты уменьшают баланс
+        }
+        
         return {
           ...toISO(merchant),
           apiKeyPublic: merchant.apiKeyPublic,
           apiKeyPrivate: merchant.apiKeyPrivate,
+          balanceRub: Math.round(balanceRub * 100) / 100,
           merchantMethods: merchant.merchantMethods.map(mm => ({
             id: mm.id,
             isEnabled: mm.isEnabled,
@@ -389,6 +491,7 @@ export default (app: Elysia) =>
             disabled: t.Boolean(),
             banned: t.Boolean(),
             balanceUsdt: t.Number(),
+            balanceRub: t.Number(),
             createdAt: t.String(),
             merchantMethods: t.Array(t.Object({
               id: t.String(),

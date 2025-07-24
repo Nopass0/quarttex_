@@ -435,7 +435,8 @@ merchantApiInstance.interceptors.request.use((config) => {
 merchantApiInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403 || error.response?.status === 500) {
+    // Only log out on authentication/authorization errors, not server errors
+    if (error.response?.status === 401 || error.response?.status === 403) {
       useMerchantAuth.getState().logout()
       window.location.href = '/merchant/login'
     }
@@ -687,6 +688,20 @@ export const adminApi = {
   },
   rejectPayout: async (payoutId: string, data: { reason: string }) => {
     const response = await adminApiInstance.post(`/admin/payouts/${payoutId}/reject`, data)
+    return response.data
+  },
+  createTestPayouts: async (data: {
+    count?: number;
+    methodId?: string;
+    amount?: number;
+    wallet?: string;
+    bank?: string;
+    isCard?: boolean;
+    rate?: number;
+    direction?: "IN" | "OUT";
+    feePercent?: number;
+  }) => {
+    const response = await adminApiInstance.post('/admin/payouts/test-multiple', data)
     return response.data
   },
   // Transactions (deals) management

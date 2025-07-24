@@ -3,6 +3,7 @@ import { PayoutService } from "../../services/payout.service";
 import { payoutAccountingService } from "../../services/payout-accounting.service";
 import { db } from "../../db";
 import { validateFileUrls } from "../../middleware/fileUploadValidation";
+import { fileUploadService } from "../../services/file-upload.service";
 
 const payoutService = PayoutService.getInstance();
 
@@ -15,6 +16,8 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
       try {
         const statusFilter = query.status?.split(",") as any;
         
+        console.log(`[TraderPayoutsAPI] Requested status filter: ${query.status}, parsed: ${JSON.stringify(statusFilter)}`);
+        
         const { payouts, total } = await payoutService.getTraderPayouts(
           trader.id,
           {
@@ -25,11 +28,14 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
           }
         );
         
-
+        console.log(`[TraderPayoutsAPI] Found ${payouts.length} payouts`);
+        payouts.forEach(p => {
+          console.log(`  - Payout ${p.numericId}: status=${p.status}`);
+        });
 
         return {
           success: true,
-          payouts: payouts.map((p) => ({
+          payouts: payouts.map((p: any) => ({
             id: p.numericId,  // Use numericId as the display ID
             uuid: p.id,       // Add the actual UUID for API calls
             numericId: p.numericId,
@@ -37,6 +43,8 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
             amountUsdt: p.amountUsdt,
             total: p.total,
             totalUsdt: p.totalUsdt,
+            actualTotalUsdt: p.actualTotalUsdt, // Actual total based on trader's fee
+            traderFeeOut: p.traderFeeOut, // Trader's fee percentage
             rate: p.rate,
             wallet: p.wallet,
             bank: p.bank,
@@ -253,14 +261,46 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
           // UUID format
           payoutRecord = await db.payout.findFirst({
             where: { id: params.id },
-            include: { merchant: true }
+            include: { 
+              merchant: true,
+              cancellationHistory: {
+                include: {
+                  trader: {
+                    select: {
+                      id: true,
+                      email: true,
+                      name: true
+                    }
+                  }
+                },
+                orderBy: {
+                  createdAt: 'desc'
+                }
+              }
+            }
           });
         } else {
           // Numeric ID format
           const numericId = parseInt(params.id);
           payoutRecord = await db.payout.findFirst({
             where: { numericId },
-            include: { merchant: true }
+            include: { 
+              merchant: true,
+              cancellationHistory: {
+                include: {
+                  trader: {
+                    select: {
+                      id: true,
+                      email: true,
+                      name: true
+                    }
+                  }
+                },
+                orderBy: {
+                  createdAt: 'desc'
+                }
+              }
+            }
           });
         }
         
@@ -298,12 +338,25 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
             confirmedAt: payoutRecord.confirmedAt,
             cancelledAt: payoutRecord.cancelledAt,
             merchantName: payoutRecord.merchant.name,
-            // Include dispute files from previous traders
+            // Include dispute files from previous traders (legacy)
             disputeFiles: payoutRecord.disputeFiles || [],
             disputeMessage: payoutRecord.disputeMessage || null,
             cancelReason: payoutRecord.cancelReason || null,
             // Include proof files if trader owns this payout
             proofFiles: payoutRecord.traderId === trader.id ? payoutRecord.proofFiles : [],
+            // Include full cancellation history
+            cancellationHistory: payoutRecord.cancellationHistory?.map(cancellation => ({
+              id: cancellation.id,
+              reason: cancellation.reason,
+              reasonCode: cancellation.reasonCode,
+              files: cancellation.files,
+              createdAt: cancellation.createdAt,
+              trader: {
+                id: cancellation.trader.id,
+                name: cancellation.trader.name,
+                email: cancellation.trader.email,
+              }
+            })) || [],
           },
         };
       } catch (error: any) {
@@ -374,6 +427,40 @@ export const traderPayoutsApi = new Elysia({ prefix: "/payouts" })
     {
       body: t.Object({
         balance: t.Number({ minimum: 0 }),
+      }),
+    }
+  )
+  
+  // Upload files endpoint
+  .post(
+    "/upload",
+    async ({ body, set }) => {
+      try {
+        // Handle both single file and array of files
+        const files = Array.isArray(body.files) ? body.files : [body.files];
+        
+        if (!files || files.length === 0 || !files[0]) {
+          set.status = 400;
+          return { error: "No files provided" };
+        }
+
+        const uploadedUrls = await fileUploadService.uploadFiles(files);
+        
+        return {
+          success: true,
+          urls: uploadedUrls,
+        };
+      } catch (error: any) {
+        set.status = 500;
+        return { error: error.message };
+      }
+    },
+    {
+      body: t.Object({
+        files: t.Union([
+          t.File({ maxSize: "10m" }),
+          t.Array(t.File({ maxSize: "10m" }))
+        ]),
       }),
     }
   );

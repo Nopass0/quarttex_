@@ -91,23 +91,38 @@ export function TraderMerchantsTable({ traderId }: TraderMerchantsTableProps) {
   const debounceTimers = useRef<{ [key: string]: NodeJS.Timeout }>({})
 
   useEffect(() => {
+    if (!traderId || !adminToken) {
+      console.warn('Missing traderId or adminToken:', { traderId, adminToken });
+      return;
+    }
     fetchMerchants()
     fetchAvailableMerchants()
-  }, [traderId])
+  }, [traderId, adminToken])
 
   const fetchMerchants = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/traders/${traderId}/merchants`, {
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/traders/${traderId}/merchants`;
+      console.log('Fetching merchants from:', url);
+      
+      const response = await fetch(url, {
         headers: {
           'x-admin-key': adminToken || '',
         },
       })
-      if (!response.ok) throw new Error('Failed to fetch merchants')
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch merchants:', response.status, errorText);
+        throw new Error(`Failed to fetch merchants: ${response.status}`);
+      }
+      
       const data = await response.json()
-      setMerchants(data.merchants)
-      setStatistics(data.statistics)
+      console.log('Merchants data:', data);
+      setMerchants(data.merchants || [])
+      setStatistics(data.statistics || null)
     } catch (error) {
+      console.error('Error fetching merchants:', error);
       toast.error('Не удалось загрузить список мерчантов')
     } finally {
       setIsLoading(false)
@@ -116,15 +131,35 @@ export function TraderMerchantsTable({ traderId }: TraderMerchantsTableProps) {
 
   const fetchAvailableMerchants = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/traders/${traderId}/available-merchants`, {
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/admin/traders/${traderId}/available-merchants`;
+      console.log('Fetching available merchants from:', url);
+      
+      const response = await fetch(url, {
         headers: {
           'x-admin-key': adminToken || '',
         },
       })
-      if (!response.ok) throw new Error('Failed to fetch available merchants')
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch available merchants:', response.status, errorText);
+        throw new Error(`Failed to fetch available merchants: ${response.status}`);
+      }
+      
       const data = await response.json()
-      setAvailableMerchants(data)
+      console.log('Available merchants data:', data);
+      
+      if (Array.isArray(data)) {
+        setAvailableMerchants(data)
+        if (data.length === 0) {
+          toast.info('Нет доступных мерчантов для добавления')
+        }
+      } else {
+        console.error('Unexpected response format:', data);
+        setAvailableMerchants([])
+      }
     } catch (error) {
+      console.error('Error fetching available merchants:', error);
       toast.error('Не удалось загрузить доступных мерчантов')
     }
   }

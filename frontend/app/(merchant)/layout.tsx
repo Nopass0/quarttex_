@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -17,7 +17,9 @@ import {
   ChevronRight,
   Code,
   Sun,
-  Moon
+  Moon,
+  CreditCard,
+  ArrowUpRight
 } from "lucide-react"
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
@@ -30,9 +32,14 @@ const sidebarItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Транзакции",
-    href: "/merchant/transactions",
-    icon: Receipt,
+    title: "Сделки",
+    href: "/merchant/deals",  
+    icon: CreditCard,
+  },
+  {
+    title: "Выплаты",
+    href: "/merchant/payouts",
+    icon: ArrowUpRight,
   },
   {
     title: "Споры",
@@ -41,7 +48,7 @@ const sidebarItems = [
   },
   {
     title: "API документация",
-    href: "/merchant/api-docs",
+    href: "/merchant/api-docs", 
     icon: FileText,
   },
 ]
@@ -52,9 +59,15 @@ export default function MerchantLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { logout, merchantName } = useMerchantAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { theme, setTheme } = useTheme()
+  
+  const handleLogout = () => {
+    logout()
+    router.push('/merchant/login')
+  }
   
   // Check API key validity periodically
   useMerchantApiKeyCheck()
@@ -149,7 +162,7 @@ export default function MerchantLayout({
               "w-full justify-start",
               !sidebarOpen && "px-2 justify-center"
             )}
-            onClick={() => logout()}
+            onClick={handleLogout}
           >
             <LogOut className={cn("h-4 w-4", sidebarOpen && "mr-2")} />
             {sidebarOpen && "Выйти"}

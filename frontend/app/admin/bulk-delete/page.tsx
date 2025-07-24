@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { useAdminAuth } from "@/stores/auth";
 import { adminApiInstance } from "@/services/api";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { AuthLayout } from "@/components/layouts/auth-layout";
 
 interface DeletionStats {
   totals: {
@@ -28,8 +30,20 @@ interface DeletionStats {
 
 export default function BulkDeletePage() {
   const { hasHydrated } = useAdminAuth();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DeletionStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<DeletionStats | null>({
+    totals: {
+      transactions: 0,
+      payouts: 0,
+      deals: 0,
+    },
+    merchants: [],
+    statuses: {
+      transactions: [],
+      payouts: [],
+      deals: [],
+    },
+  });
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     type: "transactions" | "payouts" | "deals" | "all" | null;
@@ -56,9 +70,11 @@ export default function BulkDeletePage() {
 
   const loadStats = async () => {
     try {
+      setLoading(true);
       const response = await adminApiInstance.get("/admin/bulk-delete/stats");
       setStats(response.data);
     } catch (error) {
+      console.error("Error loading stats:", error);
       toast.error("Не удалось загрузить статистику");
     } finally {
       setLoading(false);
@@ -111,11 +127,12 @@ export default function BulkDeletePage() {
         data: deleteDialog.type === "all" ? {} : deleteDialog.filters,
       });
       
-      toast.success(response.data.message);
+      toast.success(response.data.message || `Удалено ${response.data.deleted} записей`);
 
       // Reload stats
       await loadStats();
     } catch (error) {
+      console.error("Delete error:", error);
       toast.error("Не удалось выполнить удаление");
     } finally {
       setDeleteDialog({ open: false, type: null, filters: {} });
@@ -124,18 +141,24 @@ export default function BulkDeletePage() {
 
   if (!hasHydrated || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <ProtectedRoute variant="admin">
+        <AuthLayout variant="admin">
+          <div className="flex items-center justify-center min-h-screen">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </AuthLayout>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Массовое удаление</h1>
-        <p className="text-muted-foreground">Техническая страница для удаления данных</p>
-      </div>
+    <ProtectedRoute variant="admin">
+      <AuthLayout variant="admin">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Массовое удаление</h1>
+            <p className="text-muted-foreground">Техническая страница для удаления данных</p>
+          </div>
 
       <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
         <div className="flex gap-2">
@@ -149,6 +172,7 @@ export default function BulkDeletePage() {
           </div>
         </div>
       </div>
+
 
       {/* Statistics */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -407,7 +431,9 @@ export default function BulkDeletePage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        </AlertDialog>
+        </div>
+      </AuthLayout>
+    </ProtectedRoute>
   );
 }

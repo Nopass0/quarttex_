@@ -1,9 +1,11 @@
 import { db } from "../db";
+import { webhookService } from "./webhook.service";
 import type { Payout, PayoutStatus, Prisma } from "@prisma/client";
 import { ServiceRegistry } from "./ServiceRegistry";
 import { broadcastPayoutUpdate, broadcastRateAdjustment } from "../routes/websocket/payouts";
 import type { TelegramService } from "./TelegramService";
 import { createHmac } from "node:crypto";
+import { roundDown2 } from "../utils/rounding";
 
 export class PayoutService {
   private static instance: PayoutService;
@@ -63,21 +65,47 @@ export class PayoutService {
       throw new Error("Merchant not found");
     }
     
-    // For OUT transactions, calculate rate with rateDelta
-    let rate = merchantRate || 100; // Default rate if not provided
-    if (direction === "OUT") {
-      rate = (merchantRate || 100) + rateDelta;
+    // Always get the current rate from Rapira for trader calculations
+    let rapiraRate: number;
+    try {
+      const rapiraService = require('../services/rapira.service').rapiraService;
+      rapiraRate = await rapiraService.getUsdtRubRate();
+    } catch (error) {
+      console.error("Failed to get rate from Rapira:", error);
+      // Fallback to default rate
+      rapiraRate = 95; // Default fallback rate
     }
     
-    // Calculate USDT amounts
-    const amountUsdt = amount / rate;
+    // Validate rate based on merchant's countInRubEquivalent setting
+    let calculatedMerchantRate: number;
+    
+    if (merchant.countInRubEquivalent) {
+      // If merchant has RUB calculations enabled, we provide the rate from Rapira
+      if (merchantRate !== undefined) {
+        throw new Error("Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы.");
+      }
+      // Use Rapira rate for merchant
+      calculatedMerchantRate = rapiraRate;
+    } else {
+      // If RUB calculations are disabled, merchant must provide the rate
+      if (merchantRate === undefined) {
+        throw new Error("Курс обязателен при выключенных расчетах в рублях. Укажите параметр merchantRate.");
+      }
+      calculatedMerchantRate = merchantRate;
+    }
+    
+    // For OUT transactions, calculate rate with rateDelta for traders
+    const traderRate = direction === "OUT" ? rapiraRate + rateDelta : rapiraRate;
+    
+    // Calculate USDT amounts using the trader rate (this is what will be used for actual calculations)
+    const amountUsdt = amount / traderRate;
     
     // Calculate total with fee
-    // For OUT transactions: total = amount × rate × (1 + feePercent / 100)
+    // For OUT transactions: total = amount × (1 + feePercent / 100)
     const total = direction === "OUT" 
       ? amount * (1 + feePercent / 100)
       : amount * (1 + feePercent / 100);
-    const totalUsdt = total / rate;
+    const totalUsdt = total / traderRate;
     
     // First check if there are any traders with sufficient RUB balance
     const eligibleTradersCount = await db.user.count({
@@ -105,8 +133,8 @@ export class PayoutService {
         amountUsdt,
         total,
         totalUsdt,
-        rate,
-        merchantRate,
+        rate: traderRate, // Store the trader rate (Rapira rate + rateDelta)
+        merchantRate: calculatedMerchantRate, // Store the merchant rate
         rateDelta,
         feePercent,
         direction,
@@ -255,6 +283,9 @@ export class PayoutService {
     // Send webhook
     await this.sendMerchantWebhook(updatedPayout, "ACTIVE");
     
+    // Send webhook notification
+    await webhookService.sendPayoutStatusWebhook(updatedPayout, "ACTIVE");
+    
     // Broadcast WebSocket update
     broadcastPayoutUpdate(
       updatedPayout.id,
@@ -296,19 +327,57 @@ export class PayoutService {
       throw new Error("Payout is not active");
     }
     
-    const updatedPayout = await db.payout.update({
-      where: { id: payoutId },
-      data: {
-        status: "CHECKING",
-        proofFiles,
-        confirmedAt: new Date(),
+    // Get trader-merchant specific fee percentage
+    const traderMerchant = await db.traderMerchant.findFirst({
+      where: {
+        traderId: traderId,
+        merchantId: payout.merchantId,
+        isFeeOutEnabled: true,
       },
     });
+    
+    // Calculate profit based on trader's fee percentage
+    let profitAmount: number;
+    if (traderMerchant && traderMerchant.feeOut > 0) {
+      // Use trader-specific fee: amount in USDT * (feeOut / 100)
+      const amountInUsdt = payout.amount / payout.rate;
+      profitAmount = roundDown2(amountInUsdt * (traderMerchant.feeOut / 100));
+      console.log(`[Payout ${payoutId}] Using trader fee ${traderMerchant.feeOut}%, profit: ${profitAmount} USDT`);
+    } else {
+      // Fallback to original calculation
+      profitAmount = roundDown2(payout.totalUsdt - payout.amountUsdt);
+      console.log(`[Payout ${payoutId}] Using default calculation, profit: ${profitAmount} USDT`);
+    }
+    
+    // Update payout status to CHECKING and add profit to trader
+    const [updatedPayout] = await db.$transaction([
+      db.payout.update({
+        where: { id: payoutId },
+        data: {
+          status: "CHECKING",
+          proofFiles,
+          confirmedAt: new Date(),
+          // Store the total amount to write off (not just profit)
+          // This should be the full totalUsdt as in acceptPayoutWithAccounting
+          sumToWriteOffUSDT: payout.totalUsdt,
+        },
+      }),
+      // Add profit to trader's profitFromPayouts when sending to check
+      db.user.update({
+        where: { id: traderId },
+        data: {
+          profitFromPayouts: { increment: profitAmount },
+        },
+      }),
+    ]);
     
     // Send webhook to merchant
     if (payout.merchantWebhookUrl) {
       await this.sendMerchantWebhook(updatedPayout, "checking");
     }
+    
+    // Send webhook notification
+    await webhookService.sendPayoutStatusWebhook(updatedPayout, "CHECKING");
     
     // Broadcast WebSocket update
     broadcastPayoutUpdate(
@@ -361,7 +430,7 @@ export class PayoutService {
         data: {
           frozenRub: { decrement: payout.amount }, // Consume frozen RUB
           balanceUsdt: { increment: payout.totalUsdt }, // Add USDT to balance
-          profitFromPayouts: { increment: payout.totalUsdt - payout.amountUsdt },
+          profitFromPayouts: { increment: roundDown2(payout.totalUsdt - payout.amountUsdt) },
         },
       }),
     ]);
@@ -615,78 +684,35 @@ export class PayoutService {
       offset?: number;
     }
   ) {
+    console.log(`[PayoutService.getTraderPayouts] Filters:`, filters);
     
-    // For traders, show ALL payouts by status (not just assigned to them)
-    const where: Prisma.PayoutWhereInput = {};
+    // Build base query - only show payouts assigned to this trader
+    // As per user requirement: "показывать, возвращать вообще выплаты, которые не привязаны к этому, к данному трейдеру, вообще не нужно. Только те, которые привязались."
+    const where: Prisma.PayoutWhereInput = {
+      traderId: traderId, // Only show payouts assigned to this trader
+      AND: []
+    };
     
-    // Filter by status if provided
+    // Apply status filter if provided
     if (filters.status?.length) {
-      where.status = { in: filters.status };
-    }
-    
-    // Exclude expired CREATED payouts from pool
-    if (!filters.status || filters.status.includes("CREATED")) {
-      where.OR = [
-        // Show CREATED payouts that are not expired
-        {
-          status: "CREATED",
-          expireAt: { gt: new Date() }
-        },
-        // Show all other statuses
-        {
-          status: { not: "CREATED" }
-        }
-      ];
-      
-      // If we're filtering by status and CREATED is included, adjust the logic
-      if (filters.status?.length && filters.status.includes("CREATED")) {
-        if (filters.status.length === 1) {
-          // Only CREATED requested
-          where.OR = [{
-            status: "CREATED",
-            expireAt: { gt: new Date() }
-          }];
-        } else {
-          // CREATED + other statuses
-          where.OR = [
-            {
-              status: "CREATED",
-              expireAt: { gt: new Date() }
-            },
-            {
-              status: { in: filters.status.filter(s => s !== "CREATED") }
-            }
-          ];
-        }
-      }
-    }
-    
-    
-    // Exclude expired payouts from results
-    if (!filters.status || !filters.status.includes("EXPIRED")) {
-      where.NOT = {
-        AND: [
-          { status: "EXPIRED" },
-          { traderId: null }
-        ]
-      };
+      where.AND!.push({ status: { in: filters.status } });
+      console.log(`[PayoutService.getTraderPayouts] Applied status filter:`, filters.status);
     }
     
     if (filters.search) {
-      // Apply search filter on top of existing conditions
-      where.AND = [
-        where,
-        {
-          OR: [
-            { wallet: { contains: filters.search, mode: "insensitive" } },
-            { bank: { contains: filters.search, mode: "insensitive" } },
-            { numericId: parseInt(filters.search) || 0 },
-          ]
-        }
-      ];
+      // Apply search filter
+      where.AND!.push({
+        OR: [
+          { wallet: { contains: filters.search, mode: "insensitive" } },
+          { bank: { contains: filters.search, mode: "insensitive" } },
+          { numericId: parseInt(filters.search) || 0 },
+        ]
+      });
     }
     
-    const [payouts, total] = await db.$transaction([
+    console.log(`[PayoutService.getTraderPayouts] Final where clause:`, JSON.stringify(where, null, 2));
+    
+    const [payoutsWithMerchant, total] = await db.$transaction([
       db.payout.findMany({
         where,
         include: {
@@ -704,6 +730,62 @@ export class PayoutService {
       db.payout.count({ where }),
     ]);
     
+    // Get trader-merchant relationships to include fee information
+    const merchantIds = [...new Set(payoutsWithMerchant.map(p => p.merchantId))];
+    const traderMerchants = await db.traderMerchant.findMany({
+      where: {
+        traderId: traderId,
+        merchantId: { in: merchantIds },
+        isMerchantEnabled: true,
+        isFeeOutEnabled: true,
+      },
+    });
+    
+    console.log(`[PayoutService] TraderMerchant relationships:`, {
+      traderId,
+      merchantIds,
+      found: traderMerchants.map(tm => ({
+        merchantId: tm.merchantId,
+        feeOut: tm.feeOut,
+        feeIn: tm.feeIn,
+        isFeeOutEnabled: tm.isFeeOutEnabled
+      }))
+    });
+    
+    // Create a map for quick lookup - take the one with highest feeOut for each merchant
+    const traderMerchantMap = new Map<string, typeof traderMerchants[0]>();
+    traderMerchants.forEach(tm => {
+      const existing = traderMerchantMap.get(tm.merchantId);
+      if (!existing || tm.feeOut > existing.feeOut) {
+        traderMerchantMap.set(tm.merchantId, tm);
+      }
+    });
+    
+    // Add fee information to payouts
+    const payouts = payoutsWithMerchant.map(payout => {
+      const traderMerchant = traderMerchantMap.get(payout.merchantId);
+      const feeOut = traderMerchant?.feeOut || 0;
+      
+      // Calculate actual total to write off based on trader's fee
+      const actualTotalUsdt = payout.amountUsdt * (1 + feeOut / 100);
+      
+      console.log(`[PayoutService] Payout ${payout.numericId} fee calculation:`, {
+        merchantId: payout.merchantId,
+        traderMerchant: traderMerchant ? { feeOut: traderMerchant.feeOut, feeIn: traderMerchant.feeIn } : null,
+        feeOut,
+        amountUsdt: payout.amountUsdt,
+        actualTotalUsdt,
+        profit: actualTotalUsdt - payout.amountUsdt
+      });
+      
+      return {
+        ...payout,
+        traderFeeOut: feeOut,
+        actualTotalUsdt: actualTotalUsdt,
+      } as typeof payout & { traderFeeOut: number; actualTotalUsdt: number };
+    });
+    
+    console.log(`[PayoutService.getTraderPayouts] Query returned ${payouts.length} payouts`);
     
     return { payouts, total };
   }
@@ -991,6 +1073,121 @@ export class PayoutService {
         await telegramService.notifyTraderPayoutStatusChange(updatedPayout.traderId, updatedPayout, "CANCELLED");
       }
       await telegramService.notifyMerchantPayoutStatus(updatedPayout.merchantId, updatedPayout, "CANCELLED");
+    }
+    
+    return updatedPayout;
+  }
+  
+  /**
+   * Admin rejects a payout in CHECKING status
+   */
+  async adminRejectPayout(payoutId: string, reason: string) {
+    const payout = await db.payout.findUnique({
+      where: { id: payoutId },
+      include: { trader: true },
+    });
+    
+    if (!payout) {
+      throw new Error("Payout not found");
+    }
+    
+    if (payout.status !== "CHECKING") {
+      throw new Error("Payout must be in CHECKING status to reject");
+    }
+    
+    if (!payout.traderId) {
+      throw new Error("No trader assigned to payout");
+    }
+    
+    // Calculate profit amount - now sumToWriteOffUSDT contains the full amount, not just profit
+    const profitAmount = roundDown2(payout.totalUsdt - payout.amountUsdt);
+    
+    // Get trader's current balances
+    const trader = await db.user.findUnique({
+      where: { id: payout.traderId },
+    });
+    
+    if (!trader) {
+      throw new Error("Trader not found");
+    }
+    
+    // Prepare balance updates
+    const balanceUpdates: any = {
+      profitFromPayouts: { decrement: profitAmount },
+    };
+    
+    // Check if we need to use other balance sources
+    let remainingDebt = 0;
+    
+    if (trader.profitFromPayouts < profitAmount) {
+      // Not enough profit to cover the reversal
+      remainingDebt = profitAmount - trader.profitFromPayouts;
+      balanceUpdates.profitFromPayouts = 0; // Set to 0 instead of negative
+      
+      // Try to deduct from balanceUsdt
+      if (remainingDebt > 0 && trader.balanceUsdt > 0) {
+        const deductFromUsdt = Math.min(remainingDebt, trader.balanceUsdt);
+        balanceUpdates.balanceUsdt = { decrement: deductFromUsdt };
+        remainingDebt -= deductFromUsdt;
+      }
+      
+      // Try to deduct from deposit
+      if (remainingDebt > 0 && trader.deposit > 0) {
+        const deductFromDeposit = Math.min(remainingDebt, trader.deposit);
+        balanceUpdates.deposit = { decrement: deductFromDeposit };
+        remainingDebt -= deductFromDeposit;
+      }
+    }
+    
+    // Log the rejection and balance adjustment
+    console.log(`[PayoutService.adminRejectPayout] Rejecting payout ${payoutId}:`, {
+      reason,
+      profitToReverse: profitAmount,
+      traderBalances: {
+        profitFromPayouts: trader.profitFromPayouts,
+        balanceUsdt: trader.balanceUsdt,
+        deposit: trader.deposit,
+      },
+      remainingDebt,
+      balanceUpdates,
+    });
+    
+    // Update payout status back to ACTIVE and reverse profit
+    const [updatedPayout] = await db.$transaction([
+      db.payout.update({
+        where: { id: payoutId },
+        data: {
+          status: "ACTIVE",
+          proofFiles: [], // Clear proof files
+          confirmedAt: null, // Clear confirmation timestamp
+          disputeMessage: reason, // Store rejection reason
+        },
+      }),
+      db.user.update({
+        where: { id: payout.traderId },
+        data: balanceUpdates,
+      }),
+    ]);
+    
+    // Send webhook to merchant
+    if (payout.merchantWebhookUrl) {
+      await this.sendMerchantWebhook(updatedPayout, "rejected");
+    }
+    
+    // Broadcast WebSocket update
+    broadcastPayoutUpdate(
+      updatedPayout.id,
+      "ACTIVE",
+      updatedPayout,
+      updatedPayout.merchantId,
+      payout.traderId
+    );
+    
+    // Send Telegram notifications
+    const telegramService = this.getTelegramService();
+    if (telegramService && payout.traderId) {
+      await telegramService.notifyTraderPayoutStatusChange(payout.traderId, updatedPayout, "ACTIVE");
+      await telegramService.notifyMerchantPayoutStatus(updatedPayout.merchantId, updatedPayout, "ACTIVE");
     }
     
     return updatedPayout;

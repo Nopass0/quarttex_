@@ -144,8 +144,8 @@ const API_ENDPOINTS: ApiEndpoint[] = [
       {
         name: "rate",
         type: "number",
-        required: true,
-        description: "Курс USDT/RUB",
+        required: false,
+        description: "Курс USDT/RUB. ВАЖНО: если у мерчанта включена настройка 'Расчеты в рублях', курс НЕ передается (получается автоматически от системы). Если настройка выключена - курс ОБЯЗАТЕЛЕН.",
       },
       {
         name: "expired_at",
@@ -178,6 +178,20 @@ const API_ENDPOINTS: ApiEndpoint[] = [
           requisites: { cardNumber: "4111111111111111" },
         },
       },
+      {
+        status: 400,
+        description: "Ошибка валидации курса",
+        example: { 
+          error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." 
+        },
+      },
+      {
+        status: 400,
+        description: "Ошибка валидации (курс не указан)",
+        example: { 
+          error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр rate." 
+        },
+      },
     ],
   },
   {
@@ -208,8 +222,8 @@ const API_ENDPOINTS: ApiEndpoint[] = [
       {
         name: "rate",
         type: "number",
-        required: true,
-        description: "Курс USDT/RUB",
+        required: false,
+        description: "Курс USDT/RUB. ВАЖНО: если у мерчанта включена настройка 'Расчеты в рублях', курс НЕ передается (получается автоматически от системы). Если настройка выключена - курс ОБЯЗАТЕЛЕН.",
       },
       {
         name: "expired_at",
@@ -240,6 +254,20 @@ const API_ENDPOINTS: ApiEndpoint[] = [
           amount: 1000,
           status: "IN_PROGRESS",
           requisites: null,
+        },
+      },
+      {
+        status: 400,
+        description: "Ошибка валидации курса",
+        example: { 
+          error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." 
+        },
+      },
+      {
+        status: 400,
+        description: "Ошибка валидации (курс не указан)",
+        example: { 
+          error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр rate." 
         },
       },
     ],
@@ -347,6 +375,13 @@ const API_ENDPOINTS: ApiEndpoint[] = [
         example: 5000,
       },
       {
+        name: "methodId",
+        type: "string",
+        required: true,
+        description: "ID метода платежа (обязательное поле)",
+        example: "method_1a2b3c4d5e6f",
+      },
+      {
         name: "wallet",
         type: "string",
         required: true,
@@ -371,8 +406,8 @@ const API_ENDPOINTS: ApiEndpoint[] = [
       {
         name: "merchantRate",
         type: "number",
-        required: true,
-        description: "Курс USDT/RUB для расчета (минимум 1)",
+        required: false,
+        description: "Курс USDT/RUB для расчета. ВАЖНО: если у мерчанта включена настройка 'Расчеты в рублях', курс НЕ передается (получается автоматически от системы). Если настройка выключена - курс ОБЯЗАТЕЛЕН.",
         example: 95.5,
       },
       {
@@ -430,7 +465,16 @@ const API_ENDPOINTS: ApiEndpoint[] = [
       {
         status: 400,
         description: "Ошибка валидации",
-        example: { error: "Недостаточно средств на балансе" },
+        example: { 
+          error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." 
+        },
+      },
+      {
+        status: 400,
+        description: "Ошибка валидации (курс не указан)",
+        example: { 
+          error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр merchantRate." 
+        },
       },
     ],
   },
@@ -929,7 +973,7 @@ export function ApiDocumentation() {
               `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             break;
           case "methodId":
-            data[field.name] = "method_1"; // This should be replaced with actual method ID
+            data[field.name] = "method_1a2b3c4d5e6f"; // Example method ID
             break;
           case "rate":
             data[field.name] = 95.5 + Math.random() * 5;
@@ -1795,6 +1839,62 @@ export function ApiDocumentation() {
         </CardContent>
       </Card>
 
+      {/* Rate Logic */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Логика курса USDT/RUB</CardTitle>
+          <CardDescription>
+            Важная информация о том, как работает курс в API
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  Расчеты в рублях ВКЛЮЧЕНЫ
+                </Badge>
+              </div>
+              <p className="text-sm mb-2">
+                Если в настройках мерчанта включен переключатель "Расчеты в рублях":
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                <li>Курс USDT/RUB автоматически получается от системы (Rapira)</li>
+                <li>НЕ передавайте параметры <code>rate</code> или <code>merchantRate</code></li>
+                <li>При передаче курса получите ошибку 400</li>
+              </ul>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                  Расчеты в рублях ВЫКЛЮЧЕНЫ
+                </Badge>
+              </div>
+              <p className="text-sm mb-2">
+                Если в настройках мерчанта выключен переключатель "Расчеты в рублях":
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                <li>Вы ОБЯЗАНЫ передавать курс USDT/RUB</li>
+                <li>Для выплат используйте параметр <code>merchantRate</code></li>
+                <li>Для транзакций используйте параметр <code>rate</code></li>
+                <li>При отсутствии курса получите ошибку 400</li>
+              </ul>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline">Важно для трейдеров</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Курс у трейдера ВСЕГДА показывается с Rapira (ККК), независимо от настроек мерчанта.
+                Это обеспечивает единообразие для трейдеров.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Code Examples */}
       <Card>
         <CardHeader>
@@ -1821,6 +1921,7 @@ curl -X POST ${baseUrl}/api/merchant/payouts \\
   -H "x-merchant-api-key: YOUR_API_KEY" \\
   -d '{
     "amount": 5000,
+    "methodId": "method_1a2b3c4d5e6f",
     "wallet": "4111111111111111",
     "bank": "SBERBANK",
     "isCard": true,
@@ -1845,6 +1946,7 @@ curl -X POST ${baseUrl}/api/merchant/payouts \\
   -H "x-merchant-api-key: YOUR_API_KEY" \\
   -d '{
     "amount": 5000,
+    "methodId": "method_1a2b3c4d5e6f",
     "wallet": "4111111111111111",
     "bank": "SBERBANK",
     "isCard": true,
@@ -1878,6 +1980,7 @@ const createPayout = async () => {
     },
     body: JSON.stringify({
       amount: 5000,
+      methodId: 'method_1a2b3c4d5e6f',
       wallet: '4111111111111111',
       bank: 'SBERBANK',
       isCard: true,
@@ -1940,6 +2043,7 @@ const createPayout = async () => {
     },
     body: JSON.stringify({
       amount: 5000,
+      methodId: 'method_1a2b3c4d5e6f',
       wallet: '4111111111111111',
       bank: 'SBERBANK',
       isCard: true,
@@ -1974,6 +2078,7 @@ const createPayout = async () => {
 function createPayout($apiKey) {
     $data = [
         'amount' => 5000,
+        'methodId' => 'method_1a2b3c4d5e6f',
         'wallet' => '4111111111111111',
         'bank' => 'SBERBANK',
         'isCard' => true,
@@ -2113,6 +2218,7 @@ def create_payout():
     }
     data = {
         'amount': 5000,
+        'methodId': 'method_1a2b3c4d5e6f',
         'wallet': '4111111111111111',
         'bank': 'SBERBANK',
         'isCard': True,

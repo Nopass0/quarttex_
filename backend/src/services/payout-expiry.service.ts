@@ -33,21 +33,79 @@ export default class PayoutExpiryService extends BaseService {
     try {
       const now = new Date();
       
-      // Find all payouts that should be expired
-      const expiredPayouts = await db.payout.updateMany({
+      // Find all CREATED payouts that should be expired (not accepted in time)
+      const createdPayoutsToExpire = await db.payout.findMany({
         where: {
           status: "CREATED",
           expireAt: {
             lt: now
           }
         },
-        data: {
-          status: "EXPIRED"
+        select: {
+          id: true,
+          traderId: true
         }
       });
       
-      if (expiredPayouts.count > 0) {
-        console.log(`Marked ${expiredPayouts.count} payouts as expired`);
+      // Update each payout individually to disconnect trader
+      for (const payout of createdPayoutsToExpire) {
+        await db.payout.update({
+          where: { id: payout.id },
+          data: {
+            status: "EXPIRED",
+            traderId: null, // Disconnect from trader
+            acceptedAt: null
+          }
+        });
+      }
+      
+      // Also find ACTIVE payouts that expired (not confirmed in time)
+      const activePayoutsToExpire = await db.payout.findMany({
+        where: {
+          status: "ACTIVE",
+          expireAt: {
+            lt: now
+          }
+        },
+        include: {
+          trader: true
+        }
+      });
+      
+      // Return ACTIVE payouts to pool (disconnect trader and unfreeze balance)
+      for (const payout of activePayoutsToExpire) {
+        if (payout.traderId) {
+          await db.$transaction([
+            // Return payout to pool
+            db.payout.update({
+              where: { id: payout.id },
+              data: {
+                status: "CREATED",
+                traderId: null,
+                acceptedAt: null,
+                // Reset expiration to original acceptance time
+                expireAt: new Date(Date.now() + payout.acceptanceTime * 60 * 1000)
+              }
+            }),
+            // Unfreeze trader's RUB balance
+            db.user.update({
+              where: { id: payout.traderId },
+              data: {
+                frozenRub: { decrement: payout.amount },
+                balanceRub: { increment: payout.amount }
+              }
+            })
+          ]);
+        }
+      }
+      
+      const totalExpired = createdPayoutsToExpire.length + activePayoutsToExpire.length;
+      
+      if (totalExpired > 0) {
+        console.log(`Processed ${totalExpired} expired payouts:`, {
+          created: createdPayoutsToExpire.length,
+          active: activePayoutsToExpire.length
+        });
       }
     } catch (error) {
       console.error("Error checking expired payouts:", error);

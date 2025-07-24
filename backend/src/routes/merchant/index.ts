@@ -16,6 +16,7 @@ import authRoutes from "./auth";
 import dashboardRoutes from "./dashboard";
 import apiDocsRoutes from "./api-docs";
 import tradersRoutes from "./traders";
+import payoutsRoutes from "./payouts";
 import { disputesRoutes } from "./disputes";
 import { dealDisputesRoutes } from "./deal-disputes";
 import { calculateFreezingParams } from "@/utils/freezing";
@@ -33,6 +34,9 @@ export default (app: Elysia) =>
     
     // Защищенные маршруты API документации (с merchantSessionGuard)
     .group("/api-docs", (app) => app.use(apiDocsRoutes))
+    
+    // Payouts routes (с merchantSessionGuard)
+    .use(payoutsRoutes)
     
     // Deal dispute routes (с merchantSessionGuard)
     .use(dealDisputesRoutes)
@@ -416,6 +420,32 @@ export default (app: Elysia) =>
         // По умолчанию тип транзакции IN
         const type = body.type || TransactionType.IN;
         
+        // Always get the current rate from Rapira for trader calculations
+        let rapiraRate: number;
+        try {
+          rapiraRate = await rapiraService.getUsdtRubRate();
+        } catch (error) {
+          console.error("Failed to get rate from Rapira:", error);
+          rapiraRate = 95; // Default fallback rate
+        }
+        
+        // Validate rate based on merchant's countInRubEquivalent setting
+        let rate: number;
+        
+        if (merchant.countInRubEquivalent) {
+          // If merchant has RUB calculations enabled, we provide the rate from Rapira
+          if (body.rate !== undefined) {
+            return error(400, { error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." });
+          }
+          rate = rapiraRate;
+        } else {
+          // If RUB calculations are disabled, merchant must provide the rate
+          if (body.rate === undefined) {
+            return error(400, { error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр rate." });
+          }
+          rate = body.rate;
+        }
+        
         // Генерируем значения по умолчанию для необязательных полей
         const userId = body.userId || `user_${Date.now()}`;
         const expired_at = body.expired_at ? new Date(body.expired_at) : new Date(Date.now() + 86_400_000);
@@ -440,7 +470,8 @@ export default (app: Elysia) =>
                 commission: 0, // По умолчанию 0
                 clientName: userId, // Используем userId как имя клиента
                 status: Status.MILK,
-                rate: body.rate,
+                rate: rate,
+                adjustedRate: rapiraRate, // Store Rapira rate for trader calculations
                 isMock: body.isMock || false,
                 error: msg,
               },
@@ -522,7 +553,8 @@ export default (app: Elysia) =>
               commission: 0,
               clientName: userId,
               status: Status.IN_PROGRESS,
-              rate: body.rate,
+              rate: rate,
+              adjustedRate: rapiraRate, // Store Rapira rate for trader calculations
               isMock: body.isMock || false,
             },
             include: {
@@ -819,13 +851,13 @@ export default (app: Elysia) =>
               commission: 0, // По умолчанию 0
               clientName: userId, // Используем userId как имя клиента
               status: Status.IN_PROGRESS,
-              rate: body.rate,
+              rate: rate,
+              adjustedRate: freezingParams?.adjustedRate || rapiraRate, // Use freezing adjusted rate if available, otherwise Rapira rate
               isMock: body.isMock || false,
               bankDetailId: chosen.id, // FK на BankDetail
               traderId: chosen.userId,
               // Новые поля для заморозки
               frozenUsdtAmount: freezingParams?.frozenUsdtAmount,
-              adjustedRate: freezingParams?.adjustedRate,
               kkkPercent: kkkPercent,
               feeInPercent: feeInPercent,
               calculatedCommission: freezingParams?.calculatedCommission,
@@ -976,6 +1008,32 @@ export default (app: Elysia) =>
         // Проверяем, не отключен ли мерчант
         if (merchant.disabled) {
           return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
+        }
+
+        // Always get the current rate from Rapira for trader calculations
+        let rapiraRate: number;
+        try {
+          rapiraRate = await rapiraService.getUsdtRubRate();
+        } catch (error) {
+          console.error("Failed to get rate from Rapira:", error);
+          rapiraRate = 95; // Default fallback rate
+        }
+        
+        // Validate rate based on merchant's countInRubEquivalent setting
+        let rate: number;
+        
+        if (merchant.countInRubEquivalent) {
+          // If merchant has RUB calculations enabled, we provide the rate from Rapira
+          if (body.rate !== undefined) {
+            return error(400, { error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." });
+          }
+          rate = rapiraRate;
+        } else {
+          // If RUB calculations are disabled, merchant must provide the rate
+          if (body.rate === undefined) {
+            return error(400, { error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр rate." });
+          }
+          rate = body.rate;
         }
 
         // Генерируем значения по умолчанию
@@ -1233,6 +1291,32 @@ export default (app: Elysia) =>
         // Проверяем, не отключен ли мерчант
         if (merchant.disabled) {
           return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
+        }
+        
+        // Always get the current rate from Rapira for trader calculations
+        let rapiraRate: number;
+        try {
+          rapiraRate = await rapiraService.getUsdtRubRate();
+        } catch (error) {
+          console.error("Failed to get rate from Rapira:", error);
+          rapiraRate = 95; // Default fallback rate
+        }
+        
+        // Validate rate based on merchant's countInRubEquivalent setting
+        let rate: number;
+        
+        if (merchant.countInRubEquivalent) {
+          // If merchant has RUB calculations enabled, we provide the rate from Rapira
+          if (body.rate !== undefined) {
+            return error(400, { error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." });
+          }
+          rate = rapiraRate;
+        } else {
+          // If RUB calculations are disabled, merchant must provide the rate
+          if (body.rate === undefined) {
+            return error(400, { error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр rate." });
+          }
+          rate = body.rate;
         }
         
         // Генерируем значения по умолчанию

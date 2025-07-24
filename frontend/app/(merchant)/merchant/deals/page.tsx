@@ -16,7 +16,7 @@ import {
 import { DatePickerWithRange } from "@/components/ui/date-picker-range"
 import { Search, Filter, Download } from "lucide-react"
 
-export default function MerchantTransactionsPage() {
+export default function MerchantDealsPage() {
   const [filters, setFilters] = useState({
     type: "ALL",
     status: "ALL",

@@ -615,10 +615,11 @@ export default new Elysia()
           data: {
             type: "AppNotification",
             application: body.appName,
+            packageName: body.packageName, // Store in dedicated field for easier matching
             title: body.title,
             message: body.content,
             metadata: {
-              packageName: body.packageName,
+              packageName: body.packageName, // Keep in metadata for backward compatibility
               timestamp: body.timestamp,
               priority: body.priority,
               category: body.category,

@@ -33,8 +33,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { traderApi } from "@/services/api";
 import { Loader2 } from "lucide-react";
+import { DeviceSelector } from "@/components/ui/device-selector";
 
 const formSchema = z.object({
+  deviceId: z.string().min(1, "Выберите устройство"),
   methodId: z.string().min(1, "Выберите метод"),
   bankType: z.string().min(1, "Выберите банк"),
   cardNumber: z.string().optional(),
@@ -56,6 +58,15 @@ interface Method {
   maxAmount: number;
   minPayin: number;
   maxPayin: number;
+}
+
+interface Device {
+  id: string;
+  name: string;
+  isOnline: boolean;
+  isWorking: boolean;
+  linkedBankDetails: number;
+  firstConnectionAt?: string | null;
 }
 
 interface AddRequisiteDialogProps {
@@ -96,12 +107,15 @@ export function AddRequisiteDialog({
 }: AddRequisiteDialogProps) {
   const [loading, setLoading] = useState(false);
   const [methods, setMethods] = useState<Method[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<Method | null>(null);
   const [loadingMethods, setLoadingMethods] = useState(false);
+  const [loadingDevices, setLoadingDevices] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      deviceId: deviceId || "",
       methodId: "",
       bankType: "",
       cardNumber: "",
@@ -117,8 +131,15 @@ export function AddRequisiteDialog({
   useEffect(() => {
     if (open) {
       fetchMethods();
+      fetchDevices();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (deviceId) {
+      form.setValue("deviceId", deviceId);
+    }
+  }, [deviceId, form]);
 
   const fetchMethods = async () => {
     try {
@@ -131,6 +152,20 @@ export function AddRequisiteDialog({
       toast.error("Не удалось загрузить методы");
     } finally {
       setLoadingMethods(false);
+    }
+  };
+
+  const fetchDevices = async () => {
+    try {
+      setLoadingDevices(true);
+      const response = await traderApi.getDevices();
+      const devicesData = Array.isArray(response) ? response : response.data || [];
+      setDevices(devicesData);
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+      toast.error("Не удалось загрузить устройства");
+    } finally {
+      setLoadingDevices(false);
     }
   };
 
@@ -185,7 +220,6 @@ export function AddRequisiteDialog({
       
       const requisiteData = {
         ...data,
-        deviceId,
         methodId: actualMethod?.id || data.methodId,
         methodType: selectedMethod.type,
         intervalMinutes: 5, // Default interval
@@ -219,6 +253,27 @@ export function AddRequisiteDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {!deviceId && (
+              <FormField
+                control={form.control}
+                name="deviceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Устройство</FormLabel>
+                    <FormControl>
+                      <DeviceSelector
+                        devices={devices}
+                        selectedDeviceId={field.value}
+                        onSelect={field.onChange}
+                        loading={loadingDevices}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
             <FormField
               control={form.control}
               name="methodId"

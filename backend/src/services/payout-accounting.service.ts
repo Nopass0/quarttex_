@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { PayoutService } from "./payout.service";
+import { webhookService } from "./webhook.service";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -13,68 +14,75 @@ export class PayoutAccountingService {
    * Accept payout with proper RUB deduction
    */
   async acceptPayoutWithAccounting(payoutId: string, traderId: string) {
-    const payout = await db.payout.findUnique({
-      where: { id: payoutId },
-      include: { trader: true },
-    });
-
-    if (!payout) {
-      throw new Error("Payout not found");
-    }
-
-    if (payout.status !== "CREATED") {
-      throw new Error("Payout is not available for acceptance");
-    }
-
-    if (payout.traderId) {
-      throw new Error("Payout already accepted by another trader");
-    }
-
-    // Check if payout expired
-    if (new Date() > payout.expireAt) {
-      await db.payout.update({
+    // Use transaction with row-level locking to prevent race conditions
+    return await db.$transaction(async (tx) => {
+      const payout = await tx.payout.findUnique({
         where: { id: payoutId },
-        data: { status: "EXPIRED" },
+        include: { trader: true },
       });
-      throw new Error("Payout has expired");
-    }
 
-    // Check trader's RUB balance (not payout balance)
-    const trader = await db.user.findUnique({
-      where: { id: traderId },
-    });
+      if (!payout) {
+        throw new Error("Payout not found");
+      }
 
-    if (!trader) {
-      throw new Error("Trader not found");
-    }
+      console.log(`[PayoutAccounting] Attempting to accept payout ${payoutId}:`, {
+        status: payout.status,
+        traderId: payout.traderId,
+        requestingTraderId: traderId
+      });
 
-    // Calculate sumToWriteOffUSDT: (amount + commission) × rate
-    // For payouts, amount is in RUB, we need to check RUB balance
-    const amountRUB = payout.amount; // This is already in RUB for payouts
-    
-    if (trader.balanceRub < amountRUB) {
-      throw new Error(`Insufficient RUB balance. Required: ${amountRUB}, Available: ${trader.balanceRub}`);
-    }
+      if (payout.status !== "CREATED") {
+        throw new Error("Payout is not available for acceptance");
+      }
 
-    // Count current payouts for the trader
-    const activePayouts = await db.payout.count({
-      where: {
-        traderId,
-        status: "ACTIVE",
-      },
-    });
+      if (payout.traderId && payout.traderId !== traderId) {
+        throw new Error("Payout already accepted by another trader");
+      }
 
-    // Check trader's personal limit
-    if (activePayouts >= trader.maxSimultaneousPayouts) {
-      throw new Error(`Maximum simultaneous payouts reached (${trader.maxSimultaneousPayouts})`);
-    }
+      // Check if payout expired
+      if (new Date() > payout.expireAt) {
+        await tx.payout.update({
+          where: { id: payoutId },
+          data: { status: "EXPIRED" },
+        });
+        throw new Error("Payout has expired");
+      }
 
-    // Calculate sumToWriteOffUSDT from totalUsdt (which already includes fees)
-    const sumToWriteOffUSDT = payout.totalUsdt;
+      // Check trader's RUB balance (not payout balance)
+      const trader = await tx.user.findUnique({
+        where: { id: traderId },
+      });
 
-    // Accept payout and freeze RUB balance
-    const [updatedPayout] = await db.$transaction([
-      db.payout.update({
+      if (!trader) {
+        throw new Error("Trader not found");
+      }
+
+      // Calculate sumToWriteOffUSDT: (amount + commission) × rate
+      // For payouts, amount is in RUB, we need to check RUB balance
+      const amountRUB = payout.amount; // This is already in RUB for payouts
+      
+      if (trader.balanceRub < amountRUB) {
+        throw new Error(`Insufficient RUB balance. Required: ${amountRUB}, Available: ${trader.balanceRub}`);
+      }
+
+      // Count current payouts for the trader
+      const activePayouts = await tx.payout.count({
+        where: {
+          traderId,
+          status: "ACTIVE",
+        },
+      });
+
+      // Check trader's personal limit
+      if (activePayouts >= trader.maxSimultaneousPayouts) {
+        throw new Error(`Maximum simultaneous payouts reached (${trader.maxSimultaneousPayouts})`);
+      }
+
+      // Calculate sumToWriteOffUSDT from totalUsdt (which already includes fees)
+      const sumToWriteOffUSDT = payout.totalUsdt;
+
+      // Accept payout and freeze RUB balance - do both updates in the same transaction
+      const updatedPayout = await tx.payout.update({
         where: { id: payoutId },
         data: {
           trader: { connect: { id: traderId } },
@@ -84,20 +92,24 @@ export class PayoutAccountingService {
           // Update expiration based on processing time
           expireAt: new Date(Date.now() + payout.processingTime * 60 * 1000),
         },
-      }),
-      db.user.update({
+      });
+
+      await tx.user.update({
         where: { id: traderId },
         data: {
           balanceRub: { decrement: amountRUB },
           frozenRub: { increment: amountRUB },
         },
-      }),
-    ]);
+      });
 
-    // Use original service methods for notifications
-    await this.payoutService.sendMerchantWebhook(updatedPayout, "ACTIVE");
+      // Use original service methods for notifications (outside of transaction)
+      await this.payoutService.sendMerchantWebhook(updatedPayout, "ACTIVE");
+      
+      // Send webhook notification
+      await webhookService.sendPayoutStatusWebhook(updatedPayout, "ACTIVE");
 
-    return updatedPayout;
+      return updatedPayout;
+    });
   }
 
   /**
@@ -131,11 +143,32 @@ export class PayoutAccountingService {
 
     // Return payout to pool and unfreeze RUB balance
     const updates: Prisma.PrismaPromise<any>[] = [
+      // Create cancellation history record
+      db.payoutCancellation.create({
+        data: {
+          payoutId,
+          traderId,
+          reason,
+          reasonCode: reasonCode || null,
+          files: files || [],
+        },
+      }),
+      // Add to blacklist to prevent reassignment to this trader
+      db.payoutBlacklist.upsert({
+        where: {
+          payoutId_traderId: { payoutId, traderId }
+        },
+        create: {
+          payoutId,
+          traderId,
+        },
+        update: {}, // Do nothing if already exists
+      }),
       db.payout.update({
         where: { id: payoutId },
         data: {
           status: "CREATED",
-          trader: { disconnect: true },
+          trader: { disconnect: true }, // Disconnect from trader completely
           acceptedAt: null,
           confirmedAt: null,
           cancelReason: reason,
@@ -143,10 +176,6 @@ export class PayoutAccountingService {
           disputeFiles: files || [],
           disputeMessage: reason,
           sumToWriteOffUSDT: null, // Clear the USDT calculation
-          // Add trader to previousTraderIds to prevent reassignment
-          previousTraderIds: {
-            push: traderId,
-          },
         },
       }),
       db.user.update({
@@ -162,6 +191,9 @@ export class PayoutAccountingService {
 
     // Use original service methods for notifications
     await this.payoutService.sendMerchantWebhook(updatedPayout, "returned_to_pool");
+    
+    // Send webhook notification
+    await webhookService.sendPayoutStatusWebhook(updatedPayout, "CANCELLED");
 
     return updatedPayout;
   }
@@ -201,13 +233,16 @@ export class PayoutAccountingService {
         data: {
           frozenRub: { decrement: amountRUB }, // Remove from frozen (consume RUB)
           balanceUsdt: { increment: sumToWriteOffUSDT }, // Add USDT to main balance
-          profitFromPayouts: { increment: payout.totalUsdt - payout.amountUsdt }, // Track profit
+          // Profit already added when payout went to CHECKING status
         },
       }),
     ]);
 
     // Use original service methods for notifications
     await this.payoutService.sendMerchantWebhook(updatedPayout, "COMPLETED");
+    
+    // Send webhook notification
+    await webhookService.sendPayoutStatusWebhook(updatedPayout, "COMPLETED");
 
     return updatedPayout;
   }
@@ -265,6 +300,34 @@ export class PayoutAccountingService {
         },
       }),
     ]);
+
+    return updatedPayout;
+  }
+
+  /**
+   * Assign payout to trader WITHOUT accepting it (for distribution)
+   */
+  async assignPayoutToTrader(payoutId: string, traderId: string) {
+    const payout = await db.payout.findUnique({
+      where: { id: payoutId },
+    });
+
+    if (!payout) {
+      throw new Error("Payout not found");
+    }
+
+    if (payout.status !== "CREATED" || payout.traderId !== null) {
+      throw new Error("Payout cannot be assigned in current state");
+    }
+
+    // Just assign the trader, don't change status or freeze balance
+    const updatedPayout = await db.payout.update({
+      where: { id: payoutId },
+      data: {
+        trader: { connect: { id: traderId } },
+        // Don't set acceptedAt, don't change status, don't freeze balance
+      },
+    });
 
     return updatedPayout;
   }

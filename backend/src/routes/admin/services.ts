@@ -327,4 +327,34 @@ export const servicesRoutes = new Elysia()
         services: [],
       };
     }
+  })
+  
+  // Manually trigger payout redistribution
+  .post('/redistribute-payouts', async ({ set }) => {
+    try {
+      const service = serviceRegistry.get('PayoutRedistributionService');
+      
+      if (!service) {
+        set.status = 404;
+        return { error: 'PayoutRedistributionService not found' };
+      }
+      
+      // Check if service has the method
+      if (typeof service.redistributePayouts !== 'function') {
+        set.status = 500;
+        return { error: 'redistributePayouts method not found on service' };
+      }
+      
+      // Manually trigger redistribution
+      await service.redistributePayouts();
+      
+      return {
+        success: true,
+        message: 'Payout redistribution triggered successfully'
+      };
+    } catch (error: any) {
+      console.error('Error triggering payout redistribution:', error);
+      set.status = 500;
+      return { error: error.message || 'Internal server error' };
+    }
   });

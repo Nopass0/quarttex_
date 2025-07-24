@@ -22,6 +22,8 @@ import { traderPayoutsApi } from "@/api/trader/payouts";
 import { dashboardRoutes } from "@/api/trader/dashboard";
 import { payoutFiltersApi } from "@/api/trader/payout-filters";
 import { banksApi } from "@/api/trader/banks";
+import { traderFiltersApi } from "@/api/trader/filters";
+import { traderBanksListApi } from "@/api/trader/banks-list";
 
 /**
  * Маршруты для трейдера
@@ -72,6 +74,8 @@ export default (app: Elysia) =>
     .use(dashboardRoutes)
     .use(payoutFiltersApi)
     .use(banksApi)
+    .use(traderFiltersApi)
+    .use(traderBanksListApi)
     .use(btEntranceRoutes)
     .use(ideaRoutes)
     .get(

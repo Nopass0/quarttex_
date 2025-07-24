@@ -32,6 +32,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DeviceSelector } from "@/components/ui/device-selector";
 
 interface TestMerchantTransactionsProps {
   merchantId: string;
@@ -105,6 +106,7 @@ export function TestMerchantTransactions({
   // Notification form data
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("");
+  const [selectedBankPackage, setSelectedBankPackage] = useState("");
   const [notificationTitle, setNotificationTitle] = useState("");
   const [notificationAmount, setNotificationAmount] = useState("");
   const [customNotificationText, setCustomNotificationText] = useState("");
@@ -140,7 +142,7 @@ export function TestMerchantTransactions({
     }
   };
 
-  const activeMethods = merchantMethods.filter((m) => m.isEnabled);
+  const activeMethods = merchantMethods?.filter((m) => m.isEnabled) || [];
 
   const createTestSMS = async (count = 5) => {
     setIsLoading(true);
@@ -174,6 +176,36 @@ export function TestMerchantTransactions({
     }
   };
 
+  const bankPackageNames = {
+    SBERBANK: "ru.sberbankmobile",
+    VTB: "ru.vtb24.mobilebanking.android",
+    TBANK: "com.idamob.tinkoff.android",
+    TINKOFF: "com.idamob.tinkoff.android",
+    ALFABANK: "ru.alfabank.mobile.android",
+    ALFA: "ru.alfabank.mobile.android",
+    RAIFFEISEN: "ru.raiffeisen.mobile.new",
+    RAIF: "ru.raiffeisen.mobile.new",
+    GAZPROMBANK: "ru.gazprombank.android.mobilebank.app",
+    POCHTABANK: "ru.pochta.bank",
+    PROMSVYAZBANK: "ru.psbank.mobile",
+    PSB: "ru.psbank.mobile",
+    SOVCOMBANK: "ru.ftc.faktura.sovkombank",
+    SPBBANK: "ru.bspb",
+    BSPB: "ru.bspb",
+    ROSSELKHOZBANK: "ru.rshb.mbank",
+    RSHB: "ru.rshb.mbank",
+    OTKRITIE: "com.openbank",
+    URALSIB: "ru.uralsib.mobile",
+    MKB: "ru.mkb.mobile",
+    ROSBANK: "ru.rosbank.android",
+    OZONBANK: "ru.ozon.app.android",
+    MTSBANK: "ru.mtsbank.mobile",
+    AKBARS: "ru.akbars.mobile",
+    CITIBANK: "com.citi.citimobile",
+    UNICREDIT: "ru.unicreditbank.mobile",
+    RUSSIANSTANDARD: "ru.rs.mobilebank",
+  };
+
   const generateBankNotificationText = (amount: string, bankType: string) => {
     const senderNames = [
       "IVANOV I I",
@@ -194,8 +226,30 @@ export function TestMerchantTransactions({
       SBERBANK: `Перевод от ${randomSender}. Сумма: ${amount} руб. Баланс: ${currentBalance} руб. Карта *1234`,
       VTB: `ВТБ. Поступление ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
       TBANK: `Тинькофф. Зачисление ${amount}₽ от ${randomSender}. Баланс ${currentBalance}₽`,
+      TINKOFF: `Тинькофф. Зачисление ${amount}₽ от ${randomSender}. Баланс ${currentBalance}₽`,
+      ALFABANK: `Альфа-Банк. Перевод ${amount} руб. От: ${randomSender}. Баланс: ${currentBalance} руб`,
       ALFA: `Альфа-Банк. Перевод ${amount} руб. От: ${randomSender}. Баланс: ${currentBalance} руб`,
+      RAIFFEISEN: `Райффайзен. Зачисление ${amount} руб от ${randomSender}. Остаток ${currentBalance} руб`,
       RAIF: `Райффайзен. Зачисление ${amount} руб от ${randomSender}. Остаток ${currentBalance} руб`,
+      GAZPROMBANK: `Газпромбанк. Перевод ${amount} ₽ от ${randomSender}. Баланс: ${currentBalance} ₽`,
+      POCHTABANK: `Почта Банк. Пополнение ${amount} руб. От: ${randomSender}. Доступно: ${currentBalance} руб`,
+      PROMSVYAZBANK: `ПСБ. Зачисление ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
+      PSB: `ПСБ. Зачисление ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
+      SOVCOMBANK: `Совкомбанк. Перевод +${amount} ₽ от ${randomSender}. Остаток: ${currentBalance} ₽`,
+      SPBBANK: `Банк Санкт-Петербург. Зачисление ${amount} руб. Баланс: ${currentBalance} руб`,
+      BSPB: `Банк Санкт-Петербург. Зачисление ${amount} руб. Баланс: ${currentBalance} руб`,
+      ROSSELKHOZBANK: `Россельхозбанк. Поступление ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
+      RSHB: `Россельхозбанк. Поступление ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
+      OTKRITIE: `Открытие. Перевод ${amount} ₽ от ${randomSender}. Доступно: ${currentBalance} ₽`,
+      URALSIB: `Уралсиб. Зачисление ${amount} руб. От: ${randomSender}. Баланс: ${currentBalance} руб`,
+      MKB: `МКБ. Пополнение ${amount} руб от ${randomSender}. Остаток ${currentBalance} руб`,
+      ROSBANK: `Росбанк. Перевод +${amount} руб. От: ${randomSender}. Баланс: ${currentBalance} руб`,
+      OZONBANK: `Ozon Банк. Зачисление ${amount} ₽ от ${randomSender}. Баланс ${currentBalance} ₽`,
+      MTSBANK: `МТС Банк. Пополнение ${amount} руб. Отправитель: ${randomSender}. Доступно: ${currentBalance} руб`,
+      AKBARS: `Ак Барс. Пополнение. Сумма: ${amount} RUR. От: ${randomSender}. Баланс: ${currentBalance} RUR`,
+      CITIBANK: `Citibank. Transfer ${amount} RUB from ${randomSender}. Balance: ${currentBalance} RUB`,
+      UNICREDIT: `ЮниКредит. Перевод ${amount} руб от ${randomSender}. Баланс ${currentBalance} руб`,
+      RUSSIANSTANDARD: `Русский Стандарт. Зачисление ${amount} руб. От: ${randomSender}. Остаток: ${currentBalance} руб`,
     };
 
     return (
@@ -222,18 +276,10 @@ export function TestMerchantTransactions({
       const bankDetail = device.bankDetails[0];
       const bankType = bankDetail?.bankType || "SBERBANK";
 
-      // Генерируем пакет приложения
-      const packageNames = {
-        SBERBANK: "ru.sberbankmobile",
-        VTB: "ru.vtb24.mobilebanking.android",
-        TBANK: "com.idamob.tinkoff.android",
-        ALFA: "ru.alfabank.mobile.android",
-        RAIF: "ru.raiffeisen.r_online_android",
-      };
-
-      const packageName =
-        packageNames[bankType as keyof typeof packageNames] ||
-        packageNames["SBERBANK"];
+      // Используем выбранный пакет или определяем из реквизитов
+      const packageName = selectedBankPackage || 
+        bankPackageNames[bankType as keyof typeof bankPackageNames] ||
+        bankPackageNames["SBERBANK"];
       const title = notificationTitle || bankType;
 
       // Генерируем текст уведомления
@@ -278,6 +324,7 @@ export function TestMerchantTransactions({
         setNotificationAmount("");
         setNotificationTitle("");
         setCustomNotificationText("");
+        setSelectedBankPackage("");
       } else {
         const error = await response.json();
         toast.error(error.error || "Ошибка создания уведомления");
@@ -316,7 +363,6 @@ export function TestMerchantTransactions({
         amount: useRandomData
           ? Math.floor(Math.random() * 9000) + 1000
           : Number(amount),
-        rate: useRandomData ? 95 + Math.random() * 10 : Number(rate),
         orderId: useRandomData
           ? `TEST_${transactionType}_${Date.now()}_${Math.random().toString(36).substring(7)}`
           : orderId,
@@ -325,6 +371,12 @@ export function TestMerchantTransactions({
           ? `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
           : userIp,
       };
+
+      // For OUT transactions, don't include rate - let backend handle it based on merchant settings
+      // For IN transactions, always include rate as merchant API expects it
+      if (transactionType === "IN") {
+        data.rate = useRandomData ? 95 + Math.random() * 10 : Number(rate);
+      }
 
       // Добавляем callbackUri только если он задан
       if (callbackUri) {
@@ -348,7 +400,7 @@ export function TestMerchantTransactions({
 
       if (response.ok) {
         toast.success(`Транзакция ${transactionType} создана успешно`, {
-          description: `ID: ${result.id}, Сумма: ${result.amount} ₽`,
+          description: `ID: ${result.id || result.transaction?.id}, Сумма: ${result.amount || result.transaction?.amount} ₽`,
         });
 
         // Reset form if using custom data
@@ -394,11 +446,16 @@ export function TestMerchantTransactions({
         const data: any = {
           methodId: randomMethodId,
           amount: Math.floor(Math.random() * 9000) + 1000,
-          rate: 95 + Math.random() * 10,
           orderId: `BATCH_${transactionType}_${Date.now()}_${i}_${Math.random().toString(36).substring(7)}`,
           expired_at: new Date(Date.now() + 3600000).toISOString(),
           userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
         };
+
+        // For OUT transactions, don't include rate - let backend handle it based on merchant settings
+        // For IN transactions, always include rate as merchant API expects it
+        if (transactionType === "IN") {
+          data.rate = 95 + Math.random() * 10;
+        }
 
         // Добавляем callbackUri только если он задан
         if (callbackUri) {
@@ -539,11 +596,16 @@ export function TestMerchantTransactions({
       const data: any = {
         methodId: selectedMethodId,
         amount: Math.floor(Math.random() * 9000) + 1000,
-        rate: 95 + Math.random() * 10,
         orderId: `AUTO_${type}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
         expired_at: new Date(Date.now() + 3600000).toISOString(),
         userIp: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
       };
+
+      // For OUT transactions, don't include rate - let backend handle it based on merchant settings
+      // For IN transactions, always include rate as merchant API expects it
+      if (type === "IN") {
+        data.rate = 95 + Math.random() * 10;
+      }
 
       if (callbackUri) {
         data.callbackUri = callbackUri;
@@ -993,47 +1055,12 @@ export function TestMerchantTransactions({
               <Label htmlFor="device" className="dark:text-gray-300">
                 Устройство
               </Label>
-              <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                  <SelectValue placeholder="Выберите устройство" />
-                </SelectTrigger>
-                <SelectContent className="dark:bg-gray-700 dark:border-gray-600">
-                  {devices.map((device) => (
-                    <SelectItem
-                      key={device.id}
-                      value={device.id}
-                      className="dark:text-gray-200 dark:hover:bg-gray-600"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${device.isOnline ? "bg-green-500" : "bg-red-500"}`}
-                        />
-                        {device.name} ({device.trader?.email || "N/A"})
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedDevice && (
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  {(() => {
-                    const device = devices.find((d) => d.id === selectedDevice);
-                    if (!device) return null;
-                    return (
-                      <div>
-                        <p>Трейдер: {device.trader?.email || "N/A"}</p>
-                        <p>Реквизитов: {device.bankDetails.length}</p>
-                        {device.bankDetails.slice(0, 2).map((bd) => (
-                          <p key={bd.id}>
-                            {bd.methodType.toUpperCase()} {bd.bankType} *
-                            {bd.cardNumber.slice(-4)}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+              <DeviceSelector
+                devices={devices}
+                selectedDeviceId={selectedDevice}
+                onDeviceSelect={setSelectedDevice}
+                placeholder="Выберите устройство"
+              />
             </div>
 
             <div>
@@ -1053,17 +1080,41 @@ export function TestMerchantTransactions({
               />
             </div>
           </div>
-          <div>
-            <Label htmlFor="notificationTitle" className="dark:text-gray-300">
-              Заголовок уведомления (опционально)
-            </Label>
-            <Input
-              id="notificationTitle"
-              value={notificationTitle}
-              onChange={(e) => setNotificationTitle(e.target.value)}
-              placeholder="Будет использован банк из реквизитов"
-              className="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
-            />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="bankPackage" className="dark:text-gray-300">
+                Пакет банка
+              </Label>
+              <Select value={selectedBankPackage} onValueChange={setSelectedBankPackage}>
+                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                  <SelectValue placeholder="Автоматически из реквизитов" />
+                </SelectTrigger>
+                <SelectContent className="dark:bg-gray-700 dark:border-gray-600">
+                  {Object.entries(bankPackageNames).map(([bank, packageName], index) => (
+                    <SelectItem
+                      key={`${bank}-${index}`}
+                      value={packageName}
+                      className="dark:text-gray-200 dark:hover:bg-gray-600"
+                    >
+                      {bank} - {packageName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="notificationTitle" className="dark:text-gray-300">
+                Заголовок уведомления (опционально)
+              </Label>
+              <Input
+                id="notificationTitle"
+                value={notificationTitle}
+                onChange={(e) => setNotificationTitle(e.target.value)}
+                placeholder="Будет использован банк из реквизитов"
+                className="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-between">

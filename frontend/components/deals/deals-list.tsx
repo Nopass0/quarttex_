@@ -292,13 +292,13 @@ export function DealsList() {
 
   const manualCloseTransaction = async (transactionId: string) => {
     try {
-      await traderApi.updateTransactionStatus(transactionId, "COMPLETED");
+      await traderApi.updateTransactionStatus(transactionId, "READY");
       toast.success("Сделка закрыта вручную");
 
       // Update the transaction status locally
       setTransactions((prev) =>
         prev.map((tx) =>
-          tx.id === transactionId ? { ...tx, status: "COMPLETED" } : tx,
+          tx.id === transactionId ? { ...tx, status: "READY" } : tx,
         ),
       );
 
@@ -1617,10 +1617,15 @@ export function DealsList() {
                       </div>
                     );
                   case "EXPIRED":
-                  case "CANCELED":
                     return (
                       <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                         <X className="h-6 w-6 text-red-600 dark:text-red-400" />
+                      </div>
+                    );
+                  case "CANCELED":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-900/30 flex items-center justify-center">
+                        <X className="h-6 w-6 text-gray-600 dark:text-gray-400" />
                       </div>
                     );
                   default:
@@ -2070,36 +2075,48 @@ export function DealsList() {
                     {selectedTransaction.status === "READY" ? (
                       <div className="text-center space-y-3">
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Сделка готова к закрытию{" "}
-                          <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
-                            спором
-                          </span>
+                          Сделка готова к закрытию
                         </p>
-                        <div className="space-y-2">
-                          <Button
-                            className="w-full bg-green-600 hover:bg-green-700"
-                            onClick={() =>
-                              manualCloseTransaction(selectedTransaction.id)
-                            }
-                          >
-                            Закрыть сделку вручную
-                          </Button>
-                          <Button
-                            className="w-full"
-                            variant="outline"
-                            onClick={() => setSelectedTransaction(null)}
-                          >
-                            Отмена
-                          </Button>
-                        </div>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedTransaction(null)}
+                        >
+                          Закрыть
+                        </Button>
                       </div>
                     ) : selectedTransaction.status === "IN_PROGRESS" ? (
-                      <Button
-                        className="w-full bg-[#006039] hover:bg-[#006039]/90"
-                        onClick={() => confirmPayment(selectedTransaction.id)}
-                      >
-                        Подтвердить платеж
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          className="w-full bg-[#006039] hover:bg-[#006039]/90"
+                          onClick={() => confirmPayment(selectedTransaction.id)}
+                        >
+                          Подтвердить платеж
+                        </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedTransaction(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    ) : selectedTransaction.status === "EXPIRED" ? (
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          className="w-full bg-[#006039] hover:bg-[#006039]/90"
+                          onClick={() => confirmPayment(selectedTransaction.id)}
+                        >
+                          Подтвердить платеж
+                        </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedTransaction(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
                     ) : (
                       <Button
                         className="w-full"

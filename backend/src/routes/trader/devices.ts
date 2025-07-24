@@ -24,7 +24,9 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
       const devices = await db.device.findMany({
         where: { userId: trader.id },
         include: {
-          bankDetails: true,
+          bankDetails: {
+            where: { isArchived: false }
+          },
           notifications: {
             where: { isRead: false }
           }
@@ -105,7 +107,9 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
           userId: trader.id
         },
         include: {
-          bankDetails: true,
+          bankDetails: {
+            where: { isArchived: false }
+          },
           notifications: {
             take: 10,
             orderBy: { createdAt: 'desc' }

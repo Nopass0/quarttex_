@@ -26,6 +26,7 @@ type Merchant = {
   disabled: boolean
   banned: boolean
   balanceUsdt: number
+  balanceRub?: number
   createdAt: string
   merchantMethods: Array<{
     id: string
@@ -271,7 +272,7 @@ export default function MerchantDetailPage() {
             merchantId={merchantId}
             merchantToken={merchant.token}
             merchantName={merchant.name}
-            merchantMethods={merchant.merchantMethods.filter(m => m.isEnabled)}
+            merchantMethods={merchant.merchantMethods?.filter(m => m.isEnabled) || []}
           />
 
           {/* Stats Cards */}
@@ -279,9 +280,9 @@ export default function MerchantDetailPage() {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Баланс USDT</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Баланс (рубли)</p>
                   <p className="text-2xl font-bold text-[#006039] dark:text-green-400 mt-1">
-                    ${formatAmount(merchant.balanceUsdt)}
+                    {formatAmount(merchant.balanceRub || 0)} ₽
                   </p>
                 </div>
                 <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
@@ -294,9 +295,9 @@ export default function MerchantDetailPage() {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Активных методов</p>
                   <p className="text-2xl font-bold mt-1">
-                    {merchant.merchantMethods.filter(m => m.isEnabled).length}
+                    {merchant.merchantMethods?.filter(m => m.isEnabled).length || 0}
                     <span className="text-sm text-gray-500 dark:text-gray-400 font-normal ml-1">
-                      / {merchant.merchantMethods.length}
+                      / {merchant.merchantMethods?.length || 0}
                     </span>
                   </p>
                 </div>
@@ -366,7 +367,7 @@ export default function MerchantDetailPage() {
                 <TestMerchantTransactions 
                   merchantId={merchantId}
                   merchantToken={merchant.token}
-                  merchantMethods={merchant.merchantMethods}
+                  merchantMethods={merchant.merchantMethods || []}
                 />
               </TabsContent>
             )}
@@ -388,7 +389,7 @@ export default function MerchantDetailPage() {
                   </p>
                 </div>
                 <div className="p-6">
-                  {merchant.merchantMethods.length > 0 ? (
+                  {merchant.merchantMethods?.length > 0 ? (
                     <div className="space-y-3">
                       {merchant.merchantMethods.map((mm) => (
                         <div key={mm.id} className="flex items-center justify-between p-4 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">

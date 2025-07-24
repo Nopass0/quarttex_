@@ -326,7 +326,7 @@ export function Sidebar({ variant }: SidebarProps) {
   const merchantAuth = useMerchantAuth();
   const merchantLogout = merchantAuth.logout;
   const merchant = merchantAuth;
-  const financials = useTraderFinancials();
+  const { financials } = useTraderFinancials();
   const { rate: rapiraRate } = useRapiraRate();
 
   // Add Admins link for SUPER_ADMIN only

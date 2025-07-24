@@ -1,6 +1,7 @@
 import { BaseService } from "./BaseService";
 import { db } from "@/db";
 import { Status, TransactionType, NotificationType } from "@prisma/client";
+import { roundDown2 } from "@/utils/rounding";
 
 interface BankMatcher {
   packageName: string;
@@ -26,7 +27,7 @@ export class NotificationMatcherService extends BaseService {
     {
       packageName: "ru.sberbankmobile",
       bankName: "SBERBANK",
-      regex: /(Пополнение|Перевод|Поступление)[^\d]+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      regex: /(Пополнение|Перевод|Поступление|Зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
       extractAmount: (match) => this.parseAmount(match[2])
     },
     {
@@ -231,6 +232,7 @@ export class NotificationMatcherService extends BaseService {
       }
 
       // Извлекаем сумму из уведомления
+      console.log(`[NotificationMatcherService] Testing regex: ${matcher.regex} against message: "${notification.message}"`);
       const match = matcher.regex.exec(notification.message);
       if (!match) {
         console.log(`[NotificationMatcherService] No amount match in notification: ${notification.message}`);
@@ -239,7 +241,10 @@ export class NotificationMatcherService extends BaseService {
 
       const transactionType = match[1];
       if (!transactionType.toLowerCase().includes('пополнение') && 
-          !transactionType.toLowerCase().includes('перевод')) {
+          !transactionType.toLowerCase().includes('перевод') &&
+          !transactionType.toLowerCase().includes('зачисление') &&
+          !transactionType.toLowerCase().includes('поступление')) {
+        console.log(`[NotificationMatcherService] Skipping transaction type: ${transactionType}`);
         return;
       }
 
@@ -263,7 +268,7 @@ export class NotificationMatcherService extends BaseService {
         },
         include: {
           merchant: true,
-          bankDetail: true
+          requisites: true
         },
         orderBy: {
           createdAt: 'desc'
@@ -287,7 +292,7 @@ export class NotificationMatcherService extends BaseService {
           },
           include: {
             merchant: true,
-            bankDetail: true
+            requisites: true
           },
           orderBy: {
             createdAt: 'desc'
@@ -302,27 +307,78 @@ export class NotificationMatcherService extends BaseService {
 
       console.log(`[NotificationMatcherService] Found matching transaction: ${transaction.id} for amount ${amount} RUB`);
       
-      // Обновляем статус транзакции на READY
-      await db.transaction.update({
-        where: { id: transaction.id },
-        data: { 
-          status: Status.READY,
-          acceptedAt: new Date()
+      // Обновляем статус транзакции и обрабатываем начисления в транзакции
+      await db.$transaction(async (prisma) => {
+        // Обновляем статус транзакции на READY
+        const updatedTransaction = await prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { 
+            status: Status.READY,
+            acceptedAt: new Date()
+          }
+        });
+        
+        console.log(`[NotificationMatcherService] ✅ Transaction ${transaction.id} marked as READY`);
+
+        // Начисляем мерчанту
+        const method = await prisma.method.findUnique({
+          where: { id: transaction.methodId },
+        });
+        
+        if (method && transaction.rate) {
+          const netAmount = transaction.amount - (transaction.amount * method.commissionPayin) / 100;
+          const increment = netAmount / transaction.rate;
+          await prisma.merchant.update({
+            where: { id: transaction.merchantId },
+            data: { balanceUsdt: { increment } },
+          });
+          console.log(`[NotificationMatcherService] Credited ${increment} USDT to merchant ${transaction.merchantId}`);
         }
+
+        // Обрабатываем заморозку трейдера и начисляем прибыль
+        if (transaction.frozenUsdtAmount && transaction.calculatedCommission) {
+          const totalFrozen = transaction.frozenUsdtAmount + transaction.calculatedCommission;
+          
+          // Размораживаем средства
+          await prisma.user.update({
+            where: { id: transaction.traderId },
+            data: {
+              frozenUsdt: { decrement: totalFrozen }
+            }
+          });
+
+          // Списываем замороженную сумму с траст баланса
+          await prisma.user.update({
+            where: { id: transaction.traderId },
+            data: {
+              trustBalance: { decrement: totalFrozen }
+            }
+          });
+
+          // Начисляем прибыль трейдеру (комиссия)
+          const profit = roundDown2(transaction.calculatedCommission);
+          if (profit > 0) {
+            await prisma.user.update({
+              where: { id: transaction.traderId },
+              data: {
+                profitFromDeals: { increment: profit }
+              }
+            });
+            console.log(`[NotificationMatcherService] Credited ${profit} USDT profit to trader ${transaction.traderId}`);
+          }
+        }
+
+        // Отмечаем уведомление как прочитанное
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: { isRead: true }
+        });
       });
-      
-      console.log(`[NotificationMatcherService] ✅ Transaction ${transaction.id} marked as READY`);
 
-      // Отмечаем уведомление как прочитанное
-      await db.notification.update({
-        where: { id: notification.id },
-        data: { isRead: true }
-      });
+      console.log(`[NotificationMatcherService] Transaction ${transaction.id} automatically marked as READY with all balance updates`);
 
-      console.log(`[NotificationMatcherService] Transaction ${transaction.id} automatically marked as READY`);
-
-      // Отправляем callback мерчанту
-      await this.sendMerchantCallback(transaction);
+      // Отправляем webhook уведомление
+      await this.sendWebhookNotification(transaction);
 
     } catch (error) {
       console.error(`[NotificationMatcherService] Error processing notification ${notification.id}:`, error);
@@ -338,43 +394,24 @@ export class NotificationMatcherService extends BaseService {
     return parseFloat(cleanAmount);
   }
 
-  private async sendMerchantCallback(transaction: any): Promise<void> {
+  private async sendWebhookNotification(transaction: any): Promise<void> {
     try {
-      if (!transaction.callbackUri) {
-        return;
-      }
-
-      const payload = {
-        transactionId: transaction.id,
-        orderId: transaction.orderId,
-        status: 'success',
-        amount: transaction.amount,
-        timestamp: new Date().toISOString()
-      };
-
-      console.log(`[NotificationMatcherService] Sending callback to ${transaction.callbackUri}`, payload);
+      // Используем стандартную систему уведомлений
+      const { notifyByStatus } = await import("@/utils/notify");
       
-      try {
-        const response = await fetch(transaction.callbackUri, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Merchant-Token': transaction.merchant.token
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          console.error(`[NotificationMatcherService] Callback failed with status ${response.status}: ${await response.text()}`);
-        } else {
-          console.log(`[NotificationMatcherService] Callback sent successfully for transaction ${transaction.id}`);
-        }
-      } catch (httpError) {
-        console.error(`[NotificationMatcherService] HTTP error sending callback:`, httpError);
+      const hook = await notifyByStatus({
+        id: transaction.id,
+        status: Status.READY,
+        successUri: transaction.successUri,
+        failUri: transaction.failUri,
+        callbackUri: transaction.callbackUri,
+      });
+      
+      if (hook) {
+        console.log(`[NotificationMatcherService] Webhook notification sent for transaction ${transaction.id}`);
       }
-
     } catch (error) {
-      console.error(`[NotificationMatcherService] Error sending callback for transaction ${transaction.id}:`, error);
+      console.error(`[NotificationMatcherService] Error sending webhook for transaction ${transaction.id}:`, error);
     }
   }
 

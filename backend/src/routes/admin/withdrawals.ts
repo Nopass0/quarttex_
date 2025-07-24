@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "@/db";
 import { WithdrawalStatus } from "@prisma/client";
 import { sendWebhook } from "@/utils/webhook";
+import { roundDown2 } from "@/utils/rounding";
 
 export const adminWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
   .get("/", async ({ query }) => {

@@ -3,6 +3,7 @@ import { swagger } from "@elysiajs/swagger";
 import { jwt } from "@elysiajs/jwt";
 import { cors } from "@elysiajs/cors";
 import { ip } from "elysia-ip";
+import { staticPlugin } from "@elysiajs/static";
 import { JWTHandler } from "@/utils/types";
 import { readFile } from "fs/promises";
 import { existsSync } from "fs";
@@ -168,8 +169,12 @@ const app = new Elysia({ prefix: "/api" })
   .use(ip())
   // Custom static file serving for uploads
   .get("/uploads/*", async ({ params, set }) => {
-    const filepath = params["*"];
+    const filepath = decodeURIComponent(params["*"]);
     const fullPath = join(process.cwd(), "uploads", filepath);
+    
+    console.log(`[Upload] Requested file: ${filepath}`);
+    console.log(`[Upload] Full path: ${fullPath}`);
+    console.log(`[Upload] File exists: ${existsSync(fullPath)}`);
     
     if (!existsSync(fullPath)) {
       set.status = 404;

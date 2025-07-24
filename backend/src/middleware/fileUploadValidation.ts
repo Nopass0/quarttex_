@@ -125,12 +125,18 @@ export function validateFileUrls(urls: string[]): { valid: boolean; error?: stri
     return { valid: false, error: "Maximum 10 files allowed" };
   }
 
-  // Validate each URL format
+  // Validate each filename/URL
   for (const url of urls) {
-    try {
-      new URL(url);
-    } catch {
-      return { valid: false, error: `Invalid URL: ${url}` };
+    // Check if it's a filename (UUID-filename pattern) or a full URL
+    const isFilename = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-.+$/i.test(url);
+    
+    if (!isFilename) {
+      // If not a filename, try to validate as URL
+      try {
+        new URL(url);
+      } catch {
+        return { valid: false, error: `Invalid file reference: ${url}` };
+      }
     }
   }
 

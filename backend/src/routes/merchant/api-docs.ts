@@ -496,8 +496,8 @@ export default (app: Elysia) =>
                 {
                   name: "merchantRate",
                   type: "number",
-                  required: true,
-                  description: "Курс мерчанта USDT/RUB",
+                  required: false,
+                  description: "Курс мерчанта USDT/RUB (если не указан, используется значение по умолчанию 100)",
                   example: 95.5,
                 },
                 {

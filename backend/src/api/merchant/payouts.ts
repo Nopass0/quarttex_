@@ -85,7 +85,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         wallet: t.String({ minLength: 10 }),
         bank: t.String({ minLength: 3 }),
         isCard: t.Boolean(),
-        merchantRate: t.Number({ minimum: 1 }),
+        merchantRate: t.Optional(t.Number({ minimum: 1 })),
         externalReference: t.Optional(t.String()),
         processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60 })),
         webhookUrl: t.Optional(t.String({ format: "uri" })),

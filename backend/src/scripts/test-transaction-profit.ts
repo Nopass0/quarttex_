@@ -1,5 +1,6 @@
 import { db } from "../db"
 import { Status } from "@prisma/client"
+import { roundDown2 } from "../utils/rounding"
 
 async function main() {
   const trader = await db.user.findFirst({
@@ -74,7 +75,7 @@ async function main() {
       })
 
       // Начисляем прибыль (комиссию)
-      const profit = testTx.calculatedCommission || 0
+      const profit = roundDown2(testTx.calculatedCommission || 0)
       if (profit > 0) {
         console.log(`- Adding profit ${profit} USDT`)
         await prisma.user.update({
