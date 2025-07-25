@@ -185,6 +185,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         },
         include: {
           requisites: true,
+          method: true,
+          merchant: true,
         },
       });
 
@@ -192,6 +194,68 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         return error(404, { error: "BT сделка не найдена" });
       }
 
+      // Если статус меняется на READY, нужно выполнить финансовые операции
+      if (body.status === "READY" && deal.status !== "READY") {
+        const updatedDeal = await db.$transaction(async (prisma) => {
+          // Получаем настройки комиссии трейдера
+          const traderMerchant = await prisma.traderMerchant.findUnique({
+            where: {
+              traderId_merchantId_methodId: {
+                traderId: deal.traderId,
+                merchantId: deal.merchantId,
+                methodId: deal.method.id,
+              }
+            }
+          });
+
+          // Рассчитываем прибыль трейдера
+          const spentUsdt = deal.rate ? deal.amount / deal.rate : 0;
+          const commissionPercent = traderMerchant?.feeIn || 0;
+          const traderProfit = Math.trunc(spentUsdt * (commissionPercent / 100) * 100) / 100;
+
+          console.log(`[BT-Entrance] Manual confirmation: amount=${deal.amount}, rate=${deal.rate}, spentUsdt=${spentUsdt}, commissionPercent=${commissionPercent}, profit=${traderProfit}`);
+
+          // Обновляем транзакцию
+          const updated = await prisma.transaction.update({
+            where: { id: params.id },
+            data: {
+              status: body.status,
+              completedAt: new Date(),
+              acceptedAt: new Date(),
+              traderProfit: traderProfit,
+            },
+          });
+
+          // Обновляем балансы трейдера
+          await prisma.user.update({
+            where: { id: deal.traderId },
+            data: {
+              // Уменьшаем замороженный баланс
+              frozenUsdt: {
+                decrement: deal.frozenUsdtAmount || 0
+              },
+              // НЕ уменьшаем trustBalance - он уже был уменьшен при заморозке!
+              // Увеличиваем прибыль от сделок
+              profitFromDeals: {
+                increment: traderProfit
+              },
+              // Увеличиваем доступный баланс на прибыль
+              deposit: {
+                increment: traderProfit
+              }
+            }
+          });
+
+          return updated;
+        });
+
+        return formatBtDeal(await db.transaction.findUnique({
+          where: { id: params.id },
+          include: { merchant: true, requisites: true }
+        }));
+      }
+
+      // Для других статусов просто обновляем
       const updatedDeal = await db.transaction.update({
         where: { id: params.id },
         data: { 

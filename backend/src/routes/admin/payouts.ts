@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
 import { db } from "../../db";
 import { rapiraService } from "../../services/rapira.service";
+import { roundDown2 } from "../../utils/rounding";
 
 const payoutService = PayoutService.getInstance();
 
@@ -325,7 +326,27 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         return { error: "Payout has no trader assigned" };
       }
 
-      // Update payout status to COMPLETED and unfreeze trader balance
+      // Calculate profit amount if not stored
+      let profitAmount = payout.profitAmount;
+      if (profitAmount === null || profitAmount === undefined) {
+        // Get trader-merchant specific fee percentage for backward compatibility
+        const traderMerchant = await db.traderMerchant.findFirst({
+          where: {
+            traderId: payout.traderId,
+            merchantId: payout.merchantId,
+            isFeeOutEnabled: true,
+          },
+        });
+        
+        if (traderMerchant && traderMerchant.feeOut > 0) {
+          const amountInUsdt = payout.amount / payout.rate;
+          profitAmount = roundDown2(amountInUsdt * (traderMerchant.feeOut / 100));
+        } else {
+          profitAmount = roundDown2(payout.totalUsdt - payout.amountUsdt);
+        }
+      }
+      
+      // Update payout status to COMPLETED, unfreeze balance, add profit and USDT
       const [updatedPayout] = await db.$transaction([
         db.payout.update({
           where: { id: params.id },
@@ -338,6 +359,8 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           where: { id: payout.traderId },
           data: {
             frozenPayoutBalance: { decrement: payout.total },
+            profitFromPayouts: { increment: profitAmount },
+            trustBalance: { increment: roundDown2(payout.amount / payout.rate) },
           },
         }),
       ]);

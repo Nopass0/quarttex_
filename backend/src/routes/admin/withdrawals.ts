@@ -95,7 +95,7 @@ export const adminWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
       };
     }
 
-    // Update withdrawal status
+    // Update withdrawal status and process balance changes
     await db.$transaction(async (tx) => {
       await tx.withdrawalRequest.update({
         where: { id: params.id },
@@ -106,6 +106,18 @@ export const adminWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
           processedAt: new Date()
         }
       });
+
+      // For TRUST balance, we need to decrement both trustBalance and frozenUsdt
+      // For other balances, the amount was already deducted when creating the request
+      if (withdrawal.balanceType === "TRUST") {
+        await tx.user.update({
+          where: { id: withdrawal.traderId },
+          data: {
+            trustBalance: { decrement: withdrawal.amountUSDT },
+            frozenUsdt: { decrement: withdrawal.amountUSDT }
+          }
+        });
+      }
 
       // Create admin log
       await tx.adminLog.create({
@@ -181,27 +193,38 @@ export const adminWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
       });
 
       // Refund balance based on type
-      let updateData: any = {};
-      switch (withdrawal.balanceType) {
-        case "TRUST":
-          updateData.trustBalance = { increment: withdrawal.amountUSDT };
-          break;
-        case "COMPENSATION":
-          updateData.payoutBalance = { increment: withdrawal.amountUSDT };
-          break;
-        case "PROFIT_DEALS":
-          updateData.profitFromDeals = { increment: withdrawal.amountUSDT };
-          break;
-        case "PROFIT_PAYOUTS":
-          updateData.profitFromPayouts = { increment: withdrawal.amountUSDT };
-          break;
-      }
-
-      if (Object.keys(updateData).length > 0) {
+      if (withdrawal.balanceType === "TRUST") {
+        // For TRUST balance, unfreeze the amount
         await tx.user.update({
           where: { id: withdrawal.traderId },
-          data: updateData
+          data: {
+            frozenUsdt: { decrement: withdrawal.amountUSDT }
+          }
         });
+      } else {
+        // For other balances, refund directly
+        let updateData: any = {};
+        switch (withdrawal.balanceType) {
+          case "COMPENSATION":
+            updateData.payoutBalance = { increment: withdrawal.amountUSDT };
+            break;
+          case "PROFIT_DEALS":
+            updateData.profitFromDeals = { increment: withdrawal.amountUSDT };
+            break;
+          case "PROFIT_PAYOUTS":
+            updateData.profitFromPayouts = { increment: withdrawal.amountUSDT };
+            break;
+          case "WORKING":
+            updateData.balanceUsdt = { increment: withdrawal.amountUSDT };
+            break;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          await tx.user.update({
+            where: { id: withdrawal.traderId },
+            data: updateData
+          });
+        }
       }
 
       // Create admin log

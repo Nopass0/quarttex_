@@ -3,6 +3,16 @@ import { db } from "@/db";
 import { BankType, MethodType, TransactionStatus } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { randomInt } from "crypto";
+import { rapiraService } from "@/services/rapira.service";
+
+// Helper function to get next transaction numeric ID
+async function getNextTransactionId(): Promise<number> {
+  const lastTransaction = await db.transaction.findFirst({
+    orderBy: { numericId: 'desc' },
+    select: { numericId: true }
+  });
+  return (lastTransaction?.numericId || 0) + 1;
+}
 
 const AuthHeader = t.Object({ 'x-admin-key': t.String() });
 
@@ -61,7 +71,10 @@ export const testToolsRoutes = new Elysia()
   // Get merchants list
   .get("/merchants", async () => {
     const merchants = await db.merchant.findMany({
-      where: { isActive: true },
+      where: { 
+        disabled: false,
+        banned: false 
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
@@ -117,7 +130,10 @@ export const testToolsRoutes = new Elysia()
 
         // Get available merchants and traders
         const merchants = await db.merchant.findMany({
-          where: { isActive: true },
+          where: { 
+            disabled: false,
+            banned: false 
+          },
           take: 10,
         });
         
@@ -155,34 +171,55 @@ export const testToolsRoutes = new Elysia()
               getRandomElement(traders);
 
             const method = getRandomElement(methods);
-            const amount = getRandomAmount(minAmount, maxAmount);
             
-            // Create or find requisite for the trader
+            // Create or find requisite for the trader with matching method type
             let requisite = await db.bankDetail.findFirst({
               where: { 
                 userId: trader.id,
-                deviceId: null, // BT requisites without devices
+                isArchived: false,
+                methodType: method.type, // Match method type!
+                OR: [
+                  { deviceId: null }, // BT requisite
+                  { 
+                    device: {
+                      isOnline: true,
+                      isWorking: true
+                    }
+                  }
+                ]
               },
+              include: {
+                device: true
+              }
             });
 
-            if (!requisite && useRandomData) {
-              requisite = await db.bankDetail.create({
-                data: {
-                  userId: trader.id,
-                  methodType: getRandomElement(methodTypes) as MethodType,
-                  bankType: getRandomElement(bankTypes) as BankType,
-                  cardNumber: getRandomCardNumber(),
-                  recipientName: getRandomName(),
-                  minAmount: 1000,
-                  maxAmount: 50000,
-                  dailyLimit: 100000,
-                  monthlyLimit: 1000000,
-                  intervalMinutes: 5,
-                  deviceId: null, // BT requisite
-                },
-              });
+            // If no requisite found, skip this transaction
+            if (!requisite) {
+              errors.push(`Сделка ${i + 1}: Нет реквизита для метода ${method.type}`);
+              continue;
             }
 
+            // Generate amount within requisite limits
+            const reqMinAmount = Math.max(requisite.minAmount, trader.minAmountPerRequisite, minAmount);
+            const reqMaxAmount = Math.min(requisite.maxAmount, trader.maxAmountPerRequisite, maxAmount);
+            
+            if (reqMinAmount > reqMaxAmount) {
+              errors.push(`Сделка ${i + 1}: Несовместимые лимиты суммы для реквизита`);
+              continue;
+            }
+            
+            const amount = getRandomAmount(Math.floor(reqMinAmount), Math.floor(reqMaxAmount));
+
+
+            // Get current Rapira rates
+            const rapiraBaseRate = await rapiraService.getUsdtRubRate();
+            const rateSettingRecord = await db.rateSetting.findFirst({ where: { id: 1 } });
+            const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
+            const rapiraRateWithKkk = await rapiraService.getRateWithKkk(rapiraKkk);
+            
+            // Determine merchant rate based on settings
+            const merchantRate = merchant.countInRubEquivalent ? rapiraBaseRate : useRandomData ? getRandomAmount(90, 110) : 95.0;
+            
             const deal = await db.transaction.create({
               data: {
                 numericId: await getNextTransactionId(),
@@ -190,11 +227,13 @@ export const testToolsRoutes = new Elysia()
                 merchantId: merchant.id,
                 traderId: trader.id,
                 methodId: method.id,
-                bankDetailId: requisite?.id,
+                bankDetailId: requisite.id,
                 status: autoConfirm ? "ACCEPTED" : "PENDING",
                 type: "IN",
                 commission: amount * 0.03, // 3% commission
-                rate: 1.0,
+                rate: rapiraRateWithKkk, // Always Rapira rate with KKK for calculations
+                merchantRate: merchantRate, // Merchant's display rate
+                adjustedRate: rapiraRateWithKkk, // Deprecated, kept for compatibility
                 ...(autoConfirm && { acceptedAt: new Date() }),
                 ...(autoConfirm && { completedAt: new Date() }),
               },
@@ -272,7 +311,10 @@ export const testToolsRoutes = new Elysia()
 
         // Get available merchants and traders
         const merchants = await db.merchant.findMany({
-          where: { isActive: true },
+          where: { 
+            disabled: false,
+            banned: false 
+          },
           take: 10,
         });
         

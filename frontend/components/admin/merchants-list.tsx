@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
-import { Search, Plus, Copy, Trash2, RefreshCw, Activity, Edit, Settings, MoreHorizontal, Power, PowerOff, DollarSign } from 'lucide-react'
+import { Search, Plus, Copy, Trash2, RefreshCw, Activity, Edit, Settings, MoreHorizontal, Power, PowerOff, DollarSign, History } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { formatAmount } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -617,6 +617,16 @@ export function MerchantsList() {
                         >
                           <DollarSign className="h-4 w-4 mr-2 text-[#006039]" />
                           Сеттлы
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => router.push(`/admin/merchants/${merchant.id}/settle-history`)}
+                          disabled={isLoading}
+                        >
+                          <History className="h-4 w-4 mr-2 text-[#006039]" />
+                          История Settle
                         </Button>
                         <Button
                           variant="ghost"

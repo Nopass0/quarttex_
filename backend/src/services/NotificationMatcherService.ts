@@ -27,7 +27,7 @@ export class NotificationMatcherService extends BaseService {
     {
       packageName: "ru.sberbankmobile",
       bankName: "SBERBANK",
-      regex: /(Пополнение|Перевод|Поступление|Зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      regex: /(Пополнение|Перевод|Поступление|Зачисление|зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|р|руб)/i,
       extractAmount: (match) => this.parseAmount(match[2])
     },
     {

@@ -269,7 +269,7 @@ export default function DepositsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="BALANCE">Траст</SelectItem>
+                <SelectItem value="BALANCE">Баланс</SelectItem>
                 <SelectItem value="INSURANCE">Депозит</SelectItem>
               </SelectContent>
             </Select>
@@ -333,7 +333,7 @@ export default function DepositsPage() {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-lg">${deposit.amountUSDT.toFixed(2)}</p>
                         <Badge variant="outline" className="text-xs">
-                          {deposit.type === 'INSURANCE' ? 'Депозит' : 'Траст'}
+                          {deposit.type === 'INSURANCE' ? 'Депозит' : 'Баланс'}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1 mt-1">
@@ -427,7 +427,7 @@ export default function DepositsPage() {
             <div className="space-y-4">
               <div>
                 <Label>Тип пополнения</Label>
-                <p className="font-medium">{confirmDialog.deposit.type === 'INSURANCE' ? 'Депозитный баланс' : 'Траст баланс'}</p>
+                <p className="font-medium">{confirmDialog.deposit.type === 'INSURANCE' ? 'Депозитный баланс' : 'Баланс'}</p>
               </div>
               <div>
                 <Label>Сумма</Label>

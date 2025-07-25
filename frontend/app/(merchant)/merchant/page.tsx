@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { merchantApi } from "@/services/api"
 import { formatAmount } from "@/lib/utils"
 import { 
@@ -13,21 +13,51 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Loader2
+  Loader2,
+  Calculator,
+  Info,
+  Activity,
+  Percent,
+  Wallet
 } from "lucide-react"
 import { toast } from "sonner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 export default function MerchantDashboardPage() {
   const [statistics, setStatistics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [selectedPeriod, setSelectedPeriod] = useState('all')
+  const [settleDialogOpen, setSettleDialogOpen] = useState(false)
+  const [settleLoading, setSettleLoading] = useState(false)
+  const [currentRate, setCurrentRate] = useState<number | null>(null)
 
   useEffect(() => {
-    fetchStatistics()
-  }, [])
+    fetchStatistics(selectedPeriod)
+  }, [selectedPeriod])
 
-  const fetchStatistics = async () => {
+  const fetchStatistics = async (period = 'all') => {
     try {
-      const response = await merchantApi.getStatistics()
+      const response = await merchantApi.getStatistics(period)
       setStatistics(response)
     } catch (error) {
       console.error("Failed to fetch statistics:", error)
@@ -53,257 +83,379 @@ export default function MerchantDashboardPage() {
     )
   }
 
-  const successRate = statistics.transactions.total > 0 
-    ? ((statistics.transactions.successful / statistics.transactions.total) * 100).toFixed(1)
-    : 0
+  const fetchCurrentRate = async () => {
+    try {
+      // Здесь должен быть эндпоинт для получения текущего курса
+      // Пока используем заглушку
+      setCurrentRate(97.5) // Примерный курс
+    } catch (error) {
+      console.error("Failed to fetch rate:", error)
+      setCurrentRate(null)
+    }
+  }
+
+  const handleSettleRequest = async () => {
+    setSettleLoading(true)
+    try {
+      const response = await merchantApi.createSettleRequest()
+      toast.success("Запрос на Settle успешно создан")
+      setSettleDialogOpen(false)
+      // Обновляем статистику
+      fetchStatistics(selectedPeriod)
+    } catch (error: any) {
+      console.error("Failed to create settle request:", error)
+      toast.error(error.response?.data?.error || "Не удалось создать запрос")
+    } finally {
+      setSettleLoading(false)
+    }
+  }
+  
+  const handleOpenSettleDialog = () => {
+    fetchCurrentRate()
+    setSettleDialogOpen(true)
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+      READY: { label: "Успешно", variant: "default" },
+      COMPLETED: { label: "Завершено", variant: "default" },
+      PENDING: { label: "Ожидание", variant: "secondary" },
+      WAITING: { label: "Ожидание", variant: "secondary" },
+      ACCEPTED: { label: "Принято", variant: "secondary" },
+      ASSIGNED: { label: "Назначено", variant: "secondary" },
+      CANCELED: { label: "Отменено", variant: "destructive" },
+      EXPIRED: { label: "Истекло", variant: "destructive" },
+      FAILED: { label: "Неудачно", variant: "destructive" },
+      CANCELLED: { label: "Отменено", variant: "destructive" },
+      DISPUTE: { label: "Спор", variant: "outline" },
+    }
+    
+    const config = statusMap[status] || { label: status, variant: "secondary" }
+    return <Badge variant={config.variant}>{config.label}</Badge>
+  }
 
   return (
     <div className="space-y-6">
-      {/* Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Баланс</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(statistics.balance)} ₽</div>
-            <p className="text-xs text-muted-foreground">Доступно для вывода</p>
-            {statistics.balanceDetails && (
-              <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                <div className="flex justify-between">
-                  <span>Всего заработано:</span>
-                  <span className="text-green-600">{formatAmount(statistics.balanceDetails.totalEarned)} ₽</span>
+      {/* Фильтр периода */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Панель управления</h1>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2"
+            onClick={handleOpenSettleDialog}
+          >
+            <Wallet className="h-4 w-4" />
+            Запросить Settle
+          </Button>
+          
+          <Dialog open={settleDialogOpen} onOpenChange={setSettleDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Запрос на вывод средств (Settle)</DialogTitle>
+                <DialogDescription>
+                  Вы собираетесь запросить вывод всего доступного баланса.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Баланс к выводу:</p>
+                  <p className="text-2xl font-bold">{formatAmount(statistics.balance.total)} ₽</p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Комиссии:</span>
-                  <span className="text-red-600">-{formatAmount(statistics.balanceDetails.totalCommissionPaid)} ₽</span>
-                </div>
+                
+                {currentRate && (
+                  <div className="p-4 border rounded-lg space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Курс Rapira (без ККК):</span>
+                      <span className="font-medium">{currentRate.toFixed(2)} ₽/USDT</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Эквивалент в USDT:</span>
+                      <span className="text-xl font-bold text-green-600">
+                        {(statistics.balance.total / currentRate).toFixed(2)} USDT
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-sm text-muted-foreground">
+                  После отправки запроса администратор рассмотрит его и выполнит вывод средств.
+                  Курс и сумма будут зафиксированы на момент создания запроса.
+                </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Входящие</CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statistics.transactions.inTransactions}</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <span className="flex items-center text-green-600">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                {statistics.transactions.inSuccessful || 0} успешных
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Исходящие</CardTitle>
-            <ArrowDownRight className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statistics.transactions.outTransactions}</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <span className="flex items-center text-red-600">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                {statistics.transactions.outSuccessful || 0} успешных
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Успешность</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{successRate}%</div>
-            <p className="text-xs text-muted-foreground">
-              {statistics.transactions.successful} из {statistics.transactions.total}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Объем</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatAmount(statistics.volume.total)} ₽</div>
-            <p className="text-xs text-muted-foreground">Общий оборот</p>
-          </CardContent>
-        </Card>
-
-        {statistics.balanceDetails && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Комиссии</CardTitle>
-              <ArrowDownRight className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                -{formatAmount(statistics.balanceDetails.totalCommissionPaid)} ₽
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Удержано по тарифам
-              </p>
-            </CardContent>
-          </Card>
-        )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSettleDialogOpen(false)}>
+                  Отмена
+                </Button>
+                <Button onClick={handleSettleRequest} disabled={settleLoading || statistics.balance.total <= 0}>
+                  {settleLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Отправка...
+                    </>
+                  ) : (
+                    "Отправить запрос"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Выберите период" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Сегодня</SelectItem>
+              <SelectItem value="week">Неделя</SelectItem>
+              <SelectItem value="month">Месяц</SelectItem>
+              <SelectItem value="all">Весь период</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Transaction Status Breakdown */}
+      {/* Баланс с формулой расчета */}
       <Card>
         <CardHeader>
-          <CardTitle>Статусы транзакций</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle>Баланс</CardTitle>
+              <Calculator className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="text-3xl font-bold text-green-600">
+              {formatAmount(statistics.balance.total)} ₽
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Формула расчета баланса:</p>
+            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Сумма успешных сделок:</span>
+                <span className="font-medium text-green-600">+{formatAmount(statistics.balance.formula.dealsTotal)} ₽</span>
               </div>
-              <div>
-                <p className="text-sm font-medium">Успешные</p>
-                <p className="text-2xl font-bold">{statistics.transactions.successful}</p>
+              <div className="flex justify-between text-sm">
+                <span>Комиссия платформы со сделок:</span>
+                <span className="font-medium text-red-600">-{formatAmount(statistics.balance.formula.dealsCommission)} ₽</span>
               </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <div className="flex justify-between text-sm">
+                <span>Сумма выплат:</span>
+                <span className="font-medium text-red-600">-{formatAmount(statistics.balance.formula.payoutsTotal)} ₽</span>
               </div>
-              <div>
-                <p className="text-sm font-medium">Неудачные</p>
-                <p className="text-2xl font-bold">{statistics.transactions.failed}</p>
+              <div className="flex justify-between text-sm">
+                <span>Комиссия платформы с выплат:</span>
+                <span className="font-medium text-red-600">-{formatAmount(statistics.balance.formula.payoutsCommission)} ₽</span>
               </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Споры</p>
-                <p className="text-2xl font-bold">{statistics.transactions.dispute}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">В процессе</p>
-                <p className="text-2xl font-bold">
-                  {statistics.transactions.total - statistics.transactions.successful - statistics.transactions.failed - statistics.transactions.dispute}
-                </p>
+              <Separator className="my-2" />
+              <div className="flex justify-between text-sm font-medium">
+                <span>Итоговый баланс:</span>
+                <span className="text-green-600">{formatAmount(statistics.balance.total)} ₽</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Method Statistics */}
-      {statistics.methodStats && statistics.methodStats.length > 0 && (
+      {/* Статистика сделок и выплат */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Сделки */}
         <Card>
           <CardHeader>
-            <CardTitle>Статистика по методам оплаты</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Детальная статистика с разделением на входящие и исходящие операции
-            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle>Сделки</CardTitle>
+                <ArrowUpRight className="h-4 w-4 text-green-600" />
+              </div>
+              <Badge variant="outline">{statistics.deals.total}</Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {statistics.methodStats.map((method: any) => (
-                <div key={method.methodId} className="border rounded p-3">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded bg-muted flex items-center justify-center">
-                        <Receipt className="h-3 w-3 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{method.methodName}</p>
-                        <p className="text-xs text-muted-foreground">{method.methodCode}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{method.total.count} тр.</p>
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-green-600">{formatAmount(method.total.balance)} ₽</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Commission Rates */}
-                  <div className="flex gap-3 mb-2 text-xs">
-                    <div className="flex items-center gap-1">
-                      <ArrowUpRight className="h-3 w-3 text-green-600" />
-                      <span>Вход: {method.commissionPayin}%</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <ArrowDownRight className="h-3 w-3 text-red-600" />
-                      <span>Выход: {method.commissionPayout}%</span>
-                    </div>
-                  </div>
-
-                  {/* Detailed Stats Grid */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {/* Incoming */}
-                    <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <ArrowUpRight className="h-3 w-3 text-green-600" />
-                        <span className="text-xs font-medium text-green-700 dark:text-green-300">Входящие</span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-bold">{method.in.count}</p>
-                        <p className="text-xs text-muted-foreground">тр.</p>
-                        <p className="text-xs font-medium">{formatAmount(method.in.volume)} ₽</p>
-                        <p className="text-xs font-medium text-green-600">{formatAmount(method.in.balance)} ₽</p>
-                      </div>
-                    </div>
-
-                    {/* Outgoing */}
-                    <div className="text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <ArrowDownRight className="h-3 w-3 text-red-600" />
-                        <span className="text-xs font-medium text-red-700 dark:text-red-300">Исходящие</span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-bold">{method.out.count}</p>
-                        <p className="text-xs text-muted-foreground">тр.</p>
-                        <p className="text-xs font-medium">{formatAmount(method.out.volume)} ₽</p>
-                        <p className="text-xs font-medium text-red-600">{formatAmount(method.out.balance)} ₽</p>
-                      </div>
-                    </div>
-
-                    {/* Total */}
-                    <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <TrendingUp className="h-3 w-3 text-blue-600" />
-                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Итого</span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-bold">{method.total.count}</p>
-                        <p className="text-xs text-muted-foreground">тр.</p>
-                        <p className="text-xs font-medium">{formatAmount(method.total.volume)} ₽</p>
-                        <p className="text-xs font-medium text-blue-600">{formatAmount(method.total.balance)} ₽</p>
-                      </div>
-                    </div>
+            <div className="space-y-4">
+              {/* Основные показатели */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Количество</p>
+                  <p className="text-2xl font-bold">{statistics.deals.total}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Конверсия выдачи</p>
+                  <div className="flex items-center gap-2">
+                    <Percent className="h-4 w-4 text-green-600" />
+                    <p className="text-2xl font-bold text-green-600">{statistics.deals.requisiteConversion?.rate || "0.00"}%</p>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Детализация конверсии */}
+              {statistics.deals.requisiteConversion && (
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Успешных попыток:</span>
+                    <span className="font-medium text-green-600">{statistics.deals.requisiteConversion.successfulAttempts}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Неудачных попыток:</span>
+                    <span className="font-medium text-red-600">{statistics.deals.requisiteConversion.failedAttempts}</span>
+                  </div>
+                  {statistics.deals.requisiteConversion.errorBreakdown && statistics.deals.requisiteConversion.errorBreakdown.length > 0 && (
+                    <div className="pt-2 border-t space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Причины ошибок:</p>
+                      {statistics.deals.requisiteConversion.errorBreakdown.map((error: any) => (
+                        <div key={error.errorCode} className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            {error.errorCode === "NO_REQUISITE" ? "Нет реквизитов" : error.errorCode}
+                          </span>
+                          <span className="font-medium">{error.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Детализация по статусам */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">По статусам:</p>
+                {statistics.deals.statusBreakdown.map((status: any) => (
+                  <div key={status.status} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(status.status)}
+                      <span className="text-muted-foreground">{status.count} шт.</span>
+                    </div>
+                    <span className="font-medium">{formatAmount(status.amount)} ₽</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
+
+        {/* Выплаты */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle>Выплаты</CardTitle>
+                <ArrowDownRight className="h-4 w-4 text-red-600" />
+              </div>
+              <Badge variant="outline">{statistics.payouts.total}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Основные показатели */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Количество</p>
+                  <p className="text-2xl font-bold">{statistics.payouts.total}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Оборот</p>
+                  <p className="text-2xl font-bold">{formatAmount(statistics.payouts.volume)} ₽</p>
+                </div>
+              </div>
+
+              {/* Детализация по статусам */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">По статусам:</p>
+                {statistics.payouts.statusBreakdown.map((status: any) => (
+                  <div key={status.status} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(status.status)}
+                      <span className="text-muted-foreground">{status.count} шт.</span>
+                    </div>
+                    <span className="font-medium">{formatAmount(status.amount)} ₽</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Таблица методов оплаты */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Методы оплаты</CardTitle>
+          <CardDescription>
+            Детальная статистика по каждому методу с комиссиями и транзакциями
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Метод</TableHead>
+                <TableHead className="text-center">Комиссии</TableHead>
+                <TableHead colSpan={2} className="text-center">Сделки</TableHead>
+                <TableHead colSpan={2} className="text-center">Выплаты</TableHead>
+                <TableHead className="text-center">Всего транзакций</TableHead>
+              </TableRow>
+              <TableRow>
+                <TableHead></TableHead>
+                <TableHead className="text-center text-xs">Вход / Выход</TableHead>
+                <TableHead className="text-center text-xs">Кол-во</TableHead>
+                <TableHead className="text-center text-xs">Успешно</TableHead>
+                <TableHead className="text-center text-xs">Кол-во</TableHead>
+                <TableHead className="text-center text-xs">Успешно</TableHead>
+                <TableHead className="text-center text-xs">Всего / Успешно</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {statistics.methodStats.map((method: any) => (
+                <TableRow key={method.methodId}>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{method.methodName}</p>
+                      <p className="text-xs text-muted-foreground">{method.methodCode}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1 text-sm">
+                      <span className="text-green-600">{method.commissionPayin}%</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-red-600">{method.commissionPayout}%</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div>
+                      <p className="font-medium">{method.deals.total}</p>
+                      <p className="text-xs text-muted-foreground">{formatAmount(method.deals.volume)} ₽</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div>
+                      <p className="font-medium text-green-600">{method.deals.successful}</p>
+                      <p className="text-xs text-muted-foreground">{formatAmount(method.deals.successVolume)} ₽</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div>
+                      <p className="font-medium">{method.payouts.total}</p>
+                      <p className="text-xs text-muted-foreground">{formatAmount(method.payouts.volume)} ₽</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div>
+                      <p className="font-medium text-green-600">{method.payouts.successful}</p>
+                      <p className="text-xs text-muted-foreground">{formatAmount(method.payouts.successVolume)} ₽</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="font-medium">{method.total.transactions}</span>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="font-medium text-green-600">{method.total.successfulTransactions}</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

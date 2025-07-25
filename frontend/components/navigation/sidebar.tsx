@@ -36,6 +36,7 @@ import {
   Trash2,
   PiggyBank,
   Lightbulb,
+  Cog,
 } from "lucide-react";
 import { useTraderAuth, useAdminAuth } from "@/stores/auth";
 import { useAgentAuth } from "@/stores/agent-auth";
@@ -145,9 +146,19 @@ const adminNavItems: NavItem[] = [
     icon: PiggyBank,
   },
   {
+    title: "Выводы",
+    href: "/admin/withdrawals",
+    icon: Download,
+  },
+  {
     title: "Выплаты",
     href: "/admin/payouts",
     icon: DollarSign,
+  },
+  {
+    title: "Запросы Settle",
+    href: "/admin/settle-requests",
+    icon: Wallet,
   },
   {
     title: "Споры",
@@ -163,6 +174,11 @@ const adminNavItems: NavItem[] = [
     title: "Настройки ККК",
     href: "/admin/kkk-settings",
     icon: Settings,
+  },
+  {
+    title: "Системные настройки",
+    href: "/admin/system-settings",
+    icon: Cog,
   },
   {
     title: "Настройки споров",
@@ -501,11 +517,7 @@ export function Sidebar({ variant }: SidebarProps) {
                   </span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold">
-                      {Math.max(
-                        0,
-                        (financials.trustBalance || 0) -
-                          (financials.frozenUsdt || 0),
-                      ).toFixed(2)}
+                      {(financials.trustBalance || 0).toFixed(2)}
                     </span>
                     <span className="text-xs font-medium text-[#006039]">
                       USDT
@@ -513,14 +525,14 @@ export function Sidebar({ variant }: SidebarProps) {
                   </div>
                 </div>
                 {(financials.frozenUsdt || 0) > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Заморожено</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Заморожено</span>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-medium text-gray-600">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
                           {(financials.frozenUsdt || 0).toFixed(2)}
                         </span>
-                        <span className="text-xs text-gray-600">USDT</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">USDT</span>
                       </div>
                     </div>
                   </div>

@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import { Loader2, CreditCard, Plus, Trash2, Edit } from "lucide-react";
-import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
+import { AddBTRequisiteDialog } from "@/components/bt-entry/add-bt-requisite-dialog";
 import { cn } from "@/lib/utils";
 
 interface RequisitesListDialogProps {
@@ -301,7 +301,7 @@ export function RequisitesListDialog({
         </DialogContent>
       </Dialog>
 
-      <AddRequisiteDialog
+      <AddBTRequisiteDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         onSuccess={() => {

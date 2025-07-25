@@ -26,6 +26,8 @@ import ErrorSchema from '@/types/error'
 import { notifyByStatus } from '@/utils/notify'
 import axios from 'axios'
 import { roundDown2 } from '@/utils/rounding'
+import { rapiraService } from '@/services/rapira.service'
+import { calculateTransactionFreezing, freezeTraderBalance } from '@/utils/transaction-freezing'
 
 /* ───────────────────── helpers ───────────────────── */
 
@@ -152,15 +154,57 @@ export default (app: Elysia) =>
           if (!method) return error(404, { error: 'Метод не найден' })
           if (!user) return error(404, { error: 'Пользователь не найден' })
 
-          const trx = await db.transaction.create({
-            data: {
-              ...body,
-              expired_at:
-                body.expired_at ??
-                new Date(Date.now() + 24 * 60 * 60 * 1000),
-              isMock: true
-            },
-            include: { merchant: true, method: true, trader: true }
+          // Get current Rapira rates
+          const rapiraBaseRate = await rapiraService.getUsdtRubRate();
+          const rateSettingRecord = await db.rateSetting.findFirst({ where: { id: 1 } });
+          const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
+          const rapiraRateWithKkk = await rapiraService.getRateWithKkk(rapiraKkk);
+          
+          // Determine merchant rate
+          const merchantRate = merchant.countInRubEquivalent ? rapiraBaseRate : (body.rate || rapiraBaseRate);
+          
+          // Создаем транзакцию с заморозкой баланса если указан трейдер
+          const trx = await db.$transaction(async (prisma) => {
+            let freezingParams = null;
+            
+            // Если указан трейдер и это IN транзакция, рассчитываем и замораживаем
+            if (body.userId && body.type === 'IN') {
+              // Проверяем, что userId это трейдер
+              const trader = await prisma.user.findUnique({ where: { id: body.userId } });
+              if (trader) {
+                freezingParams = await calculateTransactionFreezing(
+                  body.amount,
+                  rapiraRateWithKkk,
+                  body.userId,
+                  body.merchantId,
+                  body.methodId
+                );
+                
+                // Замораживаем баланс
+                await freezeTraderBalance(prisma, body.userId, freezingParams);
+              }
+            }
+            
+            // Создаем транзакцию
+            return await prisma.transaction.create({
+              data: {
+                ...body,
+                rate: rapiraRateWithKkk, // Always Rapira rate with KKK for calculations
+                merchantRate: merchantRate, // Merchant's display rate
+                adjustedRate: rapiraRateWithKkk, // Deprecated, kept for compatibility
+                expired_at:
+                  body.expired_at ??
+                  new Date(Date.now() + 24 * 60 * 60 * 1000),
+                isMock: true,
+                ...(freezingParams ? {
+                  frozenUsdtAmount: freezingParams.frozenUsdtAmount,
+                  calculatedCommission: freezingParams.calculatedCommission,
+                  kkkPercent: freezingParams.kkkPercent,
+                  feeInPercent: freezingParams.feeInPercent
+                } : {})
+              },
+              include: { merchant: true, method: true, trader: true }
+            });
           })
 
           return new Response(
@@ -611,66 +655,138 @@ export default (app: Elysia) =>
     .put(
       '/trader',
       async ({ body, error }) => {
-        const updateData: any = { traderId: body.traderId };
-        
-        if (body.traderId) {
-          const [tx, trader] = await Promise.all([
-            db.transaction.findUnique({ where: { id: body.id } }),
-            db.user.findUnique({ where: { id: body.traderId } }),
-          ])
-          if (!tx) return error(404, { error: 'Транзакция не найдена' })
-          if (!trader) return error(400, { error: 'Указанный трейдер не существует' })
+        // Используем транзакцию БД для атомарности операции
+        return await db.$transaction(async (prisma) => {
+          const updateData: any = { traderId: body.traderId };
           
-          // Рассчитываем параметры заморозки для IN транзакций
-          if (tx.type === TransactionType.IN && tx.rate !== null) {
-            // Получаем параметры трейдера для данного мерчанта
-            const traderMerchant = await db.traderMerchant.findUnique({
-              where: {
-                traderId_merchantId: {
-                  traderId: body.traderId,
-                  merchantId: tx.merchantId
+          // Получаем текущую транзакцию
+          const tx = await prisma.transaction.findUnique({ 
+            where: { id: body.id },
+            include: { trader: true }
+          });
+          if (!tx) throw new Error('Транзакция не найдена');
+          
+          // Если убираем трейдера (traderId = null)
+          if (body.traderId === null && tx.traderId) {
+            // Размораживаем баланс старого трейдера
+            if (tx.frozenUsdtAmount && tx.calculatedCommission) {
+              const totalToUnfreeze = tx.frozenUsdtAmount + tx.calculatedCommission;
+              await prisma.user.update({
+                where: { id: tx.traderId },
+                data: {
+                  frozenUsdt: { decrement: totalToUnfreeze }
+                }
+              });
+              console.log(`[Admin] Unfrozen ${totalToUnfreeze} USDT for trader ${tx.traderId}`);
+            }
+            
+            // Очищаем параметры заморозки
+            updateData.frozenUsdtAmount = null;
+            updateData.calculatedCommission = null;
+            updateData.kkkPercent = null;
+            updateData.feeInPercent = null;
+          }
+          
+          // Если назначаем нового трейдера
+          if (body.traderId) {
+            const trader = await prisma.user.findUnique({ where: { id: body.traderId } });
+            if (!trader) throw new Error('Указанный трейдер не существует');
+            
+            // Для IN транзакций проверяем дубликаты и рассчитываем заморозку
+            if (tx.type === TransactionType.IN && tx.rate !== null) {
+              // Проверяем наличие активной транзакции с той же суммой на том же реквизите
+              if (tx.bankDetailId) {
+                const existingTransaction = await prisma.transaction.findFirst({
+                  where: {
+                    bankDetailId: tx.bankDetailId,
+                    amount: tx.amount,
+                    status: {
+                      in: [Status.CREATED, Status.IN_PROGRESS]
+                    },
+                    type: TransactionType.IN,
+                    id: { not: tx.id } // Исключаем текущую транзакцию
+                  }
+                });
+
+                if (existingTransaction) {
+                  throw new Error(`Невозможно назначить трейдера: на реквизите уже есть активная транзакция на сумму ${tx.amount} рублей`);
                 }
               }
-            });
-            
-            const kkkPercent = traderMerchant?.kkkPercent || 0;
-            const feeInPercent = traderMerchant?.feeInPercent || 0;
-            
-            const { calculateFreezingParams } = require('@/utils/freezing');
-            const freezingParams = calculateFreezingParams(
-              tx.amount,
-              tx.rate,
-              kkkPercent,
-              feeInPercent
-            );
-            
-            // Добавляем параметры заморозки к обновлению
-            updateData.adjustedRate = freezingParams.adjustedRate;
-            updateData.kkkPercent = kkkPercent;
-            updateData.feeInPercent = feeInPercent;
-            updateData.frozenUsdtAmount = freezingParams.frozenUsdtAmount;
-            updateData.calculatedCommission = freezingParams.calculatedCommission;
-            
-            // Проверяем доступный баланс с учетом заморозки
-            if (trader.trustBalance < freezingParams.totalRequired) {
-              return error(400, { error: 'Недостаточно баланса трейдера для заморозки' })
+              // Сначала размораживаем баланс старого трейдера, если он был
+              if (tx.traderId && tx.traderId !== body.traderId && tx.frozenUsdtAmount && tx.calculatedCommission) {
+                const totalToUnfreeze = tx.frozenUsdtAmount + tx.calculatedCommission;
+                await prisma.user.update({
+                  where: { id: tx.traderId },
+                  data: {
+                    frozenUsdt: { decrement: totalToUnfreeze }
+                  }
+                });
+                console.log(`[Admin] Unfrozen ${totalToUnfreeze} USDT for old trader ${tx.traderId}`);
+              }
+              
+              // Рассчитываем параметры заморозки для нового трейдера
+              const freezingParams = await calculateTransactionFreezing(
+                tx.amount,
+                tx.rate,
+                body.traderId,
+                tx.merchantId,
+                tx.methodId
+              );
+              
+              // Замораживаем баланс нового трейдера
+              await freezeTraderBalance(prisma, body.traderId, freezingParams);
+              
+              // Добавляем параметры заморозки к обновлению
+              updateData.frozenUsdtAmount = freezingParams.frozenUsdtAmount;
+              updateData.calculatedCommission = freezingParams.calculatedCommission;
+              updateData.kkkPercent = freezingParams.kkkPercent;
+              updateData.feeInPercent = freezingParams.feeInPercent;
+              updateData.adjustedRate = tx.rate; // Deprecated
             }
           }
-        }
-        
-        return updateTrx(body.id, updateData).catch((e) => {
-          if (
-            e instanceof Prisma.PrismaClientKnownRequestError &&
-            e.code === 'P2025'
-          )
-            return error(404, { error: 'Транзакция не найдена' })
-          if (
-            e instanceof Prisma.PrismaClientKnownRequestError &&
-            e.code === 'P2003'
-          )
-            return error(400, { error: 'Указанный трейдер не существует' })
-          throw e
-        })
+          
+          // Обновляем транзакцию
+          return await prisma.transaction.update({
+            where: { id: body.id },
+            data: updateData,
+            include: {
+              merchant: true,
+              method: true,
+              trader: true,
+              requisites: {
+                select: {
+                  id: true,
+                  bankType: true,
+                  cardNumber: true,
+                  phoneNumber: true,
+                  recipientName: true,
+                }
+              }
+            }
+          });
+        }).then(trx => serializeTransaction(trx))
+          .catch((e) => {
+            if (e?.message === 'Транзакция не найдена') {
+              return error(404, { error: e.message });
+            }
+            if (e?.message === 'Указанный трейдер не существует') {
+              return error(400, { error: e.message });
+            }
+            if (e?.message?.includes('Недостаточно баланса')) {
+              return error(400, { error: e.message });
+            }
+            if (
+              e instanceof Prisma.PrismaClientKnownRequestError &&
+              e.code === 'P2025'
+            )
+              return error(404, { error: 'Транзакция не найдена' })
+            if (
+              e instanceof Prisma.PrismaClientKnownRequestError &&
+              e.code === 'P2003'
+            )
+              return error(400, { error: 'Указанный трейдер не существует' })
+            throw e
+          });
       },
       {
         tags: ['admin'],
@@ -833,8 +949,7 @@ export default (app: Elysia) =>
               methodType: method.type,
               user: { 
                 banned: false,
-                deposit: { gt: 0 },
-                teamId: { not: null },
+                deposit: { gte: 1000 },
                 trafficEnabled: true
               },
               OR: [
@@ -850,6 +965,45 @@ export default (app: Elysia) =>
           for (const bd of pool) {
             if (amount < bd.minAmount || amount > bd.maxAmount) continue
             if (amount < bd.user.minAmountPerRequisite || amount > bd.user.maxAmountPerRequisite) continue
+            
+            // Проверяем наличие активной транзакции с той же суммой на этом реквизите
+            const existingTransaction = await db.transaction.findFirst({
+              where: {
+                bankDetailId: bd.id,
+                amount: amount,
+                status: {
+                  in: [Status.CREATED, Status.IN_PROGRESS]
+                },
+                type: TransactionType.IN,
+              }
+            });
+
+            if (existingTransaction) {
+              console.log(`[Admin Test] Реквизит ${bd.id} отклонен: уже есть транзакция на сумму ${amount} в статусе ${existingTransaction.status}`);
+              continue;
+            }
+            
+            // Проверяем дневной лимит транзакций
+            if (bd.maxCountTransactions && bd.maxCountTransactions > 0) {
+              const todayStart = new Date();
+              todayStart.setHours(0, 0, 0, 0);
+              const todayEnd = new Date();
+              todayEnd.setHours(23, 59, 59, 999);
+              
+              const todayCount = await db.transaction.count({
+                where: {
+                  bankDetailId: bd.id,
+                  createdAt: { gte: todayStart, lte: todayEnd },
+                  status: { not: Status.CANCELED },
+                }
+              });
+              
+              if (todayCount + 1 > bd.maxCountTransactions) {
+                console.log(`[Admin Test] Реквизит ${bd.id} отклонен: превышение лимита транзакций. Текущий: ${todayCount}, лимит: ${bd.maxCountTransactions}`);
+                continue;
+              }
+            }
+            
             chosen = bd
             break
           }
@@ -858,51 +1012,91 @@ export default (app: Elysia) =>
             return error(409, { error: "NO_REQUISITE: подходящий реквизит не найден" })
           }
 
-          // Create test transaction
-          const transaction = await db.transaction.create({
-            data: {
-              merchantId: testMerchant.id,
+          // Get current Rapira rates for test transaction
+          const rapiraBaseRate = await rapiraService.getUsdtRubRate();
+          const rateSettingRecord = await db.rateSetting.findFirst({ where: { id: 1 } });
+          const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
+          const rapiraRateWithKkk = await rapiraService.getRateWithKkk(rapiraKkk);
+          
+          // Determine merchant rate (for test merchant, use rate if provided)
+          const merchantRate = testMerchant.countInRubEquivalent ? rapiraBaseRate : (rate || rapiraBaseRate);
+          
+          // Create test transaction with balance freezing
+          const transaction = await db.$transaction(async (prisma) => {
+            // Рассчитываем параметры заморозки
+            const freezingParams = await calculateTransactionFreezing(
               amount,
-              assetOrBank: chosen.cardNumber,
-              orderId,
-              methodId: body.methodId,
-              currency: "RUB",
-              userId: `test_user_${Date.now()}`,
-              userIp,
-              callbackUri,
-              successUri: "",
-              failUri: "",
-              type: "IN",
-              expired_at: new Date(expired_at),
-              commission: 0,
-              clientName: `Test User`,
-              status: "IN_PROGRESS",
-              rate,
-              isMock: true,
-              bankDetailId: chosen.id,
-              traderId: chosen.userId
-            },
-            include: {
-              method: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                  type: true,
-                  currency: true,
-                  commissionPayin: true
-                }
+              rapiraRateWithKkk,
+              chosen.userId,
+              testMerchant.id,
+              body.methodId
+            );
+            
+            // Замораживаем баланс трейдера
+            await freezeTraderBalance(prisma, chosen.userId, freezingParams);
+            console.log(`[Admin Test] Frozen ${freezingParams.totalRequired} USDT for trader ${chosen.userId}`);
+            
+            // Обновляем updatedAt реквизита для ротации
+            await prisma.bankDetail.update({
+              where: { id: chosen.id },
+              data: { updatedAt: new Date() }
+            });
+            
+            // Создаем транзакцию
+            return await prisma.transaction.create({
+              data: {
+                merchantId: testMerchant.id,
+                amount,
+                assetOrBank: chosen.cardNumber,
+                orderId,
+                methodId: body.methodId,
+                currency: "RUB",
+                userId: `test_user_${Date.now()}`,
+                userIp,
+                callbackUri,
+                successUri: "",
+                failUri: "",
+                type: "IN",
+                expired_at: new Date(expired_at),
+                commission: 0,
+                clientName: `Test User`,
+                status: "IN_PROGRESS",
+                rate: rapiraRateWithKkk, // Always Rapira rate with KKK for calculations
+                merchantRate: merchantRate, // Merchant's display rate
+                adjustedRate: rapiraRateWithKkk, // Deprecated, kept for compatibility
+                isMock: true,
+                bankDetailId: chosen.id,
+                traderId: chosen.userId,
+                // Параметры заморозки
+                frozenUsdtAmount: freezingParams.frozenUsdtAmount,
+                calculatedCommission: freezingParams.calculatedCommission,
+                kkkPercent: freezingParams.kkkPercent,
+                feeInPercent: freezingParams.feeInPercent,
+                // Рассчитываем traderProfit сразу при создании
+                traderProfit: freezingParams.calculatedCommission ? Math.trunc(freezingParams.calculatedCommission * 100) / 100 : null
               },
-              requisites: {
-                select: {
-                  id: true,
-                  bankType: true,
-                  cardNumber: true,
-                  recipientName: true,
-                  user: { select: { id: true, name: true } }
+              include: {
+                method: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    type: true,
+                    currency: true,
+                    commissionPayin: true
+                  }
+                },
+                requisites: {
+                  select: {
+                    id: true,
+                    bankType: true,
+                    cardNumber: true,
+                    recipientName: true,
+                    user: { select: { id: true, name: true } }
+                  }
                 }
               }
-            }
+            });
           })
 
           const crypto = rate && transaction.method 

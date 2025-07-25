@@ -169,6 +169,13 @@ interface Transaction {
     cardNumber: string;
     bankType: string;
   } | null;
+  matchedNotification?: {
+    id: string;
+    message: string;
+    createdAt: string;
+    deviceId: string | null;
+    metadata: any;
+  } | null;
   receipts?: Array<{
     id: string;
     fileName: string;
@@ -234,7 +241,7 @@ export function DealsList() {
     dateFrom: undefined as Date | undefined,
     dateTo: undefined as Date | undefined,
   });
-  
+
   // Temporary filters (for UI)
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterAmount, setFilterAmount] = useState({
@@ -366,11 +373,13 @@ export function DealsList() {
 
           const response = await traderApi.getTransactions(params);
           const newData = response.data || response.transactions || [];
-          
+
           setTransactions((currentTransactions) => {
             const existingIds = new Set(currentTransactions.map((t) => t.id));
-            const newTransactions = newData.filter((tx: Transaction) => !existingIds.has(tx.id));
-            
+            const newTransactions = newData.filter(
+              (tx: Transaction) => !existingIds.has(tx.id),
+            );
+
             if (newTransactions.length > 0) {
               // Show notifications for new transactions
               newTransactions.forEach((tx: Transaction) => {
@@ -378,11 +387,11 @@ export function DealsList() {
                   description: `${tx.amount.toLocaleString("ru-RU")} ₽ от ${tx.clientName}`,
                 });
               });
-              
+
               // Add new transactions to the beginning of the list
               return [...newTransactions, ...currentTransactions];
             }
-            
+
             return currentTransactions;
           });
 
@@ -425,7 +434,7 @@ export function DealsList() {
       dateTo: filterDateTo,
     });
   };
-  
+
   // Refetch when applied filters change
   useEffect(() => {
     if (!loading) {
@@ -489,7 +498,10 @@ export function DealsList() {
       }
 
       // Add amount filters
-      if (appliedFilters.amountType === "exact" && appliedFilters.amount.exact) {
+      if (
+        appliedFilters.amountType === "exact" &&
+        appliedFilters.amount.exact
+      ) {
         params.amount = parseFloat(appliedFilters.amount.exact);
       } else if (appliedFilters.amountType === "range") {
         if (appliedFilters.amount.min) {
@@ -520,6 +532,12 @@ export function DealsList() {
       const hasMoreData = txData.length === 50; // If we get full page, there might be more
 
       console.log("[DealsList] Transactions data:", txData.length, "items");
+      if (txData.length > 0) {
+        console.log("[DealsList] First transaction:", txData[0]);
+        console.log("[DealsList] calculatedCommission:", txData[0].calculatedCommission, typeof txData[0].calculatedCommission);
+        console.log("[DealsList] profit:", txData[0].profit, typeof txData[0].profit);
+        console.log("[DealsList] traderProfit:", txData[0].traderProfit, typeof txData[0].traderProfit);
+      }
 
       // Mark new transactions using callback to get current state
       setTransactions((currentTransactions) => {
@@ -552,8 +570,9 @@ export function DealsList() {
         }
 
         // Sort transactions by createdAt to show newest first
-        const sortedData = [...newData].sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        const sortedData = [...newData].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
 
         return append ? [...currentTransactions, ...sortedData] : sortedData;
@@ -709,14 +728,18 @@ export function DealsList() {
 
     // Requisite filter
     if (appliedFilters.requisite !== "all") {
-      filtered = filtered.filter((t) => t.requisites?.id === appliedFilters.requisite);
+      filtered = filtered.filter(
+        (t) => t.requisites?.id === appliedFilters.requisite,
+      );
     }
 
     // Payment method type filter
     if (appliedFilters.methodType !== "all") {
       filtered = filtered.filter((t) => {
         const type = t.method?.type?.toLowerCase();
-        return appliedFilters.methodType === "sbp" ? type === "sbp" : type === "c2c";
+        return appliedFilters.methodType === "sbp"
+          ? type === "sbp"
+          : type === "c2c";
       });
     }
 
@@ -760,14 +783,38 @@ export function DealsList() {
   // Calculate stats for period
   const calculatePeriodStats = () => {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const startOfWeek = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - now.getDay(),
+    );
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-    const startOfHalfYear = new Date(now.getFullYear(), Math.floor(now.getMonth() / 6) * 6, 1);
+    const startOfQuarter = new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 3) * 3,
+      1,
+    );
+    const startOfHalfYear = new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 6) * 6,
+      1,
+    );
     const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 1,
+    );
+    const endOfYesterday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
 
     let filterDate: Date;
     let endDate: Date | undefined;
@@ -805,7 +852,9 @@ export function DealsList() {
           if (tx.status === "READY" || tx.status === "COMPLETED") {
             acc.count += 1;
             // Calculate USDT amount
-            const usdtAmount = tx.frozenUsdtAmount || (tx.rate ? tx.amount / tx.rate : tx.amount / 95);
+            const usdtAmount =
+              tx.frozenUsdtAmount ||
+              (tx.rate ? tx.amount / tx.rate : tx.amount / 95);
             acc.totalAmount += usdtAmount;
             acc.totalProfit += tx.calculatedCommission || 0;
           }
@@ -870,17 +919,30 @@ export function DealsList() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs">
-                  <span className="hidden sm:inline">Период: </span>{period === "today" ? "за сегодня" : 
-                          period === "yesterday" ? "за вчера" :
-                          period === "week" ? "за неделю" :
-                          period === "month" ? "за месяц" :
-                          period === "quarter" ? "за квартал" :
-                          period === "halfyear" ? "за полгода" :
-                          period === "year" ? "за год" : "за сегодня"}
+                  <span className="hidden sm:inline">Период: </span>
+                  {period === "today"
+                    ? "за сегодня"
+                    : period === "yesterday"
+                      ? "за вчера"
+                      : period === "week"
+                        ? "за неделю"
+                        : period === "month"
+                          ? "за месяц"
+                          : period === "quarter"
+                            ? "за квартал"
+                            : period === "halfyear"
+                              ? "за полгода"
+                              : period === "year"
+                                ? "за год"
+                                : "за сегодня"}
                   <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-0" align="end" alignOffset={-10}>
+              <PopoverContent
+                className="w-48 p-0"
+                align="end"
+                alignOffset={-10}
+              >
                 <div className="max-h-64 overflow-auto">
                   <Button
                     variant="ghost"
@@ -963,17 +1025,30 @@ export function DealsList() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="text-xs">
-                  <span className="hidden sm:inline">Период: </span>{period === "today" ? "за сегодня" : 
-                          period === "yesterday" ? "за вчера" :
-                          period === "week" ? "за неделю" :
-                          period === "month" ? "за месяц" :
-                          period === "quarter" ? "за квартал" :
-                          period === "halfyear" ? "за полгода" :
-                          period === "year" ? "за год" : "за сегодня"}
+                  <span className="hidden sm:inline">Период: </span>
+                  {period === "today"
+                    ? "за сегодня"
+                    : period === "yesterday"
+                      ? "за вчера"
+                      : period === "week"
+                        ? "за неделю"
+                        : period === "month"
+                          ? "за месяц"
+                          : period === "quarter"
+                            ? "за квартал"
+                            : period === "halfyear"
+                              ? "за полгода"
+                              : period === "year"
+                                ? "за год"
+                                : "за сегодня"}
                   <ChevronDown className="ml-1 h-3 w-3 text-[#006039] dark:text-[#2d6a42]" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-0" align="end" alignOffset={-10}>
+              <PopoverContent
+                className="w-48 p-0"
+                align="end"
+                alignOffset={-10}
+              >
                 <div className="max-h-64 overflow-auto">
                   <Button
                     variant="ghost"
@@ -1043,14 +1118,18 @@ export function DealsList() {
         searchPlaceholder="Поиск..."
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        activeFiltersCount={[
-          appliedFilters.status !== "all",
-          appliedFilters.amount.exact || appliedFilters.amount.min || appliedFilters.amount.max,
-          appliedFilters.device !== "all",
-          appliedFilters.requisite !== "all",
-          appliedFilters.methodType !== "all",
-          appliedFilters.dateFrom || appliedFilters.dateTo,
-        ].filter(Boolean).length}
+        activeFiltersCount={
+          [
+            appliedFilters.status !== "all",
+            appliedFilters.amount.exact ||
+              appliedFilters.amount.min ||
+              appliedFilters.amount.max,
+            appliedFilters.device !== "all",
+            appliedFilters.requisite !== "all",
+            appliedFilters.methodType !== "all",
+            appliedFilters.dateFrom || appliedFilters.dateTo,
+          ].filter(Boolean).length
+        }
         onResetFilters={() => {
           setFilterStatus("all");
           setFilterAmount({ exact: "", min: "", max: "" });
@@ -1132,453 +1211,445 @@ export function DealsList() {
           </Popover>
         }
       >
-
-                {/* Status Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Статус платежа</Label>
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full justify-between h-12"
-                      >
-                        <span className={"text-[#006039]"}>
-                          {filterStatus === "all"
-                            ? "Все сделки"
-                            : filterStatus === "not_credited"
-                              ? "Не зачисленные сделки"
-                              : filterStatus === "credited"
-                                ? "Зачисленные сделки"
-                                : "Сделки выполняются"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-[calc(100vw-3rem)] sm:w-[465px] p-0"
-                      align="start"
-                      sideOffset={5}
-                    >
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <Input placeholder="Поиск статуса" className="pl-9" />
-                        </div>
-                      </div>
-                      <div className="max-h-64 overflow-auto">
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterStatus === "all" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterStatus("all")}
-                        >
-                          Все сделки
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterStatus === "not_credited" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterStatus("not_credited")}
-                        >
-                          Не зачисленные сделки
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterStatus === "credited" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterStatus("credited")}
-                        >
-                          Зачисленные сделки
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterStatus === "in_progress" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterStatus("in_progress")}
-                        >
-                          Сделки выполняются
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+        {/* Status Filter */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-[#006039]" />
+            <Label className="text-sm">Статус платежа</Label>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="default"
+                className="w-full justify-between h-12"
+              >
+                <span className={"text-[#006039]"}>
+                  {filterStatus === "all"
+                    ? "Все сделки"
+                    : filterStatus === "not_credited"
+                      ? "Не зачисленные сделки"
+                      : filterStatus === "credited"
+                        ? "Зачисленные сделки"
+                        : "Сделки выполняются"}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[calc(100vw-3rem)] sm:w-[465px] p-0"
+              align="start"
+              sideOffset={5}
+            >
+              <div className="p-2 border-b">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input placeholder="Поиск статуса" className="pl-9" />
                 </div>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className={cn(
+                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                    filterStatus === "all" &&
+                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                  )}
+                  onClick={() => setFilterStatus("all")}
+                >
+                  Все сделки
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className={cn(
+                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                    filterStatus === "not_credited" &&
+                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                  )}
+                  onClick={() => setFilterStatus("not_credited")}
+                >
+                  Не зачисленные сделки
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className={cn(
+                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                    filterStatus === "credited" &&
+                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                  )}
+                  onClick={() => setFilterStatus("credited")}
+                >
+                  Зачисленные сделки
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className={cn(
+                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                    filterStatus === "in_progress" &&
+                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                  )}
+                  onClick={() => setFilterStatus("in_progress")}
+                >
+                  Сделки выполняются
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
 
-                {/* Amount Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-[#006039]" />
-                      <Label className="text-sm">Сумма зачисления</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className={cn(
-                          "text-sm font-medium transition-colors",
-                          filterAmountType === "exact"
-                            ? "text-[#006039]"
-                            : "text-gray-500 hover:text-gray-700",
-                        )}
-                        onClick={() => setFilterAmountType("exact")}
-                      >
-                        Точное значение
-                      </button>
-                      <span className="text-gray-400">/</span>
-                      <button
-                        className={cn(
-                          "text-sm font-medium transition-colors",
-                          filterAmountType === "range"
-                            ? "text-[#006039]"
-                            : "text-gray-500 hover:text-gray-700",
-                        )}
-                        onClick={() => setFilterAmountType("range")}
-                      >
-                        Диапазон
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    {filterAmountType === "exact" ? (
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          placeholder="Сумма"
-                          value={filterAmount.exact}
-                          onChange={(e) =>
-                            setFilterAmount({
-                              ...filterAmount,
-                              exact: e.target.value,
-                            })
-                          }
-                          className="h-12"
-                        />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                          RUB
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Input
-                            type="number"
-                            placeholder="Сумма, от"
-                            value={filterAmount.min}
-                            onChange={(e) =>
-                              setFilterAmount({
-                                ...filterAmount,
-                                min: e.target.value,
-                              })
-                            }
-                            className="flex-1 h-12"
-                          />
-                          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                            RUB
-                          </span>
-                        </div>
-                        <div className="relative flex-1">
-                          <Input
-                            type="number"
-                            placeholder="Сумма, до"
-                            value={filterAmount.max}
-                            onChange={(e) =>
-                              setFilterAmount({
-                                ...filterAmount,
-                                max: e.target.value,
-                              })
-                            }
-                            className="flex-1 h-12"
-                          />
-                          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                            RUB
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+        {/* Amount Filter */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-[#006039]" />
+              <Label className="text-sm">Сумма зачисления</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className={cn(
+                  "text-sm font-medium transition-colors",
+                  filterAmountType === "exact"
+                    ? "text-[#006039]"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+                onClick={() => setFilterAmountType("exact")}
+              >
+                Точное значение
+              </button>
+              <span className="text-gray-400">/</span>
+              <button
+                className={cn(
+                  "text-sm font-medium transition-colors",
+                  filterAmountType === "range"
+                    ? "text-[#006039]"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+                onClick={() => setFilterAmountType("range")}
+              >
+                Диапазон
+              </button>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {filterAmountType === "exact" ? (
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="Сумма"
+                  value={filterAmount.exact}
+                  onChange={(e) =>
+                    setFilterAmount({
+                      ...filterAmount,
+                      exact: e.target.value,
+                    })
+                  }
+                  className="h-12"
+                />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                  RUB
+                </span>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type="number"
+                    placeholder="Сумма, от"
+                    value={filterAmount.min}
+                    onChange={(e) =>
+                      setFilterAmount({
+                        ...filterAmount,
+                        min: e.target.value,
+                      })
+                    }
+                    className="flex-1 h-12"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                    RUB
+                  </span>
                 </div>
+                <div className="relative flex-1">
+                  <Input
+                    type="number"
+                    placeholder="Сумма, до"
+                    value={filterAmount.max}
+                    onChange={(e) =>
+                      setFilterAmount({
+                        ...filterAmount,
+                        max: e.target.value,
+                      })
+                    }
+                    className="flex-1 h-12"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                    RUB
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-                {/* Device Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Устройства</Label>
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full justify-between h-12"
-                      >
-                        <span className={"text-[#006039]"}>
-                          {filterDevice === "all"
-                            ? "Все устройства"
-                            : filterDevice === "1"
-                              ? "Основное устройство"
-                              : "Резервное устройство"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-[465px] p-0"
-                      align="start"
-                      sideOffset={5}
-                    >
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <Input
-                            placeholder="Поиск устройств"
-                            className="pl-9"
-                            value={deviceSearch}
-                            onChange={(e) => setDeviceSearch(e.target.value)}
-                          />
-                        </div>
+        {/* Device Filter */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-[#006039]" />
+            <Label className="text-sm">Устройства</Label>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="default"
+                className="w-full justify-between h-12"
+              >
+                <span className={"text-[#006039]"}>
+                  {filterDevice === "all"
+                    ? "Все устройства"
+                    : filterDevice === "1"
+                      ? "Основное устройство"
+                      : "Резервное устройство"}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[465px] p-0"
+              align="start"
+              sideOffset={5}
+            >
+              <div className="p-2 border-b">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Поиск устройств"
+                    className="pl-9"
+                    value={deviceSearch}
+                    onChange={(e) => setDeviceSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className={cn(
+                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                    filterDevice === "all" &&
+                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                  )}
+                  onClick={() => setFilterDevice("all")}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Smartphone className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium">Все устройства</div>
+                      <div className="text-sm text-gray-500">
+                        Не фильтровать по устройству
                       </div>
-                      <div className="max-h-64 overflow-auto">
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterDevice === "all" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterDevice("all")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Smartphone className="h-4 w-4 text-gray-600" />
-                            </div>
-                            <div className="text-left">
-                              <div className="font-medium">Все устройства</div>
-                              <div className="text-sm text-gray-500">
-                                Не фильтровать по устройству
-                              </div>
-                            </div>
+                    </div>
+                  </div>
+                </Button>
+                {devices
+                  .filter(
+                    (device) =>
+                      !deviceSearch ||
+                      device.name
+                        ?.toLowerCase()
+                        .includes(deviceSearch.toLowerCase()) ||
+                      device.id
+                        ?.toLowerCase()
+                        .includes(deviceSearch.toLowerCase()),
+                  )
+                  .map((device) => (
+                    <Button
+                      key={device.id}
+                      variant="ghost"
+                      size="default"
+                      className={cn(
+                        "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                        filterDevice === device.id &&
+                          "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                      )}
+                      onClick={() => setFilterDevice(device.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Smartphone className="h-4 w-4 text-gray-600" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">{device.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {device.isOnline ? "Онлайн" : "Оффлайн"} • ID:{" "}
+                            {device.id.slice(0, 8)}...
                           </div>
-                        </Button>
-                        {devices
-                          .filter(
-                            (device) =>
-                              !deviceSearch ||
-                              device.name
-                                ?.toLowerCase()
-                                .includes(deviceSearch.toLowerCase()) ||
-                              device.id
-                                ?.toLowerCase()
-                                .includes(deviceSearch.toLowerCase()),
-                          )
-                          .map((device) => (
-                            <Button
-                              key={device.id}
-                              variant="ghost"
-                              size="default"
-                              className={cn(
-                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                                filterDevice === device.id &&
-                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                              )}
-                              onClick={() => setFilterDevice(device.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <Smartphone className="h-4 w-4 text-gray-600" />
-                                </div>
-                                <div className="text-left">
-                                  <div className="font-medium">
-                                    {device.name}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {device.isOnline ? "Онлайн" : "Оффлайн"} •
-                                    ID: {device.id.slice(0, 8)}...
-                                  </div>
-                                </div>
-                              </div>
-                            </Button>
-                          ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Requisite Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Реквизиты</Label>
-                  </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="default"
-                        className="w-full justify-between h-12"
-                      >
-                        <span className={"text-[#006039]"}>
-                          {filterRequisite === "all"
-                            ? "Все реквизиты"
-                            : filterRequisite === "1"
-                              ? "Основная карта"
-                              : "Резервная карта"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-[calc(100vw-3rem)] sm:w-[465px] p-0"
-                      align="start"
-                      sideOffset={5}
-                    >
-                      <div className="p-2 border-b">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <Input
-                            placeholder="Поиск реквизитов"
-                            className="pl-9"
-                            value={requisiteSearch}
-                            onChange={(e) => setRequisiteSearch(e.target.value)}
-                          />
                         </div>
                       </div>
-                      <div className="max-h-64 overflow-auto">
-                        <Button
-                          variant="ghost"
-                          size="default"
-                          className={cn(
-                            "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                            filterRequisite === "all" &&
-                              "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                          )}
-                          onClick={() => setFilterRequisite("all")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <CreditCard className="h-4 w-4 text-gray-600" />
-                            </div>
-                            <div className="text-left">
-                              <div className="font-medium">Все реквизиты</div>
-                              <div className="text-sm text-gray-500">
-                                Не фильтровать по реквизитам
-                              </div>
-                            </div>
-                          </div>
-                        </Button>
-                        {requisites
-                          .filter(
-                            (requisite) =>
-                              !requisiteSearch ||
-                              requisite.recipientName
-                                ?.toLowerCase()
-                                .includes(requisiteSearch.toLowerCase()) ||
-                              requisite.cardNumber?.includes(requisiteSearch) ||
-                              requisite.bankType
-                                ?.toLowerCase()
-                                .includes(requisiteSearch.toLowerCase()),
-                          )
-                          .map((requisite) => (
-                            <Button
-                              key={requisite.id}
-                              variant="ghost"
-                              size="default"
-                              className={cn(
-                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                                filterRequisite === requisite.id &&
-                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                              )}
-                              onClick={() => setFilterRequisite(requisite.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                {requisite.bankType ? (
-                                  getBankIcon(requisite.bankType, "sm")
-                                ) : (
-                                  <NeutralBankIcon />
-                                )}
-                                <div className="text-left">
-                                  <div className="font-medium">
-                                    {requisite.recipientName ||
-                                      "Безымянная карта"}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {requisite.cardNumber
-                                      ? `•••• ${requisite.cardNumber.slice(-4)}`
-                                      : "Номер не указан"}{" "}
-                                    • {requisite.bankType || "Банк не указан"}
-                                  </div>
-                                </div>
-                              </div>
-                            </Button>
-                          ))}
+                    </Button>
+                  ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Requisite Filter */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-[#006039]" />
+            <Label className="text-sm">Реквизиты</Label>
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="default"
+                className="w-full justify-between h-12"
+              >
+                <span className={"text-[#006039]"}>
+                  {filterRequisite === "all"
+                    ? "Все реквизиты"
+                    : filterRequisite === "1"
+                      ? "Основная карта"
+                      : "Резервная карта"}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[calc(100vw-3rem)] sm:w-[465px] p-0"
+              align="start"
+              sideOffset={5}
+            >
+              <div className="p-2 border-b">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Поиск реквизитов"
+                    className="pl-9"
+                    value={requisiteSearch}
+                    onChange={(e) => setRequisiteSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <Button
+                  variant="ghost"
+                  size="default"
+                  className={cn(
+                    "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                    filterRequisite === "all" &&
+                      "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                  )}
+                  onClick={() => setFilterRequisite("all")}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium">Все реквизиты</div>
+                      <div className="text-sm text-gray-500">
+                        Не фильтровать по реквизитам
                       </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Payment Method Type Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Тип метода</Label>
-                  </div>
-                  <Select
-                    value={filterMethodType}
-                    onValueChange={setFilterMethodType}
-                  >
-                    <SelectTrigger className="w-full h-12">
-                      <SelectValue placeholder="Все типы" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Все типы</SelectItem>
-                      <SelectItem value="sbp">СБП</SelectItem>
-                      <SelectItem value="c2c">C2C</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Date Range */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-[#006039]" />
-                    <Label className="text-sm">Дата создания платежа</Label>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <CustomCalendarPopover
-                        value={filterDateFrom}
-                        onChange={setFilterDateFrom}
-                        placeholder="От"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <CustomCalendarPopover
-                        value={filterDateTo}
-                        onChange={setFilterDateTo}
-                        placeholder="До"
-                      />
                     </div>
                   </div>
-                </div>
+                </Button>
+                {requisites
+                  .filter(
+                    (requisite) =>
+                      !requisiteSearch ||
+                      requisite.recipientName
+                        ?.toLowerCase()
+                        .includes(requisiteSearch.toLowerCase()) ||
+                      requisite.cardNumber?.includes(requisiteSearch) ||
+                      requisite.bankType
+                        ?.toLowerCase()
+                        .includes(requisiteSearch.toLowerCase()),
+                  )
+                  .map((requisite) => (
+                    <Button
+                      key={requisite.id}
+                      variant="ghost"
+                      size="default"
+                      className={cn(
+                        "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                        filterRequisite === requisite.id &&
+                          "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
+                      )}
+                      onClick={() => setFilterRequisite(requisite.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        {requisite.bankType ? (
+                          getBankIcon(requisite.bankType, "sm")
+                        ) : (
+                          <NeutralBankIcon />
+                        )}
+                        <div className="text-left">
+                          <div className="font-medium">
+                            {requisite.recipientName || "Безымянная карта"}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {requisite.cardNumber
+                              ? `•••• ${requisite.cardNumber.slice(-4)}`
+                              : "Номер не указан"}{" "}
+                            • {requisite.bankType || "Банк не указан"}
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
 
+        {/* Payment Method Type Filter */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-[#006039]" />
+            <Label className="text-sm">Тип метода</Label>
+          </div>
+          <Select value={filterMethodType} onValueChange={setFilterMethodType}>
+            <SelectTrigger className="w-full h-12">
+              <SelectValue placeholder="Все типы" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все типы</SelectItem>
+              <SelectItem value="sbp">СБП</SelectItem>
+              <SelectItem value="c2c">C2C</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Date Range */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-[#006039]" />
+            <Label className="text-sm">Дата создания платежа</Label>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <CustomCalendarPopover
+                value={filterDateFrom}
+                onChange={setFilterDateFrom}
+                placeholder="От"
+              />
+            </div>
+            <div className="flex-1">
+              <CustomCalendarPopover
+                value={filterDateTo}
+                onChange={setFilterDateTo}
+                placeholder="До"
+              />
+            </div>
+          </div>
+        </div>
       </StickySearchFilters>
 
       {/* Transactions List */}
@@ -1695,7 +1766,13 @@ export function DealsList() {
                     "p-3 md:p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700",
                     transaction.isNew && "flash-once",
                   )}
-                  onClick={() => setSelectedTransaction(transaction)}
+                  onClick={() => {
+                    console.log("[DealsList] Selected transaction:", transaction);
+                    console.log("[DealsList] calculatedCommission:", transaction.calculatedCommission);
+                    console.log("[DealsList] profit:", transaction.profit);
+                    console.log("[DealsList] traderProfit:", transaction.traderProfit);
+                    setSelectedTransaction(transaction);
+                  }}
                 >
                   <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                     {/* Status Icon */}
@@ -1758,11 +1835,18 @@ export function DealsList() {
                     {/* Amount */}
                     <div className="w-24 md:w-32 flex-shrink-0 text-right md:text-left">
                       <div className="text-xs md:text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
-                        {usdtAmount} USDT
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {transaction.amount.toLocaleString("ru-RU")} ₽
                       </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {usdtAmount} USDT
+                      </div>
+                      {/* Profit - показываем только для статуса READY или COMPLETED */}
+                      {(transaction.status === 'READY' || transaction.status === 'COMPLETED') && 
+                       (transaction.calculatedCommission || transaction.profit || transaction.traderProfit) ? (
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                          +{(transaction.calculatedCommission || transaction.profit || transaction.traderProfit || 0).toFixed(2)}
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Rate */}
@@ -2025,11 +2109,10 @@ export function DealsList() {
                         </span>
                         <span className="text-lg font-semibold text-green-600 dark:text-green-400">
                           +{" "}
-                          {selectedTransaction.calculatedCommission
-                            ? selectedTransaction.calculatedCommission.toFixed(
-                                2,
-                              )
-                            : "0.00"}{" "}
+                          {(selectedTransaction.calculatedCommission || 
+                            selectedTransaction.profit || 
+                            selectedTransaction.traderProfit || 
+                            0).toFixed(2)}{" "}
                           USDT
                         </span>
                       </div>
@@ -2061,6 +2144,44 @@ export function DealsList() {
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedTransaction.method.name}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronDown className="h-5 w-5 text-[#006039] dark:text-green-400 -rotate-90" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Matched Notification */}
+                    {selectedTransaction.matchedNotification && (
+                      <div className="pt-3 border-t dark:border-gray-700">
+                        <Button
+                          variant="ghost"
+                          className="w-full p-3 h-auto justify-between hover:bg-gray-50 dark:hover:bg-gray-700 -mx-3"
+                          onClick={() => {
+                            setSelectedTransaction(null);
+                            router.push(
+                              `/trader/messages?notificationId=${selectedTransaction.matchedNotification.id}`,
+                            );
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                              <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div className="text-left flex-1 min-w-0">
+                              <p className="text-sm font-medium dark:text-white">
+                                Уведомление от банка
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {selectedTransaction.matchedNotification.message
+                                  .length > 60
+                                  ? selectedTransaction.matchedNotification.message.substring(
+                                      0,
+                                      60,
+                                    ) + "..."
+                                  : selectedTransaction.matchedNotification
+                                      .message}
                               </p>
                             </div>
                           </div>
@@ -2103,18 +2224,15 @@ export function DealsList() {
                       </div>
                     ) : selectedTransaction.status === "EXPIRED" ? (
                       <div className="flex flex-col gap-2">
-                        <Button
-                          className="w-full bg-[#006039] hover:bg-[#006039]/90"
-                          onClick={() => confirmPayment(selectedTransaction.id)}
-                        >
-                          Подтвердить платеж
-                        </Button>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-3">
+                          Срок сделки истек
+                        </p>
                         <Button
                           className="w-full"
                           variant="outline"
                           onClick={() => setSelectedTransaction(null)}
                         >
-                          Отмена
+                          Закрыть
                         </Button>
                       </div>
                     ) : (

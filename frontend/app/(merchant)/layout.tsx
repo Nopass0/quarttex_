@@ -19,7 +19,8 @@ import {
   Sun,
   Moon,
   CreditCard,
-  ArrowUpRight
+  ArrowUpRight,
+  History
 } from "lucide-react"
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
@@ -40,6 +41,11 @@ const sidebarItems = [
     title: "Выплаты",
     href: "/merchant/payouts",
     icon: ArrowUpRight,
+  },
+  {
+    title: "История Settle",
+    href: "/merchant/settle-history",
+    icon: History,
   },
   {
     title: "Споры",

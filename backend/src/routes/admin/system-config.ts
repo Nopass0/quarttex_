@@ -1,8 +1,30 @@
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
 import ErrorSchema from "@/types/error";
+import { MASTER_KEY } from "@/utils/constants";
 
 export default new Elysia({ prefix: "/system-config" })
+  // Derive adminId and clientIp from request context
+  .derive(async ({ request, ip }) => {
+    const adminToken = request.headers.get("x-admin-key");
+    let adminId = "system";
+    
+    // If it's not the master key, find the admin
+    if (adminToken && adminToken !== MASTER_KEY) {
+      const admin = await db.admin.findUnique({
+        where: { token: adminToken },
+        select: { id: true }
+      });
+      if (admin) {
+        adminId = admin.id;
+      }
+    }
+    
+    return {
+      adminId,
+      clientIp: ip
+    };
+  })
   
   // Get all system configs
   .get("/", async () => {
@@ -78,6 +100,7 @@ export default new Elysia({ prefix: "/system-config" })
         'min_deposit_amount',
         'deposit_confirmations_required',
         'deposit_expiry_minutes',
+        'min_withdrawal_amount',
         'kkk_percent',
         'rate_margin',
         'default_rate',

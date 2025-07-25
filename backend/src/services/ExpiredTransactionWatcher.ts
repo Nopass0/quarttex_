@@ -11,7 +11,7 @@ import { Status } from '@prisma/client';
  * • Логирует количество «протухших» транзакций.
  */
 export default class ExpiredTransactionWatcher extends BaseService {
-  protected interval = 60_000; // 1 минута
+  protected interval = 10_000; // 10 секунд для более быстрой обработки
   
   // Публичные поля для мониторинга
   private totalProcessed = 0;
@@ -67,7 +67,11 @@ export default class ExpiredTransactionWatcher extends BaseService {
           trader: true,
           method: true,
           merchant: true,
-        }
+        },
+        orderBy: {
+          expired_at: 'asc' // Обрабатываем сначала те, что истекли раньше
+        },
+        take: 100 // Ограничиваем количество для пакетной обработки
       });
 
       this.lastProcessedCount = expiredTransactions.length;
@@ -103,14 +107,53 @@ export default class ExpiredTransactionWatcher extends BaseService {
             });
 
             // Размораживаем средства для IN транзакций
-            if (tx.type === 'IN' && tx.traderId && tx.frozenUsdtAmount && tx.calculatedCommission) {
-              unfrozenAmount = tx.frozenUsdtAmount + tx.calculatedCommission;
+            if (tx.type === 'IN' && tx.traderId && tx.frozenUsdtAmount) {
+              // Размораживаем основную сумму + комиссию (если есть)
+              unfrozenAmount = tx.frozenUsdtAmount + (tx.calculatedCommission || 0);
+              
+              // Проверяем текущий замороженный баланс трейдера
+              const trader = await prisma.user.findUnique({
+                where: { id: tx.traderId },
+                select: { frozenUsdt: true, trustBalance: true }
+              });
+              
+              if (trader && trader.frozenUsdt >= unfrozenAmount) {
+                // Размораживаем средства и возвращаем на баланс
+                await prisma.user.update({
+                  where: { id: tx.traderId },
+                  data: {
+                    frozenUsdt: { decrement: unfrozenAmount },
+                    trustBalance: { increment: unfrozenAmount }
+                  }
+                });
+              } else {
+                await this.logError(`Insufficient frozen balance for trader ${tx.traderId}`, {
+                  transactionId: tx.id,
+                  requiredAmount: unfrozenAmount,
+                  currentFrozenBalance: trader?.frozenUsdt || 0
+                });
+              }
+            }
+            
+            // Обработка OUT транзакций (выплат)
+            if (tx.type === 'OUT' && tx.traderId) {
+              // Для выплат возвращаем сумму на баланс трейдера
+              const payoutAmount = tx.amount / (tx.rate || 1); // Конвертируем обратно в USDT
               
               await prisma.user.update({
                 where: { id: tx.traderId },
                 data: {
-                  frozenUsdt: { decrement: unfrozenAmount }
+                  frozenPayoutBalance: { decrement: payoutAmount },
+                  trustBalance: { increment: payoutAmount }
                 }
+              });
+              
+              unfrozenAmount = payoutAmount;
+              
+              await this.logInfo(`Payout expired and refunded`, {
+                transactionId: tx.id,
+                traderId: tx.traderId,
+                refundedAmount: payoutAmount
               });
             }
           });

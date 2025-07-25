@@ -107,7 +107,7 @@ export default function FinancePage() {
                 <div>
                   <p className="font-medium">Прибыль за сегодня</p>
                   <p className="text-2xl font-bold text-green-600">
-                    +{formatCurrency(trader?.profitFromDeals || 0, "USDT")}
+                    +{formatCurrency(financials?.profitFromDeals || 0, "USDT")}
                   </p>
                 </div>
                 <History className="h-8 w-8 text-muted-foreground" />
@@ -117,7 +117,7 @@ export default function FinancePage() {
                 <div>
                   <p className="font-medium">Прибыль за месяц</p>
                   <p className="text-2xl font-bold text-green-600">
-                    +{formatCurrency((trader?.profitFromDeals || 0) + (trader?.profitFromPayouts || 0), "USDT")}
+                    +{formatCurrency((financials?.profitFromDeals || 0) + (financials?.profitFromPayouts || 0), "USDT")}
                   </p>
                 </div>
                 <History className="h-8 w-8 text-muted-foreground" />

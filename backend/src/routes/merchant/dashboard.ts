@@ -79,68 +79,62 @@ export default (app: Elysia) =>
             dateFrom = startOfDay(new Date());
         }
 
-        // Получаем статистику транзакций
+        // Получаем статистику попыток создания транзакций
+        const [attemptStats] = await Promise.all([
+          db.transactionAttempt.groupBy({
+            by: ["success"],
+            where: {
+              merchantId: merchant.id,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _count: { _all: true },
+          }),
+        ]);
+
+        const totalAttempts = attemptStats.reduce((sum, stat) => sum + stat._count._all, 0);
+        const successfulAttempts = attemptStats.find(s => s.success)?._count._all || 0;
+        const failedAttempts = attemptStats.find(s => !s.success)?._count._all || 0;
+        const conversionRate = totalAttempts > 0 ? (successfulAttempts / totalAttempts * 100).toFixed(2) : "0.00";
+
+        // Получаем детализацию по ошибкам
+        const [errorStats] = await Promise.all([
+          db.transactionAttempt.groupBy({
+            by: ["errorCode"],
+            where: {
+              merchantId: merchant.id,
+              success: false,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _count: { _all: true },
+          }),
+        ]);
+
+        // Получаем статистику транзакций и выплат
         const [
-          totalCount,
-          successCount,
-          failedCount,
-          disputeCount,
-          totalVolume,
-          successVolume,
-          inTransactions,
-          outTransactions,
-          inSuccessful,
-          outSuccessful
+          // Сделки (входящие транзакции)
+          dealsTotal,
+          dealsSuccess,
+          dealsFailed,
+          dealsDispute,
+          dealsPending,
+          dealsVolume,
+          dealsSuccessVolume,
+          
+          // Выплаты
+          payoutsTotal,
+          payoutsSuccess,
+          payoutsFailed,
+          payoutsPending,
+          payoutsVolume,
+          payoutsSuccessVolume,
+          
+          // Статистика по статусам сделок
+          dealsByStatus,
+          
+          // Статистика по статусам выплат
+          payoutsByStatus
         ] = await Promise.all([
-          // Общее количество транзакций
-          db.transaction.count({
-            where: {
-              merchantId: merchant.id,
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-          }),
-          // Успешные транзакции
-          db.transaction.count({
-            where: {
-              merchantId: merchant.id,
-              status: Status.READY,
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-          }),
-          // Отмененные транзакции
-          db.transaction.count({
-            where: {
-              merchantId: merchant.id,
-              status: { in: [Status.CANCELED, Status.EXPIRED] },
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-          }),
-          // Спорные транзакции
-          db.transaction.count({
-            where: {
-              merchantId: merchant.id,
-              status: Status.DISPUTE,
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-          }),
-          // Общий объем
-          db.transaction.aggregate({
-            where: {
-              merchantId: merchant.id,
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-            _sum: { amount: true },
-          }),
-          // Объем успешных транзакций
-          db.transaction.aggregate({
-            where: {
-              merchantId: merchant.id,
-              status: Status.READY,
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-            _sum: { amount: true },
-          }),
-          // Входящие транзакции
+          // Общее количество сделок
           db.transaction.count({
             where: {
               merchantId: merchant.id,
@@ -148,23 +142,70 @@ export default (app: Elysia) =>
               createdAt: { gte: dateFrom, lte: dateTo },
             },
           }),
-          // Исходящие операции (выплаты)
+          // Успешные сделки
+          db.transaction.count({
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              status: Status.READY,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+          }),
+          // Неудачные сделки
+          db.transaction.count({
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              status: { in: [Status.CANCELED, Status.EXPIRED] },
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+          }),
+          // Спорные сделки
+          db.transaction.count({
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              status: Status.DISPUTE,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+          }),
+          // Сделки в процессе
+          db.transaction.count({
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              status: { in: [Status.CREATED, Status.IN_PROGRESS] },
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+          }),
+          // Объем сделок
+          db.transaction.aggregate({
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _sum: { amount: true },
+          }),
+          // Объем успешных сделок
+          db.transaction.aggregate({
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              status: Status.READY,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _sum: { amount: true },
+          }),
+          
+          // Общее количество выплат
           db.payout.count({
             where: {
               merchantId: merchant.id,
               createdAt: { gte: dateFrom, lte: dateTo },
             },
           }),
-          // Успешные входящие транзакции
-          db.transaction.count({
-            where: {
-              merchantId: merchant.id,
-              type: TransactionType.IN,
-              status: Status.READY,
-              createdAt: { gte: dateFrom, lte: dateTo },
-            },
-          }),
-          // Успешные исходящие операции (выплаты)
+          // Успешные выплаты
           db.payout.count({
             where: {
               merchantId: merchant.id,
@@ -172,11 +213,92 @@ export default (app: Elysia) =>
               createdAt: { gte: dateFrom, lte: dateTo },
             },
           }),
+          // Неудачные выплаты
+          db.payout.count({
+            where: {
+              merchantId: merchant.id,
+              status: { in: [PayoutStatus.EXPIRED, PayoutStatus.CANCELLED] },
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+          }),
+          // Выплаты в процессе
+          db.payout.count({
+            where: {
+              merchantId: merchant.id,
+              status: { in: [PayoutStatus.CREATED, PayoutStatus.ACTIVE, PayoutStatus.CHECKING] },
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+          }),
+          // Объем выплат
+          db.payout.aggregate({
+            where: {
+              merchantId: merchant.id,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _sum: { amount: true },
+          }),
+          // Объем успешных выплат
+          db.payout.aggregate({
+            where: {
+              merchantId: merchant.id,
+              status: PayoutStatus.COMPLETED,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _sum: { amount: true },
+          }),
+          
+          // Группировка сделок по статусам
+          db.transaction.groupBy({
+            by: ["status"],
+            where: {
+              merchantId: merchant.id,
+              type: TransactionType.IN,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _count: { _all: true },
+            _sum: { amount: true },
+          }),
+          
+          // Группировка выплат по статусам
+          db.payout.groupBy({
+            by: ["status"],
+            where: {
+              merchantId: merchant.id,
+              createdAt: { gte: dateFrom, lte: dateTo },
+            },
+            _count: { _all: true },
+            _sum: { amount: true },
+          }),
         ]);
 
-        // Детальная статистика по методам с разделением на IN/OUT
-        const methodStatsDetailed = await db.transaction.groupBy({
-          by: ["methodId", "type"],
+        // Получаем статистику по сделкам по методам
+        const dealsStatsByMethod = await db.transaction.groupBy({
+          by: ["methodId"],
+          where: {
+            merchantId: merchant.id,
+            type: TransactionType.IN,
+            createdAt: { gte: dateFrom, lte: dateTo },
+          },
+          _count: { _all: true },
+          _sum: { amount: true },
+        });
+
+        // Получаем статистику успешных сделок по методам
+        const successfulDealsStatsByMethod = await db.transaction.groupBy({
+          by: ["methodId"],
+          where: {
+            merchantId: merchant.id,
+            type: TransactionType.IN,
+            status: Status.READY,
+            createdAt: { gte: dateFrom, lte: dateTo },
+          },
+          _count: { _all: true },
+          _sum: { amount: true },
+        });
+
+        // Получаем статистику по выплатам по методам
+        const payoutsStatsByMethod = await db.payout.groupBy({
+          by: ["methodId"],
           where: {
             merchantId: merchant.id,
             createdAt: { gte: dateFrom, lte: dateTo },
@@ -185,34 +307,27 @@ export default (app: Elysia) =>
           _sum: { amount: true },
         });
 
-        // Получаем успешные транзакции для расчета баланса
-        const successfulTransactionsByMethod = await db.transaction.findMany({
+        // Получаем статистику успешных выплат по методам
+        const successfulPayoutsStatsByMethod = await db.payout.groupBy({
+          by: ["methodId"],
           where: {
             merchantId: merchant.id,
-            status: Status.READY,
+            status: PayoutStatus.COMPLETED,
             createdAt: { gte: dateFrom, lte: dateTo },
           },
-          select: {
-            methodId: true,
-            type: true,
-            amount: true,
-            method: {
-              select: {
-                commissionPayin: true,
-                commissionPayout: true,
-              },
-            },
-          },
+          _count: { _all: true },
+          _sum: { amount: true },
         });
+
+        // Получаем все уникальные ID методов
+        const uniqueMethodIds = [...new Set([
+          ...dealsStatsByMethod.map(s => s.methodId),
+          ...payoutsStatsByMethod.map(s => s.methodId),
+        ])];
 
         // Получаем информацию о методах
         const methods = await db.method.findMany({
-          where: {
-            id: { in: [...new Set([
-              ...methodStatsDetailed.map(m => m.methodId),
-              ...successfulTransactionsByMethod.map(t => t.methodId)
-            ])] },
-          },
+          where: { id: { in: uniqueMethodIds } },
           select: {
             id: true,
             name: true,
@@ -222,225 +337,202 @@ export default (app: Elysia) =>
           },
         });
 
+        // Создаем карты для быстрого доступа
         const methodsMap = new Map(methods.map(m => [m.id, m]));
+        const dealsStatsMap = new Map(dealsStatsByMethod.map(s => [s.methodId, s]));
+        const successfulDealsStatsMap = new Map(successfulDealsStatsByMethod.map(s => [s.methodId, s]));
+        const payoutsStatsMap = new Map(payoutsStatsByMethod.map(s => [s.methodId, s]));
+        const successfulPayoutsStatsMap = new Map(successfulPayoutsStatsByMethod.map(s => [s.methodId, s]));
 
-        // Группируем статистику по методам
-        const methodStatsMap = new Map();
-        
-        // Инициализируем структуру для каждого метода
-        methods.forEach(method => {
-          methodStatsMap.set(method.id, {
+        // Формируем статистику по каждому методу
+        const methodStats = methods.map(method => {
+          const dealStats = dealsStatsMap.get(method.id);
+          const successfulDealStats = successfulDealsStatsMap.get(method.id);
+          const payoutStats = payoutsStatsMap.get(method.id);
+          const successfulPayoutStats = successfulPayoutsStatsMap.get(method.id);
+
+          // Сделки
+          const dealsCount = dealStats?._count._all || 0;
+          const dealsVolume = dealStats?._sum.amount || 0;
+          const dealsSuccessCount = successfulDealStats?._count._all || 0;
+          const dealsSuccessVolume = successfulDealStats?._sum.amount || 0;
+          
+          // Выплаты
+          const payoutsCount = payoutStats?._count._all || 0;
+          const payoutsVolume = payoutStats?._sum.amount || 0;
+          const payoutsSuccessCount = successfulPayoutStats?._count._all || 0;
+          const payoutsSuccessVolume = successfulPayoutStats?._sum.amount || 0;
+
+          return {
             methodId: method.id,
             methodName: method.name,
             methodCode: method.code,
             commissionPayin: method.commissionPayin,
             commissionPayout: method.commissionPayout,
-            in: { count: 0, volume: 0, balance: 0 },
-            out: { count: 0, volume: 0, balance: 0 },
-            total: { count: 0, volume: 0, balance: 0 },
-          });
+            deals: {
+              total: dealsCount,
+              successful: dealsSuccessCount,
+              volume: dealsVolume,
+              successVolume: dealsSuccessVolume,
+            },
+            payouts: {
+              total: payoutsCount,
+              successful: payoutsSuccessCount,
+              volume: payoutsVolume,
+              successVolume: payoutsSuccessVolume,
+            },
+            total: {
+              transactions: dealsCount + payoutsCount,
+              successfulTransactions: dealsSuccessCount + payoutsSuccessCount,
+            },
+          };
         });
 
-        // Заполняем статистику из общих данных
-        methodStatsDetailed.forEach(stat => {
-          const methodData = methodStatsMap.get(stat.methodId);
-          if (methodData) {
-            const typeKey = stat.type.toLowerCase();
-            if (typeKey === 'in' || typeKey === 'out') {
-              methodData[typeKey].count = stat._count._all;
-              methodData[typeKey].volume = stat._sum.amount || 0;
-              methodData.total.count += stat._count._all;
-              methodData.total.volume += stat._sum.amount || 0;
-            }
-          }
-        });
 
-        // Рассчитываем баланс с учетом комиссий для транзакций
-        successfulTransactionsByMethod.forEach(tx => {
-          const methodData = methodStatsMap.get(tx.methodId);
-          if (methodData) {
-            const commission = tx.type === TransactionType.IN 
-              ? tx.method.commissionPayin 
-              : tx.method.commissionPayout;
-            
-            const netAmount = tx.amount * (1 - commission / 100);
-            const typeKey = tx.type.toLowerCase();
-            
-            if (typeKey === 'in' || typeKey === 'out') {
-              methodData[typeKey].balance += netAmount;
-              methodData.total.balance += netAmount;
-            }
-          }
-        });
-
-        // Получаем статистику выплат для исходящих операций
-        const payoutsStats = await db.payout.groupBy({
-          by: ["bank"],  // Группируем по банку (аналог метода)
+        // Получаем все успешные сделки для расчета баланса
+        const successfulDealsForBalance = await db.transaction.findMany({
           where: {
             merchantId: merchant.id,
-            status: PayoutStatus.COMPLETED, // Только завершенные выплаты
-            createdAt: { gte: dateFrom, lte: dateTo },
-          },
-          _count: { _all: true },
-          _sum: { amount: true },
-        });
-
-        // Получаем успешные выплаты для расчета баланса
-        const successfulPayouts = await db.payout.findMany({
-          where: {
-            merchantId: merchant.id,
-            status: PayoutStatus.COMPLETED, // Только завершенные выплаты
-            createdAt: { gte: dateFrom, lte: dateTo },
-          },
-          select: {
-            bank: true,
-            amount: true,
-            feePercent: true,
-          },
-        });
-
-        // Получаем все успешные выплаты для общего баланса (без фильтра по периоду)
-        const allSuccessfulPayouts = await db.payout.findMany({
-          where: {
-            merchantId: merchant.id,
-            status: PayoutStatus.COMPLETED, // Только завершенные выплаты
-          },
-          select: {
-            amount: true,
-            feePercent: true,
-          },
-        });
-
-        // Добавляем статистику выплат к исходящим операциям
-        // Создаем карту методов по названию банка для выплат
-        const bankToMethodMap = new Map();
-        methods.forEach(method => {
-          // Пытаемся сопоставить банки с методами по части названия
-          const methodNameLower = method.name.toLowerCase();
-          if (methodNameLower.includes('сбер') || methodNameLower.includes('sber')) {
-            bankToMethodMap.set('SBERBANK', method.id);
-          } else if (methodNameLower.includes('тинь') || methodNameLower.includes('tinkoff')) {
-            bankToMethodMap.set('TINKOFF', method.id);
-          } else if (methodNameLower.includes('втб') || methodNameLower.includes('vtb')) {
-            bankToMethodMap.set('VTB', method.id);
-          }
-          // Можно добавить больше сопоставлений при необходимости
-        });
-
-        // Добавляем статистику выплат к соответствующим методам
-        payoutsStats.forEach(stat => {
-          const methodId = bankToMethodMap.get(stat.bank);
-          if (methodId) {
-            const methodData = methodStatsMap.get(methodId);
-            if (methodData) {
-              methodData.out.count += stat._count._all;
-              methodData.out.volume += stat._sum.amount || 0;
-              methodData.total.count += stat._count._all;
-              methodData.total.volume += stat._sum.amount || 0;
-            }
-          }
-        });
-
-        // Рассчитываем баланс с учетом комиссий для выплат
-        successfulPayouts.forEach(payout => {
-          const methodId = bankToMethodMap.get(payout.bank);
-          if (methodId) {
-            const methodData = methodStatsMap.get(methodId);
-            if (methodData) {
-              const netAmount = payout.amount * (1 + payout.feePercent / 100);
-              methodData.out.balance -= netAmount; // Выплаты уменьшают баланс
-              methodData.total.balance -= netAmount;
-            }
-          }
-        });
-
-        // Рассчитываем баланс с учетом комиссий
-        const balanceCalculation = await db.transaction.aggregate({
-          where: {
-            merchantId: merchant.id,
-            status: Status.READY, // Только успешные транзакции
-          },
-          _sum: {
-            amount: true,
-          },
-        });
-
-        // Получаем сумму комиссий с успешных транзакций
-        const transactionsWithCommissions = await db.transaction.findMany({
-          where: {
-            merchantId: merchant.id,
+            type: TransactionType.IN,
             status: Status.READY,
           },
           select: {
             amount: true,
-            type: true,
-            method: {
-              select: {
-                commissionPayin: true,
-                commissionPayout: true,
-              },
-            },
+            methodId: true,
           },
         });
 
+        // Получаем все завершенные выплаты для расчета баланса
+        const completedPayoutsForBalance = await db.payout.findMany({
+          where: {
+            merchantId: merchant.id,
+            status: PayoutStatus.COMPLETED,
+          },
+          select: {
+            amount: true,
+            methodId: true,
+          },
+        });
+
+        // Получаем информацию о методах с комиссиями
+        const methodIds = [...new Set([
+          ...successfulDealsForBalance.map(d => d.methodId),
+          ...completedPayoutsForBalance.map(p => p.methodId)
+        ])];
+
+        const methodsForBalance = await db.method.findMany({
+          where: { id: { in: methodIds } },
+          select: {
+            id: true,
+            commissionPayin: true,
+            commissionPayout: true,
+          },
+        });
+
+        const methodCommissionsMap = new Map(methodsForBalance.map(m => [m.id, m]));
+
         // Рассчитываем итоговый баланс с учетом комиссий
         let calculatedBalance = 0;
-        let totalEarned = 0;
-        let totalCommissionPaid = 0;
+        let totalDealsAmount = 0;
+        let totalPayoutsAmount = 0;
+        let totalDealsCommission = 0;
+        let totalPayoutsCommission = 0;
 
-        // Добавляем транзакции к балансу
-        for (const tx of transactionsWithCommissions) {
-          const commission = tx.type === TransactionType.IN 
-            ? tx.method.commissionPayin 
-            : tx.method.commissionPayout;
-          
-          // Комиссия в процентах, вычитаем из суммы транзакции
-          const netAmount = tx.amount * (1 - commission / 100);
-          const commissionAmount = tx.amount * (commission / 100);
-          
-          calculatedBalance += netAmount;
-          totalEarned += tx.amount;
-          totalCommissionPaid += commissionAmount;
+        // Обрабатываем успешные сделки (входящие платежи)
+        for (const deal of successfulDealsForBalance) {
+          const method = methodCommissionsMap.get(deal.methodId);
+          if (method) {
+            const commissionAmount = deal.amount * (method.commissionPayin / 100);
+            const netAmount = deal.amount - commissionAmount;
+            
+            calculatedBalance += netAmount;
+            totalDealsAmount += deal.amount;
+            totalDealsCommission += commissionAmount;
+          }
         }
 
-        // Добавляем успешные выплаты к балансу (для выплат комиссия прибавляется к сумме)
-        for (const payout of allSuccessfulPayouts) {
-          const netAmount = payout.amount * (1 + payout.feePercent / 100);
-          const feeAmount = payout.amount * (payout.feePercent / 100);
-          
-          calculatedBalance -= netAmount; // Выплаты уменьшают баланс
-          totalEarned += payout.amount;
-          totalCommissionPaid += feeAmount;
+        // Обрабатываем завершенные выплаты (исходящие платежи)
+        for (const payout of completedPayoutsForBalance) {
+          const method = methodCommissionsMap.get(payout.methodId);
+          if (method) {
+            const commissionAmount = payout.amount * (method.commissionPayout / 100);
+            const totalAmount = payout.amount + commissionAmount;
+            
+            calculatedBalance -= totalAmount;
+            totalPayoutsAmount += payout.amount;
+            totalPayoutsCommission += commissionAmount;
+          }
         }
+        
+        // Вычитаем уже выведенные средства через settle
+        const completedSettles = await db.settleRequest.findMany({
+          where: { 
+            merchantId: merchant.id,
+            status: "COMPLETED"
+          },
+          select: { amount: true },
+        });
+        
+        const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0);
+        calculatedBalance -= settledAmount;
+
+        // Форматируем статистику по статусам
+        const dealStatusStats = dealsByStatus.map(stat => ({
+          status: stat.status,
+          count: stat._count._all,
+          amount: stat._sum.amount || 0,
+        }));
+
+        const payoutStatusStats = payoutsByStatus.map(stat => ({
+          status: stat.status,
+          count: stat._count._all,
+          amount: stat._sum.amount || 0,
+        }));
 
         return {
           period,
           dateFrom: dateFrom.toISOString(),
           dateTo: dateTo.toISOString(),
-          balance: calculatedBalance,
-          transactions: {
-            total: totalCount,
-            successful: successCount,
-            failed: failedCount,
-            dispute: disputeCount,
-            successRate: totalCount > 0 
-              ? Math.round((successCount / totalCount) * 100) 
-              : 0,
-            inTransactions,
-            outTransactions,
-            inSuccessful,
-            outSuccessful,
+          balance: {
+            total: calculatedBalance,
+            formula: {
+              dealsTotal: totalDealsAmount,
+              dealsCommission: totalDealsCommission,
+              payoutsTotal: totalPayoutsAmount,
+              payoutsCommission: totalPayoutsCommission,
+              calculation: `${totalDealsAmount} - ${totalDealsCommission} - ${totalPayoutsAmount} - ${totalPayoutsCommission} = ${calculatedBalance}`,
+            },
           },
-          volume: {
-            total: totalVolume._sum.amount || 0,
-            successful: successVolume._sum.amount || 0,
+          deals: {
+            total: dealsTotal,
+            successful: dealsSuccess,
+            failed: dealsFailed,
+            dispute: dealsDispute,
+            pending: dealsPending,
+            volume: dealsVolume._sum.amount || 0,
+            successVolume: dealsSuccessVolume._sum.amount || 0,
+            statusBreakdown: dealStatusStats,
+            requisiteConversion: {
+              rate: conversionRate,
+              totalAttempts,
+              successfulAttempts,
+              failedAttempts,
+              errorBreakdown: errorStats.map(e => ({
+                errorCode: e.errorCode || "UNKNOWN",
+                count: e._count._all
+              }))
+            },
           },
-          methodStats: Array.from(methodStatsMap.values()).filter(method => method.total.count > 0),
-          balanceDetails: {
-            totalEarned: totalEarned,
-            totalCommissionPaid: totalCommissionPaid,
-            netBalance: calculatedBalance,
+          payouts: {
+            total: payoutsTotal,
+            successful: payoutsSuccess,
+            failed: payoutsFailed,
+            pending: payoutsPending,
+            volume: payoutsVolume._sum.amount || 0,
+            successVolume: payoutsSuccessVolume._sum.amount || 0,
+            statusBreakdown: payoutStatusStats,
           },
+          methodStats: methodStats.filter(method => method.total.transactions > 0),
         };
       },
       {
@@ -460,21 +552,58 @@ export default (app: Elysia) =>
             period: t.String(),
             dateFrom: t.String(),
             dateTo: t.String(),
-            balance: t.Number(),
-            transactions: t.Object({
+            balance: t.Object({
+              total: t.Number(),
+              formula: t.Object({
+                dealsTotal: t.Number(),
+                dealsCommission: t.Number(),
+                payoutsTotal: t.Number(),
+                payoutsCommission: t.Number(),
+                calculation: t.String(),
+              }),
+            }),
+            deals: t.Object({
               total: t.Number(),
               successful: t.Number(),
               failed: t.Number(),
               dispute: t.Number(),
-              successRate: t.Number(),
-              inTransactions: t.Number(),
-              outTransactions: t.Number(),
-              inSuccessful: t.Number(),
-              outSuccessful: t.Number(),
+              pending: t.Number(),
+              volume: t.Number(),
+              successVolume: t.Number(),
+              statusBreakdown: t.Array(
+                t.Object({
+                  status: t.String(),
+                  count: t.Number(),
+                  amount: t.Number(),
+                })
+              ),
+              requisiteConversion: t.Object({
+                rate: t.String(),
+                totalAttempts: t.Number(),
+                successfulAttempts: t.Number(),
+                failedAttempts: t.Number(),
+                errorBreakdown: t.Array(
+                  t.Object({
+                    errorCode: t.String(),
+                    count: t.Number(),
+                  })
+                ),
+              }),
             }),
-            volume: t.Object({
+            payouts: t.Object({
               total: t.Number(),
               successful: t.Number(),
+              failed: t.Number(),
+              pending: t.Number(),
+              volume: t.Number(),
+              successVolume: t.Number(),
+              statusBreakdown: t.Array(
+                t.Object({
+                  status: t.String(),
+                  count: t.Number(),
+                  amount: t.Number(),
+                })
+              ),
             }),
             methodStats: t.Array(
               t.Object({
@@ -483,28 +612,24 @@ export default (app: Elysia) =>
                 methodCode: t.String(),
                 commissionPayin: t.Number(),
                 commissionPayout: t.Number(),
-                in: t.Object({
-                  count: t.Number(),
+                deals: t.Object({
+                  total: t.Number(),
+                  successful: t.Number(),
                   volume: t.Number(),
-                  balance: t.Number(),
+                  successVolume: t.Number(),
                 }),
-                out: t.Object({
-                  count: t.Number(),
-                  volume: t.Number(), 
-                  balance: t.Number(),
+                payouts: t.Object({
+                  total: t.Number(),
+                  successful: t.Number(),
+                  volume: t.Number(),
+                  successVolume: t.Number(),
                 }),
                 total: t.Object({
-                  count: t.Number(),
-                  volume: t.Number(),
-                  balance: t.Number(),
+                  transactions: t.Number(),
+                  successfulTransactions: t.Number(),
                 }),
               })
             ),
-            balanceDetails: t.Object({
-              totalEarned: t.Number(),
-              totalCommissionPaid: t.Number(),
-              netBalance: t.Number(),
-            }),
           }),
           401: ErrorSchema,
         },
@@ -958,6 +1083,194 @@ export default (app: Elysia) =>
                 outCount: t.Number(),
               })
             ),
+          }),
+          401: ErrorSchema,
+        },
+      },
+    )
+    
+    /* ──────── POST /merchant/dashboard/settle-request ──────── */
+    .post(
+      "/settle-request",
+      async ({ merchant, set, error }) => {
+        try {
+          // Import Rapira service
+          const { rapiraService } = await import("@/services/rapira.service");
+          
+          // Проверяем, нет ли активных запросов
+          const pendingRequest = await db.settleRequest.findFirst({
+            where: {
+              merchantId: merchant.id,
+              status: "PENDING",
+            },
+          });
+
+          if (pendingRequest) {
+            return error(400, { 
+              error: "У вас уже есть активный запрос на вывод средств" 
+            });
+          }
+
+          // Рассчитываем текущий баланс
+          const merchantData = await db.merchant.findUniqueOrThrow({
+            where: { id: merchant.id },
+            include: {
+              transactions: {
+                where: { status: "READY" },
+                select: { amount: true, commission: true },
+              },
+              payouts: {
+                where: { status: "COMPLETED" },
+                select: { amount: true, feePercent: true },
+              },
+            },
+          });
+          
+          // Получаем завершенные settle запросы отдельно
+          const completedSettles = await db.settleRequest.findMany({
+            where: { 
+              merchantId: merchant.id,
+              status: "COMPLETED"
+            },
+            select: { amount: true },
+          });
+
+          const dealsTotal = merchantData.transactions.reduce((sum, t) => sum + t.amount, 0);
+          const dealsCommission = merchantData.transactions.reduce((sum, t) => sum + t.commission, 0);
+          const payoutsTotal = merchantData.payouts.reduce((sum, p) => sum + p.amount, 0);
+          const payoutsCommission = merchantData.payouts.reduce((sum, p) => sum + (p.amount * p.feePercent / 100), 0);
+          
+          // Вычитаем уже выведенные средства через settle
+          const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0);
+
+          const balance = dealsTotal - dealsCommission - payoutsTotal - payoutsCommission - settledAmount;
+
+          if (balance <= 0) {
+            return error(400, { 
+              error: "Недостаточно средств для вывода" 
+            });
+          }
+
+          // Получаем текущий курс от Rapira (без KKK)
+          const rate = await rapiraService.getRate();
+          const amountUsdt = balance / rate;
+
+          // Создаем запрос Settle
+          const settleRequest = await db.settleRequest.create({
+            data: {
+              merchantId: merchant.id,
+              amount: balance,
+              amountUsdt,
+              rate,
+            },
+          });
+
+          return { 
+            success: true, 
+            request: {
+              id: settleRequest.id,
+              amount: settleRequest.amount,
+              amountUsdt: settleRequest.amountUsdt,
+              rate: settleRequest.rate,
+              status: settleRequest.status,
+              createdAt: settleRequest.createdAt.toISOString(),
+            }
+          };
+        } catch (e) {
+          console.error("Failed to create settle request:", e);
+          return error(500, { error: "Failed to create settle request" });
+        }
+      },
+      {
+        tags: ["merchant-dashboard"],
+        detail: { summary: "Создание запроса на Settle (вывод средств)" },
+        headers: t.Object({ authorization: t.String() }),
+        response: {
+          201: t.Object({
+            id: t.String(),
+            amount: t.Number(),
+            rate: t.Number(),
+            status: t.String(),
+            createdAt: t.String(),
+          }),
+          400: ErrorSchema,
+          409: ErrorSchema,
+          401: ErrorSchema,
+        },
+      },
+    )
+    
+    /* ──────── GET /merchant/dashboard/settle-requests ──────── */
+    .get(
+      "/settle-requests",
+      async ({ merchant, query }) => {
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const where: any = { merchantId: merchant.id };
+        if (query.status) {
+          where.status = query.status;
+        }
+
+        const [requests, total] = await Promise.all([
+          db.settleRequest.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+          }),
+          db.settleRequest.count({ where }),
+        ]);
+
+        return {
+          data: requests.map(r => ({
+            id: r.id,
+            amount: r.amount,
+            rate: r.rate,
+            status: r.status,
+            createdAt: r.createdAt.toISOString(),
+            processedAt: r.processedAt?.toISOString() || null,
+            processedBy: r.processedBy || null,
+            cancelReason: r.cancelReason || null,
+          })),
+          pagination: {
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+          },
+        };
+      },
+      {
+        tags: ["merchant-dashboard"],
+        detail: { summary: "Получение истории запросов Settle" },
+        headers: t.Object({ authorization: t.String() }),
+        query: t.Object({
+          page: t.Optional(t.String()),
+          limit: t.Optional(t.String()),
+          status: t.Optional(t.String()),
+        }),
+        response: {
+          200: t.Object({
+            data: t.Array(
+              t.Object({
+                id: t.String(),
+                amount: t.Number(),
+                rate: t.Number(),
+                status: t.String(),
+                createdAt: t.String(),
+                processedAt: t.Union([t.String(), t.Null()]),
+                processedBy: t.Union([t.String(), t.Null()]),
+                cancelReason: t.Union([t.String(), t.Null()]),
+              })
+            ),
+            pagination: t.Object({
+              total: t.Number(),
+              page: t.Number(),
+              limit: t.Number(),
+              pages: t.Number(),
+            }),
           }),
           401: ErrorSchema,
         },

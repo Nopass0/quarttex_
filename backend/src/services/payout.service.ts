@@ -349,7 +349,7 @@ export class PayoutService {
       console.log(`[Payout ${payoutId}] Using default calculation, profit: ${profitAmount} USDT`);
     }
     
-    // Update payout status to CHECKING and add profit to trader
+    // Update payout status to CHECKING and store profit amount for later
     const [updatedPayout] = await db.$transaction([
       db.payout.update({
         where: { id: payoutId },
@@ -360,13 +360,8 @@ export class PayoutService {
           // Store the total amount to write off (not just profit)
           // This should be the full totalUsdt as in acceptPayoutWithAccounting
           sumToWriteOffUSDT: payout.totalUsdt,
-        },
-      }),
-      // Add profit to trader's profitFromPayouts when sending to check
-      db.user.update({
-        where: { id: traderId },
-        data: {
-          profitFromPayouts: { increment: profitAmount },
+          // Store profit amount to add when admin approves
+          profitAmount: profitAmount,
         },
       }),
     ]);

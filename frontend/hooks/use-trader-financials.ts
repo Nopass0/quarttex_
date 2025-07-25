@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react'
 import { useTraderAuth } from '@/stores/auth'
 import { useTraderStore } from '@/stores/trader'
-import { api } from '@/services/api'
+import { traderApi } from '@/services/api'
 
 export function useTraderFinancials() {
   const token = useTraderAuth((state) => state.token)
@@ -11,14 +11,11 @@ export function useTraderFinancials() {
     if (!token) return
     
     try {
-      const response = await api.get('/trader/profile', {
-        headers: {
-          'x-trader-token': token
-        }
-      })
+      const response = await traderApi.getProfile()
       
-      if (response.data) {
-        const { trustBalance, profitFromDeals, profitFromPayouts, frozenUsdt, frozenRub, balanceUsdt, balanceRub, deposit, escrowBalance, compensationBalance, referralBalance, disputedBalance } = response.data
+      if (response) {
+        const data = response.data || response
+        const { trustBalance, profitFromDeals, profitFromPayouts, frozenUsdt, frozenRub, balanceUsdt, balanceRub, deposit, escrowBalance, compensationBalance, referralBalance, disputedBalance } = data
         setFinancials({
           trustBalance: trustBalance || 0,
           profitFromDeals: profitFromDeals || 0,

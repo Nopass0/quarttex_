@@ -104,7 +104,7 @@ export function TraderHeader() {
             className="cursor-pointer"
           >
             <Wallet className="mr-2 h-4 w-4" />
-            Пополнить траст
+            Пополнить баланс
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {

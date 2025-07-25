@@ -4,7 +4,6 @@ import { Prisma, Status, TransactionType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { traderGuard } from "@/middleware/traderGuard";
 import { notifyByStatus } from "@/utils/notify";
-import { roundDown2 } from "@/utils/rounding";
 
 /**
  * Маршруты для управления транзакциями трейдера
@@ -38,18 +37,21 @@ export default (app: Elysia) =>
         }
 
         // Фильтрация по наличию споров
-        if (query.hasDispute === 'true') {
+        if (query.hasDispute === "true") {
           where.dealDispute = {
-            isNot: null
+            isNot: null,
           };
-        } else if (query.hasDispute === 'false') {
+        } else if (query.hasDispute === "false") {
           where.dealDispute = {
-            is: null
+            is: null,
           };
         }
 
         // Получаем транзакции с пагинацией
-        console.log(`[Trader API] Поиск транзакций для трейдера ${trader.id}, условия:`, where);
+        console.log(
+          `[Trader API] Поиск транзакций для трейдера ${trader.id}, условия:`,
+          where,
+        );
         const transactions = await db.transaction.findMany({
           where,
           skip,
@@ -100,43 +102,64 @@ export default (app: Elysia) =>
                 updatedAt: true,
               },
             },
+            matchedNotification: {
+              select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                deviceId: true,
+                metadata: true,
+              },
+            },
           },
         });
 
         // Получаем общее количество транзакций для пагинации
         const total = await db.transaction.count({ where });
-        
-        console.log(`[Trader API] Найдено ${transactions.length} транзакций из ${total} общих для трейдера ${trader.id}`);
+
+        console.log(
+          `[Trader API] Найдено ${transactions.length} транзакций из ${total} общих для трейдера ${trader.id}`,
+        );
 
         // Преобразуем даты в ISO формат и корректируем курс с учетом ККК
         const formattedTransactions = transactions.map((tx) => {
           // Используем сохраненный adjustedRate, если есть, иначе вычисляем с округлением вниз
-          const traderRate = tx.adjustedRate || 
-            (tx.rate !== null && tx.kkkPercent !== null 
-              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100 
+          const traderRate =
+            tx.adjustedRate ||
+            (tx.rate !== null && tx.kkkPercent !== null
+              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100
               : tx.rate);
-          
-          // Рассчитываем профит на основе скорректированного курса
-          const profit = traderRate !== null ? tx.amount / traderRate : null;
-          
+
+          // Используем сохраненную прибыль из базы данных
+          const profit = tx.traderProfit || 0;
+
           // Извлекаем информацию об устройстве
           const device = tx.requisites?.device;
-          
+
           return {
             ...tx,
             rate: traderRate,
             profit,
+            calculatedCommission: profit, // Добавляем для совместимости с фронтендом
             deviceId: device?.id || tx.requisites?.deviceId || null,
             deviceName: device?.name || null,
             createdAt: tx.createdAt.toISOString(),
             updatedAt: tx.updatedAt.toISOString(),
             expired_at: tx.expired_at.toISOString(),
             acceptedAt: tx.acceptedAt ? tx.acceptedAt.toISOString() : null,
-            dealDispute: tx.dealDispute ? {
-              ...tx.dealDispute,
-              createdAt: tx.dealDispute.createdAt.toISOString(),
-              updatedAt: tx.dealDispute.updatedAt.toISOString(),
-            } : null,
+            dealDispute: tx.dealDispute
+              ? {
+                  ...tx.dealDispute,
+                  createdAt: tx.dealDispute.createdAt.toISOString(),
+                  updatedAt: tx.dealDispute.updatedAt.toISOString(),
+                }
+              : null,
+            matchedNotification: tx.matchedNotification
+              ? {
+                  ...tx.matchedNotification,
+                  createdAt: tx.matchedNotification.createdAt.toISOString(),
+                }
+              : null,
           };
         });
 
@@ -228,6 +251,16 @@ export default (app: Elysia) =>
                   }),
                   t.Null(),
                 ]),
+                matchedNotification: t.Union([
+                  t.Object({
+                    id: t.String(),
+                    message: t.String(),
+                    createdAt: t.String(),
+                    deviceId: t.Union([t.String(), t.Null()]),
+                    metadata: t.Any(),
+                  }),
+                  t.Null(),
+                ]),
               }),
             ),
             pagination: t.Object({
@@ -256,11 +289,8 @@ export default (app: Elysia) =>
         const where: Prisma.TransactionWhereInput = {
           traderId: trader.id,
           requisites: {
-            OR: [
-              { deviceId: null },
-              { device: null }
-            ]
-          }
+            OR: [{ deviceId: null }, { device: null }],
+          },
         };
 
         // Фильтрация по статусу, если указан
@@ -274,7 +304,10 @@ export default (app: Elysia) =>
         }
 
         // Получаем транзакции с пагинацией
-        console.log(`[Trader API] Поиск БТ-Вход транзакций для трейдера ${trader.id}, условия:`, where);
+        console.log(
+          `[Trader API] Поиск БТ-Вход транзакций для трейдера ${trader.id}, условия:`,
+          where,
+        );
         const transactions = await db.transaction.findMany({
           where,
           skip,
@@ -325,43 +358,64 @@ export default (app: Elysia) =>
                 updatedAt: true,
               },
             },
+            matchedNotification: {
+              select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                deviceId: true,
+                metadata: true,
+              },
+            },
           },
         });
 
         // Получаем общее количество транзакций для пагинации
         const total = await db.transaction.count({ where });
-        
-        console.log(`[Trader API] Найдено ${transactions.length} БТ-Вход транзакций из ${total} общих для трейдера ${trader.id}`);
+
+        console.log(
+          `[Trader API] Найдено ${transactions.length} БТ-Вход транзакций из ${total} общих для трейдера ${trader.id}`,
+        );
 
         // Преобразуем даты в ISO формат и корректируем курс с учетом ККК
         const formattedTransactions = transactions.map((tx) => {
           // Используем сохраненный adjustedRate, если есть, иначе вычисляем с округлением вниз
-          const traderRate = tx.adjustedRate || 
-            (tx.rate !== null && tx.kkkPercent !== null 
-              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100 
+          const traderRate =
+            tx.adjustedRate ||
+            (tx.rate !== null && tx.kkkPercent !== null
+              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100
               : tx.rate);
-          
-          // Рассчитываем профит на основе скорректированного курса
-          const profit = traderRate !== null ? tx.amount / traderRate : null;
-          
+
+          // Используем сохраненную прибыль из базы данных
+          const profit = tx.traderProfit || 0;
+
           // Извлекаем информацию об устройстве
           const device = tx.requisites?.device;
-          
+
           return {
             ...tx,
             rate: traderRate,
             profit,
+            calculatedCommission: profit, // Добавляем для совместимости с фронтендом
             deviceId: device?.id || tx.requisites?.deviceId || null,
             deviceName: device?.name || null,
             createdAt: tx.createdAt.toISOString(),
             updatedAt: tx.updatedAt.toISOString(),
             expired_at: tx.expired_at.toISOString(),
             acceptedAt: tx.acceptedAt ? tx.acceptedAt.toISOString() : null,
-            dealDispute: tx.dealDispute ? {
-              ...tx.dealDispute,
-              createdAt: tx.dealDispute.createdAt.toISOString(),
-              updatedAt: tx.dealDispute.updatedAt.toISOString(),
-            } : null,
+            dealDispute: tx.dealDispute
+              ? {
+                  ...tx.dealDispute,
+                  createdAt: tx.dealDispute.createdAt.toISOString(),
+                  updatedAt: tx.dealDispute.updatedAt.toISOString(),
+                }
+              : null,
+            matchedNotification: tx.matchedNotification
+              ? {
+                  ...tx.matchedNotification,
+                  createdAt: tx.matchedNotification.createdAt.toISOString(),
+                }
+              : null,
           };
         });
 
@@ -377,7 +431,9 @@ export default (app: Elysia) =>
       },
       {
         tags: ["trader"],
-        detail: { summary: "Получение списка БТ-Вход транзакций (без устройств)" },
+        detail: {
+          summary: "Получение списка БТ-Вход транзакций (без устройств)",
+        },
         query: t.Object({
           page: t.Optional(t.String()),
           limit: t.Optional(t.String()),
@@ -452,6 +508,16 @@ export default (app: Elysia) =>
                   }),
                   t.Null(),
                 ]),
+                matchedNotification: t.Union([
+                  t.Object({
+                    id: t.String(),
+                    message: t.String(),
+                    createdAt: t.String(),
+                    deviceId: t.Union([t.String(), t.Null()]),
+                    metadata: t.Any(),
+                  }),
+                  t.Null(),
+                ]),
               }),
             ),
             pagination: t.Object({
@@ -501,9 +567,18 @@ export default (app: Elysia) =>
             dealDispute: {
               include: {
                 messages: {
-                  orderBy: { createdAt: 'desc' },
+                  orderBy: { createdAt: "desc" },
                   take: 1,
                 },
+              },
+            },
+            matchedNotification: {
+              select: {
+                id: true,
+                message: true,
+                createdAt: true,
+                deviceId: true,
+                metadata: true,
               },
             },
           },
@@ -514,13 +589,17 @@ export default (app: Elysia) =>
         }
 
         // Используем сохраненный adjustedRate, если есть, иначе вычисляем с округлением вниз
-        const traderRate = transaction.adjustedRate || 
-          (transaction.rate !== null && transaction.kkkPercent !== null 
-            ? Math.floor(transaction.rate * (1 - transaction.kkkPercent / 100) * 100) / 100 
+        const traderRate =
+          transaction.adjustedRate ||
+          (transaction.rate !== null && transaction.kkkPercent !== null
+            ? Math.floor(
+                transaction.rate * (1 - transaction.kkkPercent / 100) * 100,
+              ) / 100
             : transaction.rate);
-        
+
         // Рассчитываем профит на основе скорректированного курса
-        const profit = traderRate !== null ? transaction.amount / traderRate : null;
+        const profit =
+          traderRate !== null ? transaction.amount / traderRate : null;
 
         // Преобразуем даты в ISO формат и включаем requisites
         return {
@@ -537,21 +616,32 @@ export default (app: Elysia) =>
             ...transaction.merchant,
             createdAt: transaction.merchant.createdAt.toISOString(),
           },
-          requisites: transaction.requisites ? {
-            ...transaction.requisites,
-            phoneNumber: transaction.requisites.phoneNumber || "",
-            createdAt: transaction.requisites.createdAt.toISOString(),
-            updatedAt: transaction.requisites.updatedAt.toISOString(),
-          } : null,
-          dealDispute: transaction.dealDispute ? {
-            ...transaction.dealDispute,
-            createdAt: transaction.dealDispute.createdAt.toISOString(),
-            updatedAt: transaction.dealDispute.updatedAt.toISOString(),
-            messages: transaction.dealDispute.messages.map(msg => ({
-              ...msg,
-              createdAt: msg.createdAt.toISOString(),
-            })),
-          } : null,
+          requisites: transaction.requisites
+            ? {
+                ...transaction.requisites,
+                phoneNumber: transaction.requisites.phoneNumber || "",
+                createdAt: transaction.requisites.createdAt.toISOString(),
+                updatedAt: transaction.requisites.updatedAt.toISOString(),
+              }
+            : null,
+          dealDispute: transaction.dealDispute
+            ? {
+                ...transaction.dealDispute,
+                createdAt: transaction.dealDispute.createdAt.toISOString(),
+                updatedAt: transaction.dealDispute.updatedAt.toISOString(),
+                messages: transaction.dealDispute.messages.map((msg) => ({
+                  ...msg,
+                  createdAt: msg.createdAt.toISOString(),
+                })),
+              }
+            : null,
+          matchedNotification: transaction.matchedNotification
+            ? {
+                ...transaction.matchedNotification,
+                createdAt:
+                  transaction.matchedNotification.createdAt.toISOString(),
+              }
+            : null,
         };
       },
       {
@@ -648,6 +738,16 @@ export default (app: Elysia) =>
               }),
               t.Null(),
             ]),
+            matchedNotification: t.Union([
+              t.Object({
+                id: t.String(),
+                message: t.String(),
+                createdAt: t.String(),
+                deviceId: t.Union([t.String(), t.Null()]),
+                metadata: t.Any(),
+              }),
+              t.Null(),
+            ]),
           }),
           401: ErrorSchema,
           403: ErrorSchema,
@@ -684,8 +784,10 @@ export default (app: Elysia) =>
 
         // Разрешено менять IN_PROGRESS на READY и READY на COMPLETED
         if (
-          (transaction.status === Status.IN_PROGRESS && body.status === Status.READY) ||
-          (transaction.status === Status.READY && body.status === Status.COMPLETED)
+          (transaction.status === Status.IN_PROGRESS &&
+            body.status === Status.READY) ||
+          (transaction.status === Status.READY &&
+            body.status === Status.COMPLETED)
         ) {
           // Allowed transitions
         } else {
@@ -697,13 +799,36 @@ export default (app: Elysia) =>
 
         // Обновляем статус транзакции
         const updateData: any = { status: body.status };
-        
+
         if (body.status === Status.READY) {
           updateData.acceptedAt = new Date();
+
+          // Calculate and set traderProfit if not already set
+          if (transaction.traderProfit === null && transaction.rate !== null) {
+            // Get trader merchant settings for commission percentage
+            const traderMerchant = await db.traderMerchant.findUnique({
+              where: {
+                traderId_merchantId_methodId: {
+                  traderId: transaction.traderId!,
+                  merchantId: transaction.merchantId,
+                  methodId: transaction.methodId,
+                },
+              },
+            });
+
+            const feeInPercent = traderMerchant?.feeIn || 0;
+            if (feeInPercent > 0) {
+              // Calculate profit: (amount / rate) * (feeInPercent / 100)
+              const spentUsdt = transaction.amount / transaction.rate;
+              const profit = spentUsdt * (feeInPercent / 100);
+              // Truncate to 2 decimal places
+              updateData.traderProfit = Math.trunc(profit * 100) / 100;
+            }
+          }
         } else if (body.status === Status.COMPLETED) {
           updateData.completedAt = new Date();
         }
-        
+
         const updatedTransaction = await db.transaction.update({
           where: { id: params.id },
           data: updateData,
@@ -734,36 +859,26 @@ export default (app: Elysia) =>
             const txWithFreezing = await prisma.transaction.findUnique({
               where: { id: transaction.id },
             });
-            
-            if (txWithFreezing?.frozenUsdtAmount && txWithFreezing?.calculatedCommission) {
-              const totalFrozen = txWithFreezing.frozenUsdtAmount + txWithFreezing.calculatedCommission;
-              
-              // Размораживаем средства
+
+            if (txWithFreezing?.frozenUsdtAmount) {
+              // Размораживаем основную сумму
               await prisma.user.update({
                 where: { id: trader.id },
                 data: {
-                  frozenUsdt: { decrement: totalFrozen }
-                }
+                  frozenUsdt: { decrement: txWithFreezing.frozenUsdtAmount },
+                },
               });
+            }
 
-              // Списываем замороженную сумму с траст баланса
+            // Начисляем прибыль трейдеру
+            // Используем traderProfit который мы рассчитали выше при установке статуса READY
+            if (updateData.traderProfit && updateData.traderProfit > 0) {
               await prisma.user.update({
                 where: { id: trader.id },
                 data: {
-                  trustBalance: { decrement: totalFrozen }
-                }
+                  profitFromDeals: { increment: updateData.traderProfit },
+                },
               });
-
-              // Начисляем прибыль трейдеру (комиссия)
-              const profit = roundDown2(txWithFreezing.calculatedCommission);
-              if (profit > 0) {
-                await prisma.user.update({
-                  where: { id: trader.id },
-                  data: {
-                    profitFromDeals: { increment: profit }
-                  }
-                });
-              }
             }
           });
         }
@@ -818,15 +933,29 @@ export default (app: Elysia) =>
           success: true,
           transaction: {
             ...updatedTransaction,
-            rate: updatedTransaction.adjustedRate || 
-              (updatedTransaction.rate !== null && updatedTransaction.kkkPercent !== null 
-                ? Math.floor(updatedTransaction.rate * (1 - updatedTransaction.kkkPercent / 100) * 100) / 100 
+            rate:
+              updatedTransaction.adjustedRate ||
+              (updatedTransaction.rate !== null &&
+              updatedTransaction.kkkPercent !== null
+                ? Math.floor(
+                    updatedTransaction.rate *
+                      (1 - updatedTransaction.kkkPercent / 100) *
+                      100,
+                  ) / 100
                 : updatedTransaction.rate),
-            profit: updatedTransaction.adjustedRate !== null 
-              ? updatedTransaction.amount / updatedTransaction.adjustedRate 
-              : (updatedTransaction.rate !== null && updatedTransaction.kkkPercent !== null
-                ? updatedTransaction.amount / (Math.floor(updatedTransaction.rate * (1 - updatedTransaction.kkkPercent / 100) * 100) / 100)
-                : null),
+            profit:
+              updatedTransaction.adjustedRate !== null
+                ? updatedTransaction.amount / updatedTransaction.adjustedRate
+                : updatedTransaction.rate !== null &&
+                    updatedTransaction.kkkPercent !== null
+                  ? updatedTransaction.amount /
+                    (Math.floor(
+                      updatedTransaction.rate *
+                        (1 - updatedTransaction.kkkPercent / 100) *
+                        100,
+                    ) /
+                      100)
+                  : null,
             createdAt: updatedTransaction.createdAt.toISOString(),
             updatedAt: updatedTransaction.updatedAt.toISOString(),
             expired_at: updatedTransaction.expired_at.toISOString(),

@@ -38,7 +38,9 @@ export class NotificationAutoProcessorService extends BaseService {
       tags: ["notifications", "automation", "critical"],
     });
 
-    this.config = ProcessorConfigSchema.parse({});
+    this.config = ProcessorConfigSchema.parse({
+      pollIntervalSec: 1, // Ускоряем до 1 секунды
+    });
     this.stats = {
       totalProcessed: 0,
       successfulMatches: 0,
@@ -96,8 +98,18 @@ export class NotificationAutoProcessorService extends BaseService {
       if (notifications.length > 0) {
         await this.logDebug(`Processing ${notifications.length} notifications`);
         
-        for (const notification of notifications) {
-          await this.processNotification(notification);
+        // Обрабатываем до 5 уведомлений параллельно для ускорения
+        const chunks = [];
+        for (let i = 0; i < notifications.length; i += 5) {
+          chunks.push(notifications.slice(i, i + 5));
+        }
+        
+        for (const chunk of chunks) {
+          await Promise.all(chunk.map(notification => 
+            this.processNotification(notification).catch(error => 
+              this.logError("Error processing notification", { notificationId: notification.id, error })
+            )
+          ));
         }
       }
 
@@ -148,7 +160,7 @@ export class NotificationAutoProcessorService extends BaseService {
           },
         },
       },
-      take: this.config.batchSize,
+      take: 50, // Увеличиваем размер батча для более быстрой обработки
       orderBy: {
         createdAt: "asc",
       },
@@ -259,7 +271,7 @@ export class NotificationAutoProcessorService extends BaseService {
         },
         traderId: notification.Device.userId,
         createdAt: {
-          gte: new Date(notificationTime.getTime() - this.config.minTimeDiffMs),
+          gte: new Date(notificationTime.getTime() - 600000), // 10 минут вместо 5
           lte: notificationTime,
         },
       },
@@ -301,24 +313,95 @@ export class NotificationAutoProcessorService extends BaseService {
   }
 
   private async updateTransactionStatus(transaction: any, notificationId: string): Promise<void> {
-    await db.$transaction([
-      // Update transaction
-      db.transaction.update({
+    await db.$transaction(async (prisma) => {
+      // Get full transaction details with trader merchant settings
+      const fullTransaction = await prisma.transaction.findUnique({
+        where: { id: transaction.id },
+        include: {
+          trader: true,
+          merchant: true,
+          method: true,
+        }
+      });
+
+      if (!fullTransaction || !fullTransaction.traderId) {
+        throw new Error("Transaction or trader not found");
+      }
+
+      // Get trader merchant settings for commission calculation
+      const traderMerchant = await prisma.traderMerchant.findUnique({
+        where: {
+          traderId_merchantId_methodId: {
+            traderId: fullTransaction.traderId,
+            merchantId: fullTransaction.merchantId,
+            methodId: fullTransaction.methodId,
+          }
+        }
+      });
+
+      // Calculate trader profit using the rate field (Rapira rate with KKK)
+      // This is the amount the trader spent in USDT to buy RUB
+      const spentUsdt = fullTransaction.rate ? fullTransaction.amount / fullTransaction.rate : 0;
+      
+      // Calculate commission
+      const commissionPercent = traderMerchant?.feeIn || 0;
+      const commissionUsdt = spentUsdt * (commissionPercent / 100);
+      
+      // Trader profit = commission earned (truncated to 2 decimal places)
+      const traderProfit = Math.trunc(commissionUsdt * 100) / 100;
+      
+      console.log(`Profit calculation: amount=${fullTransaction.amount}, rate=${fullTransaction.rate}, spentUsdt=${spentUsdt}, commissionPercent=${commissionPercent}, profit=${traderProfit}`);
+
+      // Update transaction status and profit, and link to notification
+      await prisma.transaction.update({
         where: { id: transaction.id },
         data: {
           status: Status.READY,
           acceptedAt: new Date(),
+          traderProfit: traderProfit, // Save trader profit
+          matchedNotificationId: notificationId, // Link to the notification
         },
-      }),
+      });
+
+      // Update trader balances
+      await prisma.user.update({
+        where: { id: fullTransaction.traderId },
+        data: {
+          // Decrease frozen balance by the amount that was frozen
+          frozenUsdt: {
+            decrement: fullTransaction.frozenUsdtAmount || 0
+          },
+          // НЕ уменьшаем trustBalance - он уже был уменьшен при заморозке!
+          // trustBalance уже был уменьшен в transaction-freezing.ts при создании сделки
+          // Increase profit from deals
+          profitFromDeals: {
+            increment: traderProfit
+          },
+          // Increase deposit (available balance) by the profit
+          deposit: {
+            increment: traderProfit
+          }
+        }
+      });
+
       // Mark notification as processed
-      db.notification.update({
+      await prisma.notification.update({
         where: { id: notificationId },
         data: {
           isProcessed: true,
           updatedAt: new Date(),
         },
-      }),
-    ]);
+      });
+
+      await this.logInfo("Transaction completed successfully", {
+        transactionId: transaction.id,
+        amount: fullTransaction.amount,
+        rate: fullTransaction.rate,
+        spentUsdt,
+        traderProfit,
+        traderId: fullTransaction.traderId,
+      });
+    });
   }
 
   private async markNotificationProcessed(notificationId: string, reason: string): Promise<void> {

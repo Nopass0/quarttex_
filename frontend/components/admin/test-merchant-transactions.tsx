@@ -277,7 +277,8 @@ export function TestMerchantTransactions({
       const bankType = bankDetail?.bankType || "SBERBANK";
 
       // Используем выбранный пакет или определяем из реквизитов
-      const packageName = selectedBankPackage || 
+      const packageName =
+        selectedBankPackage ||
         bankPackageNames[bankType as keyof typeof bankPackageNames] ||
         bankPackageNames["SBERBANK"];
       const title = notificationTitle || bankType;
@@ -869,6 +870,24 @@ export function TestMerchantTransactions({
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => createBatchTransactions(1)}
+                      disabled={isLoading}
+                      className="dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200"
+                    >
+                      Создать 1
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => createBatchTransactions(2)}
+                      disabled={isLoading}
+                      className="dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200"
+                    >
+                      Создать 2
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => createBatchTransactions(5)}
                       disabled={isLoading}
                       className="dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200"
@@ -1086,20 +1105,25 @@ export function TestMerchantTransactions({
               <Label htmlFor="bankPackage" className="dark:text-gray-300">
                 Пакет банка
               </Label>
-              <Select value={selectedBankPackage} onValueChange={setSelectedBankPackage}>
+              <Select
+                value={selectedBankPackage}
+                onValueChange={setSelectedBankPackage}
+              >
                 <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                   <SelectValue placeholder="Автоматически из реквизитов" />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-gray-700 dark:border-gray-600">
-                  {Object.entries(bankPackageNames).map(([bank, packageName], index) => (
-                    <SelectItem
-                      key={`${bank}-${index}`}
-                      value={packageName}
-                      className="dark:text-gray-200 dark:hover:bg-gray-600"
-                    >
-                      {bank} - {packageName}
-                    </SelectItem>
-                  ))}
+                  {Object.entries(bankPackageNames).map(
+                    ([bank, packageName], index) => (
+                      <SelectItem
+                        key={`${bank}-${index}`}
+                        value={packageName}
+                        className="dark:text-gray-200 dark:hover:bg-gray-600"
+                      >
+                        {bank} - {packageName}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </div>

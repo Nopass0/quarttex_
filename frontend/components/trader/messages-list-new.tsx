@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { TraderHeader } from "@/components/trader/trader-header";
 import {
   Loader2,
@@ -202,6 +202,8 @@ const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
 };
 
 export function MessagesListNew() {
+  const searchParams = useSearchParams();
+  const notificationId = searchParams.get("notificationId");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -301,11 +303,56 @@ export function MessagesListNew() {
     }
   };
 
+  const fetchNotificationDetails = async (id: string) => {
+    try {
+      const response = await traderApi.getNotificationDetails(id);
+      if (response) {
+        // Convert notification to message format
+        const message: Message = {
+          id: response.id,
+          numericId: parseInt(response.id.slice(-6), 36) || 0,
+          packageName: response.packageName || "",
+          text: response.message,
+          timestamp: response.createdAt,
+          deviceId: response.deviceId || undefined,
+          deviceName: response.deviceName || undefined,
+          deviceModel: "",
+          amount: 0,
+          currency: "RUB",
+          status: response.isProcessed ? "processed" : "new",
+          isNew: !response.isRead,
+          type: response.type,
+          title: response.title || response.application || "Уведомление",
+          application: response.application || undefined,
+          isRead: response.isRead,
+          metadata: response.metadata
+        };
+        setSelectedMessage(message);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notification details:", error);
+    }
+  };
+
   useEffect(() => {
     fetchMessages();
     fetchDevices();
     fetchMethods();
   }, []);
+
+  // Handle notification ID from URL
+  useEffect(() => {
+    if (notificationId && messages.length > 0) {
+      // Find notification in messages
+      const notification = messages.find(m => m.id === notificationId);
+      if (notification) {
+        setSelectedMessage(notification);
+      } else {
+        // Try to fetch notification details
+        fetchNotificationDetails(notificationId);
+      }
+    }
+  }, [notificationId, messages]);
 
   const getFilteredMessages = () => {
     let filtered = messages;

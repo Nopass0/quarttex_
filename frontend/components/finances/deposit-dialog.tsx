@@ -145,7 +145,7 @@ export function DepositDialog({ open, onOpenChange, depositType = 'BALANCE' }: D
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowDownRight className="h-5 w-5" style={{ color: '#006039' }} />
-            Пополнение {depositType === 'INSURANCE' ? 'депозитного' : 'траст'} баланса
+            Пополнение {depositType === 'INSURANCE' ? 'депозитного' : ''} баланса
           </DialogTitle>
           <DialogDescription>
             Пополните баланс для участия в сделках

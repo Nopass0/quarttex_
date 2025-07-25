@@ -20,13 +20,9 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
   .get("/settings", async ({ trader }) => {
     const [
       minAmount,
-      feePercent,
-      feeFixed,
       processingHours
     ] = await Promise.all([
       db.systemConfig.findUnique({ where: { key: "min_withdrawal_amount" } }),
-      db.systemConfig.findUnique({ where: { key: "withdrawal_fee_percent" } }),
-      db.systemConfig.findUnique({ where: { key: "withdrawal_fee_fixed" } }),
       db.systemConfig.findUnique({ where: { key: "withdrawal_processing_time_hours" } })
     ]);
 
@@ -34,8 +30,9 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
       success: true,
       data: {
         minAmount: parseFloat(minAmount?.value || "50"),
-        feePercent: parseFloat(feePercent?.value || "2"),
-        feeFixed: parseFloat(feeFixed?.value || "5"),
+        feePercent: 0,
+        feeFixed: 0,
+        feeEnabled: false,
         processingHours: parseInt(processingHours?.value || "24")
       }
     };
@@ -48,6 +45,7 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
         payoutBalance: true,
         profitFromDeals: true,
         profitFromPayouts: true,
+        balanceUsdt: true,
         // Referral balance would be calculated from referral system
       }
     });
@@ -63,23 +61,22 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
         [WithdrawalBalanceType.COMPENSATION]: user.payoutBalance,
         [WithdrawalBalanceType.PROFIT_DEALS]: user.profitFromDeals,
         [WithdrawalBalanceType.PROFIT_PAYOUTS]: user.profitFromPayouts,
-        [WithdrawalBalanceType.REFERRAL]: 0 // TODO: Implement referral balance
+        [WithdrawalBalanceType.REFERRAL]: 0, // TODO: Implement referral balance
+        [WithdrawalBalanceType.WORKING]: user.balanceUsdt
       }
     };
   })
   .post("/", async ({ trader, body, set }) => {
-    const { amountUSDT, balanceType, walletAddress } = body;
+    let { amountUSDT, balanceType, walletAddress } = body;
+    
+    // Map BALANCE to TRUST for backward compatibility
+    if (balanceType === 'BALANCE') {
+      balanceType = WithdrawalBalanceType.TRUST;
+    }
 
     // Get settings
-    const [minAmountSetting, feePercentSetting, feeFixedSetting] = await Promise.all([
-      db.systemConfig.findUnique({ where: { key: "min_withdrawal_amount" } }),
-      db.systemConfig.findUnique({ where: { key: "withdrawal_fee_percent" } }),
-      db.systemConfig.findUnique({ where: { key: "withdrawal_fee_fixed" } })
-    ]);
-
+    const minAmountSetting = await db.systemConfig.findUnique({ where: { key: "min_withdrawal_amount" } });
     const minAmount = parseFloat(minAmountSetting?.value || "50");
-    const feePercent = parseFloat(feePercentSetting?.value || "2");
-    const feeFixed = parseFloat(feeFixedSetting?.value || "5");
 
     // Validate amount
     if (amountUSDT < minAmount) {
@@ -89,10 +86,6 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
         error: `Минимальная сумма вывода: ${minAmount} USDT`
       };
     }
-
-    // Calculate fees
-    const totalFee = (amountUSDT * feePercent / 100) + feeFixed;
-    const amountAfterFees = amountUSDT - totalFee;
 
     // Check balance
     const user = await db.user.findUnique({
@@ -108,8 +101,9 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
 
     switch (balanceType) {
       case WithdrawalBalanceType.TRUST:
-        availableBalance = user.trustBalance;
-        balanceField = "trustBalance";
+        // For TRUST balance, consider frozen amount
+        availableBalance = user.trustBalance - user.frozenUsdt;
+        balanceField = "frozenUsdt"; // We'll freeze instead of decrement
         break;
       case WithdrawalBalanceType.COMPENSATION:
         availableBalance = user.payoutBalance;
@@ -125,6 +119,10 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
         break;
       case WithdrawalBalanceType.REFERRAL:
         availableBalance = 0; // TODO: Implement referral balance
+        break;
+      case WithdrawalBalanceType.WORKING:
+        availableBalance = user.balanceUsdt;
+        balanceField = "balanceUsdt";
         break;
     }
 
@@ -167,16 +165,25 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
         }
       });
 
-      // Deduct from balance (block the funds)
-      if (balanceField && balanceField !== "referralBalance") {
-        await tx.user.update({
-          where: { id: trader.id },
-          data: {
-            [balanceField]: {
-              decrement: amountUSDT
+      // Deduct from balance or freeze funds
+      if (balanceField) {
+        if (balanceType === WithdrawalBalanceType.TRUST) {
+          // For TRUST balance, freeze the amount
+          await tx.user.update({
+            where: { id: trader.id },
+            data: {
+              frozenUsdt: { increment: amountUSDT }
             }
-          }
-        });
+          });
+        } else if (balanceField !== "referralBalance") {
+          // For other balances, decrement directly
+          await tx.user.update({
+            where: { id: trader.id },
+            data: {
+              [balanceField]: { decrement: amountUSDT }
+            }
+          });
+        }
       }
 
       // Create admin log
@@ -200,8 +207,8 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
         balanceType: result.balanceType,
         walletAddress: result.walletAddress,
         status: result.status,
-        fee: totalFee,
-        amountAfterFees,
+        fee: 0,
+        amountAfterFees: result.amountUSDT,
         createdAt: result.createdAt
       }
     };
@@ -209,7 +216,7 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
     body: t.Object({
       amountUSDT: t.Number({ minimum: 1 }),
       balanceType: t.Enum(WithdrawalBalanceType),
-      walletAddress: t.String({ minLength: 20 })
+      walletAddress: t.String({ minLength: 34, maxLength: 42 }) // TRC-20 addresses are 34 characters
     })
   })
   .post("/:id/cancel", async ({ trader, params, set }) => {
@@ -254,31 +261,40 @@ export const traderWithdrawalsRoutes = new Elysia({ prefix: "/withdrawals" })
       });
 
       // Refund balance
-      let balanceField = "";
-      switch (withdrawal.balanceType) {
-        case WithdrawalBalanceType.TRUST:
-          balanceField = "trustBalance";
-          break;
-        case WithdrawalBalanceType.COMPENSATION:
-          balanceField = "payoutBalance";
-          break;
-        case WithdrawalBalanceType.PROFIT_DEALS:
-          balanceField = "profitFromDeals";
-          break;
-        case WithdrawalBalanceType.PROFIT_PAYOUTS:
-          balanceField = "profitFromPayouts";
-          break;
-      }
-
-      if (balanceField) {
+      if (withdrawal.balanceType === WithdrawalBalanceType.TRUST) {
+        // For TRUST balance, unfreeze the amount
         await tx.user.update({
           where: { id: trader.id },
           data: {
-            [balanceField]: {
-              increment: withdrawal.amountUSDT
-            }
+            frozenUsdt: { decrement: withdrawal.amountUSDT }
           }
         });
+      } else {
+        // For other balances, refund directly
+        let balanceField = "";
+        switch (withdrawal.balanceType) {
+          case WithdrawalBalanceType.COMPENSATION:
+            balanceField = "payoutBalance";
+            break;
+          case WithdrawalBalanceType.PROFIT_DEALS:
+            balanceField = "profitFromDeals";
+            break;
+          case WithdrawalBalanceType.PROFIT_PAYOUTS:
+            balanceField = "profitFromPayouts";
+            break;
+          case WithdrawalBalanceType.WORKING:
+            balanceField = "balanceUsdt";
+            break;
+        }
+
+        if (balanceField) {
+          await tx.user.update({
+            where: { id: trader.id },
+            data: {
+              [balanceField]: { increment: withdrawal.amountUSDT }
+            }
+          });
+        }
       }
 
       // Create admin log

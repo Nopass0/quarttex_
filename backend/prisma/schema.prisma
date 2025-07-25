@@ -149,6 +149,8 @@ model Merchant {
   Transaction          Transaction[]
   withdrawalDisputes   WithdrawalDispute[]
   dealDisputes         DealDispute[]
+  transactionAttempts  TransactionAttempt[]
+  settleRequests       SettleRequest[]
 }
 
 model Method {
@@ -172,6 +174,7 @@ model Method {
   traderMerchants  TraderMerchant[]
   Transaction      Transaction[]
   payouts          Payout[]
+  transactionAttempts TransactionAttempt[]
 }
 
 model MerchantMethod {
@@ -204,7 +207,8 @@ model Transaction {
   clientName           String
   status               Status              @default(CREATED)
   error                String?
-  rate                 Float?
+  rate                 Float?              // Rapira rate with KKK (always)
+  merchantRate         Float?              // Merchant's rate (if countInRubEquivalent=false) or Rapira rate (if true)
   traderId             String?
   isMock               Boolean             @default(false)
   createdAt            DateTime            @default(now())
@@ -219,13 +223,16 @@ model Transaction {
   frozenUsdtAmount     Float?
   kkkPercent           Float?
   kkkOperation         KkkOperationType?
+  traderProfit         Float?              // Прибыль трейдера в USDT
   callbackSent         Boolean             @default(false)
+  matchedNotificationId String?            // ID уведомления, с которым была сматчена транзакция
   receipts             Receipt[]
   requisites           BankDetail?         @relation(fields: [bankDetailId], references: [id])
   merchant             Merchant            @relation(fields: [merchantId], references: [id])
   method               Method              @relation(fields: [methodId], references: [id])
   settlement           MerchantSettlement? @relation(fields: [settlementId], references: [id])
   trader               User?               @relation("TraderTransactions", fields: [traderId], references: [id])
+  matchedNotification  Notification?       @relation(fields: [matchedNotificationId], references: [id])
   dealDispute          DealDispute?
 }
 
@@ -397,6 +404,7 @@ model Notification {
   deviceId    String?
   isProcessed Boolean          @default(false)
   Device      Device?          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  matchedTransactions Transaction[]
 
   @@index([deviceId, createdAt(sort: Desc)])
   @@index([isProcessed, type])
@@ -674,6 +682,7 @@ model Payout {
   cancelReasonCode     String?
   externalReference    String?
   sumToWriteOffUSDT    Float?
+  profitAmount         Float?
   previousTraderIds    String[]          @default([])
   methodId             String
   merchant             Merchant          @relation(fields: [merchantId], references: [id])
@@ -1007,6 +1016,7 @@ enum WithdrawalBalanceType {
   PROFIT_DEALS    // Прибыль с приема
   PROFIT_PAYOUTS  // Прибыль с выплат
   REFERRAL        // Реферальный баланс
+  WORKING         // Рабочий баланс
 }
 
 enum ServiceStatus {
@@ -1186,4 +1196,45 @@ model PayoutBlacklist {
   @@unique([payoutId, traderId])
   @@index([payoutId])
   @@index([traderId])
+}
+
+model TransactionAttempt {
+  id              String   @id @default(cuid())
+  merchantId      String
+  methodId        String
+  amount          Float
+  success         Boolean
+  errorCode       String?  // 'NO_REQUISITE', 'NO_TRADERS', etc.
+  createdAt       DateTime @default(now())
+  
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+  method          Method   @relation(fields: [methodId], references: [id])
+  
+  @@index([merchantId])
+  @@index([createdAt])
+}
+
+model SettleRequest {
+  id              String   @id @default(cuid())
+  merchantId      String
+  amount          Float    // Зафиксированный баланс на момент запроса в рублях
+  amountUsdt      Float    @default(0) // Сумма в USDT (amount / rate)
+  rate            Float    // Курс Rapira на момент запроса (без KKK)
+  status          SettleRequestStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+  processedAt     DateTime?
+  processedBy     String?  // ID админа
+  cancelReason    String?
+  
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+  
+  @@index([merchantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum SettleRequestStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
 }

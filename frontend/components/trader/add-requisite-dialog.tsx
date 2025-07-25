@@ -44,8 +44,9 @@ const formSchema = z.object({
   phoneNumber: z.string().optional(),
   minAmount: z.number().min(100),
   maxAmount: z.number().min(1000),
-  dailyLimit: z.number().min(1000),
-  monthlyLimit: z.number().min(10000),
+  dailyLimit: z.number().min(0),
+  monthlyLimit: z.number().min(0),
+  maxCountTransactions: z.number().min(0),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -125,6 +126,7 @@ export function AddRequisiteDialog({
       maxAmount: 100000,
       dailyLimit: 500000,
       monthlyLimit: 10000000,
+      maxCountTransactions: 5,
     },
   });
 
@@ -445,7 +447,7 @@ export function AddRequisiteDialog({
                 name="dailyLimit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Дневной лимит</FormLabel>
+                    <FormLabel>Дневной лимит (₽)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -454,6 +456,7 @@ export function AddRequisiteDialog({
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
+                    <FormDescription>0 = без ограничений</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -464,7 +467,7 @@ export function AddRequisiteDialog({
                 name="monthlyLimit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Месячный лимит</FormLabel>
+                    <FormLabel>Месячный лимит (₽)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -473,11 +476,33 @@ export function AddRequisiteDialog({
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
+                    <FormDescription>0 = без ограничений</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="maxCountTransactions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Дневной лимит транзакций</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Максимальное количество сделок в день (0 = без ограничений, по умолчанию 5)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button

@@ -60,10 +60,13 @@ export const adminApiInstance = axios.create({
 
 adminApiInstance.interceptors.request.use((config) => {
   const token = useAdminAuth.getState().token
+  console.log('[Admin API] Request to:', config.url)
+  console.log('[Admin API] Token from store:', token)
   if (token) {
     // Ensure token contains only ASCII characters to prevent encoding errors
     const sanitizedToken = token.replace(/[^\x00-\x7F]/g, "")
     config.headers['x-admin-key'] = sanitizedToken
+    console.log('[Admin API] Setting header x-admin-key:', sanitizedToken)
   }
   return config
 })
@@ -316,7 +319,19 @@ export const traderApi = {
     return response.data
   },
   getWithdrawalRequests: async (params?: { page?: number; limit?: number }) => {
-    const response = await traderApiInstance.get('/trader/finance/withdrawal-requests', { params })
+    const response = await traderApiInstance.get('/trader/withdrawals', { params })
+    return response.data
+  },
+  createWithdrawal: async (data: { amountUSDT: number; balanceType: string; walletAddress: string }) => {
+    const response = await traderApiInstance.post('/trader/withdrawals', data)
+    return response.data
+  },
+  getWithdrawalSettings: async () => {
+    const response = await traderApiInstance.get('/trader/withdrawals/settings')
+    return response.data
+  },
+  getWithdrawalBalances: async () => {
+    const response = await traderApiInstance.get('/trader/withdrawals/balances')
     return response.data
   },
   // Deposit endpoints
@@ -411,6 +426,19 @@ export const traderApi = {
     const response = await traderApiInstance.delete(`/trader/bt-entrance/requisites/${id}`)
     return response.data
   },
+  // Notifications endpoints
+  getNotifications: async (params?: { page?: number; limit?: number; search?: string; isProcessed?: string; deviceId?: string }) => {
+    const response = await traderApiInstance.get('/trader/notifications', { params })
+    return response.data
+  },
+  getNotificationDetails: async (id: string) => {
+    const response = await traderApiInstance.get(`/trader/notifications/${id}`)
+    return response.data
+  },
+  markNotificationAsRead: async (id: string) => {
+    const response = await traderApiInstance.put(`/trader/notifications/${id}/read`)
+    return response.data
+  },
 }
 
 // Merchant API instance with interceptors
@@ -484,6 +512,14 @@ export const merchantApi = {
         'Content-Type': 'multipart/form-data',
       },
     })
+    return response.data
+  },
+  createSettleRequest: async () => {
+    const response = await merchantApiInstance.post('/merchant/dashboard/settle-request')
+    return response.data
+  },
+  getSettleRequests: async (params?: { page?: number; limit?: number; status?: string }) => {
+    const response = await merchantApiInstance.get('/merchant/dashboard/settle-requests', { params })
     return response.data
   },
   // Payout disputes
@@ -677,6 +713,19 @@ export const adminApi = {
     const response = await adminApiInstance.post(`/admin/deposits/${depositId}/reject`, { reason })
     return response.data
   },
+  // Withdrawals management
+  getWithdrawalRequests: async (params?: { status?: string; type?: string }) => {
+    const response = await adminApiInstance.get('/admin/withdrawals', { params })
+    return response.data
+  },
+  approveWithdrawal: async (withdrawalId: string, txHash: string) => {
+    const response = await adminApiInstance.post(`/admin/withdrawals/${withdrawalId}/approve`, { txHash })
+    return response.data
+  },
+  rejectWithdrawal: async (withdrawalId: string, reason: string) => {
+    const response = await adminApiInstance.post(`/admin/withdrawals/${withdrawalId}/reject`, { reason })
+    return response.data
+  },
   // Payouts management
   getPayouts: async (params?: any) => {
     const response = await adminApiInstance.get('/admin/payouts', { params })
@@ -756,6 +805,27 @@ export const adminApi = {
     return response.data
   },
   
+  // System config endpoints
+  getSystemConfigs: async () => {
+    const response = await adminApiInstance.get('/admin/system-config')
+    return response.data
+  },
+  
+  getSystemConfig: async (key: string) => {
+    const response = await adminApiInstance.get(`/admin/system-config/${key}`)
+    return response.data
+  },
+  
+  updateSystemConfig: async (data: { key: string; value: string }) => {
+    const response = await adminApiInstance.post('/admin/system-config', data)
+    return response.data
+  },
+  
+  deleteSystemConfig: async (key: string) => {
+    const response = await adminApiInstance.delete(`/admin/system-config/${key}`)
+    return response.data
+  },
+  
   // Test Tools endpoints
   getTestMerchants: async () => {
     const response = await adminApiInstance.get('/admin/test-tools/merchants')
@@ -823,6 +893,28 @@ export const adminApi = {
   },
   regenerateWellbitKeys: async () => {
     const response = await adminApiInstance.post('/admin/merchants/wellbit/regenerate')
+    return response.data
+  },
+
+  // Settle requests
+  getSettleRequests: async (params?: { page?: number; limit?: number; status?: string; merchantId?: string }) => {
+    const response = await adminApiInstance.get('/admin/settle-requests', { params })
+    return response.data
+  },
+  getSettleRequest: async (id: string) => {
+    const response = await adminApiInstance.get(`/admin/settle-requests/${id}`)
+    return response.data
+  },
+  approveSettleRequest: async (id: string) => {
+    const response = await adminApiInstance.post(`/admin/settle-requests/${id}/approve`)
+    return response.data
+  },
+  cancelSettleRequest: async (id: string, reason: string) => {
+    const response = await adminApiInstance.post(`/admin/settle-requests/${id}/cancel`, { reason })
+    return response.data
+  },
+  getMerchantSettleHistory: async (merchantId: string, params?: { page?: number; limit?: number }) => {
+    const response = await adminApiInstance.get(`/admin/settle-requests/merchant/${merchantId}`, { params })
     return response.data
   },
 }

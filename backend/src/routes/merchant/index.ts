@@ -420,30 +420,58 @@ export default (app: Elysia) =>
         // По умолчанию тип транзакции IN
         const type = body.type || TransactionType.IN;
         
-        // Always get the current rate from Rapira for trader calculations
-        let rapiraRate: number;
+        // Функция для записи попытки создания транзакции
+        const recordAttempt = async (success: boolean, errorCode?: string) => {
+          try {
+            await db.transactionAttempt.create({
+              data: {
+                merchantId: merchant.id,
+                methodId: body.methodId,
+                amount: body.amount,
+                success,
+                errorCode,
+              },
+            });
+          } catch (e) {
+            console.error("Failed to record transaction attempt", e);
+          }
+        };
+        
+        // Always get the current rate from Rapira for calculations
+        let rapiraBaseRate: number;
         try {
-          rapiraRate = await rapiraService.getUsdtRubRate();
+          rapiraBaseRate = await rapiraService.getUsdtRubRate();
         } catch (error) {
           console.error("Failed to get rate from Rapira:", error);
-          rapiraRate = 95; // Default fallback rate
+          rapiraBaseRate = 95; // Default fallback rate
         }
         
-        // Validate rate based on merchant's countInRubEquivalent setting
-        let rate: number;
+        // Get Rapira rate with KKK for calculations
+        let rapiraRateWithKkk: number;
+        try {
+          const rateSettingRecord = await db.rateSetting.findFirst({ where: { id: 1 } });
+          const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
+          rapiraRateWithKkk = await rapiraService.getRateWithKkk(rapiraKkk);
+        } catch (error) {
+          console.error("Failed to get rate with KKK:", error);
+          rapiraRateWithKkk = rapiraBaseRate; // Fallback to base rate
+        }
+        
+        // Determine merchant rate based on countInRubEquivalent setting
+        let merchantRate: number;
         
         if (merchant.countInRubEquivalent) {
           // If merchant has RUB calculations enabled, we provide the rate from Rapira
           if (body.rate !== undefined) {
             return error(400, { error: "Курс не должен передаваться при включенных расчетах в рублях. Курс автоматически получается от системы." });
           }
-          rate = rapiraRate;
+          merchantRate = rapiraBaseRate; // Merchant sees Rapira rate without KKK
         } else {
           // If RUB calculations are disabled, merchant must provide the rate
           if (body.rate === undefined) {
             return error(400, { error: "Курс обязателен при выключенных расчетах в рублях. Укажите параметр rate." });
           }
-          rate = body.rate;
+          merchantRate = body.rate; // Merchant's custom rate
         }
         
         // Генерируем значения по умолчанию для необязательных полей
@@ -470,8 +498,9 @@ export default (app: Elysia) =>
                 commission: 0, // По умолчанию 0
                 clientName: userId, // Используем userId как имя клиента
                 status: Status.MILK,
-                rate: rate,
-                adjustedRate: rapiraRate, // Store Rapira rate for trader calculations
+                rate: rapiraRateWithKkk, // Always Rapira rate with KKK for calculations
+                merchantRate: merchantRate, // Merchant's rate or Rapira rate
+                adjustedRate: rapiraRateWithKkk, // Deprecated, kept for compatibility
                 isMock: body.isMock || false,
                 error: msg,
               },
@@ -489,11 +518,13 @@ export default (app: Elysia) =>
         if (!method) {
           console.log(`[Merchant] ❌ Метод не найден: methodId=${body.methodId}`);
           await recordMilk("Метод не найден");
+          await recordAttempt(false, "METHOD_NOT_FOUND");
           return error(404, { error: "Метод не найден" });
         }
         if (!method.isEnabled) {
           console.log(`[Merchant] ❌ Метод неактивен: methodId=${body.methodId}`);
           await recordMilk("Метод неактивен");
+          await recordAttempt(false, "METHOD_DISABLED");
           return error(400, { error: "Метод неактивен" });
         }
         
@@ -509,6 +540,7 @@ export default (app: Elysia) =>
         });
         if (!mm || !mm.isEnabled) {
           await recordMilk("Метод недоступен мерчанту");
+          await recordAttempt(false, "METHOD_NOT_AVAILABLE");
           return error(404, { error: "Метод недоступен мерчанту" });
         }
 
@@ -519,6 +551,7 @@ export default (app: Elysia) =>
         if (amount < method.minPayin || amount > method.maxPayin) {
           console.log(`[Merchant] ❌ Сумма ${amount} вне диапазона метода ${method.minPayin}-${method.maxPayin}`);
           await recordMilk("Сумма вне допустимого диапазона");
+          await recordAttempt(false, "AMOUNT_OUT_OF_RANGE");
           return error(400, { error: "Сумма вне допустимого диапазона" });
         }
 
@@ -528,6 +561,7 @@ export default (app: Elysia) =>
         });
         if (duplicate) {
           await recordMilk("Дубликат orderId");
+          await recordAttempt(false, "DUPLICATE_ORDER_ID");
           return error(409, {
             error: "Транзакция с таким orderId уже существует",
           });
@@ -553,8 +587,9 @@ export default (app: Elysia) =>
               commission: 0,
               clientName: userId,
               status: Status.IN_PROGRESS,
-              rate: rate,
-              adjustedRate: rapiraRate, // Store Rapira rate for trader calculations
+              rate: rapiraRateWithKkk, // Always Rapira rate with KKK for calculations
+              merchantRate: merchantRate, // Merchant's rate or Rapira rate
+              adjustedRate: rapiraRateWithKkk, // Deprecated, kept for compatibility
               isMock: body.isMock || false,
             },
             include: {
@@ -569,6 +604,9 @@ export default (app: Elysia) =>
               },
             },
           });
+
+          // Записываем успешную попытку для OUT транзакции
+          await recordAttempt(true);
 
           set.status = 201;
           return {
@@ -599,10 +637,8 @@ export default (app: Elysia) =>
             methodType: method.type,
             user: { 
               banned: false,
-              // Проверяем, что депозит больше 0
-              deposit: { gt: 0 },
-              // Проверяем, что трейдер входит в команду (teamId не null)
-              teamId: { not: null },
+              // Проверяем, что депозит больше или равен 1000
+              deposit: { gte: 1000 },
               // Проверяем, что трейдер активно работает (trafficEnabled true)
               trafficEnabled: true
             },
@@ -616,12 +652,12 @@ export default (app: Elysia) =>
           include: { user: true, device: true },
         });
 
-        console.log(`[Merchant] Поиск реквизитов: methodType=${method.type}, isArchived=false, user.banned=false, deposit>0, teamId!=null, trafficEnabled=true`);
+        console.log(`[Merchant] Поиск реквизитов: methodType=${method.type}, isArchived=false, user.banned=false, deposit>=1000, trafficEnabled=true`);
         console.log(`[Merchant] Найдено реквизитов в базе: ${pool.length}`);
         
         // Логируем все найденные реквизиты
         pool.forEach((bd, index) => {
-          console.log(`[Merchant] Реквизит ${index + 1}: id=${bd.id}, archived=${bd.isArchived}, methodType=${bd.methodType}, user.banned=${bd.user.banned}, deposit=${bd.user.deposit}, teamId=${bd.user.teamId}, minAmount=${bd.minAmount}, maxAmount=${bd.maxAmount}, trustBalance=${bd.user.trustBalance}, device=${bd.device ? `${bd.device.name} (working:${bd.device.isWorking}, online:${bd.device.isOnline})` : 'NO_DEVICE'}`);
+          console.log(`[Merchant] Реквизит ${index + 1}: id=${bd.id}, archived=${bd.isArchived}, methodType=${bd.methodType}, user.banned=${bd.user.banned}, deposit=${bd.user.deposit}, minAmount=${bd.minAmount}, maxAmount=${bd.maxAmount}, trustBalance=${bd.user.trustBalance}, device=${bd.device ? `${bd.device.name} (working:${bd.device.isWorking}, online:${bd.device.isOnline})` : 'NO_DEVICE'}`);
         });
 
         let chosen: (typeof pool)[number] | null = null;
@@ -629,7 +665,7 @@ export default (app: Elysia) =>
         console.log(`[Merchant] Подбираем реквизит для суммы ${amount}, доступно реквизитов: ${pool.length}`);
         
         for (const bd of pool) {
-          console.log(`[Merchant] Проверяем реквизит ${bd.id}, депозит: ${bd.user.deposit}, команда: ${bd.user.teamId}, лимиты: ${bd.minAmount}-${bd.maxAmount}, дневной: ${bd.dailyLimit}, месячный: ${bd.monthlyLimit}, траст баланс: ${bd.user.trustBalance}`);
+          console.log(`[Merchant] Проверяем реквизит ${bd.id}, депозит: ${bd.user.deposit}, лимиты: ${bd.minAmount}-${bd.maxAmount}, дневной: ${bd.dailyLimit}, месячный: ${bd.monthlyLimit}, траст баланс: ${bd.user.trustBalance}`);
           
           if (amount < bd.minAmount || amount > bd.maxAmount) {
             console.log(`[Merchant] Реквизит ${bd.id} отклонен: сумма ${amount} вне диапазона ${bd.minAmount}-${bd.maxAmount}`);
@@ -655,18 +691,20 @@ export default (app: Elysia) =>
             continue;
           }
 
-          // Проверяем наличие транзакции с той же суммой в статусе IN_PROGRESS на этом реквизите
+          // Проверяем наличие транзакции с той же суммой в активных статусах на этом реквизите
           const existingTransaction = await db.transaction.findFirst({
             where: {
               bankDetailId: bd.id,
               amount: amount,
-              status: Status.IN_PROGRESS,
+              status: {
+                in: [Status.CREATED, Status.IN_PROGRESS]
+              },
               type: TransactionType.IN,
             }
           });
 
           if (existingTransaction) {
-            console.log(`[Merchant] Реквизит ${bd.id} отклонен: уже есть транзакция на сумму ${amount} в статусе IN_PROGRESS`);
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: уже есть транзакция на сумму ${amount} в статусе ${existingTransaction.status}`);
             continue;
           }
 
@@ -724,7 +762,7 @@ export default (app: Elysia) =>
             console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение месячного лимита. Текущий: ${monSum ?? 0}, новый: ${newMon}, лимит: ${bd.monthlyLimit}`);
             continue;
           }
-          if (bd.maxCountTransactions && dayCnt + 1 > bd.maxCountTransactions) {
+          if (bd.maxCountTransactions && bd.maxCountTransactions > 0 && dayCnt + 1 > bd.maxCountTransactions) {
             console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение лимита транзакций. Текущий: ${dayCnt}, лимит: ${bd.maxCountTransactions}`);
             continue;
           }
@@ -756,21 +794,21 @@ export default (app: Elysia) =>
           const tempKkkPercent = tempKkkSetting ? parseFloat(tempKkkSetting.value) : 0;
           const tempFeeInPercent = tempTraderMerchantSettings?.feeIn ?? 0;
 
-          // Рассчитываем необходимую сумму с учетом новых формул
-          if (body.rate) {
-            const tempFreezingParams = calculateFreezingParams(
-              amount,
-              body.rate,
-              tempKkkPercent,
-              tempFeeInPercent
-            );
+          // Рассчитываем необходимую сумму - просто amount / rate
+          // Всегда используем Rapira rate с KKK для расчетов заморозки
+          const tempFrozenUsdtAmount = Math.ceil((amount / rapiraRateWithKkk) * 100) / 100;
+          const tempCalculatedCommission = Math.ceil((tempFrozenUsdtAmount * tempFeeInPercent / 100) * 100) / 100;
+          const tempTotalRequired = tempFrozenUsdtAmount; // Замораживаем только основную сумму
+          
+          const tempFreezingParams = {
+            totalRequired: tempTotalRequired
+          };
 
-            // Проверяем доступный баланс (trustBalance - frozenUsdt)
-            const availableBalance = bd.user.trustBalance - bd.user.frozenUsdt;
-            if (tempFreezingParams.totalRequired > availableBalance) {
-              console.log(`[Merchant] Реквизит ${bd.id} отклонен: недостаточно доступного баланса. Нужно: ${tempFreezingParams.totalRequired}, доступно: ${availableBalance}`);
-              continue;
-            }
+          // Проверяем доступный баланс (trustBalance - frozenUsdt)
+          const availableBalance = bd.user.trustBalance - bd.user.frozenUsdt;
+          if (tempFreezingParams.totalRequired > availableBalance) {
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: недостаточно доступного баланса. Нужно: ${tempFreezingParams.totalRequired}, доступно: ${availableBalance}`);
+            continue;
           }
           
           console.log(`[Merchant] ✓ Реквизит ${bd.id} выбран для транзакции суммой ${amount}`);
@@ -781,6 +819,7 @@ export default (app: Elysia) =>
         if (!chosen) {
           console.log(`[Merchant] ❌ Подходящий реквизит не найден для суммы ${amount}. Всего проверено: ${pool.length}`);
           await recordMilk("NO_REQUISITE");
+          await recordAttempt(false, "NO_REQUISITE");
           return error(409, {
             error: "NO_REQUISITE: подходящий реквизит не найден",
           });
@@ -806,14 +845,22 @@ export default (app: Elysia) =>
         const feeInPercent = traderMerchantSettings?.feeIn ?? 0;
 
         // Рассчитываем параметры заморозки
+        // Всегда используем Rapira rate с KKK для расчетов заморозки
         let freezingParams = null;
-        if (body.rate && chosen.user) {
-          freezingParams = calculateFreezingParams(
-            amount,
-            body.rate,
-            kkkPercent,
-            feeInPercent
-          );
+        if (chosen.user) {
+          // Рассчитываем заморозку - просто amount / rate
+          const frozenUsdtAmount = Math.ceil((amount / rapiraRateWithKkk) * 100) / 100;
+          const calculatedCommission = Math.ceil((frozenUsdtAmount * feeInPercent / 100) * 100) / 100;
+          const totalRequired = frozenUsdtAmount; // Замораживаем только основную сумму, без комиссии
+          
+          console.log(`[Merchant] Freezing calculation: amount=${amount}, rate=${rapiraRateWithKkk}, frozenUsdt=${frozenUsdtAmount}, feePercent=${feeInPercent}, commission=${calculatedCommission}, total=${totalRequired}`);
+          
+          freezingParams = {
+            adjustedRate: rapiraRateWithKkk,
+            frozenUsdtAmount,
+            calculatedCommission,
+            totalRequired
+          };
 
           // Проверяем достаточность доступного баланса (trustBalance - frozenUsdt)
           const availableBalance = chosen.user.trustBalance - chosen.user.frozenUsdt;
@@ -851,8 +898,9 @@ export default (app: Elysia) =>
               commission: 0, // По умолчанию 0
               clientName: userId, // Используем userId как имя клиента
               status: Status.IN_PROGRESS,
-              rate: rate,
-              adjustedRate: freezingParams?.adjustedRate || rapiraRate, // Use freezing adjusted rate if available, otherwise Rapira rate
+              rate: rapiraRateWithKkk, // Always Rapira rate with KKK for calculations
+              merchantRate: merchantRate, // Merchant's rate or Rapira rate
+              adjustedRate: freezingParams?.adjustedRate || rapiraRateWithKkk, // Deprecated, kept for compatibility
               isMock: body.isMock || false,
               bankDetailId: chosen.id, // FK на BankDetail
               traderId: chosen.userId,
@@ -861,6 +909,7 @@ export default (app: Elysia) =>
               kkkPercent: kkkPercent,
               feeInPercent: feeInPercent,
               calculatedCommission: freezingParams?.calculatedCommission,
+              // НЕ устанавливаем traderProfit при создании - только при подтверждении!
             },
             include: {
               method: {
@@ -885,7 +934,8 @@ export default (app: Elysia) =>
               const updatedUser = await prisma.user.update({
                 where: { id: chosen.userId },
                 data: {
-                  frozenUsdt: { increment: freezingParams.totalRequired }
+                  frozenUsdt: { increment: freezingParams.totalRequired },
+                  trustBalance: { decrement: freezingParams.totalRequired } // Списываем с баланса при заморозке
                 }
               });
               console.log(`[Merchant] After update - frozenUsdt: ${updatedUser.frozenUsdt}`);
@@ -912,10 +962,13 @@ export default (app: Elysia) =>
         });
 
         /* ---------- 6. Ответ ---------- */
-        // Рассчитываем crypto: сумма в рублях / курс - комиссия метода IN
-        const crypto = body.rate && tx.method 
-          ? (tx.amount / body.rate) * (1 - tx.method.commissionPayin / 100)
+        // Рассчитываем crypto для отображения мерчанту: сумма в рублях / merchantRate - комиссия метода IN
+        const crypto = merchantRate && tx.method 
+          ? (tx.amount / merchantRate) * (1 - tx.method.commissionPayin / 100)
           : null;
+        
+        // Записываем успешную попытку
+        await recordAttempt(true);
         
         set.status = 201;
         return {
@@ -1087,7 +1140,44 @@ export default (app: Elysia) =>
           if (body.amount < bd.minAmount || body.amount > bd.maxAmount) continue;
           if (body.amount < bd.user.minAmountPerRequisite || body.amount > bd.user.maxAmountPerRequisite) continue;
           
-          // Здесь можно добавить проверку лимитов и интервалов как в старом эндпоинте
+          // Проверяем наличие активной транзакции с той же суммой на этом реквизите
+          const existingTransaction = await db.transaction.findFirst({
+            where: {
+              bankDetailId: bd.id,
+              amount: body.amount,
+              status: {
+                in: [Status.CREATED, Status.IN_PROGRESS]
+              },
+              type: TransactionType.IN,
+            }
+          });
+
+          if (existingTransaction) {
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: уже есть транзакция на сумму ${body.amount} в статусе ${existingTransaction.status}`);
+            continue;
+          }
+          
+          // Проверяем дневной лимит транзакций
+          if (bd.maxCountTransactions && bd.maxCountTransactions > 0) {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+            
+            const todayCount = await db.transaction.count({
+              where: {
+                bankDetailId: bd.id,
+                createdAt: { gte: todayStart, lte: todayEnd },
+                status: { not: Status.CANCELED },
+              }
+            });
+            
+            if (todayCount + 1 > bd.maxCountTransactions) {
+              console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение лимита транзакций. Текущий: ${todayCount}, лимит: ${bd.maxCountTransactions}`);
+              continue;
+            }
+          }
+          
           chosen = bd;
           break;
         }
@@ -1136,13 +1226,17 @@ export default (app: Elysia) =>
           currentRate = await rapiraService.getRateWithKkk(rapiraKkk);
         }
 
-        const freezingParams = calculateFreezingParams(
-          body.amount,
-          currentRate,
-          kkkPercent,
-          feeInPercent,
-          kkkOperation
-        );
+        // Рассчитываем заморозку напрямую с курсом, который уже содержит KKK
+        const frozenUsdtAmount = Math.ceil((body.amount / currentRate) * 100) / 100;
+        const calculatedCommission = Math.ceil((frozenUsdtAmount * feeInPercent / 100) * 100) / 100;
+        const totalRequired = frozenUsdtAmount + calculatedCommission;
+        
+        const freezingParams = {
+          adjustedRate: currentRate,
+          frozenUsdtAmount,
+          calculatedCommission,
+          totalRequired
+        };
 
         // Проверяем достаточность баланса трейдера
         if (freezingParams && chosen.user) {

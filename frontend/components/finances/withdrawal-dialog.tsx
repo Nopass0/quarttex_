@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { traderApi } from "@/lib/api/trader"
+import { traderApi } from "@/services/api"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 interface WithdrawalDialogProps {
@@ -38,6 +38,7 @@ interface WithdrawalSettings {
   minAmount: number
   feePercent: number
   feeFixed: number
+  feeEnabled: boolean
   processingHours: number
 }
 
@@ -47,14 +48,16 @@ interface BalanceData {
   PROFIT_DEALS: number
   PROFIT_PAYOUTS: number
   REFERRAL: number
+  WORKING: number
 }
 
 const balanceTypeNames = {
-  TRUST: "ТРАСТ баланс",
+  TRUST: "Баланс",
   COMPENSATION: "Компенсация выплат",
   PROFIT_DEALS: "Прибыль с приема",
   PROFIT_PAYOUTS: "Прибыль с выплат",
-  REFERRAL: "Реферальный баланс"
+  REFERRAL: "Реферальный баланс",
+  BALANCE: "Баланс"  // Map BALANCE to TRUST for backend
 }
 
 export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: WithdrawalDialogProps) {
@@ -84,7 +87,7 @@ export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: Wit
     if (amount && settings) {
       const amountNum = parseFloat(amount)
       if (!isNaN(amountNum)) {
-        const fee = (amountNum * settings.feePercent / 100) + settings.feeFixed
+        const fee = settings.feeEnabled ? (amountNum * settings.feePercent / 100) + settings.feeFixed : 0
         setCalculatedFee(fee)
         setAmountAfterFees(amountNum - fee)
       }
@@ -97,11 +100,11 @@ export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: Wit
   const fetchData = async () => {
     try {
       const [settingsRes, balancesRes] = await Promise.all([
-        traderApi.get("/withdrawals/settings"),
-        traderApi.get("/withdrawals/balances")
+        traderApi.getWithdrawalSettings(),
+        traderApi.getWithdrawalBalances()
       ])
-      setSettings(settingsRes.data.data)
-      setBalances(balancesRes.data.data)
+      setSettings(settingsRes.data || settingsRes)
+      setBalances(balancesRes.data || balancesRes)
     } catch (error) {
       toast.error("Не удалось загрузить данные")
     }
@@ -124,9 +127,12 @@ export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: Wit
     
     setLoading(true)
     try {
-      await traderApi.post("/withdrawals", {
+      // Map BALANCE to TRUST for backend compatibility
+      const requestBalanceType = balanceType === 'BALANCE' ? 'TRUST' : balanceType
+      
+      await traderApi.createWithdrawal({
         amountUSDT: amountNum,
-        balanceType,
+        balanceType: requestBalanceType,
         walletAddress
       })
       setStep(2)
@@ -258,11 +264,18 @@ export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: Wit
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
                 className="mt-2 font-mono"
+                minLength={34}
+                maxLength={42}
               />
+              {walletAddress && walletAddress.length < 34 && (
+                <p className="text-xs text-red-500 mt-1">
+                  Адрес должен содержать минимум 34 символа
+                </p>
+              )}
             </div>
 
-            {/* Fee Calculation */}
-            {amount && parseFloat(amount) > 0 && (
+            {/* Fee Calculation - Show only if fees are enabled */}
+            {amount && parseFloat(amount) > 0 && settings?.feeEnabled && (
               <Card className="p-4 border-blue-200 bg-blue-50/50">
                 <div className="flex items-start gap-3">
                   <Calculator className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
@@ -299,7 +312,7 @@ export function WithdrawalDialog({ open, onOpenChange, defaultBalanceType }: Wit
 
             <Button 
               onClick={handleSubmit}
-              disabled={loading || !amount || !walletAddress || parseFloat(amount) <= 0}
+              disabled={loading || !amount || !walletAddress || parseFloat(amount) <= 0 || walletAddress.length < 34}
               className="w-full bg-red-600 hover:bg-red-700 text-white"
             >
               {loading ? (

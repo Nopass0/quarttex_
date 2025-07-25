@@ -184,7 +184,7 @@ export function FinancesMain() {
   const [dateRange, setDateRange] = useState("month");
   const [withdrawalBalanceType, setWithdrawalBalanceType] = useState<string | undefined>();
   const [depositType, setDepositType] = useState<'BALANCE' | 'INSURANCE'>('BALANCE');
-  const financials = useTraderFinancials();
+  const { financials, fetchFinancials } = useTraderFinancials();
   
   const depositModal = useUrlModal({
     modalName: "deposit",
@@ -199,6 +199,17 @@ export function FinancesMain() {
       setWithdrawalBalanceType(undefined);
     }
   });
+
+  useEffect(() => {
+    // Загружаем финансовые данные при монтировании компонента
+    console.log('FinancesMain: Fetching financials on mount');
+    fetchFinancials();
+  }, [fetchFinancials]);
+
+  // Логируем финансовые данные для отладки
+  useEffect(() => {
+    console.log('FinancesMain: Current financials data:', financials);
+  }, [financials]);
 
   useEffect(() => {
     fetchFinanceData();
@@ -375,23 +386,37 @@ export function FinancesMain() {
           </div>
         </Card>
 
-        {/* ТРАСТ */}
+        {/* БАЛАНС */}
         <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">ТРАСТ</span>
-              <Button
-                size="sm"
-                className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
-                onClick={() => {
-                  setDepositType('BALANCE');
-                  depositModal.open();
-                }}
-              >
-                <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
-                <span className="hidden sm:inline">Пополнить</span>
-                <span className="sm:hidden">+</span>
-              </Button>
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">БАЛАНС</span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
+                  onClick={() => {
+                    setDepositType('BALANCE');
+                    depositModal.open();
+                  }}
+                >
+                  <Wallet className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                  <span className="hidden sm:inline">Пополнить</span>
+                  <span className="sm:hidden">+</span>
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-[#006039]/10 hover:bg-[#006039]/20 dark:bg-[#2d6a42]/10 dark:hover:bg-[#2d6a42]/20 text-gray-700 dark:text-gray-300 h-6 md:h-7 px-1.5 md:px-2 text-xs md:text-sm"
+                  onClick={() => {
+                    setWithdrawalBalanceType("BALANCE");
+                    withdrawalModal.open();
+                  }}
+                >
+                  <ArrowUpRight className="h-3 w-3 mr-0.5 md:mr-1" style={{ color: "#006039" }} />
+                  <span className="hidden sm:inline">Вывести</span>
+                  <span className="sm:hidden">↑</span>
+                </Button>
+              </div>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
@@ -505,6 +530,7 @@ export function FinancesMain() {
           </div>
         </Card>
 
+
         {/* РЕФЕРАЛЬНЫЙ БАЛАНС */}
         <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[320px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">
@@ -545,6 +571,27 @@ export function FinancesMain() {
         Замороженные средства
       </h2>
       <div className="flex flex-wrap gap-3 md:gap-4">
+        {/* Замороженные в сделках */}
+        <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[240px] dark:bg-[#29382f] dark:border-gray-700">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
+                ЗАМОРОЖЕНО В СДЕЛКАХ
+              </span>
+              <Shield className="h-4 w-4 text-[#006039] dark:text-[#2d6a42]" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg md:text-2xl font-bold dark:text-[#eeeeee]">
+                {(financials?.frozenUsdt || 0).toFixed(2)}
+              </span>
+              <span className="text-xs md:text-sm font-medium text-[#006039] dark:text-[#2d6a42]">USDT</span>
+            </div>
+            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+              Средства в активных сделках и выводах
+            </div>
+          </div>
+        </Card>
+        
         {/* ЭСКРОУ-СЧЕТ */}
         <Card className="p-4 md:p-6 flex-1 min-w-[150px] sm:min-w-[240px] dark:bg-[#29382f] dark:border-gray-700">
           <div className="space-y-2">

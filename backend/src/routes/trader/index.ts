@@ -16,6 +16,7 @@ import { traderMessagesRoutes } from "./trader-messages";
 import { financeRoutes } from "./finance";
 import { btEntranceRoutes } from "./bt-entrance";
 import { ideaRoutes } from "./ideas";
+import { notificationRoutes } from "./notifications";
 import ErrorSchema from "@/types/error";
 import { db } from "@/db";
 import { traderPayoutsApi } from "@/api/trader/payouts";
@@ -56,6 +57,65 @@ export default (app: Elysia) =>
         },
       },
     )
+    .get(
+      "/profile",
+      async ({ trader }) => {
+        const user = await db.user.findUnique({
+          where: { id: trader.id },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            trustBalance: true,
+            deposit: true,
+            profitFromDeals: true,
+            profitFromPayouts: true,
+            frozenUsdt: true,
+            frozenRub: true,
+            balanceUsdt: true,
+            balanceRub: true,
+            frozenPayoutBalance: true,
+          }
+        });
+
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        return {
+          ...user,
+          compensationBalance: user.frozenPayoutBalance || 0,
+          referralBalance: 0, // Not implemented yet
+          disputedBalance: 0, // TODO: calculate from disputes
+          escrowBalance: user.frozenUsdt || 0, // Using frozen balance as escrow
+        };
+      },
+      {
+        tags: ["trader"],
+        detail: { summary: "Получение финансовых данных трейдера" },
+        response: {
+          200: t.Object({
+            id: t.String(),
+            email: t.String(),
+            name: t.String(),
+            trustBalance: t.Number(),
+            deposit: t.Number(),
+            profitFromDeals: t.Number(),
+            profitFromPayouts: t.Number(),
+            frozenUsdt: t.Number(),
+            frozenRub: t.Number(),
+            balanceUsdt: t.Number(),
+            balanceRub: t.Number(),
+            frozenPayoutBalance: t.Number(),
+            compensationBalance: t.Number(),
+            referralBalance: t.Number(),
+            disputedBalance: t.Number(),
+            escrowBalance: t.Number(),
+          }),
+          401: ErrorSchema,
+        },
+      },
+    )
     .group("/wallet", (app) => walletRoutes(app))
     .group("/transactions", (app) => transactionsRoutes(app))
     .group("/bank-details", (app) => bankDetailsRoutes(app))
@@ -78,6 +138,7 @@ export default (app: Elysia) =>
     .use(traderBanksListApi)
     .use(btEntranceRoutes)
     .use(ideaRoutes)
+    .use(notificationRoutes)
     .get(
       "/dispute-settings",
       async () => {
@@ -145,65 +206,6 @@ export default (app: Elysia) =>
             commissionPayin: t.Number(),
             commissionPayout: t.Number(),
           })),
-          401: ErrorSchema,
-          403: ErrorSchema,
-        },
-      },
-    )
-    .get(
-      "/profile",
-      async ({ trader }) => {
-        return {
-          id: trader.id,
-          numericId: trader.numericId,
-          email: trader.email,
-          name: trader.name || trader.email,
-          balanceUsdt: trader.balanceUsdt || 0,
-          balanceRub: trader.balanceRub || 0,
-          frozenUsdt: trader.frozenUsdt || 0,
-          frozenRub: trader.frozenRub || 0,
-          availableUsdt: (trader.balanceUsdt || 0) - (trader.frozenUsdt || 0),
-          availableRub: (trader.balanceRub || 0) - (trader.frozenRub || 0),
-          trafficEnabled: trader.trafficEnabled || true,
-          deposit: trader.deposit || 0,
-          trustBalance: trader.trustBalance || 0,
-          profitFromDeals: trader.profitFromDeals || 0,
-          profitFromPayouts: trader.profitFromPayouts || 0,
-          compensationBalance: 0, // TODO: implement compensation balance
-          referralBalance: 0, // TODO: implement referral balance
-          escrowBalance: trader.frozenUsdt || 0, // Using frozen balance as escrow
-          disputedBalance: 0, // TODO: calculate from disputes
-          teamEnabled: trader.trafficEnabled, // Indicates if trader profile is active
-          createdAt: trader.createdAt ? trader.createdAt.toISOString() : new Date().toISOString(),
-        };
-      },
-      {
-        tags: ["trader"],
-        detail: { summary: "Получение профиля трейдера" },
-        response: {
-          200: t.Object({
-            id: t.String(),
-            numericId: t.Number(),
-            email: t.String(),
-            name: t.String(),
-            balanceUsdt: t.Number(),
-            balanceRub: t.Number(),
-            frozenUsdt: t.Number(),
-            frozenRub: t.Number(),
-            availableUsdt: t.Number(),
-            availableRub: t.Number(),
-            trafficEnabled: t.Boolean(),
-            deposit: t.Number(),
-            trustBalance: t.Number(),
-            profitFromDeals: t.Number(),
-            profitFromPayouts: t.Number(),
-            compensationBalance: t.Number(),
-            referralBalance: t.Number(),
-            escrowBalance: t.Number(),
-            disputedBalance: t.Number(),
-            teamEnabled: t.Boolean(),
-            createdAt: t.String(),
-          }),
           401: ErrorSchema,
           403: ErrorSchema,
         },
