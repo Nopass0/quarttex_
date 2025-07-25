@@ -258,12 +258,12 @@ export default function MerchantDashboardPage() {
               <CardTitle>Баланс</CardTitle>
               <Calculator className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div>
+            <div className="text-right">
               <div className="text-3xl font-bold text-green-600">
                 {formatAmount(statistics.balance.total)} ₽
               </div>
               {statistics.balance.totalUsdt !== undefined && merchantProfile && !merchantProfile.countInRubEquivalent && (
-                <div className="text-lg font-medium text-green-600 mt-1">
+                <div className="text-xl font-semibold text-green-600 mt-1">
                   {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
                 </div>
               )}
@@ -301,7 +301,26 @@ export default function MerchantDashboardPage() {
                 <span>Итоговый баланс:</span>
                 <span className="text-green-600">{formatAmount(statistics.balance.total)} ₽</span>
               </div>
+              {statistics.balance.totalUsdt !== undefined && merchantProfile && !merchantProfile.countInRubEquivalent && (
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Баланс в USDT:</span>
+                  <span className="text-green-600">{truncateDecimals(statistics.balance.totalUsdt, 2)} USDT</span>
+                </div>
+              )}
             </div>
+            
+            {statistics.balance.totalUsdt !== undefined && merchantProfile && !merchantProfile.countInRubEquivalent && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="text-blue-700">
+                      USDT баланс рассчитан на основе курсов, переданных при создании каждой транзакции
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
