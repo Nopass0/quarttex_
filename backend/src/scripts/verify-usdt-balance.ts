@@ -16,7 +16,7 @@ async function verifyUsdtBalance() {
     console.log("countInRubEquivalent:", merchant.countInRubEquivalent)
     
     // Test API
-    const response = await fetch("http://localhost:3001/api/merchant/dashboard/statistics", {
+    const response = await fetch("http://localhost:3000/api/merchant/dashboard/statistics", {
       headers: {
         "Authorization": "Bearer " + merchant.token
       }

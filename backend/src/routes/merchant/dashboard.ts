@@ -389,12 +389,32 @@ export default (app: Elysia) =>
         });
 
 
+        // Получаем дату последнего завершенного settle запроса
+        const lastCompletedSettle = await db.settleRequest.findFirst({
+          where: {
+            merchantId: merchant.id,
+            status: "COMPLETED"
+          },
+          orderBy: {
+            createdAt: 'desc'
+          },
+          select: {
+            createdAt: true
+          }
+        });
+
+        // Фильтр для транзакций после последнего settle
+        const dateFilter = lastCompletedSettle?.createdAt 
+          ? { createdAt: { gt: lastCompletedSettle.createdAt } }
+          : {};
+
         // Получаем все успешные сделки для расчета баланса
         const successfulDealsForBalance = await db.transaction.findMany({
           where: {
             merchantId: merchant.id,
             type: TransactionType.IN,
             status: Status.READY,
+            ...dateFilter
           },
           select: {
             amount: true,
@@ -408,6 +428,7 @@ export default (app: Elysia) =>
           where: {
             merchantId: merchant.id,
             status: PayoutStatus.COMPLETED,
+            ...dateFilter
           },
           select: {
             amount: true,
@@ -483,33 +504,8 @@ export default (app: Elysia) =>
           }
         }
         
-        // Вычитаем уже выведенные средства через settle
-        const completedSettles = await db.settleRequest.findMany({
-          where: { 
-            merchantId: merchant.id,
-            status: "COMPLETED"
-          },
-          select: { 
-            amount: true,
-            amountUsdt: true 
-          },
-        });
-        
-        const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0);
-        calculatedBalance -= settledAmount;
-        
-        // Вычитаем USDT для уже выведенных средств
-        if (!merchant.countInRubEquivalent) {
-          // Обрезаем каждую выведенную сумму до 2 знаков
-          let settledUsdt = 0;
-          for (const settle of completedSettles) {
-            if (settle.amountUsdt) {
-              const truncated = Math.floor(settle.amountUsdt * 100) / 100;
-              settledUsdt += truncated;
-            }
-          }
-          balanceUsdt -= settledUsdt;
-        }
+        // Больше не вычитаем выведенные средства, так как используем date filter
+        // который уже учитывает только транзакции после последнего settle
 
         // Форматируем статистику по статусам
         const dealStatusStats = dealsByStatus.map(stat => ({
@@ -536,8 +532,8 @@ export default (app: Elysia) =>
               dealsCommission: totalDealsCommission,
               payoutsTotal: totalPayoutsAmount,
               payoutsCommission: totalPayoutsCommission,
-              settledAmount: settledAmount,
-              calculation: `${totalDealsAmount} - ${totalDealsCommission} - ${totalPayoutsAmount} - ${totalPayoutsCommission} - ${settledAmount} = ${calculatedBalance}`,
+              settledAmount: 0,
+              calculation: `${totalDealsAmount} - ${totalDealsCommission} - ${totalPayoutsAmount} - ${totalPayoutsCommission} = ${calculatedBalance}`,
             },
           },
           deals: {
@@ -1150,12 +1146,32 @@ export default (app: Elysia) =>
             });
           }
 
+          // Получаем дату последнего завершенного settle запроса
+          const lastCompletedSettle = await db.settleRequest.findFirst({
+            where: {
+              merchantId: merchant.id,
+              status: "COMPLETED"
+            },
+            orderBy: {
+              createdAt: 'desc'
+            },
+            select: {
+              createdAt: true
+            }
+          });
+
+          // Фильтр для транзакций после последнего settle
+          const dateFilter = lastCompletedSettle?.createdAt 
+            ? { createdAt: { gt: lastCompletedSettle.createdAt } }
+            : {};
+
           // Рассчитываем текущий баланс
           const [transactions, payouts, completedSettles] = await Promise.all([
             db.transaction.findMany({
               where: { 
                 merchantId: merchant.id,
-                status: "READY" 
+                status: "READY",
+                ...dateFilter
               },
               select: { 
                 amount: true, 
@@ -1166,7 +1182,8 @@ export default (app: Elysia) =>
             db.payout.findMany({
               where: { 
                 merchantId: merchant.id,
-                status: "COMPLETED" 
+                status: "COMPLETED",
+                ...dateFilter
               },
               select: { 
                 amount: true, 
@@ -1227,8 +1244,8 @@ export default (app: Elysia) =>
             }
           }
           
-          // Вычитаем уже выведенные средства через settle
-          const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0);
+          // Вычитаем уже выведенные средства через settle (не нужно, так как мы уже фильтруем транзакции по дате)
+          const settledAmount = 0; // completedSettles.reduce((sum, s) => sum + s.amount, 0);
 
           const balance = dealsTotal - dealsCommission - payoutsTotal - payoutsCommission - settledAmount;
 
@@ -1276,13 +1293,9 @@ export default (app: Elysia) =>
               }
             }
             
-            // Для уже выведенных средств используем текущий курс Rapira
-            // (так как они уже были конвертированы при создании)
-            const currentRate = await rapiraService.getUsdtRubRate();
-            totalUsdt -= settledAmount / currentRate;
-            
             amountUsdt = totalUsdt;
             // Для записи используем текущий курс Rapira
+            const currentRate = await rapiraService.getUsdtRubRate();
             rate = currentRate;
           }
 
