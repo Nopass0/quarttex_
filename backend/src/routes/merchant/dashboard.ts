@@ -399,6 +399,7 @@ export default (app: Elysia) =>
           select: {
             amount: true,
             methodId: true,
+            merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
           },
         });
 
@@ -411,6 +412,7 @@ export default (app: Elysia) =>
           select: {
             amount: true,
             methodId: true,
+            merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
           },
         });
 
@@ -437,6 +439,7 @@ export default (app: Elysia) =>
         let totalPayoutsAmount = 0;
         let totalDealsCommission = 0;
         let totalPayoutsCommission = 0;
+        let balanceUsdt = 0; // Баланс в USDT для countInRubEquivalent = false
 
         // Обрабатываем успешные сделки (входящие платежи)
         for (const deal of successfulDealsForBalance) {
@@ -448,6 +451,11 @@ export default (app: Elysia) =>
             calculatedBalance += netAmount;
             totalDealsAmount += deal.amount;
             totalDealsCommission += commissionAmount;
+            
+            // Если countInRubEquivalent = false, считаем USDT по merchantRate
+            if (!merchant.countInRubEquivalent && deal.merchantRate && deal.merchantRate > 0) {
+              balanceUsdt += netAmount / deal.merchantRate;
+            }
           }
         }
 
@@ -461,6 +469,11 @@ export default (app: Elysia) =>
             calculatedBalance -= totalAmount;
             totalPayoutsAmount += payout.amount;
             totalPayoutsCommission += commissionAmount;
+            
+            // Если countInRubEquivalent = false, вычитаем USDT по merchantRate
+            if (!merchant.countInRubEquivalent && payout.merchantRate && payout.merchantRate > 0) {
+              balanceUsdt -= totalAmount / payout.merchantRate;
+            }
           }
         }
         
@@ -470,11 +483,20 @@ export default (app: Elysia) =>
             merchantId: merchant.id,
             status: "COMPLETED"
           },
-          select: { amount: true },
+          select: { 
+            amount: true,
+            amountUsdt: true 
+          },
         });
         
         const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0);
         calculatedBalance -= settledAmount;
+        
+        // Вычитаем USDT для уже выведенных средств
+        if (!merchant.countInRubEquivalent) {
+          const settledUsdt = completedSettles.reduce((sum, s) => sum + (s.amountUsdt || 0), 0);
+          balanceUsdt -= settledUsdt;
+        }
 
         // Форматируем статистику по статусам
         const dealStatusStats = dealsByStatus.map(stat => ({
@@ -495,12 +517,14 @@ export default (app: Elysia) =>
           dateTo: dateTo.toISOString(),
           balance: {
             total: calculatedBalance,
+            totalUsdt: !merchant.countInRubEquivalent ? balanceUsdt : undefined,
             formula: {
               dealsTotal: totalDealsAmount,
               dealsCommission: totalDealsCommission,
               payoutsTotal: totalPayoutsAmount,
               payoutsCommission: totalPayoutsCommission,
-              calculation: `${totalDealsAmount} - ${totalDealsCommission} - ${totalPayoutsAmount} - ${totalPayoutsCommission} = ${calculatedBalance}`,
+              settledAmount: settledAmount,
+              calculation: `${totalDealsAmount} - ${totalDealsCommission} - ${totalPayoutsAmount} - ${totalPayoutsCommission} - ${settledAmount} = ${calculatedBalance}`,
             },
           },
           deals: {
@@ -554,11 +578,13 @@ export default (app: Elysia) =>
             dateTo: t.String(),
             balance: t.Object({
               total: t.Number(),
+              totalUsdt: t.Optional(t.Number()),
               formula: t.Object({
                 dealsTotal: t.Number(),
                 dealsCommission: t.Number(),
                 payoutsTotal: t.Number(),
                 payoutsCommission: t.Number(),
+                settledAmount: t.Number(),
                 calculation: t.String(),
               }),
             }),

@@ -44,6 +44,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+// Функция для обрезания числа до N знаков после запятой без округления
+function truncateDecimals(value: number, decimals: number): string {
+  const factor = Math.pow(10, decimals);
+  return (Math.floor(value * factor) / factor).toFixed(decimals);
+}
+
 export default function MerchantDashboardPage() {
   const [statistics, setStatistics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -177,7 +183,7 @@ export default function MerchantDashboardPage() {
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Эквивалент в USDT:</span>
                           <span className="text-xl font-bold text-green-600">
-                            {(statistics.balance.total / currentRate).toFixed(2)} USDT
+                            {truncateDecimals(statistics.balance.total / currentRate, 2)} USDT
                           </span>
                         </div>
                       </>
@@ -194,9 +200,14 @@ export default function MerchantDashboardPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="text-sm text-muted-foreground mt-2">
-                          Точная сумма в USDT будет определена при обработке запроса
-                        </div>
+                        {statistics.balance.totalUsdt !== undefined && (
+                          <div className="flex justify-between items-center mt-3">
+                            <span className="text-sm text-muted-foreground">Баланс в USDT:</span>
+                            <span className="text-xl font-bold text-green-600">
+                              {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
+                            </span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -247,8 +258,15 @@ export default function MerchantDashboardPage() {
               <CardTitle>Баланс</CardTitle>
               <Calculator className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="text-3xl font-bold text-green-600">
-              {formatAmount(statistics.balance.total)} ₽
+            <div>
+              <div className="text-3xl font-bold text-green-600">
+                {formatAmount(statistics.balance.total)} ₽
+              </div>
+              {statistics.balance.totalUsdt !== undefined && merchantProfile && !merchantProfile.countInRubEquivalent && (
+                <div className="text-lg font-medium text-green-600 mt-1">
+                  {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -272,6 +290,12 @@ export default function MerchantDashboardPage() {
                 <span>Комиссия платформы с выплат:</span>
                 <span className="font-medium text-red-600">-{formatAmount(statistics.balance.formula.payoutsCommission)} ₽</span>
               </div>
+              {statistics.balance.formula.settledAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Уже выведено через Settle:</span>
+                  <span className="font-medium text-red-600">-{formatAmount(statistics.balance.formula.settledAmount)} ₽</span>
+                </div>
+              )}
               <Separator className="my-2" />
               <div className="flex justify-between text-sm font-medium">
                 <span>Итоговый баланс:</span>
