@@ -50,10 +50,12 @@ export default function MerchantDashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('all')
   const [settleDialogOpen, setSettleDialogOpen] = useState(false)
   const [settleLoading, setSettleLoading] = useState(false)
+  const [merchantProfile, setMerchantProfile] = useState<any>(null)
   const { baseRate: currentRate, refetch: refetchRate } = useRapiraRate()
 
   useEffect(() => {
     fetchStatistics(selectedPeriod)
+    fetchMerchantProfile()
   }, [selectedPeriod])
 
   const fetchStatistics = async (period = 'all') => {
@@ -65,6 +67,15 @@ export default function MerchantDashboardPage() {
       toast.error("Не удалось загрузить статистику")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchMerchantProfile = async () => {
+    try {
+      const response = await merchantApi.getMe()
+      setMerchantProfile(response.merchant)
+    } catch (error) {
+      console.error("Failed to fetch merchant profile:", error)
     }
   }
 
@@ -157,16 +168,37 @@ export default function MerchantDashboardPage() {
                 
                 {currentRate && (
                   <div className="p-4 border rounded-lg space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Курс Rapira (без ККК):</span>
-                      <span className="font-medium">{currentRate.toFixed(2)} ₽/USDT</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Эквивалент в USDT:</span>
-                      <span className="text-xl font-bold text-green-600">
-                        {(statistics.balance.total / currentRate).toFixed(2)} USDT
-                      </span>
-                    </div>
+                    {merchantProfile?.countInRubEquivalent ? (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Курс Rapira (без ККК):</span>
+                          <span className="font-medium">{currentRate.toFixed(2)} ₽/USDT</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Эквивалент в USDT:</span>
+                          <span className="text-xl font-bold text-green-600">
+                            {(statistics.balance.total / currentRate).toFixed(2)} USDT
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-3 bg-blue-50 rounded-md">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                            <div className="text-sm">
+                              <p className="font-medium text-blue-900">Расчет по переданным курсам</p>
+                              <p className="text-blue-700 mt-1">
+                                USDT баланс будет рассчитан на основе курсов, переданных при создании каждой транзакции
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-2">
+                          Точная сумма в USDT будет определена при обработке запроса
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 
