@@ -454,7 +454,10 @@ export default (app: Elysia) =>
             
             // Если countInRubEquivalent = false, считаем USDT по merchantRate
             if (!merchant.countInRubEquivalent && deal.merchantRate && deal.merchantRate > 0) {
-              balanceUsdt += netAmount / deal.merchantRate;
+              // Обрезаем до 2 знаков после запятой для каждой транзакции отдельно
+              const usdtAmount = netAmount / deal.merchantRate;
+              const truncatedUsdt = Math.floor(usdtAmount * 100) / 100;
+              balanceUsdt += truncatedUsdt;
             }
           }
         }
@@ -472,7 +475,10 @@ export default (app: Elysia) =>
             
             // Если countInRubEquivalent = false, вычитаем USDT по merchantRate
             if (!merchant.countInRubEquivalent && payout.merchantRate && payout.merchantRate > 0) {
-              balanceUsdt -= totalAmount / payout.merchantRate;
+              // Обрезаем до 2 знаков после запятой для каждой выплаты отдельно
+              const usdtAmount = totalAmount / payout.merchantRate;
+              const truncatedUsdt = Math.floor(usdtAmount * 100) / 100;
+              balanceUsdt -= truncatedUsdt;
             }
           }
         }
@@ -494,7 +500,14 @@ export default (app: Elysia) =>
         
         // Вычитаем USDT для уже выведенных средств
         if (!merchant.countInRubEquivalent) {
-          const settledUsdt = completedSettles.reduce((sum, s) => sum + (s.amountUsdt || 0), 0);
+          // Обрезаем каждую выведенную сумму до 2 знаков
+          let settledUsdt = 0;
+          for (const settle of completedSettles) {
+            if (settle.amountUsdt) {
+              const truncated = Math.floor(settle.amountUsdt * 100) / 100;
+              settledUsdt += truncated;
+            }
+          }
           balanceUsdt -= settledUsdt;
         }
 
@@ -1243,7 +1256,10 @@ export default (app: Elysia) =>
                 const method = methodCommissionsMap.get(tx.methodId);
                 const commission = method ? tx.amount * (method.commissionPayin / 100) : 0;
                 const netAmount = tx.amount - commission;
-                totalUsdt += netAmount / tx.merchantRate;
+                // Обрезаем до 2 знаков для каждой транзакции
+                const usdtAmount = netAmount / tx.merchantRate;
+                const truncatedUsdt = Math.floor(usdtAmount * 100) / 100;
+                totalUsdt += truncatedUsdt;
               }
             }
             
@@ -1253,7 +1269,10 @@ export default (app: Elysia) =>
                 const method = methodCommissionsMap.get(payout.methodId);
                 const commission = method ? payout.amount * (method.commissionPayout / 100) : 0;
                 const totalAmount = payout.amount + commission;
-                totalUsdt -= totalAmount / payout.merchantRate;
+                // Обрезаем до 2 знаков для каждой выплаты
+                const usdtAmount = totalAmount / payout.merchantRate;
+                const truncatedUsdt = Math.floor(usdtAmount * 100) / 100;
+                totalUsdt -= truncatedUsdt;
               }
             }
             
