@@ -32,13 +32,18 @@ export function AdminGuard({ children, requireSuperAdmin = false }: AdminGuardPr
 
       try {
         const response = await adminApiInstance.get('/admin/verify')
-        if (response.data.success && response.data.admin) {
-          setRole(response.data.admin.role)
-          
-          // Check if super admin is required
-          if (requireSuperAdmin && response.data.admin.role !== 'SUPER_ADMIN') {
-            router.push('/admin/traders')
-            return
+        if (response.data.success) {
+          // Handle MASTER_KEY authentication (returns null admin)
+          if (!response.data.admin) {
+            setRole('SUPER_ADMIN')
+          } else {
+            setRole(response.data.admin.role)
+            
+            // Check if super admin is required
+            if (requireSuperAdmin && response.data.admin.role !== 'SUPER_ADMIN') {
+              router.push('/admin/traders')
+              return
+            }
           }
         } else {
           logout()

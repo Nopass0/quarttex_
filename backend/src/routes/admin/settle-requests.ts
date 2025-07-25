@@ -1,4 +1,4 @@
-import Elysia, { t } from "elysia"
+import { Elysia, t } from "elysia"
 import { db } from "@/db"
 import { SettleRequestStatus } from "@prisma/client"
 
@@ -33,14 +33,6 @@ export const settleRequestsRoutes = new Elysia({ prefix: "/settle-requests" })
               select: {
                 id: true,
                 name: true,
-                contactEmail: true,
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    email: true,
-                  },
-                },
               },
             },
           },
@@ -75,49 +67,15 @@ export const settleRequestsRoutes = new Elysia({ prefix: "/settle-requests" })
   // Get single settle request
   .get("/:id", async ({ params, set, error }) => {
     try {
+      console.log("Fetching single settle request:", params.id)
+      
       const request = await db.settleRequest.findUnique({
         where: { id: params.id },
         include: {
           merchant: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  email: true,
-                },
-              },
-              transactions: {
-                where: {
-                  status: "READY",
-                },
-                select: {
-                  id: true,
-                  amount: true,
-                  commission: true,
-                },
-              },
-              payouts: {
-                where: {
-                  status: "COMPLETED",
-                },
-                select: {
-                  id: true,
-                  amount: true,
-                  feePercent: true,
-                },
-              },
-              settleRequests: {
-                where: {
-                  status: "COMPLETED",
-                },
-                select: {
-                  id: true,
-                  amount: true,
-                  createdAt: true,
-                  processedAt: true,
-                },
-              },
+            select: {
+              id: true,
+              name: true,
             },
           },
         },
@@ -127,28 +85,125 @@ export const settleRequestsRoutes = new Elysia({ prefix: "/settle-requests" })
         return error(404, { error: "Settle request not found" })
       }
 
-      // Calculate current balance for verification
-      const { transactions = [], payouts = [] } = request.merchant
+      console.log("Found request:", request.id, "for merchant:", request.merchantId)
 
-      const dealsTotal = transactions.reduce((sum, t) => sum + t.amount, 0)
-      const dealsCommission = transactions.reduce((sum, t) => sum + t.commission, 0)
-      const payoutsTotal = payouts.reduce((sum, p) => sum + p.amount, 0)
-      const payoutsCommission = payouts.reduce((sum, p) => sum + (p.amount * p.feePercent / 100), 0)
+      // Calculate balance with error handling
+      let currentBalance = 0
+      let balanceFormula = {
+        dealsTotal: 0,
+        dealsCommission: 0,
+        payoutsTotal: 0,
+        payoutsCommission: 0,
+        settledAmount: 0,
+        rateCalculation: 'RAPIRA' as 'RAPIRA' | 'MERCHANT'
+      }
 
-      const currentBalance = dealsTotal - dealsCommission - payoutsTotal - payoutsCommission
+      try {
+        // Get merchant data separately for balance calculation
+        const merchant = await db.merchant.findUnique({
+          where: { id: request.merchantId },
+          select: { countInRubEquivalent: true }
+        });
 
-      return {
-        request,
-        currentBalance,
-        balanceFormula: {
+        const [transactions, payouts, completedSettles] = await Promise.all([
+          db.transaction.findMany({
+            where: { 
+              merchantId: request.merchantId,
+              status: "READY" 
+            },
+            select: { 
+              amount: true, 
+              methodId: true,
+              merchantRate: true
+            },
+          }),
+          db.payout.findMany({
+            where: { 
+              merchantId: request.merchantId,
+              status: "COMPLETED" 
+            },
+            select: { 
+              amount: true, 
+              methodId: true,
+              merchantRate: true
+            },
+          }),
+          db.settleRequest.findMany({
+            where: { 
+              merchantId: request.merchantId,
+              status: "COMPLETED"
+            },
+            select: { amount: true },
+          })
+        ])
+
+        // Get methods to calculate commissions
+        const methodIds = [...new Set([
+          ...transactions.map(t => t.methodId),
+          ...payouts.map(p => p.methodId)
+        ])];
+
+        const methods = await db.method.findMany({
+          where: { id: { in: methodIds } },
+          select: {
+            id: true,
+            commissionPayin: true,
+            commissionPayout: true,
+          },
+        });
+
+        const methodCommissionsMap = new Map(methods.map(m => [m.id, m]));
+
+        // Calculate totals with proper commission
+        let dealsTotal = 0;
+        let dealsCommission = 0;
+        for (const tx of transactions) {
+          const method = methodCommissionsMap.get(tx.methodId);
+          if (method) {
+            const commission = tx.amount * (method.commissionPayin / 100);
+            dealsTotal += tx.amount;
+            dealsCommission += commission;
+          } else {
+            dealsTotal += tx.amount;
+          }
+        }
+
+        let payoutsTotal = 0;
+        let payoutsCommission = 0;
+        for (const payout of payouts) {
+          const method = methodCommissionsMap.get(payout.methodId);
+          if (method) {
+            const commission = payout.amount * (method.commissionPayout / 100);
+            payoutsTotal += payout.amount;
+            payoutsCommission += commission;
+          } else {
+            payoutsTotal += payout.amount;
+          }
+        }
+
+        const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0)
+
+        currentBalance = dealsTotal - dealsCommission - payoutsTotal - payoutsCommission - settledAmount
+        balanceFormula = {
           dealsTotal,
           dealsCommission,
           payoutsTotal,
           payoutsCommission,
-        },
+          settledAmount,
+          rateCalculation: merchant?.countInRubEquivalent ? 'RAPIRA' : 'MERCHANT'
+        }
+      } catch (balanceError) {
+        console.error("Error calculating balance:", balanceError)
+        // Continue with zero values if balance calculation fails
+      }
+
+      return {
+        request,
+        currentBalance,
+        balanceFormula,
       }
     } catch (e) {
-      console.error("Failed to fetch settle requests:", e)
+      console.error("Failed to fetch settle request - detailed error:", e)
       return error(500, { error: "Failed to fetch settle requests" })
     }
   }, {
@@ -167,16 +222,7 @@ export const settleRequestsRoutes = new Elysia({ prefix: "/settle-requests" })
       const settleRequest = await db.settleRequest.findUnique({
         where: { id: params.id },
         include: {
-          merchant: {
-            include: {
-              transactions: {
-                where: { status: "READY" },
-              },
-              payouts: {
-                where: { status: "COMPLETED" },
-              },
-            },
-          },
+          merchant: true,
         },
       })
 
@@ -198,10 +244,11 @@ export const settleRequestsRoutes = new Elysia({ prefix: "/settle-requests" })
         },
       })
 
+      set.status = 200
       return { success: true, request: updatedRequest }
     } catch (e) {
-      console.error("Failed to fetch settle requests:", e)
-      return error(500, { error: "Failed to fetch settle requests" })
+      console.error("Failed to approve settle request:", e)
+      return error(500, { error: "Failed to approve settle request" })
     }
   }, {
     params: t.Object({

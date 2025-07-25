@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
+import { useRapiraRate } from "@/hooks/use-rapira-rate"
 import {
   Dialog,
   DialogContent,
@@ -49,7 +50,7 @@ export default function MerchantDashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('all')
   const [settleDialogOpen, setSettleDialogOpen] = useState(false)
   const [settleLoading, setSettleLoading] = useState(false)
-  const [currentRate, setCurrentRate] = useState<number | null>(null)
+  const { baseRate: currentRate, refetch: refetchRate } = useRapiraRate()
 
   useEffect(() => {
     fetchStatistics(selectedPeriod)
@@ -83,16 +84,6 @@ export default function MerchantDashboardPage() {
     )
   }
 
-  const fetchCurrentRate = async () => {
-    try {
-      // Здесь должен быть эндпоинт для получения текущего курса
-      // Пока используем заглушку
-      setCurrentRate(97.5) // Примерный курс
-    } catch (error) {
-      console.error("Failed to fetch rate:", error)
-      setCurrentRate(null)
-    }
-  }
 
   const handleSettleRequest = async () => {
     setSettleLoading(true)
@@ -110,8 +101,9 @@ export default function MerchantDashboardPage() {
     }
   }
   
-  const handleOpenSettleDialog = () => {
-    fetchCurrentRate()
+  const handleOpenSettleDialog = async () => {
+    // Refresh the rate when opening dialog
+    await refetchRate()
     setSettleDialogOpen(true)
   }
 

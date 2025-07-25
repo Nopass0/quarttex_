@@ -1112,33 +1112,81 @@ export default (app: Elysia) =>
           }
 
           // Рассчитываем текущий баланс
-          const merchantData = await db.merchant.findUniqueOrThrow({
-            where: { id: merchant.id },
-            include: {
-              transactions: {
-                where: { status: "READY" },
-                select: { amount: true, commission: true },
+          const [transactions, payouts, completedSettles] = await Promise.all([
+            db.transaction.findMany({
+              where: { 
+                merchantId: merchant.id,
+                status: "READY" 
               },
-              payouts: {
-                where: { status: "COMPLETED" },
-                select: { amount: true, feePercent: true },
+              select: { 
+                amount: true, 
+                methodId: true,
+                merchantRate: true  // Нужен для расчета USDT если countInRubEquivalent = false
               },
+            }),
+            db.payout.findMany({
+              where: { 
+                merchantId: merchant.id,
+                status: "COMPLETED" 
+              },
+              select: { 
+                amount: true, 
+                methodId: true,
+                merchantRate: true  // Нужен для расчета USDT если countInRubEquivalent = false
+              },
+            }),
+            db.settleRequest.findMany({
+              where: { 
+                merchantId: merchant.id,
+                status: "COMPLETED"
+              },
+              select: { amount: true },
+            })
+          ]);
+
+          // Get methods to calculate commissions
+          const methodIds = [...new Set([
+            ...transactions.map(t => t.methodId),
+            ...payouts.map(p => p.methodId)
+          ])];
+
+          const methods = await db.method.findMany({
+            where: { id: { in: methodIds } },
+            select: {
+              id: true,
+              commissionPayin: true,
+              commissionPayout: true,
             },
-          });
-          
-          // Получаем завершенные settle запросы отдельно
-          const completedSettles = await db.settleRequest.findMany({
-            where: { 
-              merchantId: merchant.id,
-              status: "COMPLETED"
-            },
-            select: { amount: true },
           });
 
-          const dealsTotal = merchantData.transactions.reduce((sum, t) => sum + t.amount, 0);
-          const dealsCommission = merchantData.transactions.reduce((sum, t) => sum + t.commission, 0);
-          const payoutsTotal = merchantData.payouts.reduce((sum, p) => sum + p.amount, 0);
-          const payoutsCommission = merchantData.payouts.reduce((sum, p) => sum + (p.amount * p.feePercent / 100), 0);
+          const methodCommissionsMap = new Map(methods.map(m => [m.id, m]));
+
+          // Calculate totals with proper commission
+          let dealsTotal = 0;
+          let dealsCommission = 0;
+          for (const tx of transactions) {
+            const method = methodCommissionsMap.get(tx.methodId);
+            if (method) {
+              const commission = tx.amount * (method.commissionPayin / 100);
+              dealsTotal += tx.amount;
+              dealsCommission += commission;
+            } else {
+              dealsTotal += tx.amount;
+            }
+          }
+
+          let payoutsTotal = 0;
+          let payoutsCommission = 0;
+          for (const payout of payouts) {
+            const method = methodCommissionsMap.get(payout.methodId);
+            if (method) {
+              const commission = payout.amount * (method.commissionPayout / 100);
+              payoutsTotal += payout.amount;
+              payoutsCommission += commission;
+            } else {
+              payoutsTotal += payout.amount;
+            }
+          }
           
           // Вычитаем уже выведенные средства через settle
           const settledAmount = completedSettles.reduce((sum, s) => sum + s.amount, 0);
@@ -1151,9 +1199,47 @@ export default (app: Elysia) =>
             });
           }
 
-          // Получаем текущий курс от Rapira (без KKK)
-          const rate = await rapiraService.getRate();
-          const amountUsdt = balance / rate;
+          // Расчет USDT в зависимости от настройки countInRubEquivalent
+          let rate: number;
+          let amountUsdt: number;
+
+          if (merchant.countInRubEquivalent) {
+            // Если countInRubEquivalent = true, используем курс Rapira для всего баланса
+            rate = await rapiraService.getUsdtRubRate();
+            amountUsdt = balance / rate;
+          } else {
+            // Если countInRubEquivalent = false, рассчитываем USDT на основе merchantRate каждой транзакции
+            let totalUsdt = 0;
+            
+            // Считаем USDT от сделок
+            for (const tx of transactions) {
+              if (tx.merchantRate && tx.merchantRate > 0) {
+                const method = methodCommissionsMap.get(tx.methodId);
+                const commission = method ? tx.amount * (method.commissionPayin / 100) : 0;
+                const netAmount = tx.amount - commission;
+                totalUsdt += netAmount / tx.merchantRate;
+              }
+            }
+            
+            // Вычитаем USDT от выплат
+            for (const payout of payouts) {
+              if (payout.merchantRate && payout.merchantRate > 0) {
+                const method = methodCommissionsMap.get(payout.methodId);
+                const commission = method ? payout.amount * (method.commissionPayout / 100) : 0;
+                const totalAmount = payout.amount + commission;
+                totalUsdt -= totalAmount / payout.merchantRate;
+              }
+            }
+            
+            // Для уже выведенных средств используем текущий курс Rapira
+            // (так как они уже были конвертированы при создании)
+            const currentRate = await rapiraService.getUsdtRubRate();
+            totalUsdt -= settledAmount / currentRate;
+            
+            amountUsdt = totalUsdt;
+            // Для записи используем текущий курс Rapira
+            rate = currentRate;
+          }
 
           // Создаем запрос Settle
           const settleRequest = await db.settleRequest.create({
@@ -1165,6 +1251,8 @@ export default (app: Elysia) =>
             },
           });
 
+          set.status = 201;
+          
           return { 
             success: true, 
             request: {
@@ -1177,7 +1265,8 @@ export default (app: Elysia) =>
             }
           };
         } catch (e) {
-          console.error("Failed to create settle request:", e);
+          console.error("Failed to create settle request - detailed error:", e);
+          console.error("Error stack:", e instanceof Error ? e.stack : "No stack trace");
           return error(500, { error: "Failed to create settle request" });
         }
       },
@@ -1187,11 +1276,15 @@ export default (app: Elysia) =>
         headers: t.Object({ authorization: t.String() }),
         response: {
           201: t.Object({
-            id: t.String(),
-            amount: t.Number(),
-            rate: t.Number(),
-            status: t.String(),
-            createdAt: t.String(),
+            success: t.Boolean(),
+            request: t.Object({
+              id: t.String(),
+              amount: t.Number(),
+              amountUsdt: t.Number(),
+              rate: t.Number(),
+              status: t.String(),
+              createdAt: t.String(),
+            })
           }),
           400: ErrorSchema,
           409: ErrorSchema,
@@ -1227,6 +1320,7 @@ export default (app: Elysia) =>
           data: requests.map(r => ({
             id: r.id,
             amount: r.amount,
+            amountUsdt: r.amountUsdt,
             rate: r.rate,
             status: r.status,
             createdAt: r.createdAt.toISOString(),
@@ -1257,6 +1351,7 @@ export default (app: Elysia) =>
               t.Object({
                 id: t.String(),
                 amount: t.Number(),
+                amountUsdt: t.Number(),
                 rate: t.Number(),
                 status: t.String(),
                 createdAt: t.String(),

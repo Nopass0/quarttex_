@@ -89,7 +89,7 @@ export default function MerchantSettleHistoryPage() {
   
   const totalWithdrawnUsdt = history
     .filter(h => h.status === "COMPLETED")
-    .reduce((sum, h) => sum + h.amountUsdt, 0)
+    .reduce((sum, h) => sum + (h.amountUsdt || 0), 0)
   
   const pendingCount = history.filter(h => h.status === "PENDING").length
   const completedCount = history.filter(h => h.status === "COMPLETED").length
@@ -180,12 +180,12 @@ export default function MerchantSettleHistoryPage() {
                         {formatAmount(request.amount)} ₽
                       </TableCell>
                       <TableCell className="font-medium text-green-600">
-                        {request.amountUsdt.toFixed(2)} USDT
+                        {(request.amountUsdt || 0).toFixed(2)} USDT
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                          {request.rate.toFixed(2)}
+                          {(request.rate || 0).toFixed(2)}
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(request.status)}</TableCell>

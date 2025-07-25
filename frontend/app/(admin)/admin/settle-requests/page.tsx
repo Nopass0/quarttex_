@@ -46,12 +46,6 @@ type SettleRequest = {
   merchant: {
     id: string
     name: string
-    contactEmail: string
-    user: {
-      id: string
-      username: string
-      email: string
-    }
   }
 }
 
@@ -203,10 +197,7 @@ export default function SettleRequestsPage() {
                     {format(new Date(request.createdAt), "dd.MM.yyyy HH:mm")}
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <p className="font-medium">{request.merchant.name}</p>
-                      <p className="text-sm text-muted-foreground">{request.merchant.contactEmail}</p>
-                    </div>
+                    <p className="font-medium">{request.merchant.name}</p>
                   </TableCell>
                   <TableCell className="font-medium">
                     {formatAmount(request.amount)} ₽
@@ -320,7 +311,6 @@ export default function SettleRequestsPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Мерчант</p>
                     <p className="font-medium">{requestDetails.request.merchant.name}</p>
-                    <p className="text-sm text-muted-foreground">{requestDetails.request.merchant.contactEmail}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Дата запроса</p>
@@ -388,6 +378,14 @@ export default function SettleRequestsPage() {
                       -{formatAmount(requestDetails.balanceFormula.payoutsCommission)} ₽
                     </span>
                   </div>
+                  {requestDetails.balanceFormula.settledAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span>Уже выведено через Settle:</span>
+                      <span className="font-medium text-red-600">
+                        -{formatAmount(requestDetails.balanceFormula.settledAmount)} ₽
+                      </span>
+                    </div>
+                  )}
                   <Separator className="my-2" />
                   <div className="flex justify-between font-medium">
                     <span>Итого:</span>
@@ -395,6 +393,11 @@ export default function SettleRequestsPage() {
                       {formatAmount(requestDetails.currentBalance)} ₽
                     </span>
                   </div>
+                  {requestDetails.balanceFormula.rateCalculation && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Расчет курса: {requestDetails.balanceFormula.rateCalculation === 'RAPIRA' ? 'по курсу Rapira' : 'по курсам мерчанта'}
+                    </div>
+                  )}
                 </div>
               </div>
 
