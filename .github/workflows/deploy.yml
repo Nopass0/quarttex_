@@ -234,6 +234,19 @@ jobs:
                 exit 1
               fi
             fi
+            
+            # Check current database schema
+            echo "Checking database schema..."
+            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db pull || true
+            
+            # Regenerate Prisma Client after migrations/push
+            echo "Regenerating Prisma Client after schema changes..."
+            docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma generate
+            
+            # Restart backend to pick up new schema
+            echo "Restarting backend to apply schema changes..."
+            docker compose -f docker-compose.prod.yml restart backend
+            sleep 20
 
             # Wait for services to be ready
             echo "Waiting for services to start..."
