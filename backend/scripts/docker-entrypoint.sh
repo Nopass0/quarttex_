@@ -23,7 +23,7 @@ check_db_connection() {
     fi
     
     # Try to connect and capture the error
-    if output=$(bunx prisma db execute --stdin <<< "SELECT 1;" 2>&1); then
+    if output=$(bunx prisma db execute --schema=./prisma/schema.prisma --stdin <<< "SELECT 1;" 2>&1); then
         echo "✓ Database connection successful"
         return 0
     else
@@ -83,13 +83,13 @@ echo -e "\n==================== VERIFYING SCHEMA ===================="
 echo "Checking required columns..."
 
 echo -e "\nTransaction table:"
-bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Transaction' AND column_name IN ('merchantRate', 'traderProfit', 'matchedNotificationId');" || true
+bunx prisma db execute --schema=./prisma/schema.prisma --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Transaction' AND column_name IN ('merchantRate', 'traderProfit', 'matchedNotificationId');" || true
 
 echo -e "\nPayout table:"
-bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Payout' AND column_name IN ('methodId', 'profitAmount');" || true
+bunx prisma db execute --schema=./prisma/schema.prisma --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Payout' AND column_name IN ('methodId', 'profitAmount');" || true
 
 echo -e "\nNotification table:"
-bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Notification' AND column_name = 'packageName';" || true
+bunx prisma db execute --schema=./prisma/schema.prisma --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Notification' AND column_name = 'packageName';" || true
 
 echo "==================== STARTING APPLICATION ===================="
 # Start the application
