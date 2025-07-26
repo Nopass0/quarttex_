@@ -1,10 +1,18 @@
 -- CreateEnum
-CREATE TYPE "SettleRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'COMPLETED');
+DO $$ BEGIN
+    CREATE TYPE "SettleRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'COMPLETED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- AlterEnum
-ALTER TYPE "PayoutStatus" ADD VALUE 'ACTIVE';
-ALTER TYPE "PayoutStatus" ADD VALUE 'COMPLETED';  
-ALTER TYPE "PayoutStatus" ADD VALUE 'DISPUTED';
+-- AlterEnum - Add new values if they don't exist
+DO $$ BEGIN
+    ALTER TYPE "PayoutStatus" ADD VALUE IF NOT EXISTS 'ACTIVE';
+    ALTER TYPE "PayoutStatus" ADD VALUE IF NOT EXISTS 'COMPLETED';  
+    ALTER TYPE "PayoutStatus" ADD VALUE IF NOT EXISTS 'DISPUTED';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "SettleRequest" (
@@ -100,10 +108,10 @@ ALTER TABLE "SettleRequest" ADD CONSTRAINT "SettleRequest_merchantId_fkey" FOREI
 ALTER TABLE "TransactionAttempt" ADD CONSTRAINT "TransactionAttempt_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TransactionAttempt" ADD CONSTRAINT "TransactionAttempt_methodId_fkey" FOREIGN KEY ("methodId") REFERENCES "PaymentMethod"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "TransactionAttempt" ADD CONSTRAINT "TransactionAttempt_methodId_fkey" FOREIGN KEY ("methodId") REFERENCES "Method"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Transaction" ADD CONSTRAINT "Transaction_matchedNotificationId_fkey" FOREIGN KEY ("matchedNotificationId") REFERENCES "Notification"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Payout" ADD CONSTRAINT "Payout_methodId_fkey" FOREIGN KEY ("methodId") REFERENCES "PaymentMethod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Payout" ADD CONSTRAINT "Payout_methodId_fkey" FOREIGN KEY ("methodId") REFERENCES "Method"("id") ON DELETE SET NULL ON UPDATE CASCADE;
