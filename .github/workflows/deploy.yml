@@ -168,142 +168,19 @@ jobs:
             echo "Container status after startup:"
             docker compose -f docker-compose.prod.yml ps
 
-            # Run database migrations before health checks
-            echo "==================== DATABASE MIGRATION PROCESS STARTED ===================="
-            echo "Current date: $(date)"
+            # Backend will handle migrations automatically on startup via entrypoint script
+            echo "Waiting for backend to initialize and apply migrations..."
             
-            # First, ensure backend container is ready for commands
-            echo "Waiting for backend to be ready for database operations..."
-            sleep 10
+            # Monitor backend logs for migration status
+            echo "Monitoring backend startup and migration process..."
+            docker compose -f docker-compose.prod.yml logs -f backend &
+            LOGS_PID=$!
             
-            # Check database connection
-            echo ">>> Step 1: Checking database connection..."
-            if docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
-              echo "✓ Database connection successful"
-            else
-              echo "✗ Database connection failed"
-              docker compose -f docker-compose.prod.yml logs backend | tail -50
-              exit 1
-            fi
+            # Give migrations time to run
+            sleep 45
             
-            # List current migrations
-            echo -e "\n>>> Step 2: Listing current migrations directory..."
-            docker compose -f docker-compose.prod.yml exec -T backend ls -la prisma/migrations/ || echo "Failed to list migrations directory"
-            
-            # Check current database schema before migration
-            echo -e "\n>>> Step 3: Checking current database schema (tables)..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;" || echo "Failed to list tables"
-            
-            echo -e "\n>>> Step 4: Checking if problematic columns exist..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Transaction' AND column_name IN ('merchantRate', 'traderProfit', 'matchedNotificationId');" || echo "Failed to check Transaction columns"
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Payout' AND column_name IN ('methodId', 'profitAmount');" || echo "Failed to check Payout columns"
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Notification' AND column_name = 'packageName';" || echo "Failed to check Notification columns"
-            
-            # Run prisma generate with memory limits and retry logic
-            echo -e "\n>>> Step 5: Generating Prisma client..."
-            max_retries=3
-            retry_count=0
-            while [ $retry_count -lt $max_retries ]; do
-              echo "Attempting Prisma generate (attempt $((retry_count + 1))/$max_retries)..."
-              # Run with explicit memory limits to prevent OOM
-              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma generate 2>&1; then
-                echo "✓ Prisma client generated successfully"
-                break
-              else
-                echo "✗ Prisma generate failed"
-                retry_count=$((retry_count + 1))
-                if [ $retry_count -lt $max_retries ]; then
-                  echo "Retrying in 10 seconds..."
-                  sleep 10
-                  # Clear any potential memory issues
-                  docker compose -f docker-compose.prod.yml restart backend
-                  sleep 20
-                else
-                  echo "✗ Prisma generate failed after $max_retries attempts"
-                  docker compose -f docker-compose.prod.yml logs backend | tail -50
-                  exit 1
-                fi
-              fi
-            done
-
-            # Run database migrations with similar memory limits
-            echo -e "\n>>> Step 6: Running database migrations..."
-            max_retries=3
-            retry_count=0
-            migration_success=false
-            
-            # Check migration status before attempting
-            echo "Checking current migration status..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma migrate status 2>&1 || echo "Failed to check migration status"
-            
-            while [ $retry_count -lt $max_retries ] && [ "$migration_success" = "false" ]; do
-              echo -e "\nAttempting database migrations (attempt $((retry_count + 1))/$max_retries)..."
-              echo "Running command: bunx prisma migrate deploy"
-              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma migrate deploy 2>&1; then
-                echo "✓ Database migrations successful"
-                migration_success=true
-                break
-              else
-                echo "✗ Migration attempt failed"
-                retry_count=$((retry_count + 1))
-                if [ $retry_count -lt $max_retries ]; then
-                  echo "Retrying in 15 seconds..."
-                  sleep 15
-                else
-                  echo "✗ Migrations failed after $max_retries attempts"
-                fi
-              fi
-            done
-            
-            # If migrations failed, try direct schema push
-            if [ "$migration_success" = "false" ]; then
-              echo -e "\n>>> Step 7: Migration deploy failed, attempting direct schema push..."
-              echo "Running command: bunx prisma db push --accept-data-loss"
-              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma db push --accept-data-loss 2>&1; then
-                echo "✓ Schema push successful"
-              else
-                echo "✗ Both migration and schema push failed"
-                echo -e "\n>>> Backend logs (last 100 lines):"
-                docker compose -f docker-compose.prod.yml logs backend | tail -100
-                exit 1
-              fi
-            fi
-            
-            # Check current database schema after migrations
-            echo -e "\n>>> Step 8: Verifying database schema after migrations..."
-            echo "Checking if new columns were added..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Transaction' AND column_name IN ('merchantRate', 'traderProfit', 'matchedNotificationId');" || echo "Failed to check Transaction columns"
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Payout' AND column_name IN ('methodId', 'profitAmount');" || echo "Failed to check Payout columns"
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT column_name FROM information_schema.columns WHERE table_name = 'Notification' AND column_name = 'packageName';" || echo "Failed to check Notification columns"
-            
-            # Check if new tables were created
-            echo -e "\nChecking if new tables were created..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'SettleRequest');" || echo "Failed to check SettleRequest table"
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db execute --stdin <<< "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'TransactionAttempt');" || echo "Failed to check TransactionAttempt table"
-            
-            # Pull current schema to verify
-            echo -e "\n>>> Step 9: Pulling current database schema for verification..."
-            docker compose -f docker-compose.prod.yml exec -T backend bunx prisma db pull 2>&1 || echo "Warning: Failed to pull database schema"
-            
-            # Regenerate Prisma Client after migrations/push
-            echo -e "\n>>> Step 10: Regenerating Prisma Client after schema changes..."
-            if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma generate 2>&1; then
-              echo "✓ Prisma Client regenerated successfully"
-            else
-              echo "✗ Failed to regenerate Prisma Client"
-            fi
-            
-            # Restart backend to pick up new schema
-            echo -e "\n>>> Step 11: Restarting backend to apply schema changes..."
-            docker compose -f docker-compose.prod.yml restart backend
-            echo "Waiting 20 seconds for backend to restart..."
-            sleep 20
-            
-            echo -e "\n==================== DATABASE MIGRATION PROCESS COMPLETED ===================="
-
-            # Wait for services to be ready
-            echo "Waiting for services to start..."
-            sleep 30
+            # Stop following logs
+            kill $LOGS_PID 2>/dev/null || true
 
             # Check if backend container is running
             if ! docker ps | grep -q "chase_backend"; then

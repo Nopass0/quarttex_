@@ -28,8 +28,12 @@ RUN NODE_OPTIONS="--max-old-space-size=384" npx prisma generate || \
 # Copy source code
 COPY . .
 
+# Make entrypoint script executable
+RUN chmod +x /app/scripts/docker-entrypoint.sh
+
 # Expose port
 EXPOSE 3001
 
-# Start the application
+# Use entrypoint script to handle migrations before starting app
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["bun", "run", "src/index.ts"]
