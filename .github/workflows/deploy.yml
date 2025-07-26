@@ -169,7 +169,7 @@ jobs:
             docker compose -f docker-compose.prod.yml ps
 
             # Run database migrations before health checks
-            echo "Running database schema migrations..."
+            echo "Running database migrations..."
             
             # First, ensure backend container is ready for commands
             echo "Waiting for backend to be ready for database operations..."
@@ -201,21 +201,21 @@ jobs:
               fi
             done
 
-            # Run database schema push with similar memory limits
+            # Run database migrations with similar memory limits
             max_retries=5
             retry_count=0
             while [ $retry_count -lt $max_retries ]; do
-              echo "Attempting database schema push (attempt $((retry_count + 1))/$max_retries)..."
-              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma db push --accept-data-loss; then
-                echo "Database schema push successful"
+              echo "Attempting database migrations (attempt $((retry_count + 1))/$max_retries)..."
+              if docker compose -f docker-compose.prod.yml exec -T -e NODE_OPTIONS="--max-old-space-size=512" backend bunx prisma migrate deploy; then
+                echo "Database migrations successful"
                 break
               else
                 retry_count=$((retry_count + 1))
                 if [ $retry_count -lt $max_retries ]; then
-                  echo "Schema push failed, retrying in 15 seconds..."
+                  echo "Migrations failed, retrying in 15 seconds..."
                   sleep 15
                 else
-                  echo "Schema push failed after $max_retries attempts"
+                  echo "Migrations failed after $max_retries attempts"
                   docker compose -f docker-compose.prod.yml logs backend
                   exit 1
                 fi
