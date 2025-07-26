@@ -36,10 +36,10 @@ export default (app: Elysia) =>
     .group("/api-docs", (app) => app.use(apiDocsRoutes))
     
     // Payouts routes (с merchantSessionGuard)
-    .use(payoutsRoutes)
+    .group("/payouts", (app) => app.use(payoutsRoutes))
     
     // Deal dispute routes (с merchantSessionGuard)
-    .use(dealDisputesRoutes)
+    .group("/deal-disputes", (app) => app.use(dealDisputesRoutes))
     
     // Основные API маршруты (с merchantGuard для API ключа)
     .use(merchantGuard())

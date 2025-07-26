@@ -768,6 +768,7 @@ export default (app: Elysia) =>
               type: true,
               clientName: true,
               rate: true,
+              merchantRate: true,
               commission: true,
               error: true,
               createdAt: true,
@@ -781,6 +782,8 @@ export default (app: Elysia) =>
                   name: true,
                   type: true,
                   currency: true,
+                  commissionPayin: true,
+                  commissionPayout: true,
                 },
               },
               trader: {
@@ -817,6 +820,7 @@ export default (app: Elysia) =>
           type: tx.type,
           clientName: tx.clientName,
           rate: tx.rate,
+          merchantRate: tx.merchantRate,
           commission: tx.commission,
           error: tx.error,
           createdAt: tx.createdAt.toISOString(),
@@ -874,6 +878,7 @@ export default (app: Elysia) =>
                 type: t.Enum(TransactionType),
                 clientName: t.String(),
                 rate: t.Union([t.Number(), t.Null()]),
+                merchantRate: t.Union([t.Number(), t.Null()]),
                 commission: t.Number(),
                 error: t.Union([t.String(), t.Null()]),
                 createdAt: t.String(),
@@ -886,6 +891,8 @@ export default (app: Elysia) =>
                   name: t.String(),
                   type: t.Enum(MethodType),
                   currency: t.Enum(Currency),
+                  commissionPayin: t.Number(),
+                  commissionPayout: t.Number(),
                 }),
                 trader: t.Union([
                   t.Object({

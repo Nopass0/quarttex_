@@ -17,7 +17,7 @@ if (!existsSync(UPLOAD_DIR)) {
   await mkdir(UPLOAD_DIR, { recursive: true });
 }
 
-export const dealDisputesRoutes = new Elysia({ prefix: "/deal-disputes" })
+export const dealDisputesRoutes = new Elysia()
   .use(merchantSessionGuard())
   
   // Test route

@@ -26,12 +26,15 @@ type Transaction = {
   status: string
   amount: number
   commission: number
+  merchantRate: number | null
   method: {
     id: string
     code: string
     name: string
     type: string
     currency: string
+    commissionPayin: number
+    commissionPayout: number
   }
   createdAt: string
   updatedAt: string
@@ -168,6 +171,7 @@ export function TransactionsList({ filters }: TransactionsListProps) {
               <TableHead>Метод</TableHead>
               <TableHead className="text-right">Сумма</TableHead>
               <TableHead className="text-right">Комиссия</TableHead>
+              <TableHead className="text-right">Курс</TableHead>
               <TableHead>Дата создания</TableHead>
               <TableHead>Внешний ID</TableHead>
               <TableHead>Действия</TableHead>
@@ -176,7 +180,7 @@ export function TransactionsList({ filters }: TransactionsListProps) {
           <TableBody>
             {transactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={10} className="text-center text-gray-500 py-8">
                   Транзакции не найдены
                 </TableCell>
               </TableRow>
@@ -204,7 +208,13 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                     ₽{formatAmount(transaction.amount)}
                   </TableCell>
                   <TableCell className="text-right">
-                    ₽{formatAmount(transaction.commission)}
+                    {transaction.type === 'IN' 
+                      ? `${transaction.method.commissionPayin}%`
+                      : `${transaction.method.commissionPayout}%`
+                    }
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {transaction.merchantRate ? formatAmount(transaction.merchantRate) : '-'}
                   </TableCell>
                   <TableCell>{formatDate(transaction.createdAt)}</TableCell>
                   <TableCell className="font-mono text-sm">

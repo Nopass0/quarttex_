@@ -1070,11 +1070,10 @@ export function ApiDocumentation() {
       // Build request
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        ...endpoint.headers,
       };
 
-      // Автоматически подставляем API токен мерчанта
-      if (headers["x-merchant-api-key"]) {
+      // Автоматически подставляем API токен мерчанта только если он требуется
+      if (endpoint.headers && endpoint.headers["x-merchant-api-key"]) {
         headers["x-merchant-api-key"] = token || "YOUR_API_KEY_HERE";
       }
 

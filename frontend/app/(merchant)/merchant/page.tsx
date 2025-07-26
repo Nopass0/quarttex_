@@ -168,8 +168,18 @@ export default function MerchantDashboardPage() {
               </DialogHeader>
               <div className="py-4 space-y-4">
                 <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Баланс к выводу:</p>
-                  <p className="text-2xl font-bold">{formatAmount(statistics.balance.total)} ₽</p>
+                  {merchantProfile && !merchantProfile.countInRubEquivalent && statistics.balance.totalUsdt !== undefined ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Баланс к выводу:</p>
+                      <p className="text-2xl font-bold">{truncateDecimals(statistics.balance.totalUsdt, 2)} USDT</p>
+                      <p className="text-lg text-gray-600">{formatAmount(statistics.balance.total)} ₽</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">Баланс к выводу:</p>
+                      <p className="text-2xl font-bold">{formatAmount(statistics.balance.total)} ₽</p>
+                    </>
+                  )}
                 </div>
                 
                 {currentRate && (
@@ -255,16 +265,22 @@ export default function MerchantDashboardPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle>Баланс</CardTitle>
+              <CardTitle>{merchantProfile && !merchantProfile.countInRubEquivalent ? 'Баланс USDT' : 'Баланс'}</CardTitle>
               <Calculator className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold text-green-600">
-                {formatAmount(statistics.balance.total)} ₽
-              </div>
-              {statistics.balance.totalUsdt !== undefined && merchantProfile && !merchantProfile.countInRubEquivalent && (
-                <div className="text-xl font-semibold text-green-600 mt-1">
-                  {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
+              {merchantProfile && !merchantProfile.countInRubEquivalent && statistics.balance.totalUsdt !== undefined ? (
+                <>
+                  <div className="text-3xl font-bold text-green-600">
+                    {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
+                  </div>
+                  <div className="text-lg text-gray-600 mt-1">
+                    {formatAmount(statistics.balance.total)} ₽
+                  </div>
+                </>
+              ) : (
+                <div className="text-3xl font-bold text-green-600">
+                  {formatAmount(statistics.balance.total)} ₽
                 </div>
               )}
             </div>
