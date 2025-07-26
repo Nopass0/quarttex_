@@ -4,14 +4,31 @@ set -e
 echo "==================== CONTAINER STARTUP ===================="
 echo "Starting backend container at $(date)"
 
+# Check environment
+echo "Environment check:"
+if [ -z "$DATABASE_URL" ]; then
+    echo "✗ DATABASE_URL is not set!"
+else
+    # Hide password in the URL for logging
+    echo "✓ DATABASE_URL is set (host: $(echo $DATABASE_URL | sed -E 's|.*://[^@]*@([^/:]*).*|\1|'))"
+fi
+
 # Function to check database connection
 check_db_connection() {
     echo "Checking database connection..."
-    if bunx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
+    # First check if DATABASE_URL is set
+    if [ -z "$DATABASE_URL" ]; then
+        echo "✗ DATABASE_URL environment variable is not set!"
+        return 1
+    fi
+    
+    # Try to connect and capture the error
+    if output=$(bunx prisma db execute --stdin <<< "SELECT 1;" 2>&1); then
         echo "✓ Database connection successful"
         return 0
     else
         echo "✗ Database connection failed"
+        echo "Error details: $output" | head -5
         return 1
     fi
 }
