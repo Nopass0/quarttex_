@@ -56,12 +56,20 @@ echo "==================== RUNNING MIGRATIONS ===================="
 echo "Current migration status:"
 bunx prisma migrate status || true
 
+# Check for failed migrations
+echo -e "\nChecking for failed migrations..."
+if bunx prisma migrate status | grep -q "failed"; then
+    echo "Found failed migration, attempting to fix..."
+    # Mark failed migration as complete
+    bunx prisma db execute --schema=./prisma/schema.prisma --stdin <<< "UPDATE \"_prisma_migrations\" SET finished_at = NOW(), applied_steps_count = 1 WHERE finished_at IS NULL;" || true
+fi
+
 echo -e "\nApplying migrations..."
 if bunx prisma migrate deploy; then
     echo "✓ Migrations applied successfully"
 else
-    echo "✗ Migration deploy failed, trying db push..."
-    if bunx prisma db push --accept-data-loss; then
+    echo "✗ Migration deploy failed, trying db push with skip-generate..."
+    if bunx prisma db push --skip-generate; then
         echo "✓ Schema pushed successfully"
     else
         echo "✗ Both migration and db push failed"

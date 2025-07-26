@@ -684,10 +684,10 @@ model Payout {
   sumToWriteOffUSDT    Float?
   profitAmount         Float?
   previousTraderIds    String[]          @default([])
-  methodId             String
+  methodId             String?
   merchant             Merchant          @relation(fields: [merchantId], references: [id])
   trader               User?             @relation("TraderPayouts", fields: [traderId], references: [id])
-  method               Method            @relation(fields: [methodId], references: [id])
+  method               Method?           @relation(fields: [methodId], references: [id])
   rateAudits           PayoutRateAudit[]
   disputes             WithdrawalDispute[]
   cancellationHistory  PayoutCancellation[]
