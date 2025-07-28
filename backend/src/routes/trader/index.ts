@@ -64,6 +64,7 @@ export default (app: Elysia) =>
           where: { id: trader.id },
           select: {
             id: true,
+            numericId: true,
             email: true,
             name: true,
             trustBalance: true,
@@ -96,6 +97,7 @@ export default (app: Elysia) =>
         response: {
           200: t.Object({
             id: t.String(),
+            numericId: t.Number(),
             email: t.String(),
             name: t.String(),
             trustBalance: t.Number(),
