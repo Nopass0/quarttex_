@@ -5,7 +5,7 @@ import { ServiceRegistry } from "./ServiceRegistry";
 import { broadcastPayoutUpdate, broadcastRateAdjustment } from "../routes/websocket/payouts";
 import type { TelegramService } from "./TelegramService";
 import { createHmac } from "node:crypto";
-import { roundDown2 } from "../utils/rounding";
+import { roundDown2, truncate2 } from "../utils/rounding";
 
 export class PayoutService {
   private static instance: PayoutService;
@@ -98,14 +98,15 @@ export class PayoutService {
     const traderRate = direction === "OUT" ? rapiraRate + rateDelta : rapiraRate;
     
     // Calculate USDT amounts using the trader rate (this is what will be used for actual calculations)
-    const amountUsdt = amount / traderRate;
+    // Use Math.trunc to truncate to 2 decimal places without rounding
+    const amountUsdt = Math.trunc((amount / traderRate) * 100) / 100;
     
     // Calculate total with fee
     // For OUT transactions: total = amount × (1 + feePercent / 100)
     const total = direction === "OUT" 
       ? amount * (1 + feePercent / 100)
       : amount * (1 + feePercent / 100);
-    const totalUsdt = total / traderRate;
+    const totalUsdt = Math.trunc((total / traderRate) * 100) / 100;
     
     // First check if there are any traders with sufficient RUB balance
     const eligibleTradersCount = await db.user.count({
@@ -340,13 +341,15 @@ export class PayoutService {
     let profitAmount: number;
     if (traderMerchant && traderMerchant.feeOut > 0) {
       // Use trader-specific fee: amount in USDT * (feeOut / 100)
-      const amountInUsdt = payout.amount / payout.rate;
-      profitAmount = roundDown2(amountInUsdt * (traderMerchant.feeOut / 100));
-      console.log(`[Payout ${payoutId}] Using trader fee ${traderMerchant.feeOut}%, profit: ${profitAmount} USDT`);
+      const amountInUsdt = Math.trunc((payout.amount / payout.rate) * 100) / 100;
+      const profitBeforeTrunc = amountInUsdt * (traderMerchant.feeOut / 100);
+      profitAmount = truncate2(profitBeforeTrunc);
+      console.log(`[Payout ${payoutId}] Using trader fee ${traderMerchant.feeOut}%, amount: ${payout.amount}, rate: ${payout.rate}, amountInUsdt: ${amountInUsdt}, profitBeforeTrunc: ${profitBeforeTrunc}, profit: ${profitAmount} USDT`);
     } else {
       // Fallback to original calculation
-      profitAmount = roundDown2(payout.totalUsdt - payout.amountUsdt);
-      console.log(`[Payout ${payoutId}] Using default calculation, profit: ${profitAmount} USDT`);
+      const profitBeforeTrunc = payout.totalUsdt - payout.amountUsdt;
+      profitAmount = truncate2(profitBeforeTrunc);
+      console.log(`[Payout ${payoutId}] Using default calculation, totalUsdt: ${payout.totalUsdt}, amountUsdt: ${payout.amountUsdt}, profitBeforeTrunc: ${profitBeforeTrunc}, profit: ${profitAmount} USDT`);
     }
     
     // Update payout status to CHECKING and store profit amount for later
@@ -425,7 +428,7 @@ export class PayoutService {
         data: {
           frozenRub: { decrement: payout.amount }, // Consume frozen RUB
           balanceUsdt: { increment: payout.totalUsdt }, // Add USDT to balance
-          profitFromPayouts: { increment: roundDown2(payout.totalUsdt - payout.amountUsdt) },
+          profitFromPayouts: { increment: truncate2(payout.totalUsdt - payout.amountUsdt) },
         },
       }),
     ]);
@@ -914,7 +917,7 @@ export class PayoutService {
     // Recalculate rate and total
     const newRate = (payout.merchantRate || payout.rate) + newRateDelta;
     const newTotal = payout.amount * newRate * (1 + newFeePercent / 100);
-    const newTotalUsdt = newTotal / newRate;
+    const newTotalUsdt = Math.trunc((newTotal / newRate) * 100) / 100;
     
     // Update payout
     const updatedPayout = await db.payout.update({
@@ -996,7 +999,7 @@ export class PayoutService {
     
     if (amount !== undefined) {
       updateData.amount = amount;
-      updateData.amountUsdt = amount / (updateData.rate || payout.rate);
+      updateData.amountUsdt = Math.trunc((amount / (updateData.rate || payout.rate)) * 100) / 100;
     }
     
     // Recalculate total if rate or amount changed
@@ -1004,7 +1007,7 @@ export class PayoutService {
       const newAmount = amount || payout.amount;
       const newRate = updateData.rate || payout.rate;
       updateData.total = newAmount * (1 + payout.feePercent / 100);
-      updateData.totalUsdt = updateData.total / newRate;
+      updateData.totalUsdt = Math.trunc((updateData.total / newRate) * 100) / 100;
     }
     
     const updatedPayout = await db.payout.update({
@@ -1095,7 +1098,7 @@ export class PayoutService {
     }
     
     // Calculate profit amount - now sumToWriteOffUSDT contains the full amount, not just profit
-    const profitAmount = roundDown2(payout.totalUsdt - payout.amountUsdt);
+    const profitAmount = truncate2(payout.totalUsdt - payout.amountUsdt);
     
     // Get trader's current balances
     const trader = await db.user.findUnique({

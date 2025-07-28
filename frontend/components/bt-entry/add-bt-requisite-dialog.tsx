@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -94,9 +94,7 @@ export function AddBTRequisiteDialog({
   onSuccess,
 }: AddBTRequisiteDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [methods, setMethods] = useState<Method[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<Method | null>(null);
-  const [loadingMethods, setLoadingMethods] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -114,39 +112,15 @@ export function AddBTRequisiteDialog({
     },
   });
 
-  useEffect(() => {
-    if (open) {
-      fetchMethods();
-    }
-  }, [open]);
-
-  const fetchMethods = async () => {
-    try {
-      setLoadingMethods(true);
-      const response = await traderApi.getMethods();
-      const methodsData = response.data || response.methods || response || [];
-      setMethods(Array.isArray(methodsData) ? methodsData : []);
-    } catch (error) {
-      console.error("Error fetching methods:", error);
-      toast.error("Не удалось загрузить методы");
-    } finally {
-      setLoadingMethods(false);
-    }
-  };
 
   const handleMethodChange = (methodType: string) => {
-    // Find first method with selected type
-    const method = methods.find(m => m.type === methodType);
-    setSelectedMethod(method || { id: methodType, name: methodType, type: methodType, minAmount: 1000, maxAmount: 100000, minPayin: 1000, maxPayin: 100000 });
+    // Create a method object for the selected type
+    const method = { id: methodType, name: methodType, type: methodType, minAmount: 1000, maxAmount: 100000, minPayin: 1000, maxPayin: 100000 };
+    setSelectedMethod(method);
     
-    if (method) {
-      form.setValue("minAmount", method.minPayin || 1000);
-      form.setValue("maxAmount", method.maxPayin || 100000);
-    } else {
-      // Set default values for method type
-      form.setValue("minAmount", 1000);
-      form.setValue("maxAmount", 100000);
-    }
+    // Set default values for method type
+    form.setValue("minAmount", 1000);
+    form.setValue("maxAmount", 100000);
     
     // Clear bank selection when method changes
     form.setValue("bankType", "");
@@ -174,28 +148,26 @@ export function AddBTRequisiteDialog({
       }
 
       // Validate phone for SBP
-      if (data.bankType === "SBP" && !data.phoneNumber) {
+      if (selectedMethod.type === "SBP" && !data.phoneNumber) {
         toast.error("Введите номер телефона для СБП");
         return;
       }
 
-      // Find the method ID for the selected bank
-      const methodForBank = methods.find(
-        m => m.type === selectedMethod.type
-      );
-
-      if (!methodForBank) {
-        toast.error("Метод не найден");
-        return;
-      }
-
       const payload = {
-        ...data,
-        methodId: methodForBank.id,
-        deviceId: null, // Explicitly set deviceId to null for BT-entry requisites
+        cardNumber: selectedMethod.type === "CARD" ? data.cardNumber : "",
+        bankType: data.bankType,
+        methodType: selectedMethod.type === "CARD" ? "c2c" : "sbp",
+        recipientName: data.recipientName,
+        phoneNumber: data.phoneNumber || "",
+        minAmount: data.minAmount,
+        maxAmount: data.maxAmount,
+        dailyLimit: data.dailyLimit,
+        monthlyLimit: data.monthlyLimit,
+        intervalMinutes: 5,
+        maxCountTransactions: data.maxCountTransactions
       };
 
-      await traderApi.createRequisite(payload);
+      await traderApi.btEntrance.createRequisite(payload);
       toast.success("Реквизит успешно добавлен");
       form.reset();
       onOpenChange(false);
@@ -227,18 +199,18 @@ export function AddBTRequisiteDialog({
               name="methodId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Метод</FormLabel>
+                  <FormLabel>Тип платежа</FormLabel>
                   <Select
                     onValueChange={(value) => {
                       field.onChange(value);
                       handleMethodChange(value);
                     }}
                     value={field.value}
-                    disabled={loadingMethods}
+                    disabled={false}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите метод" />
+                        <SelectValue placeholder="Выберите тип платежа" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -268,15 +240,11 @@ export function AddBTRequisiteDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {selectedMethodType === "SBP" ? (
-                        <SelectItem value="SBP">СБП</SelectItem>
-                      ) : (
-                        AVAILABLE_BANKS.filter(bank => bank.code !== "SBP").map((bank) => (
-                          <SelectItem key={bank.code} value={bank.code}>
-                            {bank.name}
-                          </SelectItem>
-                        ))
-                      )}
+                      {AVAILABLE_BANKS.filter(bank => bank.code !== "SBP").map((bank) => (
+                        <SelectItem key={bank.code} value={bank.code}>
+                          {bank.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -312,7 +280,7 @@ export function AddBTRequisiteDialog({
               />
             )}
 
-            {form.watch("bankType") === "SBP" && (
+            {selectedMethodType === "SBP" && (
               <FormField
                 control={form.control}
                 name="phoneNumber"

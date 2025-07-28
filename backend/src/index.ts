@@ -190,6 +190,7 @@ const app = new Elysia({ prefix: "/api" })
       else if (ext === 'png') set.headers['content-type'] = 'image/png';
       else if (ext === 'pdf') set.headers['content-type'] = 'application/pdf';
       else if (ext === 'zip') set.headers['content-type'] = 'application/zip';
+      else if (ext === 'apk') set.headers['content-type'] = 'application/vnd.android.package-archive';
       else set.headers['content-type'] = 'application/octet-stream';
       
       return file;

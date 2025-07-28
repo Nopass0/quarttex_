@@ -10,11 +10,11 @@ const payoutService = PayoutService.getInstance();
 async function getRateWithKkk(): Promise<number> {
   // Get KKK percentage from system config
   const kkkSetting = await db.systemConfig.findUnique({
-    where: { key: "kkk_percent" }
+    where: { key: "kkk_percent" },
   });
-  
+
   const kkkPercent = kkkSetting ? parseFloat(kkkSetting.value) : 0;
-  
+
   // Get rate from Rapira with KKK applied
   return await rapiraService.getRateWithKkk(kkkPercent);
 }
@@ -89,20 +89,6 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
               orderBy: { timestamp: "desc" },
               take: 5,
             },
-            cancellationHistory: {
-              include: {
-                trader: {
-                  select: {
-                    id: true,
-                    email: true,
-                    name: true
-                  }
-                }
-              },
-              orderBy: {
-                createdAt: 'desc'
-              }
-            }
           },
         }),
         db.payout.count({ where }),
@@ -130,7 +116,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         page: t.Optional(t.Number({ minimum: 1 })),
         limit: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
       }),
-    }
+    },
   )
 
   // Get payout details
@@ -145,20 +131,6 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           rateAudits: {
             orderBy: { timestamp: "desc" },
           },
-          cancellationHistory: {
-            include: {
-              trader: {
-                select: {
-                  id: true,
-                  email: true,
-                  name: true
-                }
-              }
-            },
-            orderBy: {
-              createdAt: 'desc'
-            }
-          }
         },
       });
 
@@ -175,7 +147,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       params: t.Object({
         id: t.String(),
       }),
-    }
+    },
   )
 
   // Adjust payout rate
@@ -195,7 +167,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           params.id,
           adminId,
           body.rateDelta,
-          body.feePercent
+          body.feePercent,
         );
 
         return {
@@ -214,7 +186,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         rateDelta: t.Optional(t.Number({ minimum: -20, maximum: 20 })),
         feePercent: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
       }),
-    }
+    },
   )
 
   // Force complete payout
@@ -255,7 +227,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       params: t.Object({
         id: t.String(),
       }),
-    }
+    },
   )
 
   // Force cancel payout
@@ -299,7 +271,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       body: t.Object({
         reason: t.Optional(t.String()),
       }),
-    }
+    },
   )
 
   // Approve payout (from CHECKING status)
@@ -337,15 +309,19 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
             isFeeOutEnabled: true,
           },
         });
-        
+
         if (traderMerchant && traderMerchant.feeOut > 0) {
-          const amountInUsdt = payout.amount / payout.rate;
-          profitAmount = roundDown2(amountInUsdt * (traderMerchant.feeOut / 100));
+          const amountInUsdt =
+            Math.trunc((payout.amount / payout.rate) * 100) / 100;
+          profitAmount =
+            Math.trunc(amountInUsdt * (traderMerchant.feeOut / 100) * 100) /
+            100;
         } else {
-          profitAmount = roundDown2(payout.totalUsdt - payout.amountUsdt);
+          profitAmount =
+            Math.trunc((payout.totalUsdt - payout.amountUsdt) * 100) / 100;
         }
       }
-      
+
       // Update payout status to COMPLETED, unfreeze balance, add profit and USDT
       const [updatedPayout] = await db.$transaction([
         db.payout.update({
@@ -360,7 +336,9 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           data: {
             frozenPayoutBalance: { decrement: payout.total },
             profitFromPayouts: { increment: profitAmount },
-            trustBalance: { increment: roundDown2(payout.amount / payout.rate) },
+            trustBalance: {
+              increment: Math.trunc((payout.amount / payout.rate) * 100) / 100,
+            },
           },
         }),
       ]);
@@ -377,7 +355,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       params: t.Object({
         id: t.String(),
       }),
-    }
+    },
   )
 
   // Reject payout (from CHECKING status)
@@ -388,7 +366,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         // Use the new adminRejectPayout method from the service
         const updatedPayout = await payoutService.adminRejectPayout(
           params.id,
-          body.reason
+          body.reason,
         );
 
         return {
@@ -401,17 +379,17 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           set.status = 404;
           return { error: error.message };
         }
-        
+
         if (error.message.includes("CHECKING status")) {
           set.status = 400;
           return { error: error.message };
         }
-        
+
         // General error
         set.status = 500;
-        return { 
-          error: "Failed to reject payout", 
-          details: error.message 
+        return {
+          error: "Failed to reject payout",
+          details: error.message,
         };
       }
     },
@@ -422,7 +400,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       body: t.Object({
         reason: t.String({ minLength: 5 }),
       }),
-    }
+    },
   )
 
   // Create test payout for trader
@@ -433,7 +411,12 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         // Check if trader exists
         const trader = await db.user.findUnique({
           where: { id: body.traderId },
-          select: { id: true, numericId: true, email: true, payoutBalance: true },
+          select: {
+            id: true,
+            numericId: true,
+            email: true,
+            payoutBalance: true,
+          },
         });
 
         if (!trader) {
@@ -495,15 +478,18 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
 
         // Always get rate from Rapira with KKK
         const rate = await getRateWithKkk();
-        
+
         // Determine merchantRate based on merchant's countInRubEquivalent setting
         let merchantRate: number;
-        
+
         if (merchant.countInRubEquivalent) {
           // If merchant has RUB calculations enabled, we don't accept rate from request
           if (body.rate !== undefined) {
             set.status = 400;
-            return { error: "Курс не должен передаваться при включенных расчетах в рублях у мерчанта" };
+            return {
+              error:
+                "Курс не должен передаваться при включенных расчетах в рублях у мерчанта",
+            };
           }
           // Use the same Rapira rate with KKK for merchantRate
           merchantRate = rate;
@@ -511,7 +497,10 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           // If RUB calculations are disabled, merchant must provide the rate
           if (body.rate === undefined) {
             set.status = 400;
-            return { error: "Курс обязателен при выключенных расчетах в рублях у мерчанта" };
+            return {
+              error:
+                "Курс обязателен при выключенных расчетах в рублях у мерчанта",
+            };
           }
           // Use merchant-provided rate for merchantRate
           merchantRate = body.rate;
@@ -525,13 +514,14 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
               traderId: trader.id,
               methodId: body.methodId,
               amount: body.amount,
-              amountUsdt: body.amount / rate,
+              amountUsdt: Math.trunc((body.amount / rate) * 100) / 100,
               total: body.amount,
-              totalUsdt: body.amount / rate,
+              totalUsdt: Math.trunc((body.amount / rate) * 100) / 100,
               merchantRate: merchantRate,
               rate: rate,
               feePercent: 0,
-              wallet: body.wallet || `7900${Math.floor(Math.random() * 10000000)}`,
+              wallet:
+                body.wallet || `7900${Math.floor(Math.random() * 10000000)}`,
               bank: body.bank || "SBER",
               isCard: body.isCard !== undefined ? body.isCard : true,
               direction: body.direction || "OUT",
@@ -562,7 +552,10 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           });
 
           // For OUT payouts, freeze trader balance if status is ACTIVE or CHECKING
-          if (body.direction === "OUT" && (body.status === "ACTIVE" || body.status === "CHECKING")) {
+          if (
+            body.direction === "OUT" &&
+            (body.status === "ACTIVE" || body.status === "CHECKING")
+          ) {
             await tx.user.update({
               where: { id: trader.id },
               data: {
@@ -582,38 +575,62 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       } catch (error: any) {
         console.error("Failed to create test payout:", error);
         set.status = 500;
-        return { error: "Failed to create test payout", details: error.message };
+        return {
+          error: "Failed to create test payout",
+          details: error.message,
+        };
       }
     },
     {
       body: t.Object({
         traderId: t.String({ description: "ID трейдера" }),
         methodId: t.String({ description: "ID метода платежа (обязательно)" }),
-        merchantId: t.Optional(t.String({ description: "ID мерчанта (опционально, если не указан - используется тестовый)" })),
+        merchantId: t.Optional(
+          t.String({
+            description:
+              "ID мерчанта (опционально, если не указан - используется тестовый)",
+          }),
+        ),
         amount: t.Number({ minimum: 100, description: "Сумма в рублях" }),
-        rate: t.Optional(t.Number({ minimum: 1, default: 95, description: "Курс USDT/RUB (обязателен если у мерчанта выключены расчеты в рублях)" })),
+        rate: t.Optional(
+          t.Number({
+            minimum: 1,
+            default: 95,
+            description:
+              "Курс USDT/RUB (обязателен если у мерчанта выключены расчеты в рублях)",
+          }),
+        ),
         wallet: t.Optional(t.String({ description: "Кошелек получателя" })),
         bank: t.Optional(t.String({ description: "Банк получателя" })),
-        isCard: t.Optional(t.Boolean({ default: true, description: "Это карта?" })),
-        direction: t.Optional(t.Enum({ IN: "IN", OUT: "OUT" }, { default: "OUT" })),
-        status: t.Optional(
-          t.Enum({
-            CREATED: "CREATED",
-            ACTIVE: "ACTIVE",
-            CHECKING: "CHECKING",
-            COMPLETED: "COMPLETED",
-            CANCELLED: "CANCELLED",
-            DISPUTED: "DISPUTED",
-          }, { default: "CREATED" })
+        isCard: t.Optional(
+          t.Boolean({ default: true, description: "Это карта?" }),
         ),
-        processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60, default: 15 })),
+        direction: t.Optional(
+          t.Enum({ IN: "IN", OUT: "OUT" }, { default: "OUT" }),
+        ),
+        status: t.Optional(
+          t.Enum(
+            {
+              CREATED: "CREATED",
+              ACTIVE: "ACTIVE",
+              CHECKING: "CHECKING",
+              COMPLETED: "COMPLETED",
+              CANCELLED: "CANCELLED",
+              DISPUTED: "DISPUTED",
+            },
+            { default: "CREATED" },
+          ),
+        ),
+        processingTime: t.Optional(
+          t.Number({ minimum: 5, maximum: 60, default: 15 }),
+        ),
       }),
-    }
+    },
   )
 
   // Create multiple test payouts
   .post(
-    "/test-multiple", 
+    "/test-multiple",
     async ({ body, set }) => {
       try {
         const count = body.count || 5;
@@ -622,23 +639,32 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
 
         // Find test merchant
         const testMerchant = await db.merchant.findFirst({
-          where: { name: 'test' }
+          where: { name: "test" },
         });
 
         if (!testMerchant) {
           set.status = 404;
-          return { error: 'Test merchant not found. Please create a merchant with name "test"' };
+          return {
+            error:
+              'Test merchant not found. Please create a merchant with name "test"',
+          };
         }
 
         // Check merchant's countInRubEquivalent setting
         if (testMerchant.countInRubEquivalent && body.rate !== undefined) {
           set.status = 400;
-          return { error: "Курс не должен передаваться при включенных расчетах в рублях у мерчанта" };
+          return {
+            error:
+              "Курс не должен передаваться при включенных расчетах в рублях у мерчанта",
+          };
         }
 
         if (!testMerchant.countInRubEquivalent && body.rate === undefined) {
           set.status = 400;
-          return { error: "Курс обязателен при выключенных расчетах в рублях у мерчанта" };
+          return {
+            error:
+              "Курс обязателен при выключенных расчетах в рублях у мерчанта",
+          };
         }
 
         // Get default method if not provided
@@ -649,17 +675,17 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           });
           if (!defaultMethod) {
             set.status = 404;
-            return { error: 'No enabled methods found' };
+            return { error: "No enabled methods found" };
           }
           methodId = defaultMethod.id;
         }
 
         // Always get rate from Rapira with KKK
         const finalRate = await getRateWithKkk();
-        
+
         // Determine merchantRate based on merchant's countInRubEquivalent setting
         let merchantRate: number;
-        
+
         if (testMerchant.countInRubEquivalent) {
           // Use the same Rapira rate with KKK for merchantRate
           merchantRate = finalRate;
@@ -671,10 +697,17 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         // Create multiple payouts
         for (let i = 0; i < count; i++) {
           try {
-            const amount = body.amount || Math.floor(Math.random() * 50000) + 5000;
-            const wallet = body.wallet || `7${Math.floor(Math.random() * 9000000000 + 1000000000)}`;
-            const bank = body.bank || ['Сбербанк', 'Тинькофф', 'ВТБ', 'Альфа-банк'][Math.floor(Math.random() * 4)];
-            
+            const amount =
+              body.amount || Math.floor(Math.random() * 50000) + 5000;
+            const wallet =
+              body.wallet ||
+              `7${Math.floor(Math.random() * 9000000000 + 1000000000)}`;
+            const bank =
+              body.bank ||
+              ["Сбербанк", "Тинькофф", "ВТБ", "Альфа-банк"][
+                Math.floor(Math.random() * 4)
+              ];
+
             const expireAt = new Date();
             expireAt.setDate(expireAt.getDate() + 1);
             expireAt.setHours(23, 59, 59, 999);
@@ -684,9 +717,9 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
                 merchantId: testMerchant.id,
                 methodId: methodId,
                 amount,
-                amountUsdt: amount / finalRate,
+                amountUsdt: Math.trunc((amount / finalRate) * 100) / 100,
                 total: amount,
-                totalUsdt: amount / finalRate,
+                totalUsdt: Math.trunc((amount / finalRate) * 100) / 100,
                 merchantRate: merchantRate,
                 rate: finalRate,
                 feePercent: body.feePercent || 0,
@@ -696,13 +729,15 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
                 direction: body.direction || "OUT",
                 status: "CREATED",
                 expireAt,
-                processingTime: Math.floor((expireAt.getTime() - Date.now()) / 60000),
+                processingTime: Math.floor(
+                  (expireAt.getTime() - Date.now()) / 60000,
+                ),
                 externalReference: `TEST_BATCH_${Date.now()}_${i}`,
                 merchantMetadata: {
                   isTest: true,
                   createdByAdmin: true,
                   batchIndex: i + 1,
-                  batchCount: count
+                  batchCount: count,
                 },
               },
             });
@@ -717,7 +752,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           } catch (error: any) {
             errors.push({
               index: i,
-              error: error.message
+              error: error.message,
             });
           }
         }
@@ -731,7 +766,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         };
       } catch (error: any) {
         set.status = 500;
-        return { error: error.message || 'Failed to create test payouts' };
+        return { error: error.message || "Failed to create test payouts" };
       }
     },
     {
@@ -746,7 +781,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         direction: t.Optional(t.Enum({ IN: "IN", OUT: "OUT" })),
         feePercent: t.Optional(t.Number({ minimum: 0, maximum: 100 })),
       }),
-    }
+    },
   )
 
   // Create test payout
@@ -756,25 +791,31 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
       try {
         // Find test merchant
         const testMerchant = await db.merchant.findFirst({
-          where: { name: 'test' }
+          where: { name: "test" },
         });
 
         if (!testMerchant) {
           set.status = 404;
-          return { error: 'Test merchant not found. Please create a merchant with name "test"' };
+          return {
+            error:
+              'Test merchant not found. Please create a merchant with name "test"',
+          };
         }
-        
+
         // Always get rate from Rapira with KKK
         const finalRate = await getRateWithKkk();
-        
+
         // Determine merchantRate based on merchant's countInRubEquivalent setting
         let merchantRate: number;
-        
+
         if (testMerchant.countInRubEquivalent) {
           // If merchant has RUB calculations enabled, we don't accept rate from request
           if (body.rate !== undefined) {
             set.status = 400;
-            return { error: "Курс не должен передаваться при включенных расчетах в рублях у мерчанта" };
+            return {
+              error:
+                "Курс не должен передаваться при включенных расчетах в рублях у мерчанта",
+            };
           }
           // Use the same Rapira rate with KKK for merchantRate
           merchantRate = finalRate;
@@ -782,7 +823,10 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           // If RUB calculations are disabled, merchant must provide the rate
           if (body.rate === undefined) {
             set.status = 400;
-            return { error: "Курс обязателен при выключенных расчетах в рублях у мерчанта" };
+            return {
+              error:
+                "Курс обязателен при выключенных расчетах в рублях у мерчанта",
+            };
           }
           // Use merchant-provided rate for merchantRate
           merchantRate = body.rate;
@@ -796,7 +840,10 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           });
           if (!defaultMethod) {
             set.status = 404;
-            return { error: 'No enabled methods found. Please create at least one enabled method.' };
+            return {
+              error:
+                "No enabled methods found. Please create at least one enabled method.",
+            };
           }
           methodId = defaultMethod.id;
         } else {
@@ -806,15 +853,21 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
           });
           if (!method) {
             set.status = 404;
-            return { error: 'Method not found' };
+            return { error: "Method not found" };
           }
         }
 
         // Generate default values
         const amount = body.amount || Math.floor(Math.random() * 50000) + 5000;
-        const wallet = body.wallet || `4${Math.floor(Math.random() * 9000000000000000 + 1000000000000000)}`;
-        const bank = body.bank || ['Сбербанк', 'Тинькофф', 'ВТБ', 'Альфа-банк'][Math.floor(Math.random() * 4)];
-        
+        const wallet =
+          body.wallet ||
+          `4${Math.floor(Math.random() * 9000000000000000 + 1000000000000000)}`;
+        const bank =
+          body.bank ||
+          ["Сбербанк", "Тинькофф", "ВТБ", "Альфа-банк"][
+            Math.floor(Math.random() * 4)
+          ];
+
         // Calculate expiration time - for test payouts set to next day
         const expireAt = new Date();
         expireAt.setDate(expireAt.getDate() + 1);
@@ -826,9 +879,9 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
             merchantId: testMerchant.id,
             methodId: methodId,
             amount,
-            amountUsdt: amount / finalRate,
+            amountUsdt: Math.trunc((amount / finalRate) * 100) / 100,
             total: amount,
-            totalUsdt: amount / finalRate,
+            totalUsdt: Math.trunc((amount / finalRate) * 100) / 100,
             merchantRate: merchantRate,
             rate: finalRate,
             feePercent: body.feePercent || 0,
@@ -838,7 +891,9 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
             direction: body.direction || "OUT",
             status: "CREATED",
             expireAt,
-            processingTime: Math.floor((expireAt.getTime() - Date.now()) / 60000),
+            processingTime: Math.floor(
+              (expireAt.getTime() - Date.now()) / 60000,
+            ),
             externalReference: body.externalReference || `TEST_${Date.now()}`,
             merchantMetadata: {
               ...body.metadata,
@@ -884,12 +939,17 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         };
       } catch (error: any) {
         set.status = 500;
-        return { error: error.message || 'Failed to create test payout' };
+        return { error: error.message || "Failed to create test payout" };
       }
     },
     {
       body: t.Object({
-        methodId: t.Optional(t.String({ description: "ID метода платежа (если не указан, будет выбран первый доступный)" })),
+        methodId: t.Optional(
+          t.String({
+            description:
+              "ID метода платежа (если не указан, будет выбран первый доступный)",
+          }),
+        ),
         amount: t.Optional(t.Number({ minimum: 100 })),
         wallet: t.Optional(t.String()),
         bank: t.Optional(t.String()),
@@ -902,5 +962,5 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         webhookUrl: t.Optional(t.String()),
         metadata: t.Optional(t.Any()),
       }),
-    }
+    },
   );

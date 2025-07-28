@@ -951,19 +951,21 @@ export function PayoutsList() {
                   <div className="font-medium text-base">
                     {(() => {
                       const profit = (payout.actualTotalUsdt || payout.totalUsdt) - payout.amountUsdt;
+                      const truncatedProfit = Math.trunc(profit * 100) / 100;
                       console.log('Payout profit calculation:', {
                         id: payout.id,
                         actualTotalUsdt: payout.actualTotalUsdt,
                         totalUsdt: payout.totalUsdt,
                         amountUsdt: payout.amountUsdt,
                         traderFeeOut: payout.traderFeeOut,
-                        profit
+                        profit,
+                        truncatedProfit
                       });
-                      return profit.toFixed(2);
+                      return truncatedProfit.toFixed(2);
                     })()} USDT
                   </div>
                   <div className="text-sm text-gray-500">
-                    {(((payout.actualTotalUsdt || payout.totalUsdt) - payout.amountUsdt) * payout.rate).toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
+                    {Math.trunc((Math.trunc(((payout.actualTotalUsdt || payout.totalUsdt) - payout.amountUsdt) * 100) / 100) * payout.rate)} ₽
                   </div>
                 </>
               )}
@@ -1682,10 +1684,10 @@ export function PayoutsList() {
                 <div>
                   <p className="text-sm text-gray-500">Прибыль с выплаты</p>
                   <p className="font-medium">
-                    {((selectedPayout.actualTotalUsdt || selectedPayout.totalUsdt) - selectedPayout.amountUsdt).toFixed(2)} USDT
+                    {(Math.trunc(((selectedPayout.actualTotalUsdt || selectedPayout.totalUsdt) - selectedPayout.amountUsdt) * 100) / 100).toFixed(2)} USDT
                   </p>
                   <p className="text-sm text-gray-600">
-                    {(((selectedPayout.actualTotalUsdt || selectedPayout.totalUsdt) - selectedPayout.amountUsdt) * selectedPayout.rate).toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽
+                    {Math.trunc(((selectedPayout.actualTotalUsdt || selectedPayout.totalUsdt) - selectedPayout.amountUsdt) * selectedPayout.rate)} ₽
                   </p>
                 </div>
               </div>

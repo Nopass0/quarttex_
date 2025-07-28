@@ -17,18 +17,22 @@ import { formatAmount, formatDate } from '@/lib/utils'
 import { RefreshCw, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
 import { useMerchantAuth } from '@/stores/merchant-auth'
 import { toast } from 'sonner'
+import { merchantApiInstance } from '@/services/api'
 
 type Payout = {
   id: string
   numericId: number
   status: string
   amount: number
-  amountUsdt: number
+  amountUsdt?: number
   rate: number
+  total: number
   wallet: string
   bank: string
   isCard: boolean
-  feePercent: number
+  feePercent?: number
+  direction: string
+  externalReference?: string
   method?: {
     id: string
     code: string
@@ -41,8 +45,8 @@ type Payout = {
   confirmedAt?: string
   cancelledAt?: string
   trader?: {
-    id: string
-    name: string
+    numericId: number
+    email: string
   }
 }
 
@@ -104,26 +108,16 @@ export function PayoutsList({ filters }: PayoutsListProps) {
         params.append('amountTo', filters.amountTo)
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/merchant/payouts?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${sessionToken}`,
-            'x-merchant-api-key': token || '',
-          },
-        }
+      const response = await merchantApiInstance.get(
+        `/merchant/payouts?${params}`
       )
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch payouts')
-      }
-
-      const data = await response.json()
+      const data = response.data
       setPayouts(data.data || [])
       setPagination(prev => ({
         ...prev,
-        total: data.pagination?.total || 0,
-        totalPages: data.pagination?.pages || 0
+        total: data.meta?.total || 0,
+        totalPages: data.meta?.totalPages || 0
       }))
     } catch (error) {
       console.error('Error fetching payouts:', error)
@@ -219,12 +213,14 @@ export function PayoutsList({ filters }: PayoutsListProps) {
                 </TableCell>
                 <TableCell className="font-medium">
                   {formatAmount(payout.amount)} ₽
-                  <div className="text-xs text-muted-foreground">
-                    ${formatAmount(payout.amountUsdt)} USDT
-                  </div>
+                  {payout.amountUsdt && (
+                    <div className="text-xs text-muted-foreground">
+                      ${formatAmount(payout.amountUsdt)} USDT
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-red-600">
-                  -{payout.feePercent.toFixed(2)}%
+                  {payout.feePercent ? `-${payout.feePercent.toFixed(2)}%` : '—'}
                 </TableCell>
                 <TableCell>
                   {payout.method ? (
@@ -251,7 +247,8 @@ export function PayoutsList({ filters }: PayoutsListProps) {
                 <TableCell>
                   {payout.trader ? (
                     <div className="text-sm">
-                      {payout.trader.name}
+                      <div>#{payout.trader.numericId}</div>
+                      <div className="text-xs text-muted-foreground">{payout.trader.email}</div>
                     </div>
                   ) : (
                     <span className="text-muted-foreground">—</span>

@@ -210,6 +210,7 @@ export default (app: Elysia) =>
                   name: true,
                   type: true,
                   currency: true,
+                  isEnabled: true,
                 },
               },
             },
@@ -217,19 +218,22 @@ export default (app: Elysia) =>
         ]);
 
         return {
-          id: merchant.id,
-          name: merchant.name,
-          balanceUsdt: merchant.balanceUsdt,
-          createdAt: merchant.createdAt.toISOString(),
-          statistics: {
-            totalTransactions,
-            successfulTransactions,
-            successRate: totalTransactions > 0 
-              ? Math.round((successfulTransactions / totalTransactions) * 100) 
-              : 0,
-            totalVolume: totalVolume._sum.amount || 0,
-          },
-          methods: methods.filter(mm => mm.method.isEnabled).map(mm => mm.method),
+          merchant: {
+            id: merchant.id,
+            name: merchant.name,
+            balanceUsdt: merchant.balanceUsdt,
+            countInRubEquivalent: merchant.countInRubEquivalent,
+            createdAt: merchant.createdAt.toISOString(),
+            statistics: {
+              totalTransactions,
+              successfulTransactions,
+              successRate: totalTransactions > 0 
+                ? Math.round((successfulTransactions / totalTransactions) * 100) 
+                : 0,
+              totalVolume: totalVolume._sum.amount || 0,
+            },
+            methods: methods.filter(mm => mm.method.isEnabled).map(mm => mm.method),
+          }
         };
       },
       {
@@ -240,25 +244,28 @@ export default (app: Elysia) =>
         }),
         response: {
           200: t.Object({
-            id: t.String(),
-            name: t.String(),
-            balanceUsdt: t.Number(),
-            createdAt: t.String(),
-            statistics: t.Object({
-              totalTransactions: t.Number(),
-              successfulTransactions: t.Number(),
-              successRate: t.Number(),
-              totalVolume: t.Number(),
-            }),
-            methods: t.Array(
-              t.Object({
-                id: t.String(),
-                code: t.String(),
-                name: t.String(),
-                type: t.String(),
-                currency: t.String(),
-              })
-            ),
+            merchant: t.Object({
+              id: t.String(),
+              name: t.String(),
+              balanceUsdt: t.Number(),
+              countInRubEquivalent: t.Boolean(),
+              createdAt: t.String(),
+              statistics: t.Object({
+                totalTransactions: t.Number(),
+                successfulTransactions: t.Number(),
+                successRate: t.Number(),
+                totalVolume: t.Number(),
+              }),
+              methods: t.Array(
+                t.Object({
+                  id: t.String(),
+                  code: t.String(),
+                  name: t.String(),
+                  type: t.String(),
+                  currency: t.String(),
+                })
+              ),
+            })
           }),
           401: ErrorSchema,
           404: ErrorSchema,

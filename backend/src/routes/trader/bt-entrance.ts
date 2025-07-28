@@ -211,7 +211,7 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           // Рассчитываем прибыль трейдера
           const spentUsdt = deal.rate ? deal.amount / deal.rate : 0;
           const commissionPercent = traderMerchant?.feeIn || 0;
-          const traderProfit = Math.trunc(spentUsdt * (commissionPercent / 100) * 100) / 100;
+          const traderProfit = Math.round(spentUsdt * (commissionPercent / 100) * 100) / 100;
 
           console.log(`[BT-Entrance] Manual confirmation: amount=${deal.amount}, rate=${deal.rate}, spentUsdt=${spentUsdt}, commissionPercent=${commissionPercent}, profit=${traderProfit}`);
 

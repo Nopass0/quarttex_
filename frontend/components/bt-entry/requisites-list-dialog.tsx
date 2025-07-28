@@ -30,16 +30,15 @@ interface Requisite {
   cardNumber: string;
   bankType: string;
   phoneNumber?: string;
-  method?: {
-    id: string;
-    name: string;
-  };
+  methodType: string;
   minAmount: number;
   maxAmount: number;
   dailyLimit: number;
   monthlyLimit: number;
-  isArchived: boolean;
+  isActive: boolean;
   createdAt: string;
+  turnoverDay: number;
+  turnoverTotal: number;
 }
 
 export function RequisitesListDialog({
@@ -55,16 +54,12 @@ export function RequisitesListDialog({
   const fetchRequisites = async () => {
     setLoading(true);
     try {
-      const response = await traderApi.getRequisites();
-      const allRequisites = response.requisites || response || [];
-      // Filter only requisites without devices
-      const requisitesWithoutDevices = allRequisites.filter(
-        (req: any) => !req.deviceId
-      );
+      const response = await traderApi.btEntrance.getRequisites();
+      const allRequisites = response.data || [];
       
-      // Separate active and archived requisites
-      const active = requisitesWithoutDevices.filter((req: Requisite) => !req.isArchived);
-      const archived = requisitesWithoutDevices.filter((req: Requisite) => req.isArchived);
+      // Separate active and archived requisites based on isActive field
+      const active = allRequisites.filter((req: any) => req.isActive);
+      const archived = allRequisites.filter((req: any) => !req.isActive);
       
       setActiveRequisites(active);
       setArchivedRequisites(archived);
@@ -84,7 +79,7 @@ export function RequisitesListDialog({
 
   const deleteRequisite = async (id: string) => {
     try {
-      await traderApi.deleteRequisite(id);
+      await traderApi.btEntrance.deleteRequisite(id);
       toast.success("Реквизит удален");
       fetchRequisites();
     } catch (error) {
@@ -92,10 +87,10 @@ export function RequisitesListDialog({
     }
   };
 
-  const toggleRequisiteStatus = async (id: string, isArchived: boolean) => {
+  const toggleRequisiteStatus = async (id: string, isActive: boolean) => {
     try {
-      await traderApi.archiveRequisite(id, !isArchived);
-      toast.success(isArchived ? "Реквизит активирован" : "Реквизит архивирован");
+      await traderApi.btEntrance.updateRequisite(id, { isArchived: !isActive });
+      toast.success(isActive ? "Реквизит архивирован" : "Реквизит активирован");
       fetchRequisites();
     } catch (error) {
       toast.error("Не удалось изменить статус");
@@ -158,7 +153,7 @@ export function RequisitesListDialog({
                       key={req.id}
                       className={cn(
                         "p-4 transition-all",
-                        req.isArchived && "opacity-60"
+                        !req.isActive && "opacity-60"
                       )}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -170,23 +165,21 @@ export function RequisitesListDialog({
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-semibold">{req.recipientName}</h4>
                               <Badge
-                                variant={!req.isArchived ? "default" : "secondary"}
+                                variant={req.isActive ? "default" : "secondary"}
                                 className="text-xs"
                               >
-                                {!req.isArchived ? "Активен" : "Архивирован"}
+                                {req.isActive ? "Активен" : "Архивирован"}
                               </Badge>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {req.bankType === "SBP" 
+                              {req.methodType === "sbp" 
                                 ? `${req.phoneNumber} • СБП`
                                 : `${req.cardNumber?.replace(/(\d{4})/g, "$1 ").trim()} • ${req.bankType}`
                               }
                             </p>
-                            {req.method && (
-                              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                                Метод: {req.method.name}
-                              </p>
-                            )}
+                            <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                              Метод: {req.methodType === "c2c" ? "Банковская карта" : "СБП"}
+                            </p>
                             <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
                               <span>Мин: {req.minAmount.toLocaleString()} ₽</span>
                               <span>Макс: {req.maxAmount.toLocaleString()} ₽</span>
@@ -199,9 +192,9 @@ export function RequisitesListDialog({
                             variant="ghost"
                             size="sm"
                             className="w-full sm:w-auto"
-                            onClick={() => toggleRequisiteStatus(req.id, req.isArchived)}
+                            onClick={() => toggleRequisiteStatus(req.id, req.isActive)}
                           >
-                            {req.isArchived ? "Активировать" : "Архивировать"}
+                            {req.isActive ? "Архивировать" : "Активировать"}
                           </Button>
                           <Button
                             variant="ghost"
@@ -246,23 +239,21 @@ export function RequisitesListDialog({
                                 <div className="flex items-center gap-2 mb-1">
                                   <h4 className="font-semibold">{req.recipientName}</h4>
                                   <Badge
-                                    variant={!req.isArchived ? "default" : "secondary"}
+                                    variant={req.isActive ? "default" : "secondary"}
                                     className="text-xs"
                                   >
-                                    {!req.isArchived ? "Активен" : "Архивирован"}
+                                    {req.isActive ? "Активен" : "Архивирован"}
                                   </Badge>
                                 </div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {req.bankType === "SBP" 
+                                  {req.methodType === "sbp" 
                                     ? `${req.phoneNumber} • СБП`
                                     : `${req.cardNumber?.replace(/(\d{4})/g, "$1 ").trim()} • ${req.bankType}`
                                   }
                                 </p>
-                                {req.method && (
-                                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                                    Метод: {req.method.name}
-                                  </p>
-                                )}
+                                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                                  Метод: {req.methodType === "c2c" ? "Банковская карта" : "СБП"}
+                                </p>
                                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
                                   <span>Мин: {req.minAmount.toLocaleString()} ₽</span>
                                   <span>Макс: {req.maxAmount.toLocaleString()} ₽</span>
@@ -275,9 +266,9 @@ export function RequisitesListDialog({
                                 variant="ghost"
                                 size="sm"
                                 className="w-full sm:w-auto"
-                                onClick={() => toggleRequisiteStatus(req.id, req.isArchived)}
+                                onClick={() => toggleRequisiteStatus(req.id, req.isActive)}
                               >
-                                {req.isArchived ? "Активировать" : "Архивировать"}
+                                {req.isActive ? "Архивировать" : "Активировать"}
                               </Button>
                               <Button
                                 variant="ghost"

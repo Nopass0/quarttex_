@@ -439,6 +439,33 @@ export const traderApi = {
     const response = await traderApiInstance.put(`/trader/notifications/${id}/read`)
     return response.data
   },
+  // BT-entrance API
+  btEntrance: {
+    getDeals: async (params?: any) => {
+      const response = await traderApiInstance.get('/trader/bt-entrance/deals', { params })
+      return response.data
+    },
+    updateDealStatus: async (id: string, status: string) => {
+      const response = await traderApiInstance.patch(`/trader/bt-entrance/deals/${id}/status`, { status })
+      return response.data
+    },
+    getRequisites: async (params?: any) => {
+      const response = await traderApiInstance.get('/trader/bt-entrance/requisites', { params })
+      return response.data
+    },
+    createRequisite: async (data: any) => {
+      const response = await traderApiInstance.post('/trader/bt-entrance/requisites', data)
+      return response.data
+    },
+    updateRequisite: async (id: string, data: any) => {
+      const response = await traderApiInstance.put(`/trader/bt-entrance/requisites/${id}`, data)
+      return response.data
+    },
+    deleteRequisite: async (id: string) => {
+      const response = await traderApiInstance.delete(`/trader/bt-entrance/requisites/${id}`)
+      return response.data
+    },
+  },
 }
 
 // Merchant API instance with interceptors

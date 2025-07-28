@@ -319,23 +319,30 @@ export default (app: Elysia) =>
           _sum: { amount: true },
         });
 
-        // Получаем все уникальные ID методов
-        const uniqueMethodIds = [...new Set([
-          ...dealsStatsByMethod.map(s => s.methodId),
-          ...payoutsStatsByMethod.map(s => s.methodId),
-        ])];
-
-        // Получаем информацию о методах
-        const methods = await db.method.findMany({
-          where: { id: { in: uniqueMethodIds } },
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            commissionPayin: true,
-            commissionPayout: true,
+        // Получаем все методы мерчанта
+        const merchantMethods = await db.merchantMethod.findMany({
+          where: { 
+            merchantId: merchant.id,
+            isEnabled: true
           },
+          include: {
+            method: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                commissionPayin: true,
+                commissionPayout: true,
+                isEnabled: true,
+              }
+            }
+          }
         });
+
+        // Фильтруем только активные методы
+        const methods = merchantMethods
+          .filter(mm => mm.method.isEnabled)
+          .map(mm => mm.method);
 
         // Создаем карты для быстрого доступа
         const methodsMap = new Map(methods.map(m => [m.id, m]));
@@ -565,7 +572,7 @@ export default (app: Elysia) =>
             successVolume: payoutsSuccessVolume._sum.amount || 0,
             statusBreakdown: payoutStatusStats,
           },
-          methodStats: methodStats.filter(method => method.total.transactions > 0),
+          methodStats: methodStats,
         };
       },
       {
