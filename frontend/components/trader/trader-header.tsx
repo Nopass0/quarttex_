@@ -21,12 +21,13 @@ interface TraderProfile {
   id: number;
   numericId: number;
   email: string;
+  trafficEnabled: boolean;
 }
 
 export function TraderHeader() {
   const router = useRouter();
   const logout = useTraderAuth((state) => state.logout);
-  const [teamEnabled, setTeamEnabled] = useState(false);
+  const [trafficEnabled, setTrafficEnabled] = useState(false);
   const [traderProfile, setTraderProfile] = useState<TraderProfile | null>(
     null,
   );
@@ -46,9 +47,10 @@ export function TraderHeader() {
           id: response.id || 0,
           numericId: response.numericId || 0,
           email: response.email || "trader@example.com",
+          trafficEnabled: response.trafficEnabled || false,
         });
-        // Set team state from server response
-        setTeamEnabled(response.teamEnabled || false);
+        // Set traffic enabled state from server response
+        setTrafficEnabled(response.trafficEnabled || false);
       }
     } catch (error) {
       console.error("Failed to fetch trader profile:", error);
@@ -56,20 +58,21 @@ export function TraderHeader() {
         id: 0,
         numericId: 0,
         email: "trader@example.com",
+        trafficEnabled: false,
       });
     }
   };
 
-  const handleTeamToggle = async (checked: boolean) => {
-    setTeamEnabled(checked);
+  const handleTrafficToggle = async (checked: boolean) => {
+    setTrafficEnabled(checked);
     try {
-      await traderApi.updateProfile({ teamEnabled: checked });
+      await traderApi.updateProfile({ trafficEnabled: checked });
       toast.success(checked ? "Вы вошли в команду" : "Вы вышли из команды");
     } catch (error) {
-      console.error("Failed to update team status:", error);
+      console.error("Failed to update traffic status:", error);
       toast.error("Не удалось обновить статус команды");
       // Revert the state if the API call fails
-      setTeamEnabled(!checked);
+      setTrafficEnabled(!checked);
     }
   };
 
@@ -126,8 +129,8 @@ export function TraderHeader() {
         </Label>
         <Switch
           id="team-switch"
-          checked={teamEnabled}
-          onCheckedChange={handleTeamToggle}
+          checked={trafficEnabled}
+          onCheckedChange={handleTrafficToggle}
         />
       </div>
 

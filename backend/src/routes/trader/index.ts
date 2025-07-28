@@ -76,6 +76,7 @@ export default (app: Elysia) =>
             balanceUsdt: true,
             balanceRub: true,
             frozenPayoutBalance: true,
+            trafficEnabled: true,
           }
         });
 
@@ -113,6 +114,7 @@ export default (app: Elysia) =>
             referralBalance: t.Number(),
             disputedBalance: t.Number(),
             escrowBalance: t.Number(),
+            trafficEnabled: t.Boolean(),
           }),
           401: ErrorSchema,
         },
@@ -219,8 +221,13 @@ export default (app: Elysia) =>
         // Update trader profile settings
         const updateData: any = {};
         
-        if (body.teamEnabled !== undefined) {
+        if (body.trafficEnabled !== undefined) {
           // Use trafficEnabled to control whether trader is actively working
+          updateData.trafficEnabled = body.trafficEnabled;
+        }
+        
+        // Support legacy teamEnabled field
+        if (body.teamEnabled !== undefined && body.trafficEnabled === undefined) {
           updateData.trafficEnabled = body.teamEnabled;
         }
         
@@ -232,19 +239,22 @@ export default (app: Elysia) =>
         
         return {
           success: true,
-          teamEnabled: updatedTrader.trafficEnabled,
+          trafficEnabled: updatedTrader.trafficEnabled,
+          teamEnabled: updatedTrader.trafficEnabled, // For backwards compatibility
         };
       },
       {
         tags: ["trader"],
         detail: { summary: "Обновление настроек профиля трейдера" },
         body: t.Object({
-          teamEnabled: t.Optional(t.Boolean()),
+          trafficEnabled: t.Optional(t.Boolean()),
+          teamEnabled: t.Optional(t.Boolean()), // For backwards compatibility
         }),
         response: {
           200: t.Object({
             success: t.Boolean(),
-            teamEnabled: t.Boolean(),
+            trafficEnabled: t.Boolean(),
+            teamEnabled: t.Boolean(), // For backwards compatibility
           }),
           401: ErrorSchema,
           403: ErrorSchema,
