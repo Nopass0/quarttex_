@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -68,6 +69,7 @@ import {
   SlidersHorizontal,
   X,
   DollarSign,
+  Edit,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -76,6 +78,7 @@ import QRCode from "qrcode";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
+import { EditRequisiteDialog } from "@/components/trader/edit-requisite-dialog";
 import { getDeviceStatusWebSocket, DeviceStatusUpdate } from "@/services/device-status-ws";
 import { deviceWSManager } from "@/services/device-ws-manager";
 import { DeviceEmulator } from "@/services/device-emulator";
@@ -171,6 +174,9 @@ export default function DeviceDetailsPage() {
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
+  const [hideArchived, setHideArchived] = useState(false);
+  const [showEditRequisiteDialog, setShowEditRequisiteDialog] = useState(false);
+  const [selectedRequisite, setSelectedRequisite] = useState<any | null>(null);
   const [serverError, setServerError] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [messageSearch, setMessageSearch] = useState("");
@@ -1092,21 +1098,29 @@ export default function DeviceDetailsPage() {
               <Card className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="font-semibold">Привязанные реквизиты</h3>
-                  <Button
-                    size="sm"
-                    className="h-8 px-3 bg-[#006039] hover:bg-[#006039]/90 w-full sm:w-auto"
-                    onClick={() => setShowAddRequisiteDialog(true)}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Добавить
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Label htmlFor="hide-archived" className="flex items-center gap-2 text-sm">
+                      <Checkbox id="hide-archived" checked={hideArchived} onCheckedChange={(c) => setHideArchived(!!c)} />
+                      Скрыть архив
+                    </Label>
+                    <Button
+                      size="sm"
+                      className="h-8 px-3 bg-[#006039] hover:bg-[#006039]/90 w-full sm:w-auto"
+                      onClick={() => setShowAddRequisiteDialog(true)}
+                    >
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Добавить
+                    </Button>
+                  </div>
                 </div>
 
                 {device.linkedBankDetails &&
                 device.linkedBankDetails.length > 0 ? (
                   <ScrollArea className="h-[150px]">
                     <div className="space-y-3">
-                      {device.linkedBankDetails.map((req: any) => (
+                      {device.linkedBankDetails
+                        .filter((req: any) => !hideArchived || !req.isArchived)
+                        .map((req: any) => (
                         <div
                           key={req.id}
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg"
@@ -1122,9 +1136,23 @@ export default function DeviceDetailsPage() {
                               </p>
                             </div>
                           </div>
-                          <Badge variant="outline" className="text-xs">
-                            {req.isActive ? "Активен" : "Неактивен"}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {req.isArchived ? "Архив" : req.isActive ? "Активен" : "Неактивен"}
+                            </Badge>
+                            {!device?.isWorking && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setSelectedRequisite(req);
+                                  setShowEditRequisiteDialog(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1672,6 +1700,12 @@ export default function DeviceDetailsPage() {
           open={showAddRequisiteDialog}
           onOpenChange={setShowAddRequisiteDialog}
           deviceId={device?.id}
+          onSuccess={fetchDevice}
+        />
+        <EditRequisiteDialog
+          open={showEditRequisiteDialog}
+          onOpenChange={setShowEditRequisiteDialog}
+          requisite={selectedRequisite}
           onSuccess={fetchDevice}
         />
       </AuthLayout>
