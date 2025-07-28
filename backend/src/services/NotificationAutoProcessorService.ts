@@ -144,7 +144,7 @@ export class NotificationAutoProcessorService extends BaseService {
   private async fetchUnprocessedNotifications(): Promise<any[]> {
     return db.notification.findMany({
       where: {
-        type: NotificationType.AppNotification,
+        type: { in: [NotificationType.AppNotification, NotificationType.SMS] },
         isProcessed: false,
         deviceId: { not: null },
       },
@@ -247,10 +247,12 @@ export class NotificationAutoProcessorService extends BaseService {
     const notificationTime = new Date(notification.createdAt);
 
     // Get all eligible bank details for this device
+    const bankType = this.mapBankNameToType(bankName);
     const eligibleBankDetails = notification.Device.bankDetails.filter((bd: any) => {
-      // Match bank type
-      const bankType = this.mapBankNameToType(bankName);
-      return bd.bankType === bankType;
+      if (bankType) {
+        return bd.bankType === bankType;
+      }
+      return true;
     });
 
     if (eligibleBankDetails.length === 0) {
@@ -292,7 +294,7 @@ export class NotificationAutoProcessorService extends BaseService {
     return transactions[0];
   }
 
-  private mapBankNameToType(bankName: string): string {
+  private mapBankNameToType(bankName: string): string | undefined {
     const mapping: Record<string, string> = {
       "Тинькофф": "TBANK",
       "Сбербанк": "SBERBANK",
@@ -309,7 +311,7 @@ export class NotificationAutoProcessorService extends BaseService {
       // Add more mappings as needed
     };
 
-    return mapping[bankName] || bankName.toUpperCase().replace(/[\s-]/g, "");
+    return mapping[bankName];
   }
 
   private async updateTransactionStatus(transaction: any, notificationId: string): Promise<void> {

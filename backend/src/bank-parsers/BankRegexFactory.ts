@@ -5,6 +5,7 @@ import { VTBParser } from "./VTBParser";
 import { AlfabankParser } from "./AlfabankParser";
 import { GazprombankParser } from "./GazprombankParser";
 import { OzonbankParser } from "./OzonbankParser";
+import { GenericSmsParser } from "./GenericSmsParser";
 
 export class BankRegexFactory {
   private parsers: Map<string, IBankParser> = new Map();
@@ -22,6 +23,7 @@ export class BankRegexFactory {
       new AlfabankParser(),
       new GazprombankParser(),
       new OzonbankParser(),
+      new GenericSmsParser(),
     ];
 
     for (const parser of parsers) {
