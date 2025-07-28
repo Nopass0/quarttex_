@@ -52,6 +52,7 @@ import bulkDeleteRoutes from "@/routes/admin/bulk-delete";
 import ideasRoutes from "@/routes/admin/ideas";
 import testRoutes from "@/routes/admin/test";
 import { settleRequestsRoutes } from "@/routes/admin/settle-requests";
+import { merchantRequestLogsRoutes } from "@/routes/admin/merchant-request-logs";
 // import { testToolsRoutes } from "@/routes/admin/test-tools";
 
 const authHeader = t.Object({ "x-admin-key": t.String() });
@@ -137,6 +138,7 @@ export default (app: Elysia) =>
     .group("/ideas", (a) => ideasRoutes(a))
     .group("/test", (a) => testRoutes(a))
     .use(settleRequestsRoutes)
+    .use(merchantRequestLogsRoutes)
     // .group("/test-tools", (a) => a.use(testToolsRoutes))
     .group("", (a) => metricsRoutes(a))
 

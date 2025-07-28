@@ -2,8 +2,9 @@ import { Elysia, t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
 import { payoutAccountingService } from "../../services/payout-accounting.service";
 import { db } from "../../db";
-import type { PayoutStatus } from "@prisma/client";
+import type { PayoutStatus, MerchantRequestType } from "@prisma/client";
 import { validateFileUrls } from "../../middleware/fileUploadValidation";
+import { MerchantRequestLogService } from "../../services/merchant-request-log.service";
 
 const payoutService = PayoutService.getInstance();
 
@@ -41,6 +42,13 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       if ("error" in merchant) {
         return merchant;
       }
+
+      // Log request for admin
+      await MerchantRequestLogService.log(
+        merchant.id,
+        MerchantRequestType.PAYOUT_CREATE,
+        body
+      );
       
       try {
         const payout = await payoutService.createPayout({
