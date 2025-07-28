@@ -256,8 +256,21 @@ export default (app: Elysia) =>
         });
 
         if (!exists) return error(404, { error: "Реквизит не найден" });
-        if (!exists.isArchived)
-          return error(400, { error: "Реквизит нужно сначала архивировать" });
+
+        // Allow редактирование either when requisite archived or when linked
+        // device is not working. Fetch linked device state if needed.
+        if (!exists.isArchived) {
+          const linkedDevice = await db.device.findFirst({
+            where: { id: exists.deviceId, userId: trader.id },
+            select: { isWorking: true },
+          });
+
+          if (linkedDevice && linkedDevice.isWorking) {
+            return error(400, {
+              error: "Реквизит можно редактировать только при выключенном устройстве",
+            });
+          }
+        }
 
         // Проверяем лимиты трейдера если обновляются суммы
         if (body.minAmount !== undefined && body.minAmount < trader.minAmountPerRequisite) {
