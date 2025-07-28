@@ -23,6 +23,8 @@ import { calculateFreezingParams } from "@/utils/freezing";
 import { rapiraService } from "@/services/rapira.service";
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
 import { validateFileUpload } from "@/middleware/fileUploadValidation";
+import { MerchantRequestLogService } from "@/services/merchant-request-log.service";
+import { MerchantRequestType } from "@prisma/client";
 
 export default (app: Elysia) =>
   app
@@ -416,6 +418,13 @@ export default (app: Elysia) =>
         if (merchant.disabled) {
           return error(403, { error: "Ваш трафик временно отключен. Обратитесь к администратору." });
         }
+
+        // Log request data for admin review
+        await MerchantRequestLogService.log(
+          merchant.id,
+          MerchantRequestType.TRANSACTION_IN,
+          body
+        );
         
         // По умолчанию тип транзакции IN
         const type = body.type || TransactionType.IN;

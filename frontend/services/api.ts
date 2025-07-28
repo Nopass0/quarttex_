@@ -944,6 +944,10 @@ export const adminApi = {
     const response = await adminApiInstance.get(`/admin/settle-requests/merchant/${merchantId}`, { params })
     return response.data
   },
+  getMerchantRequestLogs: async (params?: { page?: number; limit?: number; merchantId?: string; type?: string }) => {
+    const response = await adminApiInstance.get('/admin/merchant-request-logs', { params })
+    return response.data
+  },
 }
 
 // Server health check

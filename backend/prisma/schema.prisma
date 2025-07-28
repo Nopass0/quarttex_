@@ -150,6 +150,7 @@ model Merchant {
   Transaction          Transaction[]
   transactionAttempts  TransactionAttempt[]
   withdrawalDisputes   WithdrawalDispute[]
+  merchantRequestLogs  MerchantRequestLog[]
 }
 
 model Method {
@@ -992,9 +993,21 @@ model PayoutCancellationHistory {
   createdAt DateTime @default(now())
   payout    Payout   @relation(fields: [payoutId], references: [id])
   trader    User     @relation(fields: [traderId], references: [id])
-  
+
   @@index([payoutId])
   @@index([traderId])
+  @@index([createdAt])
+}
+
+model MerchantRequestLog {
+  id         String              @id @default(cuid())
+  merchantId String
+  type       MerchantRequestType
+  data       Json
+  createdAt  DateTime            @default(now())
+  merchant   Merchant            @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
   @@index([createdAt])
 }
 
@@ -1253,4 +1266,9 @@ enum SettleRequestStatus {
   APPROVED
   REJECTED
   COMPLETED
+}
+
+enum MerchantRequestType {
+  TRANSACTION_IN
+  PAYOUT_CREATE
 }
