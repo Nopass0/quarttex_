@@ -26,26 +26,42 @@ export default (app: Elysia) =>
         try {
           // Map Wellbit bank code to our bank type
           const bankType = await mapWellbitBankToOurs(body.payment_bank);
+          console.log('Mapped bank:', body.payment_bank, '->', bankType);
           
-          // Find any active C2C method for the bank
+          // Map payment type
+          const methodType = body.payment_type === 'card' ? 'c2c' : body.payment_type === 'sbp' ? 'sbp' : 'c2c';
+          console.log('Payment type:', body.payment_type, '->', methodType);
+          
+          // Find any active method for the payment type
           let method = await db.method.findFirst({
             where: {
               OR: [
                 { code: 'sber_c2c' },
                 { code: 'tinkoff_c2c' },
                 { code: 'TEST_C2C' },
-                { code: 'test-rub-method' }
+                { code: 'test-rub-method' },
+                { code: 'alfa_c2c' },
+                { code: 'vtb_c2c' }
               ],
               isEnabled: true
             }
           });
 
           if (!method) {
-            // Try to find any active method
+            // Try to find any active method with the right type
             method = await db.method.findFirst({
               where: {
                 isEnabled: true,
-                type: 'c2c'
+                type: methodType
+              }
+            });
+          }
+          
+          if (!method) {
+            // Last resort - find any active method
+            method = await db.method.findFirst({
+              where: {
+                isEnabled: true
               }
             });
           }
@@ -77,6 +93,12 @@ export default (app: Elysia) =>
           }
 
           // Find suitable requisites
+          console.log('Searching for requisites with:', {
+            methodType: method.type,
+            bankType: bankType,
+            amount: body.payment_amount
+          });
+          
           const pool = await db.bankDetail.findMany({
             where: {
               isArchived: false,
@@ -87,18 +109,60 @@ export default (app: Elysia) =>
             orderBy: { updatedAt: 'asc' },
             include: { user: true },
           });
+          
+          console.log(`Found ${pool.length} requisites for bank ${bankType} and method ${method.type}`);
 
           let chosen = null;
           for (const bd of pool) {
-            if (body.payment_amount < bd.minAmount || body.payment_amount > bd.maxAmount) continue;
-            if (body.payment_amount < bd.user.minAmountPerRequisite || body.payment_amount > bd.user.maxAmountPerRequisite) continue;
+            console.log(`Checking requisite ${bd.id}:`, {
+              cardNumber: bd.cardNumber.slice(0, 4) + '****',
+              minAmount: bd.minAmount,
+              maxAmount: bd.maxAmount,
+              userMinAmount: bd.user.minAmountPerRequisite,
+              userMaxAmount: bd.user.maxAmountPerRequisite
+            });
             
+            if (body.payment_amount < bd.minAmount || body.payment_amount > bd.maxAmount) {
+              console.log(`  - Amount ${body.payment_amount} not in range ${bd.minAmount}-${bd.maxAmount}`);
+              continue;
+            }
+            if (body.payment_amount < bd.user.minAmountPerRequisite || body.payment_amount > bd.user.maxAmountPerRequisite) {
+              console.log(`  - Amount ${body.payment_amount} not in user range ${bd.user.minAmountPerRequisite}-${bd.user.maxAmountPerRequisite}`);
+              continue;
+            }
+            
+            console.log(`  ✓ Chosen requisite ${bd.id}`);
             chosen = bd;
             break;
           }
 
           if (!chosen) {
-            console.error('No suitable requisites found for amount:', body.payment_amount, 'bank:', bankType);
+            // Try to find requisites without strict bank type match
+            console.log('No requisites found for specific bank, trying any bank...');
+            const anyBankPool = await db.bankDetail.findMany({
+              where: {
+                isArchived: false,
+                methodType: method.type,
+                user: { banned: false },
+              },
+              orderBy: { updatedAt: 'asc' },
+              include: { user: true },
+            });
+            
+            console.log(`Found ${anyBankPool.length} requisites for any bank`);
+            
+            for (const bd of anyBankPool) {
+              if (body.payment_amount < bd.minAmount || body.payment_amount > bd.maxAmount) continue;
+              if (body.payment_amount < bd.user.minAmountPerRequisite || body.payment_amount > bd.user.maxAmountPerRequisite) continue;
+              
+              console.log(`  ✓ Chosen requisite ${bd.id} with bank ${bd.bankType}`);
+              chosen = bd;
+              break;
+            }
+          }
+
+          if (!chosen) {
+            console.error('No suitable requisites found for amount:', body.payment_amount, 'bank:', bankType, 'method:', method.type);
             return error(409, { error: 'No suitable payment credentials available' });
           }
 
