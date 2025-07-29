@@ -1093,11 +1093,21 @@ export default function TraderRequisitesPage() {
                 : "active",
               isArchived: selectedRequisiteForInfo.isArchived,
               device: selectedRequisiteForInfo.device,
+              methodType: selectedRequisiteForInfo.methodType,
+              minAmount: selectedRequisiteForInfo.minAmount,
+              maxAmount: selectedRequisiteForInfo.maxAmount,
+              dailyLimit: selectedRequisiteForInfo.dailyLimit,
+              monthlyLimit: selectedRequisiteForInfo.monthlyLimit,
+              intervalMinutes: selectedRequisiteForInfo.intervalMinutes,
+              successfulDeals: selectedRequisiteForInfo.successfulDeals,
+              totalDeals: selectedRequisiteForInfo.totalDeals,
               stats: {
-                turnover24h: 0,
-                deals24h: 0,
+                turnover24h: selectedRequisiteForInfo.turnoverDay || 0,
+                deals24h: selectedRequisiteForInfo.totalDeals || 0,
                 profit24h: 0,
-                conversion24h: 0,
+                conversion24h: selectedRequisiteForInfo.totalDeals > 0 
+                  ? Math.round((selectedRequisiteForInfo.successfulDeals / selectedRequisiteForInfo.totalDeals) * 100)
+                  : 0,
               },
               verifications: {
                 cardNumber: false,
@@ -1107,6 +1117,7 @@ export default function TraderRequisitesPage() {
                   : false,
               },
             }}
+            onRequisiteUpdated={fetchRequisites}
           />
         )}
       </AuthLayout>

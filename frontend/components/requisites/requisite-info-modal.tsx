@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,8 +22,13 @@ import {
   ChevronRight,
   Building,
   Edit,
+  Phone,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EditRequisiteDialog } from "@/components/requisites/edit-requisite-dialog";
+import { traderApi } from "@/services/api";
+import { toast } from "sonner";
 
 interface RequisiteInfoModalProps {
   open: boolean;
@@ -35,11 +40,20 @@ interface RequisiteInfoModalProps {
     recipientName: string;
     phoneNumber?: string;
     accountNumber?: string;
+    methodType: string;
+    minAmount: number;
+    maxAmount: number;
+    dailyLimit: number;
+    monthlyLimit: number;
+    intervalMinutes: number;
+    successfulDeals?: number;
+    totalDeals?: number;
     status: "active" | "inactive";
     isArchived?: boolean;
     device?: {
       id: string;
       name: string;
+      isOnline?: boolean;
     };
     stats?: {
       turnover24h: number;
@@ -53,6 +67,7 @@ interface RequisiteInfoModalProps {
       phoneNumber: boolean;
     };
   };
+  onRequisiteUpdated?: () => void;
 }
 
 const PaymentSystemIcon = ({ cardNumber }: { cardNumber: string }) => {
@@ -153,6 +168,41 @@ const getBankName = (bankType: string): string => {
     ALFABANK: "Альфа-Банк",
     RAIFFEISEN: "Райффайзен",
     GAZPROMBANK: "Газпромбанк",
+    OTPBANK: "ОТП Банк",
+    OTKRITIE: "Открытие",
+    ROSBANK: "Росбанк",
+    PROMSVYAZBANK: "Промсвязьбанк",
+    SOVCOMBANK: "Совкомбанк",
+    POCHTABANK: "Почта Банк",
+    ROSSELKHOZBANK: "Россельхозбанк",
+    MKB: "МКБ",
+    URALSIB: "Уралсиб",
+    AKBARS: "Ак Барс",
+    SPBBANK: "Банк Санкт-Петербург",
+    MTSBANK: "МТС Банк",
+    OZONBANK: "Озон Банк",
+    RENAISSANCE: "Ренессанс",
+    AVANGARD: "Авангард",
+    RNKB: "РНКБ",
+    LOKOBANK: "Локо-Банк",
+    RUSSIANSTANDARD: "Русский Стандарт",
+    HOMECREDIT: "Хоум Кредит",
+    UNICREDIT: "ЮниКредит",
+    CITIBANK: "Ситибанк",
+    BCSBANK: "БКС Банк",
+    ABSOLUTBANK: "Абсолют Банк",
+    SVOYBANK: "Свой Банк",
+    TRANSKAPITALBANK: "Транскапиталбанк",
+    MTSMONEY: "МТС Деньги",
+    FORABANK: "Фора-Банк",
+    CREDITEUROPE: "Кредит Европа",
+    BBRBANK: "ББР Банк",
+    UBRIR: "УБРиР",
+    GENBANK: "Генбанк",
+    SINARA: "Синара",
+    VLADBUSINESSBANK: "Владбизнесбанк",
+    TAVRICHESKIY: "Таврический",
+    DOLINSK: "Долинск",
   };
   return banks[bankType] || bankType;
 };
@@ -161,13 +211,52 @@ export function RequisiteInfoModal({
   open,
   onOpenChange,
   requisite,
+  onRequisiteUpdated,
 }: RequisiteInfoModalProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const formatCardNumber = (number: string) => {
     return number.replace(/(\d{4})/g, "$1 ").trim();
   };
 
+  const handleDelete = async () => {
+    if (!confirm("Вы уверены, что хотите удалить этот реквизит?")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await traderApi.deleteRequisite(requisite.id);
+      toast.success("Реквизит успешно удален");
+      onOpenChange(false);
+      onRequisiteUpdated?.();
+    } catch (error: any) {
+      console.error("Failed to delete requisite:", error);
+      toast.error("Не удалось удалить реквизит");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    try {
+      await traderApi.archiveRequisite(requisite.id, !requisite.isArchived);
+      toast.success(requisite.isArchived ? "Реквизит запущен" : "Реквизит остановлен");
+      onRequisiteUpdated?.();
+    } catch (error: any) {
+      console.error("Failed to toggle requisite status:", error);
+      toast.error("Не удалось изменить статус реквизита");
+    }
+  };
+
+  // Determine actual status based on device
+  const isWorking = !requisite.isArchived && requisite.device?.isOnline;
+  const displayStatus = isWorking ? "В работе" : requisite.isArchived ? "Архивирован" : "Не в работе";
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col">
         <DialogHeader className="sr-only text-center justify-center items-center">
           <DialogTitle className="">Информация о реквизите</DialogTitle>
@@ -201,16 +290,20 @@ export function RequisiteInfoModal({
             {/* Card Content */}
             <div className="relative p-4 space-y-3 bg-white/10 backdrop-blur-sm">
               {/* Status Badge */}
-              <div className="flex text-left items-start justify-start">
+              <div className="flex text-left items-start justify-between">
                 <Badge
                   className={cn(
                     "font-medium",
-                    "bg-opacity-60 text-green-600 text-[13px]",
+                    isWorking
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : requisite.isArchived
+                      ? "bg-gray-100 text-gray-600 border-gray-300"
+                      : "bg-orange-50 text-orange-700 border-orange-200"
                   )}
                 >
-                  {requisite.isArchived ? "Архивирован" : requisite.status === "active" ? "Активен" : "Выключен"}
+                  {displayStatus}
                 </Badge>
-                {/* <PaymentSystemIcon cardNumber={requisite.cardNumber} /> */}
+                <PaymentSystemIcon cardNumber={requisite.cardNumber} />
               </div>
 
               {/* Card Details */}
@@ -222,8 +315,14 @@ export function RequisiteInfoModal({
                   {formatCardNumber(requisite.cardNumber)}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Банк: {getBankName(requisite.bankType)} • Россия: RUB
+                  Банк: {getBankName(requisite.bankType)} • {requisite.methodType === 'sbp' ? 'СБП' : 'C2C'}
                 </p>
+                {requisite.phoneNumber && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Phone className="h-4 w-4" />
+                    <span>{requisite.phoneNumber}</span>
+                  </div>
+                )}
                 {requisite.accountNumber && (
                   <p className="text-sm text-gray-600">
                     Счёт: {requisite.accountNumber}
@@ -287,37 +386,65 @@ export function RequisiteInfoModal({
             </span>
           </div>
 
-          {/* 24h Statistics */}
+          {/* Statistics */}
           <div className="space-y-3">
             <h4 className="font-medium text-center text-gray-900">
-              Статистика за 24 часа
+              Статистика
             </h4>
-
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Оборот сделок</p>
-              <p className="font-semibold">
-                {requisite.stats?.turnover24h || 0} USDT ≈{" "}
-                {(requisite.stats?.turnover24h || 0) * 100} RUB
-                <span className="text-sm text-gray-500 ml-2">
-                  ({requisite.stats?.deals24h || 0} сделок)
-                </span>
-              </p>
-            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Прибыль</p>
+                <p className="text-sm text-gray-600 mb-1">Успешные сделки</p>
                 <p className="font-semibold">
-                  {requisite.stats?.profit24h || 0} USDT
+                  {requisite.successfulDeals || 0}
                 </p>
               </div>
               <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Конверсия</p>
+                <p className="text-sm text-gray-600 mb-1">Всего сделок</p>
                 <p className="font-semibold">
-                  {requisite.stats?.conversion24h || 0}%
+                  {requisite.totalDeals || 0}
                 </p>
               </div>
             </div>
+
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">Процент успешных</p>
+              <p className="font-semibold">
+                {requisite.totalDeals && requisite.totalDeals > 0
+                  ? ((requisite.successfulDeals || 0) / requisite.totalDeals * 100).toFixed(1)
+                  : 0}%
+              </p>
+            </div>
+
+            {requisite.stats && (
+              <>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Оборот за 24 часа</p>
+                  <p className="font-semibold">
+                    {requisite.stats.turnover24h || 0} USDT ≈{" "}
+                    {(requisite.stats.turnover24h || 0) * 100} RUB
+                    <span className="text-sm text-gray-500 ml-2">
+                      ({requisite.stats.deals24h || 0} сделок)
+                    </span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-1">Прибыль 24ч</p>
+                    <p className="font-semibold">
+                      {requisite.stats.profit24h || 0} USDT
+                    </p>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-1">Конверсия 24ч</p>
+                    <p className="font-semibold">
+                      {requisite.stats.conversion24h || 0}%
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Device Link */}
@@ -355,22 +482,23 @@ export function RequisiteInfoModal({
             <h4 className="font-medium text-gray-900">Управление реквизитом</h4>
 
             <div className="space-y-2">
-              {requisite.isArchived && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12 text-[#006039] hover:text-[#006039] hover:bg-green-50"
-                >
-                  <Edit className="h-4 w-4 mr-2 text-[#006039]" />
-                  Редактировать
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-full justify-start h-12 text-[#006039] hover:text-[#006039] hover:bg-green-50"
+                onClick={() => setShowEditDialog(true)}
+              >
+                <Edit className="h-4 w-4 mr-2 text-[#006039]" />
+                Редактировать
+              </Button>
               
               <Button
                 variant="outline"
                 className="w-full justify-start h-12 text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={handleDelete}
+                disabled={isDeleting}
               >
                 <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                Удалить
+                {isDeleting ? "Удаление..." : "Удалить"}
               </Button>
 
               <Button
@@ -386,14 +514,22 @@ export function RequisiteInfoModal({
 
               <div className="my-3 border-t" />
 
-              <Button variant="outline" className="w-full justify-start h-12">
-                <CreditCard className="h-4 w-4 mr-2 text-green-700" />
-                Подтвердить номер карты
-              </Button>
-
-              <Button variant="outline" className="w-full justify-start h-12">
-                <Building className="h-4 w-4 mr-2 text-green-700" />
-                Подтвердить номер счета
+              <Button 
+                variant="outline" 
+                className="w-full justify-start h-12"
+                onClick={handleToggleStatus}
+              >
+                {requisite.isArchived ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2 text-green-700" />
+                    Запустить реквизит
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2 text-orange-600" />
+                    Остановить реквизит
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -408,5 +544,18 @@ export function RequisiteInfoModal({
         </div>
       </DialogContent>
     </Dialog>
+    
+    {showEditDialog && (
+      <EditRequisiteDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        requisite={requisite}
+        onRequisiteUpdated={() => {
+          onRequisiteUpdated?.();
+          setShowEditDialog(false);
+        }}
+      />
+    )}
+  </>
   );
 }

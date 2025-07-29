@@ -31,6 +31,8 @@ const BankDetailDTO = t.Object({
   intervalMinutes: t.Number(),
   turnoverDay: t.Number(),
   turnoverTotal: t.Number(),
+  successfulDeals: t.Number(),
+  totalDeals: t.Number(),
   isArchived: t.Boolean(),
   hasDevice: t.Boolean(), // Flag indicating if this bank detail has a device
   device: DeviceDTO, // Connected device (empty object if no device)
@@ -71,6 +73,8 @@ const toDTO = (
   turnoverDay = 0,
   turnoverTotal = 0,
   device = null,
+  successfulDeals = 0,
+  totalDeals = 0,
 ) => {
   const { 
     userId, 
@@ -90,6 +94,8 @@ const toDTO = (
     phoneNumber: rest.phoneNumber || "", // Ensure phoneNumber is never null for DTO
     turnoverDay,
     turnoverTotal,
+    successfulDeals,
+    totalDeals,
     hasDevice: !!deviceToUse,
     device: formatDevice(deviceToUse),
     createdAt: bankDetail.createdAt.toISOString(),
@@ -144,7 +150,21 @@ export default (app: Elysia) =>
               _sum: { amount: true },
             });
 
-            return toDTO(bd, daySum ?? 0, totalSum ?? 0);
+            /* —— transaction counts —— */
+            const successfulDeals = await db.transaction.count({
+              where: {
+                bankDetailId: bd.id,
+                status: "READY",
+              },
+            });
+
+            const totalDeals = await db.transaction.count({
+              where: {
+                bankDetailId: bd.id,
+              },
+            });
+
+            return toDTO(bd, daySum ?? 0, totalSum ?? 0, bd.device, successfulDeals, totalDeals);
           }),
         );
 
@@ -219,7 +239,7 @@ export default (app: Elysia) =>
         });
         
         // Bank detail was just created, so there are no devices yet
-        return toDTO(bankDetail, 0, 0);
+        return toDTO(bankDetail, 0, 0, null, 0, 0);
       },
       {
         tags: ["trader"],
@@ -259,13 +279,13 @@ export default (app: Elysia) =>
 
         // Allow редактирование either when requisite archived or when linked
         // device is not working. Fetch linked device state if needed.
-        if (!exists.isArchived) {
+        if (!exists.isArchived && exists.deviceId) {
           const linkedDevice = await db.device.findFirst({
             where: { id: exists.deviceId, userId: trader.id },
-            select: { isWorking: true },
+            select: { isOnline: true },
           });
 
-          if (linkedDevice && linkedDevice.isWorking) {
+          if (linkedDevice && linkedDevice.isOnline) {
             return error(400, {
               error: "Реквизит можно редактировать только при выключенном устройстве",
             });
@@ -323,7 +343,7 @@ export default (app: Elysia) =>
           }
         });
         
-        return toDTO(bankDetail, 0, 0);
+        return toDTO(bankDetail, 0, 0, bankDetail.device, 0, 0);
       },
       {
         tags: ["trader"],
@@ -602,6 +622,55 @@ export default (app: Elysia) =>
         params: t.Object({ id: t.String() }),
         response: {
           200: t.Object({ ok: t.Boolean(), message: t.String() }),
+          401: ErrorSchema,
+          403: ErrorSchema,
+          404: ErrorSchema,
+        },
+      },
+    )
+    
+    /* ───────── DELETE /trader/bank-details/:id ───────── */
+    .delete(
+      "/:id",
+      async ({ trader, params, error }) => {
+        const bankDetail = await db.bankDetail.findFirst({
+          where: { id: params.id, userId: trader.id }
+        });
+
+        if (!bankDetail) {
+          return error(404, { error: "Реквизит не найден" });
+        }
+
+        // Check if there are any active transactions
+        const activeTransactions = await db.transaction.count({
+          where: {
+            bankDetailId: params.id,
+            status: {
+              in: ["PENDING", "PROCESSING", "IN_DISPUTE"]
+            }
+          }
+        });
+
+        if (activeTransactions > 0) {
+          return error(400, { 
+            error: "Невозможно удалить реквизит с активными транзакциями" 
+          });
+        }
+
+        // Delete the bank detail
+        await db.bankDetail.delete({
+          where: { id: params.id }
+        });
+
+        return { ok: true, message: "Реквизит успешно удален" };
+      },
+      {
+        tags: ["trader"],
+        detail: { summary: "Удалить реквизит" },
+        params: t.Object({ id: t.String() }),
+        response: {
+          200: t.Object({ ok: t.Boolean(), message: t.String() }),
+          400: ErrorSchema,
           401: ErrorSchema,
           403: ErrorSchema,
           404: ErrorSchema,
