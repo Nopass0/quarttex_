@@ -1339,7 +1339,8 @@ export default (app: Elysia) =>
             await prisma.user.update({
               where: { id: chosen.userId },
               data: {
-                frozenUsdt: { increment: freezingParams.totalRequired }
+                frozenUsdt: { increment: freezingParams.totalRequired },
+                trustBalance: { decrement: freezingParams.totalRequired } // Списываем с баланса при заморозке
               }
             });
           }
