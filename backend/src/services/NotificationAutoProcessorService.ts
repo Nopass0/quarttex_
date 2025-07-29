@@ -208,13 +208,13 @@ export class NotificationAutoProcessorService extends BaseService {
       );
 
       if (!matchedTransaction) {
-        await this.markNotificationProcessed(notification.id, "NO_MATCHING_TXN");
+        await this.markNotificationProcessed(notification.id, "NO_MATCHING_TXN", parsedTx);
         this.stats.failedMatches++;
         return;
       }
 
-      // Update transaction status
-      await this.updateTransactionStatus(matchedTransaction, notification.id);
+      // Update transaction status and notification metadata with parsed amount
+      await this.updateTransactionStatus(matchedTransaction, notification.id, parsedTx);
       this.stats.successfulMatches++;
 
       // Queue callback
@@ -314,7 +314,7 @@ export class NotificationAutoProcessorService extends BaseService {
     return mapping[bankName];
   }
 
-  private async updateTransactionStatus(transaction: any, notificationId: string): Promise<void> {
+  private async updateTransactionStatus(transaction: any, notificationId: string, parsedTx?: any): Promise<void> {
     await db.$transaction(async (prisma) => {
       // Get full transaction details with trader merchant settings
       const fullTransaction = await prisma.transaction.findUnique({
@@ -353,6 +353,11 @@ export class NotificationAutoProcessorService extends BaseService {
       const traderProfit = Math.trunc(commissionUsdt * 100) / 100;
       
       console.log(`Profit calculation: amount=${fullTransaction.amount}, rate=${fullTransaction.rate}, spentUsdt=${spentUsdt}, commissionPercent=${commissionPercent}, profit=${traderProfit}`);
+      
+      // Calculate merchant credit amount (after merchant commission)
+      const merchantCommission = fullTransaction.method.commissionPayin || 0;
+      const netAmount = fullTransaction.amount - (fullTransaction.amount * merchantCommission / 100);
+      const merchantCreditUsdt = fullTransaction.rate ? netAmount / fullTransaction.rate : 0;
 
       // Update transaction status and profit, and link to notification
       await prisma.transaction.update({
@@ -378,20 +383,43 @@ export class NotificationAutoProcessorService extends BaseService {
           // Increase profit from deals
           profitFromDeals: {
             increment: traderProfit
-          },
-          // Increase deposit (available balance) by the profit
-          deposit: {
-            increment: traderProfit
           }
+          // НЕ увеличиваем deposit - прибыль учитывается только в profitFromDeals!
         }
       });
+      
+      // Update merchant balance (credit the merchant with the transaction amount minus commission)
+      if (merchantCreditUsdt > 0) {
+        await prisma.merchant.update({
+          where: { id: fullTransaction.merchantId },
+          data: {
+            balanceUsdt: { increment: merchantCreditUsdt }
+          }
+        });
+        
+        console.log(`Merchant ${fullTransaction.merchantId} credited with ${merchantCreditUsdt} USDT`);
+      }
 
-      // Mark notification as processed
+      // Get current notification metadata
+      const notification = await prisma.notification.findUnique({
+        where: { id: notificationId },
+      });
+      
+      const currentMetadata = (notification?.metadata as any) || {};
+      
+      // Mark notification as processed and update metadata with parsed amount
       await prisma.notification.update({
         where: { id: notificationId },
         data: {
           isProcessed: true,
           updatedAt: new Date(),
+          metadata: {
+            ...currentMetadata,
+            extractedAmount: parsedTx?.amount || 0,
+            bankName: parsedTx?.bankName,
+            senderName: parsedTx?.senderName,
+            processedAt: new Date().toISOString(),
+          },
         },
       });
 
@@ -406,7 +434,7 @@ export class NotificationAutoProcessorService extends BaseService {
     });
   }
 
-  private async markNotificationProcessed(notificationId: string, reason: string): Promise<void> {
+  private async markNotificationProcessed(notificationId: string, reason: string, parsedTx?: any): Promise<void> {
     // Get current notification to preserve existing metadata
     const notification = await db.notification.findUnique({
       where: { id: notificationId },
@@ -424,6 +452,9 @@ export class NotificationAutoProcessorService extends BaseService {
           ...currentMetadata,
           processedReason: reason,
           processedAt: new Date().toISOString(),
+          extractedAmount: parsedTx?.amount || 0,
+          bankName: parsedTx?.bankName,
+          senderName: parsedTx?.senderName,
         },
       },
     });

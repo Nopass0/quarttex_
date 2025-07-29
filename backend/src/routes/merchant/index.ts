@@ -889,7 +889,7 @@ export default (app: Elysia) =>
           const availableBalance = chosen.user.trustBalance - chosen.user.frozenUsdt;
           if (availableBalance < freezingParams.totalRequired) {
             console.log(`[Merchant] Реквизит ${chosen.id} - недостаточно баланса. Нужно: ${freezingParams.totalRequired}, доступно: ${availableBalance}`);
-            return error(400, { error: "Недостаточно баланса трейдера" });
+            return error(409, { error: "NO_REQUISITE" });
           }
         }
 
@@ -1171,9 +1171,14 @@ export default (app: Elysia) =>
               deposit: { gte: 1000 },
               trafficEnabled: true
             },
+            // Проверяем, что устройство банковской карты работает
+            OR: [
+              { deviceId: null }, // Карта без устройства
+              { device: { isWorking: true, isOnline: true } } // Или устройство активно
+            ]
           },
           orderBy: { updatedAt: "asc" },
-          include: { user: true },
+          include: { user: true, device: true },
         });
 
         let chosen = null;
@@ -1284,7 +1289,7 @@ export default (app: Elysia) =>
           const availableBalance = chosen.user.trustBalance - chosen.user.frozenUsdt;
           if (availableBalance < freezingParams.totalRequired) {
             console.log(`[Merchant IN] Недостаточно баланса. Нужно: ${freezingParams.totalRequired}, доступно: ${availableBalance}`);
-            return error(400, { error: "Недостаточно баланса трейдера" });
+            return error(409, { error: "NO_REQUISITE" });
           }
         }
 

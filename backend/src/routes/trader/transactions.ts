@@ -24,6 +24,12 @@ export default (app: Elysia) =>
         // Формируем условия фильтрации
         const where: Prisma.TransactionWhereInput = {
           traderId: trader.id,
+          // Проверяем, что транзакция связана с реквизитом
+          bankDetailId: { not: null },
+          // Показываем только транзакции с реквизитами, которые привязаны к устройствам
+          requisites: {
+            deviceId: { not: null }
+          }
         };
 
         // Фильтрация по статусу, если указан

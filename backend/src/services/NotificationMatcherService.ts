@@ -27,8 +27,8 @@ export class NotificationMatcherService extends BaseService {
     {
       packageName: "ru.sberbankmobile",
       bankName: "SBERBANK",
-      regex: /(Пополнение|Перевод|Поступление|Зачисление|зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|р|руб)/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:зачислен перевод по СБП|Пополнение.*?на|Перевод|Поступление|Зачисление|зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|р|руб)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
     {
       packageName: "ru.sberbank.android",
@@ -239,22 +239,27 @@ export class NotificationMatcherService extends BaseService {
         return;
       }
 
-      const transactionType = match[1];
-      if (!transactionType.toLowerCase().includes('пополнение') && 
-          !transactionType.toLowerCase().includes('перевод') &&
-          !transactionType.toLowerCase().includes('зачисление') &&
-          !transactionType.toLowerCase().includes('поступление')) {
-        console.log(`[NotificationMatcherService] Skipping transaction type: ${transactionType}`);
+      // Проверяем что это входящая транзакция
+      const messageText = notification.message.toLowerCase();
+      const isIncomingTransaction = 
+        messageText.includes('пополнение') || 
+        messageText.includes('перевод') ||
+        messageText.includes('зачислен') ||
+        messageText.includes('поступление') ||
+        messageText.includes('получен');
+        
+      if (!isIncomingTransaction) {
+        console.log(`[NotificationMatcherService] Skipping - not an incoming transaction`);
         return;
       }
 
       const amount = matcher.extractAmount(match);
-      console.log(`[NotificationMatcherService] Found transaction: ${transactionType} ${amount} RUB`);
+      console.log(`[NotificationMatcherService] Found transaction amount: ${amount} RUB`);
 
       // Получаем все ID реквизитов с этого устройства
       const deviceBankDetailIds = notification.Device.bankDetails.map((bd: any) => bd.id);
       
-      // Ищем подходящую транзакцию по всем реквизитам устройства
+      // Ищем подходящую транзакцию по реквизитам устройства
       // Сначала ищем точное совпадение
       let transaction = await db.transaction.findFirst({
         where: {
@@ -301,7 +306,7 @@ export class NotificationMatcherService extends BaseService {
       }
 
       if (!transaction) {
-        console.log(`[NotificationMatcherService] No matching transaction found for amount ${amount} RUB on device ${notification.Device.id}`);
+        console.log(`[NotificationMatcherService] No matching transaction found for amount ${amount} RUB on device ${notification.Device.id} (bankDetails: ${deviceBankDetailIds.join(', ')})`);
         return;
       }
 
@@ -309,16 +314,17 @@ export class NotificationMatcherService extends BaseService {
       
       // Обновляем статус транзакции и обрабатываем начисления в транзакции
       await db.$transaction(async (prisma) => {
-        // Обновляем статус транзакции на READY
+        // Обновляем статус транзакции на READY и связываем с уведомлением
         const updatedTransaction = await prisma.transaction.update({
           where: { id: transaction.id },
           data: { 
             status: Status.READY,
-            acceptedAt: new Date()
+            acceptedAt: new Date(),
+            matchedNotificationId: notification.id
           }
         });
         
-        console.log(`[NotificationMatcherService] ✅ Transaction ${transaction.id} marked as READY`);
+        console.log(`[NotificationMatcherService] ✅ Transaction ${transaction.id} marked as READY and linked to notification ${notification.id}`);
 
         // Начисляем мерчанту
         const method = await prisma.method.findUnique({
@@ -368,10 +374,16 @@ export class NotificationMatcherService extends BaseService {
           }
         }
 
-        // Отмечаем уведомление как прочитанное
+        // Отмечаем уведомление как прочитанное и обработанное
         await prisma.notification.update({
           where: { id: notification.id },
-          data: { isRead: true }
+          data: { 
+            isRead: true,
+            isProcessed: true,
+            matchedTransactions: {
+              connect: { id: transaction.id }
+            }
+          }
         });
       });
 

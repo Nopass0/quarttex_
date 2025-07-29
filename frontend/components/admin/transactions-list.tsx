@@ -412,12 +412,8 @@ export function TransactionsList() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transactionId: transaction.id,
-          orderId: transaction.orderId,
-          status: transaction.status,
-          amount: transaction.amount,
-          currency: transaction.currency || 'RUB',
-          timestamp: new Date().toISOString()
+          id: transaction.id,
+          status: transaction.status
         })
       })
 

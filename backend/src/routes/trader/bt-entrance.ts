@@ -109,9 +109,10 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       // Get transactions that use requisites without devices (BT deals)
       const where: any = {
         traderId: trader.id,
-        requisites: {
-          deviceId: null, // BT deals use requisites without devices
-        },
+        // Проверяем, что транзакция связана с реквизитом
+        bankDetailId: { not: null },
+        // БТ-сделки - это сделки БЕЗ устройства
+        deviceId: null,
       };
 
       // Add status filter if provided
@@ -128,6 +129,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         ];
       }
 
+      console.log("[BT-Entrance] Query where conditions:", JSON.stringify(where, null, 2));
+      
       const [deals, total] = await Promise.all([
         db.transaction.findMany({
           where,
@@ -141,6 +144,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         }),
         db.transaction.count({ where }),
       ]);
+      
+      console.log(`[BT-Entrance] Found ${deals.length} deals, total: ${total}`);
 
       return {
         data: deals.map(formatBtDeal),
@@ -179,6 +184,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         where: {
           id: params.id,
           traderId: trader.id,
+          // Проверяем что транзакция связана с реквизитом без устройства
+          bankDetailId: { not: null },
           requisites: {
             deviceId: null, // Ensure it's a BT deal
           },
@@ -383,8 +390,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         });
       }
 
-      // Map TINK to TBANK for consistency
-      const bankType = body.bankType === 'TINK' ? 'TBANK' : body.bankType;
+      // Use bankType as is since frontend should send correct values
+      const bankType = body.bankType;
 
       const requisite = await db.bankDetail.create({
         data: {
@@ -410,8 +417,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       detail: { summary: "Создать BT реквизит" },
       body: t.Object({
         cardNumber: t.String(),
-        bankType: t.String(),
-        methodType: t.String(),
+        bankType: t.Enum(BankType),
+        methodType: t.Enum(MethodType),
         recipientName: t.String(),
         phoneNumber: t.Optional(t.String()),
         minAmount: t.Number(),
@@ -470,8 +477,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       body: t.Partial(
         t.Object({
           cardNumber: t.String(),
-          bankType: t.String(),
-          methodType: t.String(),
+          bankType: t.Enum(BankType),
+          methodType: t.Enum(MethodType),
           recipientName: t.String(),
           phoneNumber: t.Optional(t.String()),
           minAmount: t.Number(),

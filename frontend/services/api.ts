@@ -217,6 +217,10 @@ export const traderApi = {
     const response = await traderApiInstance.patch(`/trader/transactions/${id}/status`, { status })
     return response.data
   },
+  linkNotificationToTransaction: async (notificationId: string, transactionId: string) => {
+    const response = await traderApiInstance.post(`/trader/notifications/${notificationId}/link-transaction`, { transactionId })
+    return response.data
+  },
   // Messages endpoints
   getMessages: async (params?: any) => {
     const response = await traderApiInstance.get('/trader/messages', { params })

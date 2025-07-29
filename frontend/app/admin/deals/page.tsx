@@ -26,7 +26,9 @@ import {
   Clock,
   FileText,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  Send,
+  Copy
 } from 'lucide-react'
 
 interface Transaction {
@@ -44,24 +46,42 @@ interface Transaction {
   updatedAt: string
   acceptedAt?: string
   expiredAt: string
+  expired_at?: string
   error?: string
+  currency?: string
+  userId: string
+  userIp?: string
+  callbackUri: string
+  successUri: string
+  failUri: string
+  merchantId: string
+  methodId: string
+  isMock?: boolean
   merchant?: {
     id: string
     name: string
+    token?: string
   }
   trader?: {
     id: string
     numericId: number
     email: string
+    name?: string
+    banned?: boolean
   }
   method?: {
+    id: string
     name: string
     code: string
+    type?: string
+    currency?: string
   }
   requisites?: {
+    id?: string
     cardNumber: string
     bankType: string
     recipientName: string
+    phoneNumber?: string
   }
   dealDispute?: {
     id: string
@@ -162,30 +182,82 @@ export default function AdminDealsPage() {
     }
   }
 
+  const copyToClipboard = (text: string, message: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success(message)
+  }
+
+  const sendCallback = async (url: string, transaction: Transaction) => {
+    if (!url || url === '') {
+      toast.error('URL для колбэка не указан')
+      return
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: transaction.id,
+          status: transaction.status
+        })
+      })
+
+      if (response.ok) {
+        toast.success('Колбэк успешно отправлен')
+      } else {
+        toast.error(`Ошибка отправки колбэка: ${response.status} ${response.statusText}`)
+      }
+    } catch (error) {
+      toast.error('Не удалось отправить колбэк: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'))
+    }
+  }
+
   const TransactionDetailsDialog = () => {
     if (!selectedTransaction) return null
 
     return (
       <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Детали сделки #{selectedTransaction.numericId}</DialogTitle>
             <DialogDescription>Полная информация о транзакции</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            {/* Основная информация */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label className="text-gray-600">ID транзакции</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="text-sm bg-gray-100 px-2 py-1 rounded">{selectedTransaction.id}</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(selectedTransaction.id, 'ID скопирован')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label className="text-gray-600">Order ID</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="text-sm bg-gray-100 px-2 py-1 rounded">{selectedTransaction.orderId}</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(selectedTransaction.orderId, 'Order ID скопирован')}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
               <div>
                 <Label className="text-gray-600">Статус</Label>
                 <div className="mt-1">{getStatusBadge(selectedTransaction.status)}</div>
-              </div>
-              <div>
-                <Label className="text-gray-600">Тип</Label>
-                <div className="mt-1">
-                  <Badge variant={selectedTransaction.type === 'IN' ? 'default' : 'secondary'}>
-                    {selectedTransaction.type}
-                  </Badge>
-                </div>
               </div>
             </div>
 
@@ -193,21 +265,57 @@ export default function AdminDealsPage() {
               <div>
                 <Label className="text-gray-600">Мерчант</Label>
                 <p className="font-medium">{selectedTransaction.merchant?.name || 'N/A'}</p>
+                {selectedTransaction.merchantId && (
+                  <p className="text-xs text-gray-500">ID: {selectedTransaction.merchantId}</p>
+                )}
               </div>
               <div>
                 <Label className="text-gray-600">Трейдер</Label>
                 <p className="font-medium">
                   {selectedTransaction.trader ? 
-                    `#${selectedTransaction.trader.numericId} (${selectedTransaction.trader.email})` : 
+                    `${selectedTransaction.trader.name || selectedTransaction.trader.email}` : 
                     'Не назначен'}
                 </p>
+                {selectedTransaction.trader && (
+                  <p className="text-xs text-gray-500">ID: {selectedTransaction.trader.id}</p>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label className="text-gray-600">Клиент</Label>
+                <p className="font-medium">{selectedTransaction.clientName}</p>
+              </div>
+              <div>
+                <Label className="text-gray-600">IP адрес</Label>
+                <div className="mt-1">
+                  <button
+                    onClick={() => copyToClipboard(selectedTransaction.userIp || '', 'IP адрес скопирован')}
+                    className="hover:text-blue-600 transition-colors"
+                  >
+                    {selectedTransaction.userIp || 'Не указан'}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label className="text-gray-600">Тип операции</Label>
+                <div className="mt-1">
+                  <Badge variant={selectedTransaction.type === 'IN' ? 'default' : 'secondary'}>
+                    {selectedTransaction.type === 'IN' ? 'Входящая' : 'Исходящая'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label className="text-gray-600">Сумма</Label>
-                <p className="font-medium">{formatAmount(selectedTransaction.amount)} ₽</p>
+                <p className="text-lg font-medium">{formatAmount(selectedTransaction.amount)} {selectedTransaction.currency || 'RUB'}</p>
+              </div>
+              <div>
+                <Label className="text-gray-600">Курс</Label>
+                <p className="font-medium">{selectedTransaction.rate || 'Не установлен'}</p>
               </div>
               <div>
                 <Label className="text-gray-600">Комиссия</Label>
@@ -215,49 +323,115 @@ export default function AdminDealsPage() {
               </div>
             </div>
 
-            {selectedTransaction.rate && (
-              <div>
-                <Label className="text-gray-600">Курс</Label>
-                <p className="font-medium">{selectedTransaction.rate}</p>
-              </div>
-            )}
-
             <div>
-              <Label className="text-gray-600">Метод</Label>
+              <Label className="text-gray-600">Метод оплаты</Label>
               <p className="font-medium">
                 {selectedTransaction.method?.name || 'N/A'} ({selectedTransaction.method?.code || 'N/A'})
               </p>
+              {selectedTransaction.methodId && (
+                <p className="text-xs text-gray-500">ID: {selectedTransaction.methodId}</p>
+              )}
             </div>
 
             {selectedTransaction.requisites && (
-              <div>
+              <div className="bg-gray-50 p-3 rounded-md">
                 <Label className="text-gray-600">Реквизиты</Label>
-                <p className="font-medium">{selectedTransaction.requisites.cardNumber}</p>
-                <p className="text-sm text-gray-500">
-                  {selectedTransaction.requisites.bankType} • {selectedTransaction.requisites.recipientName}
-                </p>
+                <div className="mt-2">
+                  <p className="font-medium">{selectedTransaction.requisites.cardNumber}</p>
+                  <p className="text-sm text-gray-600">
+                    {selectedTransaction.requisites.bankType} • {selectedTransaction.requisites.recipientName}
+                  </p>
+                  {selectedTransaction.requisites.phoneNumber && (
+                    <p className="text-sm text-gray-600">Телефон: {selectedTransaction.requisites.phoneNumber}</p>
+                  )}
+                </div>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label className="text-gray-600">ID заказа</Label>
-                <p className="font-mono text-sm">{selectedTransaction.orderId}</p>
-              </div>
-              <div>
-                <Label className="text-gray-600">Имя клиента</Label>
-                <p className="font-medium">{selectedTransaction.clientName}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-gray-600">Создана</Label>
+                <Label className="text-gray-600">Создано</Label>
                 <p className="font-medium">{formatDate(selectedTransaction.createdAt)}</p>
               </div>
               <div>
+                <Label className="text-gray-600">Обновлено</Label>
+                <p className="font-medium">{formatDate(selectedTransaction.updatedAt)}</p>
+              </div>
+              <div>
                 <Label className="text-gray-600">Истекает</Label>
-                <p className="font-medium">{formatDate(selectedTransaction.expiredAt)}</p>
+                <p className="font-medium">{formatDate(selectedTransaction.expired_at || selectedTransaction.expiredAt)}</p>
+              </div>
+            </div>
+
+            {/* Callback URLs */}
+            <div className="space-y-3">
+              <Label className="text-gray-600">Callback URLs</Label>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Callback URI</div>
+                      <div className="text-xs text-gray-600 break-all mt-1">{selectedTransaction.callbackUri || 'Не указан'}</div>
+                    </div>
+                    {selectedTransaction.callbackUri && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendCallback(selectedTransaction.callbackUri, selectedTransaction)}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        Отправить
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Success URI</div>
+                      <div className="text-xs text-gray-600 break-all mt-1">{selectedTransaction.successUri || 'Не указан'}</div>
+                    </div>
+                    {selectedTransaction.successUri && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendCallback(selectedTransaction.successUri, selectedTransaction)}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        Отправить
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Fail URI</div>
+                      <div className="text-xs text-gray-600 break-all mt-1">{selectedTransaction.failUri || 'Не указан'}</div>
+                    </div>
+                    {selectedTransaction.failUri && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendCallback(selectedTransaction.failUri, selectedTransaction)}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        Отправить
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Дополнительная информация */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium mb-2">Дополнительная информация</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>User ID: {selectedTransaction.userId}</div>
+                <div>Тестовая: {selectedTransaction.isMock ? 'Да' : 'Нет'}</div>
+                <div>Актив/Банк: {selectedTransaction.assetOrBank}</div>
+                <div>Валюта: {selectedTransaction.currency || 'RUB'}</div>
               </div>
             </div>
 
@@ -269,9 +443,9 @@ export default function AdminDealsPage() {
             )}
 
             {selectedTransaction.error && (
-              <div>
+              <div className="bg-red-50 p-3 rounded-md">
                 <Label className="text-gray-600">Ошибка</Label>
-                <p className="text-red-600">{selectedTransaction.error}</p>
+                <p className="text-red-600 mt-1">{selectedTransaction.error}</p>
               </div>
             )}
 

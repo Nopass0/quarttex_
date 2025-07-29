@@ -256,7 +256,7 @@ export function MessagesListNew() {
               deviceId: device.id,
               deviceName: device.name,
               deviceModel: device.model || 'Unknown Model',
-              amount: notification.metadata?.amount || 0,
+              amount: notification.metadata?.extractedAmount || notification.metadata?.amount || 0,
               currency: 'RUB',
               status: notification.isRead ? 'processed' : 'new',
               isNew: !notification.isRead,

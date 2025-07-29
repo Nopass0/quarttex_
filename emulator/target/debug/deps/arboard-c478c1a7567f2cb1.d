@@ -1,0 +1,11 @@
+/home/user/projects/chase/emulator/target/debug/deps/arboard-c478c1a7567f2cb1.d: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/common.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/x11.rs
+
+/home/user/projects/chase/emulator/target/debug/deps/libarboard-c478c1a7567f2cb1.rlib: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/common.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/x11.rs
+
+/home/user/projects/chase/emulator/target/debug/deps/libarboard-c478c1a7567f2cb1.rmeta: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/common.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/x11.rs
+
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/lib.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/common.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/mod.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/mod.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.0/src/platform/linux/x11.rs:

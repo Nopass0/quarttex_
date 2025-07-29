@@ -366,33 +366,88 @@ export function DealsList() {
       // Only fetch first page if not already loading
       if (!loading && !loadingMore) {
         try {
+          // Fetch with the same filters as applied
           const params: any = {
             page: 1,
             limit: 50,
           };
 
+          // Add status filter
+          if (appliedFilters.status !== "all") {
+            switch (appliedFilters.status) {
+              case "not_credited":
+                params.status = ["CREATED", "EXPIRED", "CANCELED"];
+                break;
+              case "credited":
+                params.status = "READY";
+                break;
+              case "in_progress":
+                params.status = "IN_PROGRESS";
+                break;
+            }
+          }
+
+          // Add other filters
+          if (appliedFilters.device !== "all") {
+            params.deviceId = appliedFilters.device;
+          }
+          if (appliedFilters.requisite !== "all") {
+            params.requisiteId = appliedFilters.requisite;
+          }
+          if (appliedFilters.methodType !== "all") {
+            params.methodType = appliedFilters.methodType;
+          }
+
           const response = await traderApi.getTransactions(params);
           const newData = response.data || response.transactions || [];
 
           setTransactions((currentTransactions) => {
-            const existingIds = new Set(currentTransactions.map((t) => t.id));
-            const newTransactions = newData.filter(
-              (tx: Transaction) => !existingIds.has(tx.id),
-            );
+            const existingMap = new Map(currentTransactions.map((t) => [t.id, t]));
+            const updatedTransactions: Transaction[] = [];
+            const newTransactions: Transaction[] = [];
 
+            // Check for new or updated transactions
+            newData.forEach((tx: Transaction) => {
+              const existing = existingMap.get(tx.id);
+              if (!existing) {
+                // New transaction
+                newTransactions.push(tx);
+                updatedTransactions.push({ ...tx, isNew: true });
+              } else if (existing.status !== tx.status || existing.matchedNotification?.id !== tx.matchedNotification?.id) {
+                // Status changed or notification linked
+                if (existing.status !== tx.status) {
+                  // Show notification about status change
+                  const statusText = tx.status === "READY" ? "подтверждена" : 
+                                   tx.status === "IN_PROGRESS" ? "в процессе" : 
+                                   tx.status === "COMPLETED" ? "завершена" : "обновлена";
+                  toast.info(`Сделка ${tx.numericId} ${statusText}`, {
+                    description: `${tx.amount.toLocaleString("ru-RU")} ₽`,
+                  });
+                }
+                updatedTransactions.push({ ...tx, isNew: false });
+                existingMap.delete(tx.id);
+              } else {
+                // No changes
+                updatedTransactions.push(existing);
+                existingMap.delete(tx.id);
+              }
+            });
+
+            // Show notifications for new transactions
             if (newTransactions.length > 0) {
-              // Show notifications for new transactions
               newTransactions.forEach((tx: Transaction) => {
                 toast.success(`Новая сделка ${tx.numericId}`, {
                   description: `${tx.amount.toLocaleString("ru-RU")} ₽ от ${tx.clientName}`,
                 });
               });
-
-              // Add new transactions to the beginning of the list
-              return [...newTransactions, ...currentTransactions];
             }
 
-            return currentTransactions;
+            // Keep remaining transactions that weren't in the new data (pagination)
+            existingMap.forEach((tx) => {
+              updatedTransactions.push(tx);
+            });
+
+            return updatedTransactions;
           });
 
           // Also update trader profile to refresh profit
@@ -404,7 +459,7 @@ export function DealsList() {
     }, 5000); // Check every 5 seconds for real-time updates
 
     return () => clearInterval(interval);
-  }, [loading, loadingMore]);
+  }, [loading, loadingMore, appliedFilters]);
 
   // Timer for countdown update - only update if there are pending transactions
   useEffect(() => {

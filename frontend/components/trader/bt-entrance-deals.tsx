@@ -213,7 +213,15 @@ export function BtEntranceDeals() {
         ...(searchQuery && { search: searchQuery }),
       };
 
+      console.log("[BT-Entrance] Fetching deals with params:", params);
       const response = await traderApi.getBtDeals(params);
+      console.log("[BT-Entrance] API Response:", response);
+      console.log("[BT-Entrance] Response type:", typeof response);
+      console.log("[BT-Entrance] Response keys:", Object.keys(response || {}));
+      console.log("[BT-Entrance] Response.data:", response?.data);
+      console.log("[BT-Entrance] Response.data length:", response?.data?.length);
+      
+      // Response already contains the full structure from API
       setDeals(response.data || []);
       setTotalDeals(response.total || 0);
       setTotalPages(Math.ceil((response.total || 0) / 50));
@@ -253,6 +261,12 @@ export function BtEntranceDeals() {
     }
     return true;
   });
+
+  // Debug logging
+  console.log("[BT-Entrance] deals array:", deals);
+  console.log("[BT-Entrance] filteredDeals:", filteredDeals);
+  console.log("[BT-Entrance] filterStatus:", filterStatus);
+  console.log("[BT-Entrance] searchQuery:", searchQuery);
 
   if (loading) {
     return (

@@ -1,7 +1,7 @@
 // src/server/routes/trader/bank-details.ts
 import { Elysia, t } from "elysia";
 import { db } from "@/db";
-import { BankType, MethodType } from "@prisma/client";
+import { BankType, MethodType, Status } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { startOfDay, endOfDay } from "date-fns";
 
@@ -646,7 +646,7 @@ export default (app: Elysia) =>
           where: {
             bankDetailId: params.id,
             status: {
-              in: ["PENDING", "PROCESSING", "IN_DISPUTE"]
+              in: [Status.CREATED, Status.IN_PROGRESS, Status.DISPUTE]
             }
           }
         });
