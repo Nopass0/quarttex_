@@ -84,25 +84,38 @@ export class PayoutMonitorService extends BaseService {
       console.log(`[PayoutMonitorService] Found ${unassignedPayouts.length} unassigned payouts`);
 
 
-      // Find eligible traders with their filters
-      const eligibleTraders = await db.user.findMany({
-        where: {
-          banned: false,
-          trafficEnabled: true,
-          // Remove balance check here - we'll check it per payout below
-        },
-        include: {
-          payoutFilters: true,
-        },
-        orderBy: {
-          createdAt: "asc", // FIFO distribution
-        },
-      });
-
       const telegramService = this.getTelegramService();
 
       // Process each unassigned payout
       for (const payout of unassignedPayouts) {
+        // Get traders connected to this merchant with OUT operations enabled
+        const connectedTraders = await db.traderMerchant.findMany({
+          where: {
+            merchantId: payout.merchantId,
+            isMerchantEnabled: true,
+            isFeeOutEnabled: true // Check that OUT operations are enabled
+          },
+          select: { traderId: true }
+        });
+
+        const traderIds = connectedTraders.map(ct => ct.traderId);
+
+        // Find eligible traders with their filters
+        const eligibleTraders = await db.user.findMany({
+          where: {
+            id: { in: traderIds }, // Only traders connected to the merchant
+            banned: false,
+            trafficEnabled: true,
+            // Remove balance check here - we'll check it per payout below
+          },
+          include: {
+            payoutFilters: true,
+          },
+          orderBy: {
+            createdAt: "asc", // FIFO distribution
+          },
+        });
+
         // Find traders who can accept this payout
         const availableTraders = [];
 
@@ -249,17 +262,32 @@ export class PayoutMonitorService extends BaseService {
       }
 
 
+      // Get traders connected to this merchant with OUT operations enabled
+      const connectedTraders = await db.traderMerchant.findMany({
+        where: {
+          merchantId: payout.merchantId,
+          isMerchantEnabled: true,
+          isFeeOutEnabled: true // Check that OUT operations are enabled
+        },
+        select: { traderId: true }
+      });
+
+      const traderIds = connectedTraders.map(ct => ct.traderId);
+
       // Find eligible traders, excluding those who previously worked with this payout
       const traders = await db.user.findMany({
         where: {
+          id: { in: traderIds }, // Only traders connected to the merchant
           banned: false,
           trafficEnabled: true,
           balanceRub: {
             gte: payout.amount, // Must have enough RUB balance for payout amount
           },
           // Exclude traders who previously had this payout
-          id: {
-            notIn: payout.previousTraderIds || [],
+          AND: {
+            id: {
+              notIn: payout.previousTraderIds || [],
+            },
           },
         },
         include: {

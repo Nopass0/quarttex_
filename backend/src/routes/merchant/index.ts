@@ -640,10 +640,24 @@ export default (app: Elysia) =>
         const monthStart = startOfMonth(now);
         const monthEnd = endOfMonth(now);
 
+        // Получаем список трейдеров, подключенных к данному мерчанту с включенными входами
+        const connectedTraders = await db.traderMerchant.findMany({
+          where: {
+            merchantId: merchant.id,
+            methodId: method.id,
+            isMerchantEnabled: true,
+            isFeeInEnabled: true // Проверяем, что вход включен
+          },
+          select: { traderId: true }
+        });
+
+        const traderIds = connectedTraders.map(ct => ct.traderId);
+
         const pool = await db.bankDetail.findMany({
           where: {
             isArchived: false,
             methodType: method.type,
+            userId: { in: traderIds }, // Только трейдеры, подключенные к мерчанту
             user: { 
               banned: false,
               // Проверяем, что депозит больше или равен 1000
@@ -893,7 +907,7 @@ export default (app: Elysia) =>
             data: {
               merchantId: merchant.id,
               amount: body.amount,
-              assetOrBank: chosen.cardNumber,
+              assetOrBank: method.type === MethodType.sbp ? chosen.cardNumber : chosen.cardNumber, // Для СБП в cardNumber хранится номер телефона
               orderId: body.orderId,
               methodId: method.id,
               currency: "RUB", // По умолчанию RUB
@@ -1133,12 +1147,30 @@ export default (app: Elysia) =>
           return error(409, { error: "Транзакция с таким orderId уже существует" });
         }
 
+        // Получаем список трейдеров, подключенных к данному мерчанту с включенными входами
+        const connectedTraders = await db.traderMerchant.findMany({
+          where: {
+            merchantId: merchant.id,
+            methodId: method.id,
+            isMerchantEnabled: true,
+            isFeeInEnabled: true // Проверяем, что вход включен
+          },
+          select: { traderId: true }
+        });
+
+        const traderIds = connectedTraders.map(ct => ct.traderId);
+
         // Подбираем реквизит (упрощенная логика из старого эндпоинта)
         const pool = await db.bankDetail.findMany({
           where: {
             isArchived: false,
             methodType: method.type,
-            user: { banned: false },
+            userId: { in: traderIds }, // Только трейдеры, подключенные к мерчанту
+            user: { 
+              banned: false,
+              deposit: { gte: 1000 },
+              trafficEnabled: true
+            },
           },
           orderBy: { updatedAt: "asc" },
           include: { user: true },
@@ -1262,7 +1294,7 @@ export default (app: Elysia) =>
           data: {
             merchantId: merchant.id,
             amount: body.amount,
-            assetOrBank: `${chosen.bankType}: ${chosen.cardNumber}`,
+            assetOrBank: method.type === MethodType.sbp ? chosen.cardNumber : `${chosen.bankType}: ${chosen.cardNumber}`, // Для СБП только номер телефона
             orderId: body.orderId,
             methodId: method.id,
             currency: "RUB",
