@@ -37,9 +37,16 @@ export const wellbitGuard = () => (app: Elysia) =>
         .update(canonical)
         .digest('hex');
       
+      console.log('=== Wellbit Signature Debug ===');
+      console.log('Merchant ID:', merchant.id);
+      console.log('API Key Public:', merchant.apiKeyPublic);
+      console.log('API Key Private:', merchant.apiKeyPrivate);
+      console.log('Body (raw):', JSON.stringify(body));
       console.log('Canonical JSON:', canonical);
       console.log('Expected signature:', expected);
       console.log('Received signature:', token);
+      console.log('Signature match:', expected === token);
+      console.log('==============================');
       
       if (expected !== token) return error(401, { error: 'Invalid signature' });
     })

@@ -867,19 +867,45 @@ export default function TraderRequisitesPage() {
                     <SelectContent>
                       <SelectItem value="SBERBANK">Сбербанк</SelectItem>
                       <SelectItem value="TBANK">Т-Банк</SelectItem>
-                      <SelectItem value="TINKOFF">Тинькофф</SelectItem>
                       <SelectItem value="VTB">ВТБ</SelectItem>
                       <SelectItem value="ALFABANK">Альфа-Банк</SelectItem>
                       <SelectItem value="RAIFFEISEN">Райффайзен</SelectItem>
                       <SelectItem value="GAZPROMBANK">Газпромбанк</SelectItem>
+                      <SelectItem value="OTPBANK">ОТП Банк</SelectItem>
                       <SelectItem value="OTKRITIE">Открытие</SelectItem>
                       <SelectItem value="ROSBANK">Росбанк</SelectItem>
-                      <SelectItem value="PSB">ПСБ</SelectItem>
+                      <SelectItem value="PROMSVYAZBANK">Промсвязьбанк</SelectItem>
                       <SelectItem value="SOVCOMBANK">Совкомбанк</SelectItem>
                       <SelectItem value="POCHTABANK">Почта Банк</SelectItem>
-                      <SelectItem value="RSHB">Россельхозбанк</SelectItem>
+                      <SelectItem value="ROSSELKHOZBANK">Россельхозбанк</SelectItem>
                       <SelectItem value="MKB">МКБ</SelectItem>
                       <SelectItem value="URALSIB">Уралсиб</SelectItem>
+                      <SelectItem value="AKBARS">Ак Барс</SelectItem>
+                      <SelectItem value="SPBBANK">Банк Санкт-Петербург</SelectItem>
+                      <SelectItem value="MTSBANK">МТС Банк</SelectItem>
+                      <SelectItem value="OZONBANK">Озон Банк</SelectItem>
+                      <SelectItem value="RENAISSANCE">Ренессанс</SelectItem>
+                      <SelectItem value="AVANGARD">Авангард</SelectItem>
+                      <SelectItem value="RNKB">РНКБ</SelectItem>
+                      <SelectItem value="LOKOBANK">Локо-Банк</SelectItem>
+                      <SelectItem value="RUSSIANSTANDARD">Русский Стандарт</SelectItem>
+                      <SelectItem value="HOMECREDIT">Хоум Кредит</SelectItem>
+                      <SelectItem value="UNICREDIT">ЮниКредит</SelectItem>
+                      <SelectItem value="CITIBANK">Ситибанк</SelectItem>
+                      <SelectItem value="BCSBANK">БКС Банк</SelectItem>
+                      <SelectItem value="ABSOLUTBANK">Абсолют Банк</SelectItem>
+                      <SelectItem value="SVOYBANK">Свой Банк</SelectItem>
+                      <SelectItem value="TRANSKAPITALBANK">Транскапиталбанк</SelectItem>
+                      <SelectItem value="MTSMONEY">МТС Деньги</SelectItem>
+                      <SelectItem value="FORABANK">Фора-Банк</SelectItem>
+                      <SelectItem value="CREDITEUROPE">Кредит Европа</SelectItem>
+                      <SelectItem value="BBRBANK">ББР Банк</SelectItem>
+                      <SelectItem value="UBRIR">УБРиР</SelectItem>
+                      <SelectItem value="GENBANK">Генбанк</SelectItem>
+                      <SelectItem value="SINARA">Синара</SelectItem>
+                      <SelectItem value="VLADBUSINESSBANK">Владбизнесбанк</SelectItem>
+                      <SelectItem value="TAVRICHESKIY">Таврический</SelectItem>
+                      <SelectItem value="DOLINSK">Долинск</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -12,5 +12,12 @@ export function canonicalJson(input: string | object): string {
     }
     return value
   }
-  return JSON.stringify(sort(obj))
+  
+  // Use custom stringify to match Wellbit requirements
+  // PHP's JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE behavior
+  const jsonString = JSON.stringify(sort(obj))
+  
+  // JSON.stringify in JavaScript already handles Unicode correctly (doesn't escape it)
+  // and doesn't escape slashes by default, so we return as is
+  return jsonString
 }

@@ -77,6 +77,40 @@ echo "================================================"
 docker-compose up -d --build
 
 echo ""
+echo "Configuring SSL certificates..."
+echo "================================================"
+
+# Wait for containers to be fully up
+echo "Waiting for containers to start..."
+sleep 10
+
+# Navigate to chasepay directory and configure SSL
+cd /chasepay/ || {
+    echo "❌ Warning: Could not navigate to /chasepay/ directory"
+    echo "   Please manually run the following commands:"
+    echo "   cd /chasepay/"
+    echo "   cat ssl/certificate.crt ssl/certificate_ca.crt > ssl/fullchain.crt"
+    echo "   docker compose restart nginx"
+}
+
+# If we successfully changed to /chasepay/
+if [ -d "ssl" ]; then
+    echo "Creating fullchain certificate..."
+    cat ssl/certificate.crt ssl/certificate_ca.crt > ssl/fullchain.crt
+    
+    echo "Restarting nginx container..."
+    docker compose restart nginx
+    
+    echo "✅ SSL configuration complete!"
+else
+    echo "❌ Warning: SSL directory not found"
+    echo "   Please ensure SSL certificates are properly configured"
+fi
+
+# Return to original directory
+cd - > /dev/null 2>&1
+
+echo ""
 echo "✅ Deployment complete!"
 echo "   APK Version: $VERSION_NAME"
 echo "   APK Location: /uploads/apk/chase-mobile.apk"
