@@ -913,13 +913,35 @@ export const adminApi = {
     return response.data
   },
 
-  // Wellbit keys
+  // Wellbit settings
+  getWellbitSettings: async () => {
+    const response = await adminApiInstance.get('/admin/merchants/wellbit/settings')
+    return response.data
+  },
+  updateWellbitSettings: async (data: { 
+    apiKeyPublic?: string; 
+    apiKeyPrivate?: string; 
+    wellbitCallbackUrl?: string 
+  }) => {
+    const response = await adminApiInstance.patch('/admin/merchants/wellbit/settings', data)
+    return response.data
+  },
   getWellbitKeys: async () => {
     const response = await adminApiInstance.get('/admin/merchants/wellbit/keys')
     return response.data
   },
   regenerateWellbitKeys: async () => {
     const response = await adminApiInstance.post('/admin/merchants/wellbit/regenerate')
+    return response.data
+  },
+  
+  // Wellbit bank mappings
+  getWellbitBankMappings: async () => {
+    const response = await adminApiInstance.get('/admin/wellbit/bank-mappings')
+    return response.data
+  },
+  updateWellbitBankMapping: async (wellbitBankCode: string, data: { ourBankName: string }) => {
+    const response = await adminApiInstance.patch(`/admin/wellbit/bank-mappings/${wellbitBankCode}`, data)
     return response.data
   },
 

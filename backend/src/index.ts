@@ -30,6 +30,7 @@ import { dealDisputeWebSocketRoutes } from "@/routes/websocket/deal-disputes";
 import { devicePingRoutes } from "@/routes/websocket/device-ping";
 import { deviceStatusRoutes } from "@/routes/websocket/device-status";
 import wellbitRoutes from "@/routes/wellbit";
+import wellbitBankMappingRoutes from "@/routes/admin/wellbit-bank-mapping";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";

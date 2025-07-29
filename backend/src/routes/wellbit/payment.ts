@@ -3,6 +3,7 @@ import { BankType, PayoutStatus, Status, TransactionType } from '@prisma/client'
 import { wellbitGuard } from '@/middleware/wellbitGuard';
 import { db } from '@/db';
 import { mapToWellbitStatus, mapFromWellbitStatusToTransaction } from '@/utils/wellbit-status-mapper';
+import { mapWellbitBankToOurs } from '@/utils/wellbit-bank-mapper';
 import { randomBytes } from 'node:crypto';
 import { calculateFreezingParams } from '@/utils/freezing';
 
@@ -23,8 +24,8 @@ export default (app: Elysia) =>
       '/payment/create',
       async ({ body, wellbitMerchant, error }) => {
         try {
-          // Extract bank code from payment_bank field
-          const bankCode = body.payment_bank || 'SBERBANK';
+          // Map Wellbit bank code to our bank type
+          const bankType = await mapWellbitBankToOurs(body.payment_bank);
           
           // Find any active C2C method for the bank
           let method = await db.method.findFirst({
@@ -81,7 +82,7 @@ export default (app: Elysia) =>
               isArchived: false,
               methodType: method.type,
               user: { banned: false },
-              bankType: bankCode as BankType,
+              bankType: bankType,
             },
             orderBy: { updatedAt: 'asc' },
             include: { user: true },
@@ -97,7 +98,7 @@ export default (app: Elysia) =>
           }
 
           if (!chosen) {
-            console.error('No suitable requisites found for amount:', body.payment_amount, 'bank:', bankCode);
+            console.error('No suitable requisites found for amount:', body.payment_amount, 'bank:', bankType);
             return error(409, { error: 'No suitable payment credentials available' });
           }
 
@@ -137,7 +138,7 @@ export default (app: Elysia) =>
               expired_at: new Date(Date.now() + body.payment_lifetime * 1000),
               clientName: `Wellbit Payment ${body.payment_id}`,
               userIp: '127.0.0.1',
-              callbackUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/webhook/${body.payment_id}`,
+              callbackUri: wellbitMerchant.wellbitCallbackUrl || `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/webhook/${body.payment_id}`,
               successUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/success/${body.payment_id}`,
               failUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/fail/${body.payment_id}`,
               // Required fields
@@ -176,7 +177,7 @@ export default (app: Elysia) =>
           // Return response with payment credentials
           return {
             ...body,
-            payment_bank: bankCode,
+            payment_bank: body.payment_bank || bankType, // Keep original Wellbit bank code
             payment_credential: chosen.cardNumber, // Return card number
             payment_status: 'new',
           };

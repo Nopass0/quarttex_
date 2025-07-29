@@ -39,6 +39,7 @@ import deviceEmulatorRoutes from "@/routes/admin/device-emulator";
 import metricsRoutes from "@/routes/admin/metrics";
 import payoutEmulatorRoutes from "@/routes/admin/payout-emulator";
 import adminMerchantsRoutes from "@/routes/admin/merchants";
+import wellbitBankMappingRoutes from "@/routes/admin/wellbit-bank-mapping";
 import { adminPayoutsRoutes } from "@/routes/admin/payouts";
 import { telegramSettingsRoutes } from "@/routes/admin/telegram-settings";
 import { adminWithdrawalsRoutes } from "@/routes/admin/withdrawals";
@@ -104,6 +105,7 @@ export default (app: Elysia) =>
     .group("/merchant", (a) => merchantRoutes(a))
     .group("/merchant/methods", (a) => methodsRoutes(a))
     .use(adminMerchantsRoutes)
+    .use(wellbitBankMappingRoutes)
     .group("/transactions", (a) => transactionsRoutes(a))
     .group("/ip-whitelist", (a) => ipWhitelistRoutes(a))
     .group("/balance-topups", (a) => balanceTopupRoutes(a))

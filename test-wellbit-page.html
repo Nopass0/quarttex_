@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Wellbit Settings Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">Настройки Wellbit - Test Page</h1>
+        
+        <!-- API Settings Card -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">API настройки</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Публичный ключ</label>
+                    <input type="text" id="apiKeyPublic" class="w-full px-3 py-2 border rounded-md font-mono text-sm" placeholder="Введите публичный ключ">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Приватный ключ</label>
+                    <input type="password" id="apiKeyPrivate" class="w-full px-3 py-2 border rounded-md font-mono text-sm" placeholder="Введите приватный ключ">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Callback URL</label>
+                    <input type="text" id="callbackUrl" class="w-full px-3 py-2 border rounded-md" placeholder="https://example.com/callback">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveSettings()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Сохранить настройки
+                    </button>
+                    <button onclick="regenerateKeys()" class="border border-gray-300 px-4 py-2 rounded hover:bg-gray-50">
+                        Перегенерировать ключи
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bank Mappings Card -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Маппинг банков</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b">
+                            <th class="text-left p-2">Код Wellbit</th>
+                            <th class="text-left p-2">Банк Wellbit</th>
+                            <th class="text-left p-2">Наш банк</th>
+                            <th class="text-left p-2">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bankMappingsTable">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Status Messages -->
+        <div id="statusMessage" class="mt-4 hidden"></div>
+    </div>
+    
+    <script>
+        // Mock data for demonstration
+        const mockSettings = {
+            apiKeyPublic: 'test_public_key_123',
+            apiKeyPrivate: 'test_private_key_456',
+            wellbitCallbackUrl: 'https://api.example.com/wellbit/callback'
+        };
+        
+        const mockBankMappings = {
+            mappings: [
+                { wellbitBankCode: 'SBER', wellbitBankName: 'Сбербанк', ourBankName: 'SBERBANK' },
+                { wellbitBankCode: 'TINKOFF', wellbitBankName: 'Тинькофф', ourBankName: 'TINKOFF' },
+                { wellbitBankCode: 'ALFA', wellbitBankName: 'Альфа-банк', ourBankName: 'ALFABANK' },
+                { wellbitBankCode: 'VTB', wellbitBankName: 'ВТБ', ourBankName: 'VTB' }
+            ],
+            availableBankTypes: ['SBERBANK', 'TINKOFF', 'ALFABANK', 'VTB', 'RAIFFEISEN', 'GAZPROMBANK']
+        };
+        
+        // Load initial data
+        function loadSettings() {
+            document.getElementById('apiKeyPublic').value = mockSettings.apiKeyPublic || '';
+            document.getElementById('apiKeyPrivate').value = mockSettings.apiKeyPrivate || '';
+            document.getElementById('callbackUrl').value = mockSettings.wellbitCallbackUrl || '';
+            
+            // Load bank mappings
+            const tbody = document.getElementById('bankMappingsTable');
+            tbody.innerHTML = mockBankMappings.mappings.map(mapping => `
+                <tr class="border-b">
+                    <td class="p-2 font-mono text-sm">${mapping.wellbitBankCode}</td>
+                    <td class="p-2">${mapping.wellbitBankName}</td>
+                    <td class="p-2">
+                        <select id="mapping-${mapping.wellbitBankCode}" class="border rounded px-2 py-1">
+                            ${mockBankMappings.availableBankTypes.map(bank => 
+                                `<option value="${bank}" ${bank === mapping.ourBankName ? 'selected' : ''}>${bank}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
+                    <td class="p-2">
+                        <button onclick="saveMapping('${mapping.wellbitBankCode}')" class="text-blue-500 hover:text-blue-700">
+                            Сохранить
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function showMessage(message, type = 'success') {
+            const messageDiv = document.getElementById('statusMessage');
+            messageDiv.className = `mt-4 p-4 rounded ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
+            messageDiv.textContent = message;
+            messageDiv.classList.remove('hidden');
+            setTimeout(() => messageDiv.classList.add('hidden'), 3000);
+        }
+        
+        function saveSettings() {
+            showMessage('Настройки успешно сохранены');
+        }
+        
+        function regenerateKeys() {
+            document.getElementById('apiKeyPublic').value = 'new_public_key_' + Math.random().toString(36).substr(2, 9);
+            document.getElementById('apiKeyPrivate').value = 'new_private_key_' + Math.random().toString(36).substr(2, 9);
+            showMessage('Ключи успешно перегенерированы');
+        }
+        
+        function saveMapping(bankCode) {
+            const selectedValue = document.getElementById(`mapping-${bankCode}`).value;
+            showMessage(`Маппинг для ${bankCode} обновлен на ${selectedValue}`);
+        }
+        
+        // Load data on page load
+        loadSettings();
+    </script>
+</body>
+</html>

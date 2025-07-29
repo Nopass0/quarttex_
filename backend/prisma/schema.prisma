@@ -140,6 +140,7 @@ model Merchant {
   apiKeyPublic         String?              @unique
   apiKeyPrivate        String?
   countInRubEquivalent Boolean              @default(false)
+  wellbitCallbackUrl   String?
   dealDisputes         DealDispute[]
   merchantMethods      MerchantMethod[]
   settlements          MerchantSettlement[]
@@ -1009,6 +1010,15 @@ model MerchantRequestLog {
 
   @@index([merchantId])
   @@index([createdAt])
+}
+
+model WellbitBankMapping {
+  id              Int      @id @default(autoincrement())
+  wellbitBankCode String   @unique
+  wellbitBankName String
+  ourBankName     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 enum WithdrawalDisputeStatus {

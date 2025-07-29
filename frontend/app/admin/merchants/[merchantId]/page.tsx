@@ -7,7 +7,7 @@ import { AuthLayout } from '@/components/layouts/auth-layout'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Copy, ArrowLeft, RefreshCw, Activity, DollarSign, Key, TestTube } from 'lucide-react'
+import { Copy, ArrowLeft, RefreshCw, Activity, DollarSign, Key, TestTube, Settings } from 'lucide-react'
 import { useAdminAuth } from '@/stores/auth'
 import { toast } from 'sonner'
 import { formatAmount } from '@/lib/utils'
@@ -261,6 +261,14 @@ export default function MerchantDetailPage() {
                   >
                     <TestTube className="h-4 w-4 mr-2" />
                     Тестировать API
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/admin/wellbit-keys')}
+                    className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Настройки Wellbit
                   </Button>
                 </div>
               </div>
