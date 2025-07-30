@@ -4,8 +4,9 @@ import { wellbitGuard } from '@/middleware/wellbitGuard';
 import { db } from '@/db';
 import { mapToWellbitStatus, mapFromWellbitStatusToTransaction } from '@/utils/wellbit-status-mapper';
 import { mapWellbitBankToOurs } from '@/utils/wellbit-bank-mapper';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHmac } from 'node:crypto';
 import { calculateFreezingParams } from '@/utils/freezing';
+import { canonicalJson } from '@/utils/canonicalJson';
 
 /**
  * Wellbit Payment Integration Routes
@@ -18,7 +19,19 @@ import { calculateFreezingParams } from '@/utils/freezing';
 export default (app: Elysia) =>
   app
     .use(wellbitGuard())
-    
+    .onAfterHandle(({ response, wellbitMerchant, set }) => {
+      try {
+        const canonical = canonicalJson(response);
+        const signature = createHmac('sha256', wellbitMerchant.apiKeyPrivate || '')
+          .update(canonical)
+          .digest('hex');
+        set.headers['x-api-token'] = signature;
+      } catch (err) {
+        console.error('Failed to sign wellbit response:', err);
+      }
+      return response;
+    })
+
     // Create Payment
     .post(
       '/payment/create',
