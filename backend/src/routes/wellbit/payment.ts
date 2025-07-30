@@ -19,9 +19,9 @@ import { canonicalJson } from '@/utils/canonicalJson';
 export default (app: Elysia) =>
   app
     .use(wellbitGuard())
-    .onAfterHandle(({ response, wellbitMerchant, set }) => {
+    .onAfterHandle(({ body, response, wellbitMerchant, set }) => {
       try {
-        const canonical = canonicalJson(response);
+        const canonical = canonicalJson(body);
         const signature = createHmac('sha256', wellbitMerchant.apiKeyPrivate || '')
           .update(canonical)
           .digest('hex');
