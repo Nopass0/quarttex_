@@ -25,6 +25,7 @@ export default (app: Elysia) =>
         const signature = createHmac('sha256', wellbitMerchant.apiKeyPrivate || '')
           .update(canonical)
           .digest('hex');
+        set.headers['x-api-key'] = wellbitMerchant.apiKeyPublic;
         set.headers['x-api-token'] = signature;
       } catch (err) {
         console.error('Failed to sign wellbit response:', err);
