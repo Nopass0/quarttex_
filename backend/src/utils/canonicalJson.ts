@@ -1,23 +1,20 @@
+// Create a canonical JSON string by sorting the top-level keys alphabetically.
+// This mirrors the example provided in the Wellbit documentation where the PHP
+// implementation calls `ksort` on the request body before encoding.
 export function canonicalJson(input: string | object): string {
   const obj = typeof input === 'string' ? JSON.parse(input) : input
-  const sort = (value: any): any => {
-    if (Array.isArray(value)) return value.map(sort)
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return Object.keys(value)
-        .sort()
-        .reduce((acc, key) => {
-          acc[key] = sort(value[key])
-          return acc
-        }, {} as Record<string, any>)
-    }
-    return value
+
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    const sorted = Object.keys(obj)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = (obj as any)[key]
+        return acc
+      }, {} as Record<string, any>)
+    // JSON.stringify in JavaScript does not escape slashes or Unicode characters
+    // by default, matching PHP's JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+    return JSON.stringify(sorted)
   }
-  
-  // Use custom stringify to match Wellbit requirements
-  // PHP's JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE behavior
-  const jsonString = JSON.stringify(sort(obj))
-  
-  // JSON.stringify in JavaScript already handles Unicode correctly (doesn't escape it)
-  // and doesn't escape slashes by default, so we return as is
-  return jsonString
+
+  return JSON.stringify(obj)
 }
