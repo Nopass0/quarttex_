@@ -111,8 +111,10 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         traderId: trader.id,
         // Проверяем, что транзакция связана с реквизитом
         bankDetailId: { not: null },
-        // БТ-сделки - это сделки БЕЗ устройства
-        deviceId: null,
+        // БТ-сделки - это сделки по реквизитам без устройства
+        requisites: {
+          deviceId: null,
+        },
       };
 
       // Add status filter if provided
