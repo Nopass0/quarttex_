@@ -352,7 +352,7 @@ export function AddRequisiteDialog({
                       <SelectContent>
                         {AVAILABLE_BANKS.filter(bank => bank.code !== "SBP").map((bank) => (
                           <SelectItem key={bank.code} value={bank.code}>
-                            {bank.name}
+                            {bank.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
