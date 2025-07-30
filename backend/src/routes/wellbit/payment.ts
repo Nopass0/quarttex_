@@ -19,12 +19,13 @@ import { canonicalJson } from '@/utils/canonicalJson';
 export default (app: Elysia) =>
   app
     .use(wellbitGuard())
-    .onAfterHandle(({ response, wellbitMerchant, set }) => {
+    .onAfterHandle(({ body, response, wellbitMerchant, set }) => {
       try {
-        const canonical = canonicalJson(response);
+        const canonical = canonicalJson(body);
         const signature = createHmac('sha256', wellbitMerchant.apiKeyPrivate || '')
           .update(canonical)
           .digest('hex');
+        set.headers['x-api-key'] = wellbitMerchant.apiKeyPublic;
         set.headers['x-api-token'] = signature;
       } catch (err) {
         console.error('Failed to sign wellbit response:', err);
