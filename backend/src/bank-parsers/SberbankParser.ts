@@ -15,6 +15,8 @@ export class SberbankParser implements IBankParser {
     /(?:Перевод|Пополнение|зачисление)\s+([\d\s]+(?:[.,]\d{1,2})?)\s*(?:₽|р|руб).*?от\s+([А-Яа-яA-Za-z\s]+)/i,
     // SMS "VISA1234 25.07.24 12:34 Зачисление 5000р"
     /\b(?:VISA|MASTERCARD|МИР)?\d{0,4}\s+\d{1,2}\.\d{1,2}(?:\.\d{2,4})?\s+зачисление\s+([\d\s]+(?:[.,]\d{1,2})?)\s*р/i,
+    // "Вам перевели 1 000 ₽"
+    /Вам\s+(?:перевели|поступил(?:о)?)\s+([\d\s]+(?:[.,]\d{1,2})?)\s*(?:₽|р|руб)/i,
   ];
 
   detect(message: string): boolean {
@@ -25,12 +27,14 @@ export class SberbankParser implements IBankParser {
     for (const pattern of this.patterns) {
       const match = message.match(pattern);
       if (match) {
-        const [, amount, senderName, balance] = match;
-        
+        const amount = match[1];
+        const senderName = match[2];
+        const balance = match[3];
+
         return {
           amount: this.parseAmount(amount),
           currency: "RUB",
-          senderName: this.normalizeSenderName(senderName),
+          senderName: senderName ? this.normalizeSenderName(senderName) : undefined,
           balance: balance ? this.parseAmount(balance) : undefined,
         };
       }

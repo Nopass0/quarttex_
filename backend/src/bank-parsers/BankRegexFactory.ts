@@ -5,6 +5,8 @@ import { VTBParser } from "./VTBParser";
 import { AlfabankParser } from "./AlfabankParser";
 import { GazprombankParser } from "./GazprombankParser";
 import { OzonbankParser } from "./OzonbankParser";
+import { HomeCreditParser } from "./HomeCreditParser";
+import { OTPBankParser } from "./OTPBankParser";
 import { GenericSmsParser } from "./GenericSmsParser";
 
 export class BankRegexFactory {
@@ -23,6 +25,8 @@ export class BankRegexFactory {
       new AlfabankParser(),
       new GazprombankParser(),
       new OzonbankParser(),
+      new HomeCreditParser(),
+      new OTPBankParser(),
       new GenericSmsParser(),
     ];
 

@@ -33,6 +33,12 @@ export class NotificationMatcherService extends BaseService {
       extractAmount: (match) => this.parseAmount(match[1])
     },
     {
+      packageName: "com.idamob.tinkoff.android",
+      bankName: "TBANK",
+      regex: /Пополнение,\s*счет\s*RUB\.\s*([\d\s]+[.,]?\d{0,2})\s*(?:₽|RUB)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
       packageName: "ru.tinkoff",
       bankName: "TBANK",
       regex: /Вам перевели\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
@@ -197,6 +203,19 @@ export class NotificationMatcherService extends BaseService {
       regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*руб/i,
       extractAmount: (match) => this.parseAmount(match[1])
     },
+    // Хоум Кредит
+    {
+      packageName: "ru.homecredit.smartbank",
+      bankName: "HOMECREDIT",
+      regex: /(?:Пополнение|Перевод|Поступление|Зачисление|Вам\s+перевели)\s+(?:на\s+)?([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|р)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.homecredit",
+      bankName: "HOMECREDIT",
+      regex: /Вам\s+(?:перевели|поступил(?:о)?)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|р)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
     // МТС Банк
     {
       packageName: "ru.mtsbank.mobile",
@@ -304,6 +323,12 @@ export class NotificationMatcherService extends BaseService {
       packageName: "ru.otpbank.mobile",
       bankName: "OTPBANK",
       regex: /OTP.*?\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.otpbank",
+      bankName: "OTPBANK",
+      regex: /Вам\s+(?:перевели|поступил(?:о)?)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB)/i,
       extractAmount: (match) => this.parseAmount(match[1])
     },
     
