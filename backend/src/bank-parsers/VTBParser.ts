@@ -11,6 +11,8 @@ export class VTBParser implements IBankParser {
     /ВТБ:\s*(?:зачисление|перевод|пополнение)\s+([\d\s]+(?:[.,]\d{1,2})?)\s*р(?:уб)?\.?\s*Отправитель:\s*([А-Яа-яA-Za-z\s\-"'«»]+)/i,
     // SMS format "Поступление 1000р карта *1234"
     /Поступление\s+([\d\s]+(?:[.,]\d{1,2})?)\s*р.*?карта/i,
+    // "Вам перевели 1 000 ₽"
+    /Вам\s+(?:перевели|поступил(?:о)?)\s+([\d\s]+(?:[.,]\d{1,2})?)\s*(?:₽|р|руб)/i,
   ];
 
   detect(message: string): boolean {
@@ -21,12 +23,14 @@ export class VTBParser implements IBankParser {
     for (const pattern of this.patterns) {
       const match = message.match(pattern);
       if (match) {
-        const [, amount, senderName, balance] = match;
-        
+        const amount = match[1];
+        const senderName = match[2];
+        const balance = match[3];
+
         return {
           amount: this.parseAmount(amount),
           currency: "RUB",
-          senderName: senderName.trim(),
+          senderName: senderName ? senderName.trim() : undefined,
           balance: balance ? this.parseAmount(balance) : undefined,
         };
       }
