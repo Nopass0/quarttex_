@@ -747,7 +747,7 @@ export default (app: Elysia) =>
               where: {
                 bankDetailId: bd.id,
                 createdAt: { gte: todayStart, lte: todayEnd },
-                status: { not: Status.CANCELED },
+                status: Status.READY, // Только успешные транзакции для дневного лимита
               },
               _sum: { amount: true },
             }),
@@ -755,7 +755,7 @@ export default (app: Elysia) =>
               where: {
                 bankDetailId: bd.id,
                 createdAt: { gte: monthStart, lte: monthEnd },
-                status: { not: Status.CANCELED },
+                status: Status.READY, // Только успешные транзакции для месячного лимита
               },
               _sum: { amount: true },
             }),
@@ -763,7 +763,7 @@ export default (app: Elysia) =>
               where: {
                 bankDetailId: bd.id,
                 createdAt: { gte: todayStart, lte: todayEnd },
-                status: { not: Status.CANCELED },
+                status: Status.READY, // Только успешные транзакции для лимита количества
               },
               _count: { _all: true },
             }),
@@ -778,15 +778,15 @@ export default (app: Elysia) =>
           const newMon = (monSum ?? 0) + amount;
 
           if (bd.dailyLimit > 0 && newDay > bd.dailyLimit) {
-            console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение дневного лимита. Текущий: ${daySum ?? 0}, новый: ${newDay}, лимит: ${bd.dailyLimit}`);
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение дневного лимита по успешным сделкам. Текущий: ${daySum ?? 0}, новый: ${newDay}, лимит: ${bd.dailyLimit}`);
             continue;
           }
           if (bd.monthlyLimit > 0 && newMon > bd.monthlyLimit) {
-            console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение месячного лимита. Текущий: ${monSum ?? 0}, новый: ${newMon}, лимит: ${bd.monthlyLimit}`);
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение месячного лимита по успешным сделкам. Текущий: ${monSum ?? 0}, новый: ${newMon}, лимит: ${bd.monthlyLimit}`);
             continue;
           }
           if (bd.maxCountTransactions && bd.maxCountTransactions > 0 && dayCnt + 1 > bd.maxCountTransactions) {
-            console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение лимита транзакций. Текущий: ${dayCnt}, лимит: ${bd.maxCountTransactions}`);
+            console.log(`[Merchant] Реквизит ${bd.id} отклонен: превышение лимита успешных транзакций. Текущий: ${dayCnt}, лимит: ${bd.maxCountTransactions}`);
             continue;
           }
 

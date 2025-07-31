@@ -73,7 +73,7 @@ const traderNavItems: NavItem[] = [
   },
   {
     title: "БТ-Вход",
-    href: "/trader/bt-entry",
+    href: "/trader/bt-entrance",
     icon: AlertCircle,
   },
   {

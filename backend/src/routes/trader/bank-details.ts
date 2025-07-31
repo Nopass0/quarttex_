@@ -216,7 +216,8 @@ export default (app: Elysia) =>
           "RAIFF": "RAIFFEISEN",
           "POCHTA": "POCHTABANK",
           "RSHB": "ROSSELKHOZBANK",
-          "MTS": "MTSBANK"
+          "MTS": "MTSBANK",
+          "OTP": "OTPBANK"
         };
         
         const mappedBankType = bankTypeMap[body.bankType] || body.bankType;

@@ -28,7 +28,8 @@ import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import { useTraderAuth } from "@/stores/auth";
 import { formatAmount } from "@/lib/utils";
-import { BtEntranceList, AddBtRequisiteForm } from "./bt-entrance-list";
+import { BtEntranceList } from "./bt-entrance-list";
+import { BtRequisitesSheet } from "./bt-requisites-sheet";
 import {
   Loader2,
   Search,
@@ -191,8 +192,7 @@ export function BtEntranceDeals() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("deals");
-  const [showRequisitesDialog, setShowRequisitesDialog] = useState(false);
-  const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
+  const [showRequisitesSheet, setShowRequisitesSheet] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -287,58 +287,13 @@ export function BtEntranceDeals() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={showRequisitesDialog} onOpenChange={setShowRequisitesDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Settings className="h-4 w-4 mr-2" />
-                Реквизиты БТ
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Управление реквизитами БТ-входа</DialogTitle>
-              </DialogHeader>
-              <BtEntranceList 
-                onAddRequisiteClick={() => {
-                  setShowRequisitesDialog(false);
-                  setShowAddRequisiteDialog(true);
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-
-          {/* Add Requisite Dialog */}
-          <Dialog 
-            open={showAddRequisiteDialog} 
-            onOpenChange={(open) => {
-              setShowAddRequisiteDialog(open);
-              if (!open) {
-                // When closing add requisite dialog, reopen the requisites list dialog
-                setShowRequisitesDialog(true);
-              }
-            }}
-          >
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Добавление реквизита БТ-входа</DialogTitle>
-              </DialogHeader>
-              <AddBtRequisiteForm
-                onSuccess={async (newRequisite) => {
-                  toast.success("Реквизит успешно добавлен");
-                  setShowAddRequisiteDialog(false);
-                  // Reopen the requisites list dialog
-                  setShowRequisitesDialog(true);
-                }}
-                onCancel={() => {
-                  setShowAddRequisiteDialog(false);
-                  // Reopen the requisites list dialog
-                  setShowRequisitesDialog(true);
-                }}
-                loading={false}
-                setLoading={() => {}}
-              />
-            </DialogContent>
-          </Dialog>
+          <Button variant="outline" onClick={() => {
+            console.log('Opening BT Requisites Sheet');
+            setShowRequisitesSheet(true);
+          }}>
+            <Settings className="h-4 w-4 mr-2" />
+            Реквизиты БТ
+          </Button>
         </div>
       </div>
 
@@ -525,6 +480,16 @@ export function BtEntranceDeals() {
           </Button>
         </div>
       )}
+
+      {/* BT Requisites Sheet */}
+      {console.log('showRequisitesSheet state:', showRequisitesSheet)}
+      <BtRequisitesSheet
+        open={showRequisitesSheet}
+        onOpenChange={setShowRequisitesSheet}
+        onSuccess={() => {
+          // Optionally refresh deals after adding new requisite
+        }}
+      />
     </div>
   );
 }

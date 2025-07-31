@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { AuthLayout } from "@/components/layouts/auth-layout";
 import { Card } from "@/components/ui/card";
@@ -77,8 +77,7 @@ import { cn, formatAmount } from "@/lib/utils";
 import QRCode from "qrcode";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AddRequisiteDialog } from "@/components/trader/add-requisite-dialog";
-import { EditRequisiteDialog } from "@/components/trader/edit-requisite-dialog";
+import { DeviceRequisitesSheet } from "@/components/trader/device-requisites-sheet";
 import { getDeviceStatusWebSocket, DeviceStatusUpdate } from "@/services/device-status-ws";
 import { deviceWSManager } from "@/services/device-ws-manager";
 import { DeviceEmulator } from "@/services/device-emulator";
@@ -163,6 +162,10 @@ interface Message {
 export default function DeviceDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromTransaction = searchParams.get('from') === 'transaction';
+  const transactionId = searchParams.get('transactionId');
+  
   const [device, setDevice] = useState<DeviceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("messages");
@@ -173,10 +176,9 @@ export default function DeviceDetailsPage() {
   const [loadingDisputes, setLoadingDisputes] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
-  const [showAddRequisiteDialog, setShowAddRequisiteDialog] = useState(false);
+  const [showRequisitesSheet, setShowRequisitesSheet] = useState(false);
   const [hideArchived, setHideArchived] = useState(false);
-  const [showEditRequisiteDialog, setShowEditRequisiteDialog] = useState(false);
-  const [selectedRequisite, setSelectedRequisite] = useState<any | null>(null);
+  const [editingRequisite, setEditingRequisite] = useState<any | null>(null);
   const [serverError, setServerError] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [messageSearch, setMessageSearch] = useState("");
@@ -777,7 +779,14 @@ export default function DeviceDetailsPage() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 sm:h-10 sm:w-10"
-                onClick={() => router.push("/trader/devices")}
+                onClick={() => {
+                  if (fromTransaction && transactionId) {
+                    // Return to the deals page with the transaction selected
+                    router.push(`/trader/dashboard?selectedTransaction=${transactionId}`);
+                  } else {
+                    router.push("/trader/devices");
+                  }
+                }}
               >
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
@@ -1106,7 +1115,7 @@ export default function DeviceDetailsPage() {
                     <Button
                       size="sm"
                       className="h-8 px-3 bg-[#006039] hover:bg-[#006039]/90 w-full sm:w-auto"
-                      onClick={() => setShowAddRequisiteDialog(true)}
+                      onClick={() => setShowRequisitesSheet(true)}
                     >
                       <CreditCard className="h-4 w-4 mr-2" />
                       Добавить
@@ -1145,8 +1154,8 @@ export default function DeviceDetailsPage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
-                                  setSelectedRequisite(req);
-                                  setShowEditRequisiteDialog(true);
+                                  setEditingRequisite(req);
+                                  setShowRequisitesSheet(true);
                                 }}
                               >
                                 <Edit className="h-4 w-4" />
@@ -1695,18 +1704,21 @@ export default function DeviceDetailsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Add Requisite Dialog */}
-        <AddRequisiteDialog
-          open={showAddRequisiteDialog}
-          onOpenChange={setShowAddRequisiteDialog}
-          deviceId={device?.id}
-          onSuccess={fetchDevice}
-        />
-        <EditRequisiteDialog
-          open={showEditRequisiteDialog}
-          onOpenChange={setShowEditRequisiteDialog}
-          requisite={selectedRequisite}
-          onSuccess={fetchDevice}
+        {/* Device Requisites Sheet */}
+        <DeviceRequisitesSheet
+          open={showRequisitesSheet}
+          onOpenChange={(open) => {
+            setShowRequisitesSheet(open);
+            if (!open) {
+              setEditingRequisite(null);
+            }
+          }}
+          deviceId={device?.id || ""}
+          existingRequisite={editingRequisite}
+          onSuccess={() => {
+            fetchDevice();
+            setEditingRequisite(null);
+          }}
         />
       </AuthLayout>
     </ProtectedRoute>

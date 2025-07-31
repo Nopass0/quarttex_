@@ -420,7 +420,8 @@ export default class PayoutRedistributionService extends BaseService {
         where: { serviceKey: "payout_redistribution_metrics" },
         create: {
           serviceKey: "payout_redistribution_metrics",
-          config: metrics
+          config: metrics,
+          isEnabled: true
         },
         update: {
           config: metrics

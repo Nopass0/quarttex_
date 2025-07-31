@@ -111,10 +111,6 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         traderId: trader.id,
         // Проверяем, что транзакция связана с реквизитом
         bankDetailId: { not: null },
-        // БТ-сделки - это сделки по реквизитам без устройства
-        requisites: {
-          deviceId: null,
-        },
       };
 
       // Add status filter if provided
@@ -133,24 +129,29 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
 
       console.log("[BT-Entrance] Query where conditions:", JSON.stringify(where, null, 2));
       
-      const [deals, total] = await Promise.all([
-        db.transaction.findMany({
-          where,
-          include: {
-            merchant: true,
-            requisites: true,
-          },
-          orderBy: { createdAt: "desc" },
-          skip: offset,
-          take: limit,
-        }),
-        db.transaction.count({ where }),
-      ]);
+      // First fetch all transactions with requisites for this trader
+      const allDeals = await db.transaction.findMany({
+        where,
+        include: {
+          merchant: true,
+          requisites: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
       
-      console.log(`[BT-Entrance] Found ${deals.length} deals, total: ${total}`);
+      // Filter to only include BT deals (requisites without devices)
+      const btDeals = allDeals.filter(deal => {
+        return deal.requisites && deal.requisites.deviceId === null;
+      });
+      
+      // Apply pagination to filtered results
+      const paginatedDeals = btDeals.slice(offset, offset + limit);
+      const total = btDeals.length;
+      
+      console.log(`[BT-Entrance] Found ${paginatedDeals.length} BT deals out of ${allDeals.length} total deals, filtered total: ${total}`);
 
       return {
-        data: deals.map(formatBtDeal),
+        data: paginatedDeals.map(formatBtDeal),
         total,
         page,
         limit,
@@ -186,11 +187,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         where: {
           id: params.id,
           traderId: trader.id,
-          // Проверяем что транзакция связана с реквизитом без устройства
+          // Проверяем что транзакция связана с реквизитом
           bankDetailId: { not: null },
-          requisites: {
-            deviceId: null, // Ensure it's a BT deal
-          },
         },
         include: {
           requisites: true,
@@ -201,6 +199,11 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
 
       if (!deal) {
         return error(404, { error: "BT сделка не найдена" });
+      }
+      
+      // Ensure it's actually a BT deal (requisite without device)
+      if (deal.requisites && deal.requisites.deviceId !== null) {
+        return error(404, { error: "Это не BT сделка" });
       }
 
       // Если статус меняется на READY, нужно выполнить финансовые операции

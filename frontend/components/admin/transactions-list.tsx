@@ -472,6 +472,34 @@ export function TransactionsList() {
     }
   }
 
+  const handleManualApprove = async (transactionId: string) => {
+    try {
+      setIsLoading(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/transactions/${transactionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || '',
+        },
+        body: JSON.stringify({ status: 'READY' }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to approve transaction')
+      }
+      
+      setIsDetailsDialogOpen(false)
+      setSelectedTransaction(null)
+      await fetchTransactions()
+      toast.success('Транзакция одобрена вручную')
+    } catch (error: any) {
+      toast.error(error.message || 'Не удалось одобрить транзакцию')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const openEditDialog = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
     setFormData({
@@ -1042,6 +1070,17 @@ export function TransactionsList() {
             </div>
           )}
           <DialogFooter>
+            {selectedTransaction?.status === 'EXPIRED' && (
+              <Button
+                variant="default"
+                className="bg-orange-600 hover:bg-orange-700"
+                onClick={() => handleManualApprove(selectedTransaction.id)}
+                disabled={isLoading}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Одобрить вручную
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => {

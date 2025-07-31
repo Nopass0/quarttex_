@@ -98,6 +98,7 @@ const AVAILABLE_BANKS = [
   { code: "MTSBANK", label: "МТС Банк" },
   { code: "OZONBANK", label: "Озон Банк" },
   { code: "RENAISSANCE", label: "Ренессанс" },
+  { code: "OTP", label: "ОТП Банк" },
   { code: "AVANGARD", label: "Авангард" },
   { code: "RNKB", label: "РНКБ" },
   { code: "LOKOBANK", label: "Локо-Банк" },
@@ -245,7 +246,7 @@ export function AddRequisiteDialog({
         ...data,
         methodId: actualMethod?.id || data.methodId,
         methodType: selectedMethod.type,
-        intervalMinutes: 5, // Default interval
+        intervalMinutes: 5, // Требуется бэкендом
         // Set cardNumber as phoneNumber for SBP method
         cardNumber: selectedMethod.type === "sbp" ? (data.phoneNumber || "") : (data.cardNumber || ""),
       };

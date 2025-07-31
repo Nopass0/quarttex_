@@ -42,7 +42,7 @@ import {
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import { useTraderAuth } from "@/stores/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTraderStore } from "@/stores/trader";
 import { TraderHeader } from "@/components/trader/trader-header";
 import {
@@ -273,6 +273,7 @@ export function DealsList() {
   const [methodSearch, setMethodSearch] = useState("");
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setFinancials = useTraderStore((state) => state.setFinancials);
   const financials = useTraderStore((state) => state.financials);
 
@@ -317,6 +318,21 @@ export function DealsList() {
       toast.error("Не удалось закрыть сделку");
     }
   };
+
+  // Handle selectedTransaction from query params
+  useEffect(() => {
+    const selectedTransactionId = searchParams.get('selectedTransaction');
+    if (selectedTransactionId && transactions.length > 0) {
+      const transaction = transactions.find(t => t.id === selectedTransactionId);
+      if (transaction) {
+        setSelectedTransaction(transaction);
+        // Remove the query param after handling it
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('selectedTransaction');
+        router.replace(`${window.location.pathname}${newSearchParams.toString() ? '?' + newSearchParams.toString() : ''}`);
+      }
+    }
+  }, [searchParams, transactions, router]);
 
   // Infinite scroll handler
   useEffect(() => {
@@ -1839,7 +1855,8 @@ export function DealsList() {
                         {transaction.numericId}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">
-                        {transaction.method?.name || "—"}
+                        {devices.find(d => d.id === transaction.deviceId)?.name || 
+                         transaction.method?.name || "—"}
                       </div>
                       {/* Mobile status */}
                       <div className="sm:hidden mt-1">
@@ -2182,7 +2199,7 @@ export function DealsList() {
                           onClick={() => {
                             if (selectedTransaction.deviceId) {
                               router.push(
-                                `/trader/devices/${selectedTransaction.deviceId}`,
+                                `/trader/devices/${selectedTransaction.deviceId}?from=transaction&transactionId=${selectedTransaction.id}`,
                               );
                             } else {
                               toast.error("ID устройства не найден");
@@ -2195,7 +2212,8 @@ export function DealsList() {
                             </div>
                             <div className="text-left">
                               <p className="text-sm font-medium dark:text-white">
-                                {selectedTransaction.method.id}
+                                {devices.find(d => d.id === selectedTransaction.deviceId)?.name || 
+                                 "Устройство"}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedTransaction.method.name}
@@ -2283,11 +2301,17 @@ export function DealsList() {
                           Срок сделки истек
                         </p>
                         <Button
+                          className="w-full bg-orange-600 hover:bg-orange-700"
+                          onClick={() => manualCloseTransaction(selectedTransaction.id)}
+                        >
+                          Закрыть вручную
+                        </Button>
+                        <Button
                           className="w-full"
                           variant="outline"
                           onClick={() => setSelectedTransaction(null)}
                         >
-                          Закрыть
+                          Отмена
                         </Button>
                       </div>
                     ) : (

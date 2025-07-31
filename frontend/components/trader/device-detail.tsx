@@ -14,6 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   ArrowLeft, 
   Smartphone, 
@@ -34,11 +40,16 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2,
+  MoreVertical,
+  Plus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { traderApi } from '@/services/api'
 import { formatDateTime, cn } from '@/lib/utils'
+import { DeviceRequisitesSheet } from '@/components/trader/device-requisites-sheet'
 
 interface DeviceDetailProps {
   deviceId: string
@@ -53,12 +64,16 @@ interface Device {
   energy: number
   notifications: number
   token?: string
-  bankDetails?: Array<{
+  linkedBankDetails?: Array<{
     id: string
     bankType: string
     cardNumber: string
     recipientName: string
-    isActive: boolean
+    isArchived: boolean
+    turnoverDay: number
+    turnoverTotal: number
+    dailyLimit: number
+    monthlyLimit: number
   }>
   recentNotifications?: Array<{
     id: string
@@ -101,6 +116,8 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [activeTab, setActiveTab] = useState('info')
   const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [showRequisitesSheet, setShowRequisitesSheet] = useState(false)
+  const [editingRequisite, setEditingRequisite] = useState<any>(null)
 
   useEffect(() => {
     fetchDevice()
@@ -135,7 +152,7 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
       const allTransactions = response.data || response.transactions || []
       
       // Get all requisites (bank details) linked to this device
-      const deviceRequisiteIds = device.bankDetails?.map(bd => bd.id) || []
+      const deviceRequisiteIds = device.linkedBankDetails?.map(bd => bd.id) || []
       
       console.log('Device ID:', deviceId)
       console.log('Device requisite IDs:', deviceRequisiteIds)
@@ -185,6 +202,11 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
     } catch (error) {
       toast.error('Не удалось обновить токен')
     }
+  }
+
+  const handleEdit = (requisite: any) => {
+    setEditingRequisite(requisite)
+    setShowRequisitesSheet(true)
   }
 
   if (loading || !device) {
@@ -311,7 +333,7 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
         <TabsList>
           <TabsTrigger value="info">
             <CreditCard className="w-4 h-4 mr-2" />
-            Реквизиты ({device.bankDetails?.length || 0})
+            Реквизиты ({device.linkedBankDetails?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="notifications">
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -372,10 +394,20 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Привязанные реквизиты</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Привязанные реквизиты</CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowRequisitesSheet(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Добавить реквизит
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {device.bankDetails && device.bankDetails.length > 0 ? (
+              {device.linkedBankDetails && device.linkedBankDetails.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -383,11 +415,13 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
                         <TableHead>Банк</TableHead>
                         <TableHead>Номер карты</TableHead>
                         <TableHead>Получатель</TableHead>
+                        <TableHead>Дневной трафик</TableHead>
                         <TableHead>Статус</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {device.bankDetails.map((bank) => (
+                      {device.linkedBankDetails.map((bank) => (
                         <TableRow key={bank.id}>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -400,9 +434,49 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
                           </TableCell>
                           <TableCell>{bank.recipientName}</TableCell>
                           <TableCell>
-                            <Badge variant={bank.isActive ? "default" : "secondary"}>
-                              {bank.isActive ? 'Активен' : 'Неактивен'}
+                            <div className="text-sm">
+                              <span className="font-medium">{bank.turnoverDay.toLocaleString('ru-RU')} ₽</span>
+                              <span className="text-gray-500"> / {bank.dailyLimit.toLocaleString('ru-RU')} ₽</span>
+                              <div className="text-xs text-gray-400">
+                                {bank.dailyLimit > 0 ? `${((bank.turnoverDay / bank.dailyLimit) * 100).toFixed(1)}%` : '∞'}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={bank.isArchived ? "secondary" : "default"}>
+                              {bank.isArchived ? 'В архиве' : 'Активен'}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleEdit(bank)}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Редактировать
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    try {
+                                      await traderApi.unlinkDevice(deviceId, bank.id)
+                                      toast.success('Реквизит отвязан от устройства')
+                                      fetchDevice()
+                                    } catch (error) {
+                                      toast.error('Не удалось отвязать реквизит')
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Отвязать
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -550,6 +624,23 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Device Requisites Sheet */}
+      <DeviceRequisitesSheet
+        open={showRequisitesSheet}
+        onOpenChange={(open) => {
+          setShowRequisitesSheet(open);
+          if (!open) {
+            setEditingRequisite(null);
+          }
+        }}
+        deviceId={device.id}
+        existingRequisite={editingRequisite}
+        onSuccess={() => {
+          fetchDevice();
+          setEditingRequisite(null);
+        }}
+      />
     </div>
   )
 }

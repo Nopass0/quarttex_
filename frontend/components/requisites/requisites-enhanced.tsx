@@ -319,7 +319,9 @@ export function RequisitesEnhanced() {
       )
   
   const getTrafficPercentage = (current: number, limit: number) => {
-    return limit > 0 ? (current / limit) * 100 : 0
+    if (limit <= 0) return 0
+    const percentage = (current / limit) * 100
+    return Math.min(percentage, 100) // Cap at 100%
   }
   
   const getTrafficColor = (percentage: number) => {
@@ -470,6 +472,9 @@ export function RequisitesEnhanced() {
                       <span className="text-gray-500">Дневной трафик</span>
                       <span className="font-medium">
                         {requisite.turnoverDay.toLocaleString('ru-RU')} / {requisite.dailyLimit.toLocaleString('ru-RU')} ₽
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({getTrafficPercentage(requisite.turnoverDay, requisite.dailyLimit).toFixed(1)}%)
+                        </span>
                       </span>
                     </div>
                     <Progress 
@@ -484,6 +489,9 @@ export function RequisitesEnhanced() {
                       <span className="text-gray-500">Месячный трафик</span>
                       <span className="font-medium">
                         {requisite.turnoverTotal.toLocaleString('ru-RU')} / {requisite.monthlyLimit.toLocaleString('ru-RU')} ₽
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({getTrafficPercentage(requisite.turnoverTotal, requisite.monthlyLimit).toFixed(1)}%)
+                        </span>
                       </span>
                     </div>
                     <Progress 

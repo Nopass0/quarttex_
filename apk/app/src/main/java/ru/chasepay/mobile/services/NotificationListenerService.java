@@ -96,25 +96,70 @@ public class NotificationListenerService extends android.service.notification.No
         
         // Banking app package names
         String[] bankingApps = {
+            // Major banks
             "com.sberbank",
             "ru.sberbankmobile",
             "com.idamob.tinkoff",
+            "ru.tinkoff.sme",
             "ru.tinkoff",
             "ru.alfabank",
+            "ru.alfabank.mobile.android",
             "ru.vtb24",
+            "ru.vtb",
             "com.rbs",
             "ru.rosbank",
             "ru.raiffeisen",
+            "ru.raiffeisenbank",
             "com.openbank",
             "ru.psbank",
+            "ru.promsvyazbank",
+            "ru.gazprombank.android",
             "ru.gazprombank",
             "ru.sovcombank",
+            "ru.sovcombank.app",
+            
+            // Other popular banks
+            "ru.pochtabank",
+            "ru.otpbank",
+            "ru.otpbank.mobile",
+            "ru.rshb",
+            "ru.rosselkhozbank.rshb",
+            "ru.uralsib.mb",
+            "ru.mkb",
+            "ru.mkb.mobile",
+            "com.bssys.bspb",
+            "ru.bspb",
+            "com.fakemobile.rnkb",
+            "ru.rnkb",
+            "ru.mtsbank.android",
+            "ru.akbars",
+            "ru.absolutbank.android",
+            "ru.avangard",
+            "com.ubrir.mobile",
+            "ru.ubrir",
+            "ru.homecreditbank",
+            "ru.ozonbank",
+            "ru.ozon.bank",
+            "ru.zenit",
+            "ru.russianstandard",
+            "com.isimplelab.renaissance",
+            "ru.renaissance",
+            "ru.siab.android",
+            "ru.sinara",
+            "ru.genbank",
+            "ru.lockobank",
+            "ru.bcs.bank",
+            "ru.bcs",
+            
+            // Payment systems
             "com.yandex.money",
             "ru.yoomoney",
             "com.qiwi.wallet",
             "ru.mts.money",
             "com.paypal",
-            "ru.beeline.pay"
+            "ru.beeline.pay",
+            "ru.sbp.nspk",
+            "ru.nspk.sbpay"
         };
         
         for (String app : bankingApps) {

@@ -12,47 +12,107 @@ interface BankMatcher {
 
 export class NotificationMatcherService extends BaseService {
   private bankMatchers: BankMatcher[] = [
+    // Акбарс Банк
     {
       packageName: "ru.akbars.mobile",
       bankName: "AKBARS",
-      regex: /(Пополнение|Перевод).*?Сумма:\s*([\d\s]+[.,]?\d{0,2})\s*(?:RUR|₽)/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?(?:Сумма:|на сумму)\s*([\d\s]+[.,]?\d{0,2})\s*(?:RUR|₽|руб)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.akbars",
+      bankName: "AKBARS",
+      regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Тинькофф / T-Bank
     {
       packageName: "com.idamob.tinkoff.android",
       bankName: "TBANK",
-      regex: /(Пополнение|Перевод)\s+на\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Поступление)\s+(?:на\s+)?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.tinkoff",
+      bankName: "TBANK",
+      regex: /Вам перевели\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.tinkoff.sme",
+      bankName: "TBANK",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽.*?(?:от|Перевод)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Сбербанк
     {
       packageName: "ru.sberbankmobile",
       bankName: "SBERBANK",
-      regex: /(?:зачислен перевод по СБП|Пополнение.*?на|Перевод|Поступление|Зачисление|зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|р|руб)/i,
+      regex: /(?:зачислен перевод по СБП|Пополнение.*?на|Перевод от|Поступление|Зачисление)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|р|руб)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "com.sberbank",
+      bankName: "SBERBANK",
+      regex: /СБЕР.*?\+([\d\s]+[.,]?\d{0,2})\s*₽/i,
       extractAmount: (match) => this.parseAmount(match[1])
     },
     {
       packageName: "ru.sberbank.android",
       bankName: "SBERBANK",
-      regex: /(Пополнение|Перевод|Зачисление|Поступление)[^\d]+([\d\s]+[.,]?\d{0,2})\s*[₽р]/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /Вам перевели\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    // ВТБ
     {
       packageName: "ru.vtb24.mobilebanking.android",
       bankName: "VTB",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Поступление|Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.vtb24",
+      bankName: "VTB",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽.*?(?:перевод|пополнение)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.vtb",
+      bankName: "VTB",
+      regex: /Зачислено\s+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Альфа-Банк
     {
       packageName: "ru.alfabank.mobile.android",
       bankName: "ALFABANK",
-      regex: /(Пополнение|Перевод)\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение счета|Перевод от|Поступление)\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.alfabank",
+      bankName: "ALFABANK",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽.*?(?:Перевод|от)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Газпромбанк
     {
       packageName: "ru.gazprombank.android.mobilebank.app",
       bankName: "GAZPROMBANK",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.gazprombank.android",
+      bankName: "GAZPROMBANK",
+      regex: /Поступил перевод\s+([\d\s]+[.,]?\d{0,2})\s*руб/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.gazprombank",
+      bankName: "GAZPROMBANK",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
     {
       packageName: "ru.ftc.faktura.sovkombank",
@@ -79,47 +139,114 @@ export class NotificationMatcherService extends BaseService {
       extractAmount: (match) => this.parseAmount(match[2])
     },
     // Дополнительные банки
+    // Райффайзенбанк
     {
       packageName: "ru.raiffeisen.mobile.new",
       bankName: "RAIFFEISEN",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод от|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.raiffeisen",
+      bankName: "RAIFFEISEN",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*RUB.*?перевод/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.raiffeisenbank",
+      bankName: "RAIFFEISEN",
+      regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Почта Банк
     {
       packageName: "ru.pochta.bank",
       bankName: "POCHTABANK",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.pochtabank",
+      bankName: "POCHTABANK",
+      regex: /Вам поступил перевод\s+([\d\s]+[.,]?\d{0,2})\s*руб/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Уралсиб
     {
       packageName: "ru.uralsib.mobile",
       bankName: "URALSIB",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.uralsib.mb",
+      bankName: "URALSIB",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // МКБ (Московский Кредитный Банк)
     {
       packageName: "ru.mkb.mobile",
       bankName: "MKB",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.mkb",
+      bankName: "MKB",
+      regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*руб/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // МТС Банк
     {
       packageName: "ru.mtsbank.mobile",
       bankName: "MTSBANK",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Поступление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.mtsbank.android",
+      bankName: "MTSBANK",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽.*?перевод/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Промсвязьбанк / ПСБ
     {
       packageName: "ru.psbank.mobile",
       bankName: "PROMSVYAZBANK",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.psbank",
+      bankName: "PROMSVYAZBANK",
+      regex: /ПСБ.*?\+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.promsvyazbank",
+      bankName: "PROMSVYAZBANK",
+      regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Ozon Банк
     {
       packageName: "ru.ozon.app.android",
       bankName: "OZONBANK",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод от|Поступление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.ozonbank",
+      bankName: "OZONBANK",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽.*?(?:перевод|от)/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.ozon.bank",
+      bankName: "OZONBANK",
+      regex: /Ozon.*?Банк.*?\+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
     {
       packageName: "com.citi.citimobile",
@@ -133,17 +260,143 @@ export class NotificationMatcherService extends BaseService {
       regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
       extractAmount: (match) => this.parseAmount(match[2])
     },
+    // Росбанк
     {
       packageName: "ru.rosbank.android",
       bankName: "ROSBANK",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     },
+    {
+      packageName: "ru.rosbank",
+      bankName: "ROSBANK",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "com.rbs",
+      bankName: "ROSBANK",
+      regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    // Русский Стандарт
     {
       packageName: "ru.rs.mobilebank",
       bankName: "RUSSIANSTANDARD",
-      regex: /(Пополнение|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
-      extractAmount: (match) => this.parseAmount(match[2])
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.russianstandard",
+      bankName: "RUSSIANSTANDARD",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // ОТП Банк
+    {
+      packageName: "ru.otpbank",
+      bankName: "OTPBANK",
+      regex: /(?:Пополнение|Перевод от|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.otpbank.mobile",
+      bankName: "OTPBANK",
+      regex: /OTP.*?\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // Россельхозбанк
+    {
+      packageName: "ru.rshb",
+      bankName: "ROSSELKHOZBANK",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.rosselkhozbank.rshb",
+      bankName: "ROSSELKHOZBANK",
+      regex: /РСХБ.*?\+([\d\s]+[.,]?\d{0,2})\s*руб/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.rshb.mbank",
+      bankName: "ROSSELKHOZBANK",
+      regex: /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // Банк Санкт-Петербург (БСПБ)
+    {
+      packageName: "com.bssys.bspb",
+      bankName: "SPBBANK",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.bspb",
+      bankName: "SPBBANK",
+      regex: /БСПБ.*?\+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // Авангард
+    {
+      packageName: "ru.avangard",
+      bankName: "AVANGARD",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // РНКБ
+    {
+      packageName: "com.fakemobile.rnkb",
+      bankName: "RNKB",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.rnkb",
+      bankName: "RNKB",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // Зенит
+    {
+      packageName: "ru.zenit",
+      bankName: "ZENIT",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // УБРиР
+    {
+      packageName: "com.ubrir.mobile",
+      bankName: "UBRIR",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.ubrir",
+      bankName: "UBRIR",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*руб/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    
+    // Синара Банк
+    {
+      packageName: "ru.siab.android",
+      bankName: "SINARA",
+      regex: /(?:Пополнение|Перевод|Зачисление).*?([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.sinara",
+      bankName: "SINARA",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
     }
   ];
 
