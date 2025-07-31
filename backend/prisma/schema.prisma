@@ -235,6 +235,8 @@ model Transaction {
   method                Method              @relation(fields: [methodId], references: [id])
   settlement            MerchantSettlement? @relation(fields: [settlementId], references: [id])
   trader                User?               @relation("TraderTransactions", fields: [traderId], references: [id])
+
+  @@index([bankDetailId, amount])
 }
 
 model Receipt {

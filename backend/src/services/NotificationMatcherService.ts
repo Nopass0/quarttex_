@@ -437,10 +437,13 @@ export class NotificationMatcherService extends BaseService {
   protected async tick(): Promise<void> {
     try {
       // Получаем все новые уведомления
+      const startTime = Date.now();
+      let processedCount = 0;
+
       const newNotifications = await db.notification.findMany({
         where: {
           type: NotificationType.AppNotification,
-          isRead: false,
+          isProcessed: false,
           deviceId: { not: null }
         },
         include: {
@@ -459,6 +462,12 @@ export class NotificationMatcherService extends BaseService {
       for (const notification of newNotifications) {
         await this.processNotification(notification);
       }
+
+      processedCount = newNotifications.length;
+
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationMatcherService] Processed ${processedCount} notifications in ${duration}ms`);
+      await this.logInfo("NotificationMatcher tick completed", { processedCount, durationMs: duration });
     } catch (error) {
       console.error("[NotificationMatcherService] Error processing notifications:", error);
     }
@@ -705,5 +714,5 @@ export class NotificationMatcherService extends BaseService {
     }
   }
 
-  protected interval = 5000; // Проверяем каждые 5 секунд
+  protected interval = parseInt(process.env.NOTIFICATION_MATCHER_INTERVAL ?? "1000", 10); // Проверяем каждую секунду по умолчанию
 }
