@@ -779,21 +779,28 @@ export default (app: Elysia) =>
         }
 
         // Проверяем, можно ли обновить статус транзакции
-        if (
-          transaction.status === Status.EXPIRED ||
-          transaction.status === Status.CANCELED
-        ) {
+        if (transaction.status === Status.CANCELED) {
           return error(400, {
             error: "Невозможно обновить статус завершенной транзакции",
           });
         }
 
-        // Разрешено менять IN_PROGRESS на READY и READY на COMPLETED
+        const isExpiredToCompleted =
+          transaction.status === Status.EXPIRED &&
+          body.status === Status.COMPLETED;
+
+        const isReadyTransition =
+          body.status === Status.READY || isExpiredToCompleted;
+
+        // Разрешенные переходы статусов
         if (
           (transaction.status === Status.IN_PROGRESS &&
             body.status === Status.READY) ||
           (transaction.status === Status.READY &&
-            body.status === Status.COMPLETED)
+            body.status === Status.COMPLETED) ||
+          (transaction.status === Status.EXPIRED &&
+            body.status === Status.READY) ||
+          isExpiredToCompleted
         ) {
           // Allowed transitions
         } else {
@@ -806,7 +813,7 @@ export default (app: Elysia) =>
         // Обновляем статус транзакции
         const updateData: any = { status: body.status };
 
-        if (body.status === Status.READY) {
+        if (isReadyTransition) {
           updateData.acceptedAt = new Date();
 
           // Calculate and set traderProfit if not already set
@@ -831,7 +838,9 @@ export default (app: Elysia) =>
               updateData.traderProfit = Math.trunc(profit * 100) / 100;
             }
           }
-        } else if (body.status === Status.COMPLETED) {
+        }
+
+        if (body.status === Status.COMPLETED) {
           updateData.completedAt = new Date();
         }
 
@@ -843,7 +852,7 @@ export default (app: Elysia) =>
         // If IN transaction moved to READY, handle freezing and merchant balance
         if (
           transaction.type === TransactionType.IN &&
-          body.status === Status.READY
+          isReadyTransition
         ) {
           await db.$transaction(async (prisma) => {
             // Начисляем мерчанту
@@ -892,7 +901,7 @@ export default (app: Elysia) =>
         // If OUT transaction moved to READY, deduct from trust balance
         if (
           transaction.type === TransactionType.OUT &&
-          body.status === Status.READY
+          isReadyTransition
         ) {
           const stake = trader.stakePercent ?? 0;
           const commission = trader.profitPercent ?? 0;
