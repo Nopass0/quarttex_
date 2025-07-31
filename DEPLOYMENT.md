@@ -115,9 +115,10 @@ To update to the latest version:
 
 ```bash
 git pull origin main
-docker-compose up -d --build
-docker-compose exec backend npx prisma migrate deploy
+./deploy.sh
 ```
+
+The `deploy.sh` script mirrors the deployment steps used in GitHub Actions. It rebuilds containers, applies database migrations and verifies that all services are healthy.
 
 ## Troubleshooting
 
