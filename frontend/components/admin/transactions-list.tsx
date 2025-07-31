@@ -205,6 +205,7 @@ export function TransactionsList() {
   const [meta, setMeta] = useState<Meta>({ total: 0, page: 1, limit: 20, totalPages: 0 })
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [isRecalcDialogOpen, setIsRecalcDialogOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -231,6 +232,7 @@ export function TransactionsList() {
     clientName: '',
     traderId: '',
   })
+  const [recalcAmount, setRecalcAmount] = useState(0)
 
   useEffect(() => {
     fetchTransactions()
@@ -472,6 +474,33 @@ export function TransactionsList() {
     }
   }
 
+  const handleRecalcTransaction = async () => {
+    if (!selectedTransaction) return
+    try {
+      setIsLoading(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/transactions/${selectedTransaction.id}/recalc`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminToken || '',
+        },
+        body: JSON.stringify({ amount: recalcAmount }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => null)
+        throw new Error(err?.error || 'Failed to recalc transaction')
+      }
+      setIsRecalcDialogOpen(false)
+      setSelectedTransaction(null)
+      await fetchTransactions()
+      toast.success('Транзакция перерасчитана')
+    } catch (e: any) {
+      toast.error(e.message || 'Не удалось перерасчитать')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleManualApprove = async (transactionId: string) => {
     try {
       setIsLoading(true)
@@ -509,6 +538,12 @@ export function TransactionsList() {
       traderId: transaction.trader?.id || '',
     })
     setIsEditDialogOpen(true)
+  }
+
+  const openRecalcDialog = (transaction: Transaction) => {
+    setSelectedTransaction(transaction)
+    setRecalcAmount(transaction.amount)
+    setIsRecalcDialogOpen(true)
   }
 
   const openTransactionDetailsDialog = (transaction: Transaction) => {
@@ -1090,6 +1125,46 @@ export function TransactionsList() {
             >
               <Edit className="h-4 w-4 mr-2 text-[#006039]" />
               Редактировать
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDetailsDialogOpen(false)
+                openRecalcDialog(selectedTransaction!)
+              }}
+            >
+              Перерасчёт
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isRecalcDialogOpen} onOpenChange={setIsRecalcDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Перерасчёт суммы</DialogTitle>
+            <DialogDescription>Введите новую сумму транзакции</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="recalcAmount" className="text-right">
+                Сумма
+              </Label>
+              <Input
+                id="recalcAmount"
+                type="number"
+                value={recalcAmount}
+                onChange={(e) => setRecalcAmount(Number(e.target.value))}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleRecalcTransaction}
+              className="bg-[#006039] hover:bg-[#005030]"
+              disabled={isLoading}
+            >
+              Перерасчитать
             </Button>
           </DialogFooter>
         </DialogContent>
