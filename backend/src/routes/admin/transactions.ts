@@ -28,6 +28,7 @@ import axios from 'axios'
 import { roundDown2 } from '@/utils/rounding'
 import { rapiraService } from '@/services/rapira.service'
 import { calculateTransactionFreezing, freezeTraderBalance } from '@/utils/transaction-freezing'
+import { calculateFreezingParams, calculateTraderProfit } from '@/utils/freezing'
 
 /* ───────────────────── helpers ───────────────────── */
 
@@ -1258,6 +1259,111 @@ export default (app: Elysia) =>
           404: ErrorSchema,
           500: ErrorSchema
         }
+      }
+    )
+
+    /* ─────────── PATCH /admin/transactions/:id/recalc ─────────── */
+    .patch(
+      '/:id/recalc',
+      async ({ params, body, error }) => {
+        const existing = await db.transaction.findUnique({
+          where: { id: params.id },
+          include: { method: true }
+        });
+        if (!existing) return error(404, { error: 'Транзакция не найдена' });
+
+        const amount = body.amount;
+        const rateBase = existing.rate || 0;
+        const kkkPercent = existing.kkkPercent || 0;
+        const feePercent = existing.feeInPercent || 0;
+
+        const freezing = calculateFreezingParams(amount, rateBase, kkkPercent, feePercent);
+        const profit = calculateTraderProfit(
+          freezing.frozenUsdtAmount,
+          freezing.calculatedCommission,
+          amount,
+          freezing.adjustedRate
+        );
+        const traderProfit = Math.trunc(profit * 100) / 100;
+
+        const oldRateWithFee = (existing.rate || 0) * (1 + (existing.method?.commissionPayin || 0) / 100);
+        const newRateWithFee = freezing.adjustedRate * (1 + (existing.method?.commissionPayin || 0) / 100);
+        const oldMerchantCredit = existing.amount / oldRateWithFee;
+        const newMerchantCredit = amount / newRateWithFee;
+        const merchantDiff = newMerchantCredit - oldMerchantCredit;
+
+        const oldSpent = existing.amount / (existing.rate || 1);
+        const newSpent = amount / freezing.adjustedRate;
+        const spentDiff = newSpent - oldSpent;
+        const profitDiff = traderProfit - (existing.traderProfit || 0);
+
+        const updated = await db.$transaction(async (prisma) => {
+          const trx = await prisma.transaction.update({
+            where: { id: params.id },
+            data: {
+              amount,
+              rate: freezing.adjustedRate,
+              commission: freezing.calculatedCommission,
+              frozenUsdtAmount: freezing.frozenUsdtAmount,
+              calculatedCommission: freezing.calculatedCommission,
+              traderProfit,
+            },
+            include: {
+              merchant: true,
+              method: true,
+              trader: true,
+              requisites: {
+                select: {
+                  id: true,
+                  bankType: true,
+                  cardNumber: true,
+                  phoneNumber: true,
+                  recipientName: true,
+                },
+              },
+            },
+          });
+
+          if (existing.status === Status.READY && existing.type === TransactionType.IN) {
+            if (merchantDiff > 0)
+              await prisma.merchant.update({
+                where: { id: existing.merchantId },
+                data: { balanceUsdt: { increment: merchantDiff } },
+              });
+            else if (merchantDiff < 0)
+              await prisma.merchant.update({
+                where: { id: existing.merchantId },
+                data: { balanceUsdt: { decrement: -merchantDiff } },
+              });
+
+            if (existing.traderId) {
+              const balanceUpdate: any = {};
+              if (spentDiff > 0) balanceUpdate.balanceUsdt = { decrement: spentDiff };
+              else if (spentDiff < 0) balanceUpdate.balanceUsdt = { increment: -spentDiff };
+
+              if (profitDiff > 0) balanceUpdate.profitFromDeals = { increment: profitDiff };
+              else if (profitDiff < 0) balanceUpdate.profitFromDeals = { decrement: -profitDiff };
+
+              if (Object.keys(balanceUpdate).length > 0)
+                await prisma.user.update({
+                  where: { id: existing.traderId },
+                  data: balanceUpdate,
+                });
+            }
+          }
+
+          return trx;
+        });
+
+        return serializeTransaction(updated);
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Перерасчёт параметров транзакции' },
+        headers: AuthHeaderSchema,
+        params: t.Object({ id: t.String() }),
+        body: t.Object({ amount: t.Number() }),
+        response: { 200: TransactionResponseSchema, 404: ErrorSchema },
       }
     )
 
