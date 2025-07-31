@@ -33,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { traderApi } from "@/services/api";
+import { isWithoutDevice } from "@/lib/transactions";
 import { toast } from "sonner";
 import { useTraderAuth } from "@/stores/auth";
 import { useRouter } from "next/navigation";
@@ -344,9 +345,7 @@ export function BtEntryList() {
           let newData = response.data || response.transactions || [];
           
           // Filter only transactions without devices for BT-entry
-          newData = newData.filter((tx: any) => {
-            return !tx.deviceId || tx.deviceId === null;
-          });
+          newData = newData.filter(isWithoutDevice);
           
           setTransactions((currentTransactions) => {
             const existingIds = new Set(currentTransactions.map((t) => t.id));
@@ -488,7 +487,7 @@ export function BtEntryList() {
       // Filter transactions where the requisite has no device
       txData = txData.filter((tx: any) => {
         // Check if the transaction has no deviceId (which comes from requisites.device)
-        return !tx.deviceId || tx.deviceId === null;
+        return isWithoutDevice(tx);
       });
       
       const hasMoreData = txData.length === 50; // If we get full page, there might be more

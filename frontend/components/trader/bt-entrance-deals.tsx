@@ -52,6 +52,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isWithoutDevice } from "@/lib/transactions";
 
 // Функция для получения квадратных SVG логотипов банков
 const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
@@ -139,6 +140,7 @@ interface BtDeal {
   commission: number;
   rate: number;
   btOnly: boolean;
+  deviceId?: string | null;
 }
 
 const dealStatusConfig = {
@@ -222,7 +224,8 @@ export function BtEntranceDeals() {
       console.log("[BT-Entrance] Response.data length:", response?.data?.length);
       
       // Response already contains the full structure from API
-      setDeals(response.data || []);
+      const apiDeals = response.data || [];
+      setDeals(apiDeals.filter(isWithoutDevice));
       setTotalDeals(response.total || 0);
       setTotalPages(Math.ceil((response.total || 0) / 50));
     } catch (error) {
@@ -246,7 +249,8 @@ export function BtEntranceDeals() {
     }
   };
 
-  const filteredDeals = deals.filter(deal => {
+  const filteredDeals = deals.filter((deal) => {
+    if (!isWithoutDevice(deal)) return false;
     if (filterStatus !== "all" && deal.status !== filterStatus) {
       return false;
     }

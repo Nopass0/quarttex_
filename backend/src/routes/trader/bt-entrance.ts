@@ -140,9 +140,9 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       });
       
       // Filter to only include BT deals (requisites without devices)
-      const btDeals = allDeals.filter(deal => {
-        return deal.requisites && deal.requisites.deviceId === null;
-      });
+      const btDeals = allDeals.filter(
+        (deal) => deal.requisites?.deviceId === null,
+      );
       
       // Apply pagination to filtered results
       const paginatedDeals = btDeals.slice(offset, offset + limit);
@@ -202,7 +202,7 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       }
       
       // Ensure it's actually a BT deal (requisite without device)
-      if (deal.requisites && deal.requisites.deviceId !== null) {
+      if (deal.requisites?.deviceId !== null) {
         return error(404, { error: "Это не BT сделка" });
       }
 
