@@ -621,10 +621,9 @@ export class NotificationMatcherService extends BaseService {
       // Получаем все ID реквизитов с этого устройства
       const deviceBankDetailIds = notification.Device.bankDetails.map((bd: any) => bd.id);
       
-      console.log(`[NotificationMatcherService] Searching for transaction: amount=${amount}, deviceBankDetailIds=${deviceBankDetailIds.join(',')}, traderId=${notification.Device.userId}`);
+      console.log(`[NotificationMatcherService] Searching for transaction: amount=${amount}, deviceId=${notification.deviceId}, deviceBankDetailIds=${deviceBankDetailIds.join(',')}, traderId=${notification.Device.userId}`);
       
-      // Ищем подходящую транзакцию
-      // Сначала пытаемся найти по реквизитам устройства
+      // Ищем транзакцию ТОЛЬКО по реквизитам этого устройства
       let transaction = await db.transaction.findFirst({
         where: {
           bankDetailId: { in: deviceBankDetailIds },
@@ -645,70 +644,19 @@ export class NotificationMatcherService extends BaseService {
         }
       });
 
-      // Если не нашли по реквизитам устройства, ищем по трейдеру и сумме
       if (!transaction) {
-        console.log(`[NotificationMatcherService] No transaction found by device bank details, searching by trader and amount`);
-        
-        transaction = await db.transaction.findFirst({
-          where: {
-            traderId: notification.Device.userId,
-            amount: amount,
-            type: TransactionType.IN,
-            status: {
-              in: [Status.CREATED, Status.IN_PROGRESS]
-            }
-          },
-          include: {
-            merchant: true,
-            requisites: true,
-            bankDetail: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        });
-      }
-
-      // Последняя попытка - ищем любую транзакцию на эту сумму в статусе CREATED/IN_PROGRESS
-      if (!transaction) {
-        console.log(`[NotificationMatcherService] No match found by trader, searching globally by amount only`);
-        
-        transaction = await db.transaction.findFirst({
-          where: {
-            amount: amount,
-            type: TransactionType.IN,
-            status: {
-              in: [Status.CREATED, Status.IN_PROGRESS]
-            }
-          },
-          include: {
-            merchant: true,
-            requisites: true,
-            bankDetail: true,
-            trader: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        });
-        
-        if (transaction) {
-          console.log(`[NotificationMatcherService] Found global transaction ${transaction.id} for trader ${transaction.trader?.email}`);
-        }
-      }
-
-      if (!transaction) {
-        console.log(`[NotificationMatcherService] ❌ No matching transaction found for amount ${amount} RUB`);
+        console.log(`[NotificationMatcherService] ❌ No matching transaction found for amount ${amount} RUB on device ${notification.deviceId}`);
         console.log(`[NotificationMatcherService] Debug info:`);
         console.log(`  - Device ID: ${notification.Device.id}`);
         console.log(`  - Device User ID: ${notification.Device.userId}`);
-        console.log(`  - Bank Details on device: ${deviceBankDetailIds.join(', ')}`);
+        console.log(`  - Bank Details on this device: ${deviceBankDetailIds.join(', ')}`);
         console.log(`  - Package name: ${packageName}`);
         console.log(`  - Message: ${notification.message}`);
         
-        // Логируем все активные транзакции для отладки
-        const activeTransactions = await db.transaction.findMany({
+        // Логируем активные транзакции с реквизитами этого устройства
+        const activeTransactionsOnDevice = await db.transaction.findMany({
           where: {
+            bankDetailId: { in: deviceBankDetailIds },
             type: TransactionType.IN,
             status: {
               in: [Status.CREATED, Status.IN_PROGRESS]
@@ -718,16 +666,19 @@ export class NotificationMatcherService extends BaseService {
             trader: true,
             bankDetail: true
           },
-          take: 10,
           orderBy: {
             createdAt: 'desc'
           }
         });
         
-        console.log(`[NotificationMatcherService] Active transactions:`);
-        activeTransactions.forEach(t => {
-          console.log(`  - Transaction ${t.id}: amount=${t.amount}, traderId=${t.traderId}, traderEmail=${t.trader?.email}, bankDetailId=${t.bankDetailId}, status=${t.status}`);
-        });
+        console.log(`[NotificationMatcherService] Active transactions on this device:`);
+        if (activeTransactionsOnDevice.length === 0) {
+          console.log(`  - No active transactions found for bank details: ${deviceBankDetailIds.join(', ')}`);
+        } else {
+          activeTransactionsOnDevice.forEach(t => {
+            console.log(`  - Transaction ${t.id}: amount=${t.amount}, traderId=${t.traderId}, traderEmail=${t.trader?.email}, bankDetailId=${t.bankDetailId}, status=${t.status}`);
+          });
+        }
         
         return;
       }
