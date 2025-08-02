@@ -321,13 +321,22 @@ export function DeviceRequisitesSheet({
 
   const handleMethodChange = (methodType: string) => {
     const method = methods.find(m => m.type === methodType);
-    setSelectedMethod(method || null);
     
-    if (method) {
-      form.setValue("minAmount", method.minPayin || 1000);
-      form.setValue("maxAmount", method.maxPayin || 100000);
-    }
+    // If method not found in methods array, create a default one
+    const selectedMethodData = method || {
+      id: methodType,
+      name: methodType === 'sbp' ? 'СБП' : 'C2C',
+      type: methodType,
+      minAmount: 1000,
+      maxAmount: 100000,
+      minPayin: 1000,
+      maxPayin: 100000
+    };
     
+    setSelectedMethod(selectedMethodData);
+    
+    form.setValue("minAmount", selectedMethodData.minPayin || 1000);
+    form.setValue("maxAmount", selectedMethodData.maxPayin || 100000);
     form.setValue("bankType", "");
   };
 
@@ -588,22 +597,21 @@ export function DeviceRequisitesSheet({
                   )}
                 />
 
-                {selectedMethod && (
-                  <FormField
-                    control={form.control}
-                    name="bankType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Банк</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
+                <FormField
+                  control={form.control}
+                  name="bankType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Банк</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
                           value={field.value}
-                          disabled={!selectedMethod || loading}
+                          disabled={!form.watch("methodId") || loading}
                         >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder={
-                                !selectedMethod ? "Сначала выберите метод" : "Выберите банк"
+                                !form.watch("methodId") ? "Сначала выберите метод" : "Выберите банк"
                               } />
                             </SelectTrigger>
                           </FormControl>
@@ -619,7 +627,6 @@ export function DeviceRequisitesSheet({
                       </FormItem>
                     )}
                   />
-                )}
 
                 {selectedMethod?.type === "c2c" && (
                   <FormField
