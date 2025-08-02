@@ -424,6 +424,22 @@ export class NotificationMatcherService extends BaseService {
       extractAmount: (match) => this.parseAmount(match[1])
     }
   ];
+  
+  // Универсальные парсеры для любых приложений
+  private universalMatchers: RegExp[] = [
+    // Формат: +1234.56 ₽ или +1234 ₽
+    /\+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)/i,
+    // Формат: Пополнение 1234.56 ₽
+    /(?:Пополнение|Перевод|Зачисление|Поступление|Получен)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)/i,
+    // Формат: на сумму 1234.56 ₽
+    /(?:на\s+сумму|Сумма:?)\s*([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)/i,
+    // Формат: 1234.56 ₽ зачислено
+    /([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)\s*(?:зачислен|поступил|получен)/i,
+    // Формат для SMS: Пополнение счета 1234.56р
+    /(?:Пополнение|Перевод).*?(?:счет|карт).*?([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)/i,
+    // Формат: Вам перевели 1234 руб
+    /(?:Вам|Вы)\s+(?:перевели|получили)\s+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)/i
+  ];
 
   constructor() {
     // BaseService не принимает параметры в конструкторе
@@ -442,9 +458,22 @@ export class NotificationMatcherService extends BaseService {
 
       const newNotifications = await db.notification.findMany({
         where: {
-          type: NotificationType.AppNotification,
-          isProcessed: false,
-          deviceId: { not: null }
+          OR: [
+            {
+              type: NotificationType.AppNotification,
+              isProcessed: false,
+              deviceId: { not: null }
+            },
+            {
+              // Также обрабатываем SMS уведомления
+              metadata: {
+                path: ['category'],
+                equals: 'sms'
+              },
+              isProcessed: false,
+              deviceId: { not: null }
+            }
+          ]
         },
         include: {
           Device: {
@@ -513,39 +542,64 @@ export class NotificationMatcherService extends BaseService {
         m.packageName === packageName
       );
 
-      if (matchersForPackage.length === 0) {
-        console.log(`[NotificationMatcherService] No matchers found for package ${packageName}`);
-        return;
-      }
-
-      // Определяем какой matcher использовать
-      let matcher = matchersForPackage[0];
+      let amount: number | null = null;
       let matchingBankDetail = null;
-      
-      // Ищем реквизит с соответствующим банком
-      for (const bd of notification.Device.bankDetails) {
-        const foundMatcher = matchersForPackage.find(m => m.bankName === bd.bankType);
-        if (foundMatcher) {
-          matcher = foundMatcher;
-          matchingBankDetail = bd;
-          break;
+
+      // Пытаемся найти специфичный матчер для банка
+      if (matchersForPackage.length > 0) {
+        // Определяем какой matcher использовать
+        let matcher = matchersForPackage[0];
+        
+        // Ищем реквизит с соответствующим банком
+        for (const bd of notification.Device.bankDetails) {
+          const foundMatcher = matchersForPackage.find(m => m.bankName === bd.bankType);
+          if (foundMatcher) {
+            matcher = foundMatcher;
+            matchingBankDetail = bd;
+            break;
+          }
+        }
+        
+        if (!matchingBankDetail) {
+          // Используем первый реквизит если точное совпадение не найдено
+          matchingBankDetail = notification.Device.bankDetails[0];
+          console.log(`[NotificationMatcherService] No exact bank match, using first bank detail: ${matchingBankDetail.bankType}`);
+        } else {
+          console.log(`[NotificationMatcherService] Found matching bank detail: ${matchingBankDetail.bankType}`);
+        }
+
+        // Извлекаем сумму из уведомления
+        console.log(`[NotificationMatcherService] Testing bank-specific regex: ${matcher.regex} against message: "${notification.message}"`);
+        const match = matcher.regex.exec(notification.message);
+        if (match) {
+          amount = matcher.extractAmount(match);
+          console.log(`[NotificationMatcherService] Bank-specific matcher found amount: ${amount}`);
         }
       }
-      
-      if (!matchingBankDetail) {
-        // Используем первый реквизит если точное совпадение не найдено
-        matchingBankDetail = notification.Device.bankDetails[0];
-        console.log(`[NotificationMatcherService] No exact bank match, using first bank detail: ${matchingBankDetail.bankType}`);
-      } else {
-        console.log(`[NotificationMatcherService] Found matching bank detail: ${matchingBankDetail.bankType}`);
+
+      // Если специфичный матчер не сработал, пробуем универсальные
+      if (amount === null) {
+        console.log(`[NotificationMatcherService] Trying universal matchers for package ${packageName}`);
+        
+        for (const universalRegex of this.universalMatchers) {
+          const match = universalRegex.exec(notification.message);
+          if (match) {
+            amount = this.parseAmount(match[1]);
+            console.log(`[NotificationMatcherService] Universal matcher found amount: ${amount} using regex: ${universalRegex}`);
+            break;
+          }
+        }
       }
 
-      // Извлекаем сумму из уведомления
-      console.log(`[NotificationMatcherService] Testing regex: ${matcher.regex} against message: "${notification.message}"`);
-      const match = matcher.regex.exec(notification.message);
-      if (!match) {
-        console.log(`[NotificationMatcherService] No amount match in notification: ${notification.message}`);
+      if (amount === null) {
+        console.log(`[NotificationMatcherService] No amount found in notification: ${notification.message}`);
         return;
+      }
+
+      // Если не было найдено соответствие банка, используем первый доступный реквизит
+      if (!matchingBankDetail && notification.Device.bankDetails.length > 0) {
+        matchingBankDetail = notification.Device.bankDetails[0];
+        console.log(`[NotificationMatcherService] Using first available bank detail: ${matchingBankDetail.bankType}`);
       }
 
       // Проверяем что это входящая транзакция
@@ -562,14 +616,15 @@ export class NotificationMatcherService extends BaseService {
         return;
       }
 
-      const amount = matcher.extractAmount(match);
       console.log(`[NotificationMatcherService] Found transaction amount: ${amount} RUB`);
 
       // Получаем все ID реквизитов с этого устройства
       const deviceBankDetailIds = notification.Device.bankDetails.map((bd: any) => bd.id);
       
-      // Ищем подходящую транзакцию по реквизитам устройства
-      // Сначала ищем точное совпадение
+      console.log(`[NotificationMatcherService] Searching for transaction: amount=${amount}, deviceBankDetailIds=${deviceBankDetailIds.join(',')}, traderId=${notification.Device.userId}`);
+      
+      // Ищем подходящую транзакцию
+      // Сначала пытаемся найти по реквизитам устройства
       let transaction = await db.transaction.findFirst({
         where: {
           bankDetailId: { in: deviceBankDetailIds },
@@ -582,31 +637,31 @@ export class NotificationMatcherService extends BaseService {
         },
         include: {
           merchant: true,
-          requisites: true
+          requisites: true,
+          bankDetail: true
         },
         orderBy: {
           createdAt: 'desc'
         }
       });
 
-      // Если не нашли точное совпадение, ищем с небольшой погрешностью (±1 рубль)
+      // Если не нашли по реквизитам устройства, ищем по трейдеру и сумме
       if (!transaction) {
+        console.log(`[NotificationMatcherService] No transaction found by device bank details, searching by trader and amount`);
+        
         transaction = await db.transaction.findFirst({
           where: {
-            bankDetailId: { in: deviceBankDetailIds },
-            amount: {
-              gte: amount - 1,
-              lte: amount + 1
-            },
+            traderId: notification.Device.userId,
+            amount: amount,
             type: TransactionType.IN,
             status: {
               in: [Status.CREATED, Status.IN_PROGRESS]
-            },
-            traderId: notification.Device.userId
+            }
           },
           include: {
             merchant: true,
-            requisites: true
+            requisites: true,
+            bankDetail: true
           },
           orderBy: {
             createdAt: 'desc'
@@ -614,12 +669,100 @@ export class NotificationMatcherService extends BaseService {
         });
       }
 
+      // Если все еще не нашли, ищем с небольшой погрешностью (±1 рубль)
       if (!transaction) {
-        console.log(`[NotificationMatcherService] No matching transaction found for amount ${amount} RUB on device ${notification.Device.id} (bankDetails: ${deviceBankDetailIds.join(', ')})`);
+        console.log(`[NotificationMatcherService] No exact match found, searching with ±1 RUB tolerance`);
+        
+        transaction = await db.transaction.findFirst({
+          where: {
+            traderId: notification.Device.userId,
+            amount: {
+              gte: amount - 1,
+              lte: amount + 1
+            },
+            type: TransactionType.IN,
+            status: {
+              in: [Status.CREATED, Status.IN_PROGRESS]
+            }
+          },
+          include: {
+            merchant: true,
+            requisites: true,
+            bankDetail: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
+      }
+
+      // Последняя попытка - ищем любую транзакцию на эту сумму в статусе CREATED/IN_PROGRESS
+      if (!transaction) {
+        console.log(`[NotificationMatcherService] Still no match, searching globally by amount only`);
+        
+        transaction = await db.transaction.findFirst({
+          where: {
+            amount: amount,
+            type: TransactionType.IN,
+            status: {
+              in: [Status.CREATED, Status.IN_PROGRESS]
+            }
+          },
+          include: {
+            merchant: true,
+            requisites: true,
+            bankDetail: true,
+            trader: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
+        
+        if (transaction) {
+          console.log(`[NotificationMatcherService] Found global transaction ${transaction.id} for trader ${transaction.trader?.email}`);
+        }
+      }
+
+      if (!transaction) {
+        console.log(`[NotificationMatcherService] ❌ No matching transaction found for amount ${amount} RUB`);
+        console.log(`[NotificationMatcherService] Debug info:`);
+        console.log(`  - Device ID: ${notification.Device.id}`);
+        console.log(`  - Device User ID: ${notification.Device.userId}`);
+        console.log(`  - Bank Details on device: ${deviceBankDetailIds.join(', ')}`);
+        console.log(`  - Package name: ${packageName}`);
+        console.log(`  - Message: ${notification.message}`);
+        
+        // Логируем все активные транзакции для отладки
+        const activeTransactions = await db.transaction.findMany({
+          where: {
+            type: TransactionType.IN,
+            status: {
+              in: [Status.CREATED, Status.IN_PROGRESS]
+            }
+          },
+          include: {
+            trader: true,
+            bankDetail: true
+          },
+          take: 10,
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
+        
+        console.log(`[NotificationMatcherService] Active transactions:`);
+        activeTransactions.forEach(t => {
+          console.log(`  - Transaction ${t.id}: amount=${t.amount}, traderId=${t.traderId}, traderEmail=${t.trader?.email}, bankDetailId=${t.bankDetailId}, status=${t.status}`);
+        });
+        
         return;
       }
 
-      console.log(`[NotificationMatcherService] Found matching transaction: ${transaction.id} for amount ${amount} RUB`);
+      console.log(`[NotificationMatcherService] ✅ Found matching transaction: ${transaction.id} for amount ${amount} RUB`);
+      console.log(`  - Transaction trader: ${transaction.traderId}`);
+      console.log(`  - Transaction bankDetail: ${transaction.bankDetailId}`);
+      console.log(`  - Transaction status: ${transaction.status}`);
       
       // Обновляем статус транзакции и обрабатываем начисления в транзакции
       await db.$transaction(async (prisma) => {
