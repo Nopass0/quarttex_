@@ -11,6 +11,9 @@ interface BankMatcher {
 }
 
 export class NotificationMatcherService extends BaseService {
+  // Auto-start this service when the application starts
+  public autoStart = true;
+  
   private bankMatchers: BankMatcher[] = [
     // Акбарс Банк
     {
@@ -451,6 +454,8 @@ export class NotificationMatcherService extends BaseService {
   
   // Универсальные парсеры для любых приложений
   private universalMatchers: RegExp[] = [
+    // Формат: Поступление 100р Счет*5715
+    /Поступление\s+([\d\s]+[.,]?\d{0,2})\s*(?:р|₽|руб|RUB)/i,
     // Формат: +1234.56 ₽ или +1234 ₽
     /\+([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB|р)/i,
     // Формат: Пополнение 1234.56 ₽
@@ -831,5 +836,8 @@ export class NotificationMatcherService extends BaseService {
     }
   }
 
-  protected interval = parseInt(process.env.NOTIFICATION_MATCHER_INTERVAL ?? "1000", 10); // Проверяем каждую секунду по умолчанию
+  protected interval = parseInt(process.env.NOTIFICATION_MATCHER_INTERVAL ?? "100", 10); // Проверяем каждые 100мс для быстрого сопоставления
 }
+
+// Export as default for auto-discovery
+export default NotificationMatcherService;
