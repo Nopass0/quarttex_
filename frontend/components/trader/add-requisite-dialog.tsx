@@ -331,38 +331,36 @@ export function AddRequisiteDialog({
               )}
             />
 
-            {selectedMethod && (
-              <FormField
-                control={form.control}
-                name="bankType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Банк</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!selectedMethod}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={
-                            !selectedMethod ? "Сначала выберите метод" : "Выберите банк"
-                          } />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {AVAILABLE_BANKS.filter(bank => bank.code !== "SBP").map((bank) => (
-                          <SelectItem key={bank.code} value={bank.code}>
-                            {bank.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            <FormField
+              control={form.control}
+              name="bankType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Банк</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!selectedMethod}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !selectedMethod ? "Сначала выберите метод" : "Выберите банк"
+                        } />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {AVAILABLE_BANKS.filter(bank => bank.code !== "SBP").map((bank) => (
+                        <SelectItem key={bank.code} value={bank.code}>
+                          {bank.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {selectedMethod?.type === "c2c" && (
               <FormField
