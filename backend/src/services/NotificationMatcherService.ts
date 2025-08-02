@@ -669,36 +669,9 @@ export class NotificationMatcherService extends BaseService {
         });
       }
 
-      // Если все еще не нашли, ищем с небольшой погрешностью (±1 рубль)
-      if (!transaction) {
-        console.log(`[NotificationMatcherService] No exact match found, searching with ±1 RUB tolerance`);
-        
-        transaction = await db.transaction.findFirst({
-          where: {
-            traderId: notification.Device.userId,
-            amount: {
-              gte: amount - 1,
-              lte: amount + 1
-            },
-            type: TransactionType.IN,
-            status: {
-              in: [Status.CREATED, Status.IN_PROGRESS]
-            }
-          },
-          include: {
-            merchant: true,
-            requisites: true,
-            bankDetail: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        });
-      }
-
       // Последняя попытка - ищем любую транзакцию на эту сумму в статусе CREATED/IN_PROGRESS
       if (!transaction) {
-        console.log(`[NotificationMatcherService] Still no match, searching globally by amount only`);
+        console.log(`[NotificationMatcherService] No match found by trader, searching globally by amount only`);
         
         transaction = await db.transaction.findFirst({
           where: {
