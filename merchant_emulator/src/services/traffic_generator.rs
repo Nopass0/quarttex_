@@ -7,15 +7,18 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::time::{sleep, Duration};
 use tracing::{info, error, debug};
 use uuid::Uuid;
+use std::collections::HashMap;
 
 pub struct TrafficGenerator {
     merchant_service: Arc<MerchantService>,
     active_generators: Arc<RwLock<Vec<GeneratorHandle>>>,
+    log_channels: Arc<RwLock<HashMap<Uuid, mpsc::Sender<String>>>>,
 }
 
 struct GeneratorHandle {
     merchant_id: Uuid,
     cancel_tx: mpsc::Sender<()>,
+    quiet_mode: bool,
 }
 
 impl TrafficGenerator {
@@ -23,10 +26,11 @@ impl TrafficGenerator {
         Self {
             merchant_service,
             active_generators: Arc::new(RwLock::new(Vec::new())),
+            log_channels: Arc::new(RwLock::new(HashMap::new())),
         }
     }
     
-    pub async fn start_traffic(&self, merchant: Merchant, method_id: String) -> Result<()> {
+    pub async fn start_traffic(&self, merchant: Merchant, method_id: String, quiet_mode: bool) -> Result<()> {
         // Check if already running for this merchant
         let generators = self.active_generators.read().await;
         if generators.iter().any(|g| g.merchant_id == merchant.id) {
@@ -39,15 +43,27 @@ impl TrafficGenerator {
         let handle = GeneratorHandle {
             merchant_id: merchant.id,
             cancel_tx: cancel_tx.clone(),
+            quiet_mode,
         };
         
         self.active_generators.write().await.push(handle);
         
         let merchant_service = self.merchant_service.clone();
         let active_generators = self.active_generators.clone();
+        let log_channels = self.log_channels.clone();
+        let merchant_id = merchant.id;
         
         tokio::spawn(async move {
-            info!("Starting traffic generation for merchant {}", merchant.name);
+            // Get log sender if not in quiet mode
+            let log_sender = if !quiet_mode {
+                log_channels.read().await.get(&merchant_id).cloned()
+            } else {
+                None
+            };
+            
+            if let Some(ref tx) = log_sender {
+                let _ = tx.send(format!("Starting traffic generation for merchant {}", merchant.name)).await;
+            }
             
             let mut rng = StdRng::from_entropy();
             let mut created_count = 0u64;
@@ -56,7 +72,9 @@ impl TrafficGenerator {
             let available_methods = match merchant_service.get_available_methods(&merchant).await {
                 Ok(methods) => methods,
                 Err(e) => {
-                    error!("Failed to get available methods: {}. Using provided method_id", e);
+                    if let Some(ref tx) = log_sender {
+                        let _ = tx.send(format!("WARNING: Failed to get available methods: {}. Using provided method_id", e)).await;
+                    }
                     vec![]
                 }
             };
@@ -64,14 +82,18 @@ impl TrafficGenerator {
             loop {
                 // Check for cancellation
                 if cancel_rx.try_recv().is_ok() {
-                    info!("Stopping traffic generation for merchant {}", merchant.name);
+                    if let Some(ref tx) = log_sender {
+                        let _ = tx.send(format!("Stopping traffic generation for merchant {}", merchant.name)).await;
+                    }
                     break;
                 }
                 
                 // Check transaction limit
                 if let Some(max) = merchant.traffic_config.max_transactions {
                     if created_count >= max {
-                        info!("Reached transaction limit ({}) for merchant {}", max, merchant.name);
+                        if let Some(ref tx) = log_sender {
+                            let _ = tx.send(format!("Reached transaction limit ({}) for merchant {}", max, merchant.name)).await;
+                        }
                         break;
                     }
                 }
@@ -95,17 +117,20 @@ impl TrafficGenerator {
                 match merchant_service.create_transaction(&merchant, amount, selected_method_id.clone(), is_mock).await {
                     Ok(transaction) => {
                         created_count += 1;
-                        debug!("Created transaction {} for merchant {} (amount: {}, method: {}, mock: {})",
-                            transaction.id, merchant.name, amount, selected_method_id, is_mock);
-                            
-                        // TODO: If liquid and device connected, emit balance top-up notification
-                        if !is_mock && transaction.requisites.is_some() {
-                            // This is where we would integrate with device emulator
-                            debug!("Would emit balance top-up notification for transaction {}", transaction.id);
+                        if let Some(ref tx) = log_sender {
+                            let _ = tx.send(format!("Created transaction {} for merchant {} (amount: {:.2}, method: {}, mock: {})",
+                                transaction.id, merchant.name, amount, selected_method_id, is_mock)).await;
+                                
+                            // TODO: If liquid and device connected, emit balance top-up notification
+                            if !is_mock && transaction.requisites.is_some() {
+                                let _ = tx.send(format!("Would emit balance top-up notification for transaction {}", transaction.id)).await;
+                            }
                         }
                     }
                     Err(e) => {
-                        error!("Failed to create transaction for merchant {}: {}", merchant.name, e);
+                        if let Some(ref tx) = log_sender {
+                            let _ = tx.send(format!("ERROR: Failed to create transaction for merchant {}: {}", merchant.name, e)).await;
+                        }
                     }
                 }
                 
@@ -125,10 +150,17 @@ impl TrafficGenerator {
             
             // Remove from active generators
             let mut generators = active_generators.write().await;
-            generators.retain(|g| g.merchant_id != merchant.id);
+            generators.retain(|g| g.merchant_id != merchant_id);
             
-            info!("Traffic generation stopped for merchant {} (created {} transactions)", 
-                merchant.name, created_count);
+            if let Some(ref tx) = log_sender {
+                let _ = tx.send(format!("Traffic generation stopped for merchant {} (created {} transactions)", 
+                    merchant.name, created_count)).await;
+            }
+            
+            // Clean up log channel when stopping
+            if !quiet_mode {
+                log_channels.write().await.remove(&merchant_id);
+            }
         });
         
         Ok(())
@@ -162,6 +194,29 @@ impl TrafficGenerator {
             .await
             .iter()
             .any(|g| &g.merchant_id == merchant_id)
+    }
+    
+    pub async fn get_traffic_info(&self, merchant_id: &Uuid) -> Option<(bool, bool)> {
+        self.active_generators
+            .read()
+            .await
+            .iter()
+            .find(|g| &g.merchant_id == merchant_id)
+            .map(|g| (true, g.quiet_mode))
+    }
+    
+    pub async fn create_log_channel(&self, merchant_id: Uuid) -> mpsc::Receiver<String> {
+        let (tx, rx) = mpsc::channel(1000);
+        self.log_channels.write().await.insert(merchant_id, tx);
+        rx
+    }
+    
+    pub async fn get_log_sender(&self, merchant_id: &Uuid) -> Option<mpsc::Sender<String>> {
+        self.log_channels.read().await.get(merchant_id).cloned()
+    }
+    
+    pub async fn remove_log_channel(&self, merchant_id: &Uuid) {
+        self.log_channels.write().await.remove(merchant_id);
     }
 }
 

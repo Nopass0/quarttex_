@@ -31,6 +31,7 @@ import { devicePingRoutes } from "@/routes/websocket/device-ping";
 import { deviceStatusRoutes } from "@/routes/websocket/device-status";
 import wellbitRoutes from "@/routes/wellbit";
 import wellbitBankMappingRoutes from "@/routes/admin/wellbit-bank-mapping";
+import { callbackTestRoute } from "@/routes/test/callback-test";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";
@@ -303,7 +304,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(disputeWebSocketRoutes)
   .use(dealDisputeWebSocketRoutes)
   .use(devicePingRoutes)
-  .use(deviceStatusRoutes);
+  .use(deviceStatusRoutes)
+  .use(callbackTestRoute);
 
 // Register all service endpoints
 for (const serviceApp of serviceApps) {

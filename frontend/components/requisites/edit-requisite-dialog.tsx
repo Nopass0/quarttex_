@@ -115,16 +115,16 @@ export function EditRequisiteDialog({
   useEffect(() => {
     if (requisite && open) {
       setFormData({
-        methodType: requisite.methodType,
-        bankType: requisite.bankType,
-        cardNumber: requisite.cardNumber,
-        recipientName: requisite.recipientName,
+        methodType: requisite.methodType || "",
+        bankType: requisite.bankType || "",
+        cardNumber: requisite.cardNumber || "",
+        recipientName: requisite.recipientName || "",
         phoneNumber: requisite.phoneNumber || "",
-        minAmount: requisite.minAmount.toString(),
-        maxAmount: requisite.maxAmount.toString(),
-        dailyLimit: requisite.dailyLimit.toString(),
-        monthlyLimit: requisite.monthlyLimit.toString(),
-        intervalMinutes: requisite.intervalMinutes.toString(),
+        minAmount: (requisite.minAmount || 0).toString(),
+        maxAmount: (requisite.maxAmount || 0).toString(),
+        dailyLimit: (requisite.dailyLimit || 0).toString(),
+        monthlyLimit: (requisite.monthlyLimit || 0).toString(),
+        intervalMinutes: (requisite.intervalMinutes || 0).toString(),
       });
     }
   }, [requisite, open]);

@@ -219,9 +219,6 @@ export function MessagesListNew() {
   // New filter states
   const [devices, setDevices] = useState<any[]>([]);
   const [deviceSearch, setDeviceSearch] = useState("");
-  const [filterMethod, setFilterMethod] = useState("all");
-  const [methods, setMethods] = useState<any[]>([]);
-  const [methodSearch, setMethodSearch] = useState("");
   const [filterBank, setFilterBank] = useState("all");
   const [bankSearch, setBankSearch] = useState("");
   const [filterAmountType, setFilterAmountType] = useState<"all" | "exact" | "range">("all");
@@ -294,14 +291,6 @@ export function MessagesListNew() {
     }
   };
 
-  const fetchMethods = async () => {
-    try {
-      const response = await traderApi.getMethods();
-      setMethods(response.methods || response || []);
-    } catch (error) {
-      console.error("Failed to fetch methods:", error);
-    }
-  };
 
   const fetchNotificationDetails = async (id: string) => {
     try {
@@ -337,7 +326,6 @@ export function MessagesListNew() {
   useEffect(() => {
     fetchMessages();
     fetchDevices();
-    fetchMethods();
   }, []);
 
   // Handle notification ID from URL
@@ -378,12 +366,6 @@ export function MessagesListNew() {
     // Device filter
     if (filterDevice !== "all") {
       filtered = filtered.filter((m) => m.deviceId === filterDevice);
-    }
-
-    // Method filter
-    if (filterMethod !== "all") {
-      // Filter by method - this would need to be mapped from message metadata
-      filtered = filtered.filter((m) => m.metadata?.methodId === filterMethod);
     }
 
     // Bank filter
@@ -507,7 +489,6 @@ export function MessagesListNew() {
               <span className="hidden sm:inline">Не выбраны</span>
               {(filterStatus !== "all" ||
                 filterDevice !== "all" ||
-                filterMethod !== "all" ||
                 filterBank !== "all" ||
                 filterAmountType !== "all" ||
                 filterDateFrom ||
@@ -517,7 +498,6 @@ export function MessagesListNew() {
                     [
                       filterStatus !== "all",
                       filterDevice !== "all",
-                      filterMethod !== "all",
                       filterBank !== "all",
                       filterAmountType !== "all",
                       filterDateFrom || filterDateTo,
@@ -750,100 +730,6 @@ export function MessagesListNew() {
                 </div>
               </div>
 
-              {/* Method Filter */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-[#006039]" />
-                  <Label className="text-sm">Метод оплаты</Label>
-                </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="default"
-                      className="w-full justify-between h-12"
-                    >
-                      <span className="text-[#006039]">
-                        {filterMethod === "all" ? "Все методы" : methods.find(m => m.id === filterMethod)?.name || filterMethod}
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-[465px] p-0"
-                    align="start"
-                    sideOffset={5}
-                  >
-                    <div className="p-2 border-b">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          placeholder="Поиск методов"
-                          className="pl-9"
-                          value={methodSearch}
-                          onChange={(e) => setMethodSearch(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="max-h-64 overflow-auto">
-                      <Button
-                        variant="ghost"
-                        size="default"
-                        className={cn(
-                          "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                          filterMethod === "all" &&
-                            "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                        )}
-                        onClick={() => setFilterMethod("all")}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Building2 className="h-4 w-4 text-gray-600" />
-                          </div>
-                          <div className="text-left">
-                            <div className="font-medium">Все методы</div>
-                            <div className="text-sm text-gray-500">
-                              Не фильтровать по методу оплаты
-                            </div>
-                          </div>
-                        </div>
-                      </Button>
-                      {methods
-                        .filter((method) => 
-                          !methodSearch || 
-                          method.name?.toLowerCase().includes(methodSearch.toLowerCase()) ||
-                          method.type?.toLowerCase().includes(methodSearch.toLowerCase())
-                        )
-                        .map((method) => {
-                          const bankType = method.type?.toUpperCase() || method.name?.toUpperCase().replace(/\s+/g, '') || '';
-                          
-                          return (
-                            <Button
-                              key={method.id}
-                              variant="ghost"
-                              size="default"
-                              className={cn(
-                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                                filterMethod === method.id && "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20",
-                              )}
-                              onClick={() => setFilterMethod(method.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                {bankType ? getBankIcon(bankType, "sm") : <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center"><Building2 className="h-4 w-4 text-gray-600" /></div>}
-                                <div className="text-left">
-                                  <div className="font-medium">{method.name}</div>
-                                  <div className="text-sm text-gray-500">
-                                    {method.description || `Перевод через ${method.name}`}
-                                  </div>
-                                </div>
-                              </div>
-                            </Button>
-                          );
-                        })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
 
               {/* Bank Filter */}
               <div className="space-y-2">
@@ -1052,7 +938,6 @@ export function MessagesListNew() {
                   onClick={() => {
                     setFilterStatus("all");
                     setFilterDevice("all");
-                    setFilterMethod("all");
                     setFilterBank("all");
                     setFilterAmountType("all");
                     setFilterAmount({ exact: "", min: "", max: "" });

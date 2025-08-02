@@ -21,7 +21,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogPortal,
+  DialogOverlay,
 } from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { traderApi } from "@/services/api";
@@ -30,6 +33,7 @@ import { useTraderAuth } from "@/stores/auth";
 import { formatAmount } from "@/lib/utils";
 import { BtEntranceList } from "./bt-entrance-list";
 import { BtRequisitesSheet } from "./bt-requisites-sheet";
+import { useRouter } from "next/navigation";
 import {
   Loader2,
   Search,
@@ -46,10 +50,13 @@ import {
   Eye,
   MessageSquare,
   ChevronRight,
+  ChevronDown,
   Filter,
   Ban,
   Settings,
   Plus,
+  CheckCircle2,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isWithoutDevice } from "@/lib/transactions";
@@ -141,6 +148,7 @@ interface BtDeal {
   rate: number;
   btOnly: boolean;
   deviceId?: string | null;
+  traderProfit?: number;
 }
 
 const dealStatusConfig = {
@@ -154,6 +162,13 @@ const dealStatusConfig = {
   ACCEPTED: {
     label: "Принята",
     description: "Сделка принята трейдером",
+    color: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
+    badgeColor: "bg-orange-50 text-orange-700 border-orange-200",
+    icon: AlertCircle
+  },
+  IN_PROGRESS: {
+    label: "В процессе",
+    description: "Сделка в процессе выполнения",
     color: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
     badgeColor: "bg-orange-50 text-orange-700 border-orange-200",
     icon: AlertCircle
@@ -189,12 +204,16 @@ const formatCardNumber = (cardNumber: string) => {
 
 export function BtEntranceDeals() {
   const { user } = useTraderAuth();
+  const router = useRouter();
   const [deals, setDeals] = useState<BtDeal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("deals");
   const [showRequisitesSheet, setShowRequisitesSheet] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<BtDeal | null>(null);
+  const [showRequisiteDetails, setShowRequisiteDetails] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -205,9 +224,20 @@ export function BtEntranceDeals() {
     fetchDeals();
   }, [filterStatus, searchQuery, currentPage]);
 
-  const fetchDeals = async () => {
+  // Автоматическое обновление списка сделок каждые 10 секунд
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDeals(false); // Без лоадера
+    }, 10000); // 10 секунд
+
+    return () => clearInterval(interval);
+  }, [filterStatus, searchQuery, currentPage]);
+
+  const fetchDeals = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader && initialLoading) {
+        setLoading(true);
+      }
       const params = {
         page: currentPage,
         limit: 50,
@@ -215,26 +245,35 @@ export function BtEntranceDeals() {
         ...(searchQuery && { search: searchQuery }),
       };
 
-      console.log("[BT-Entrance] Fetching deals with params:", params);
       const response = await traderApi.getBtDeals(params);
-      console.log("[BT-Entrance] API Response:", response);
-      console.log("[BT-Entrance] Response type:", typeof response);
-      console.log("[BT-Entrance] Response keys:", Object.keys(response || {}));
-      console.log("[BT-Entrance] Response.data:", response?.data);
-      console.log("[BT-Entrance] Response.data length:", response?.data?.length);
       
       // Response already contains the full structure from API
       const apiDeals = response.data || [];
+      
+      // Debug first ready deal
+      const readyDeal = apiDeals.find((d: any) => d.status === "READY");
+      if (readyDeal) {
+        console.log("[BT-Entrance] First READY deal:", readyDeal);
+        console.log("[BT-Entrance] traderProfit:", readyDeal.traderProfit);
+      }
+      
       setDeals(apiDeals.filter(isWithoutDevice));
       setTotalDeals(response.total || 0);
       setTotalPages(Math.ceil((response.total || 0) / 50));
+      
+      if (initialLoading) {
+        setInitialLoading(false);
+      }
     } catch (error) {
       console.error("Failed to fetch BT deals:", error);
-      toast.error("Не удалось загрузить BT сделки");
-      // Fallback to empty array
-      setDeals([]);
+      // Не показываем ошибку при автоматическом обновлении
+      if (showLoader) {
+        toast.error("Не удалось загрузить BT сделки");
+      }
     } finally {
-      setLoading(false);
+      if (showLoader && loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -242,7 +281,15 @@ export function BtEntranceDeals() {
     try {
       await traderApi.updateBtDealStatus(dealId, newStatus);
       toast.success("Статус сделки обновлен");
-      fetchDeals(); // Refresh the list
+      
+      // Обновляем список сделок
+      fetchDeals();
+      
+      // Обновляем данные пользователя для левого меню
+      if (user) {
+        const userResponse = await traderApi.getMe();
+        useTraderAuth.getState().setUser(userResponse.data);
+      }
     } catch (error) {
       console.error("Failed to update deal status:", error);
       toast.error("Не удалось обновить статус сделки");
@@ -272,7 +319,7 @@ export function BtEntranceDeals() {
   console.log("[BT-Entrance] filterStatus:", filterStatus);
   console.log("[BT-Entrance] searchQuery:", searchQuery);
 
-  if (loading) {
+  if (loading && initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -313,6 +360,7 @@ export function BtEntranceDeals() {
               <SelectItem value="all">Все статусы</SelectItem>
               <SelectItem value="PENDING">Ожидает принятия</SelectItem>
               <SelectItem value="ACCEPTED">Принята</SelectItem>
+              <SelectItem value="IN_PROGRESS">В процессе</SelectItem>
               <SelectItem value="READY">Готово</SelectItem>
               <SelectItem value="EXPIRED">Просрочена</SelectItem>
               <SelectItem value="CANCELLED">Отменена</SelectItem>
@@ -349,6 +397,7 @@ export function BtEntranceDeals() {
               <Card
                 key={deal.id}
                 className="group hover:shadow-lg transition-all cursor-pointer border-gray-200 dark:border-gray-700"
+                onClick={() => setSelectedDeal(deal)}
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-4">
@@ -402,13 +451,6 @@ export function BtEntranceDeals() {
                             <span className="text-sm text-muted-foreground">RUB</span>
                           </div>
 
-                          {/* Merchant */}
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              {deal.merchantName}
-                            </span>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -423,7 +465,7 @@ export function BtEntranceDeals() {
                           Принять
                         </Button>
                       )}
-                      {deal.status === "ACCEPTED" && (
+                      {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && (
                         <Button
                           size="sm"
                           onClick={() => handleStatusUpdate(deal.id, "READY")}
@@ -448,10 +490,14 @@ export function BtEntranceDeals() {
                     <span className="text-sm text-muted-foreground">
                       БТ-сделка (ручная обработка)
                     </span>
-                    <span className="text-sm text-muted-foreground">•</span>
-                    <span className="text-sm text-muted-foreground">
-                      Комиссия: {formatAmount(deal.commission)} RUB
-                    </span>
+                    {deal.status === "READY" && deal.traderProfit != null && (
+                      <>
+                        <span className="text-sm text-muted-foreground">•</span>
+                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                          Прибыль: +{deal.traderProfit.toFixed(2)} USDT
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -486,7 +532,6 @@ export function BtEntranceDeals() {
       )}
 
       {/* BT Requisites Sheet */}
-      {console.log('showRequisitesSheet state:', showRequisitesSheet)}
       <BtRequisitesSheet
         open={showRequisitesSheet}
         onOpenChange={setShowRequisitesSheet}
@@ -494,6 +539,392 @@ export function BtEntranceDeals() {
           // Optionally refresh deals after adding new requisite
         }}
       />
+
+      {/* Deal Details Dialog */}
+      <Dialog
+        open={!!selectedDeal}
+        onOpenChange={() => {
+          setSelectedDeal(null);
+          setShowRequisiteDetails(false);
+        }}
+      >
+        <DialogPortal>
+          <DialogOverlay />
+          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] md:w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background dark:border-gray-700 p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overflow-hidden rounded-2xl md:rounded-3xl">
+            {/* Hidden DialogTitle for accessibility */}
+            <DialogTitle className="sr-only">
+              {showRequisiteDetails
+                ? "Информация о реквизите"
+                : "Детали сделки"}
+            </DialogTitle>
+            <div className="bg-white dark:bg-gray-800">
+              {/* Header */}
+              <div className="px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                {showRequisiteDetails ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowRequisiteDetails(false)}
+                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 -ml-2"
+                    >
+                      <ChevronDown className="h-4 w-4 mr-1 rotate-90 text-[#006039]" />
+                      Назад
+                    </Button>
+                    <h3 className="font-medium dark:text-white">
+                      Информация о реквизите
+                    </h3>
+                    <div className="w-8" />
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400 ml-0 md:ml-[124px]">
+                      {selectedDeal &&
+                        format(
+                          new Date(selectedDeal.createdAt),
+                          "d MMM 'в' HH:mm",
+                          { locale: ru },
+                        )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedDeal(null);
+                        setShowRequisiteDetails(false);
+                      }}
+                      className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                    >
+                      <X className="h-4 w-4 text-[#006039]" />
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {selectedDeal && !showRequisiteDetails && (
+                <>
+                  {/* Status Icon and Info */}
+                  <div className="px-6 py-6 text-center">
+                    {/* Status Icon */}
+                    <div className="mb-4 flex justify-center">
+                      {selectedDeal.status === "READY" ? (
+                        <div className="w-20 h-20 rounded-3xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                          <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+                        </div>
+                      ) : selectedDeal.status === "PENDING" ||
+                        selectedDeal.status === "ACCEPTED" ||
+                        selectedDeal.status === "IN_PROGRESS" ? (
+                        <div className="w-20 h-20 rounded-3xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                          <Clock className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 rounded-3xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                          <X className="h-10 w-10 text-red-600 dark:text-red-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Deal Title */}
+                    <h2 className="text-lg font-semibold mb-1 dark:text-white">
+                      {selectedDeal.status === "READY"
+                        ? "Платеж зачислен"
+                        : selectedDeal.status === "PENDING"
+                          ? "Ожидание принятия"
+                          : selectedDeal.status === "ACCEPTED" || selectedDeal.status === "IN_PROGRESS"
+                            ? "Ожидание платежа"
+                            : selectedDeal.status === "EXPIRED"
+                              ? "Время истекло"
+                              : "Платеж не зачислен"}
+                    </h2>
+
+                    {/* Deal ID */}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      #{selectedDeal.id.slice(-6)}
+                    </p>
+
+                    {/* Amount */}
+                    <div className="mb-1">
+                      <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                        {(selectedDeal.amount / 95).toFixed(2)} USDT
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {selectedDeal.amount.toLocaleString("ru-RU")} RUB
+                    </p>
+                  </div>
+
+                  {/* Requisite Card */}
+                  <div className="px-6 pb-4">
+                    <Button
+                      variant="outline"
+                      className="w-full p-4 h-auto justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors dark:bg-gray-800 dark:border-gray-700"
+                      onClick={() => setShowRequisiteDetails(true)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-[92px] h-[62px] rounded-md bg-gradient-to-tr from-green-800 via-green-400 to-green-400 relative overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-r from-green-800  to-transparent"></div>
+                          <div className="absolute top-2 right-4">
+                            <svg
+                              viewBox="0 0 30 18"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-6 h-4"
+                            >
+                              <circle
+                                cx="9"
+                                cy="9"
+                                r="9"
+                                fill="#fff"
+                                fillOpacity="0.8"
+                              ></circle>
+                              <circle
+                                cx="21"
+                                cy="9"
+                                r="9"
+                                fill="#fff"
+                                fillOpacity="0.8"
+                              ></circle>
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-xl dark:text-white">
+                            {selectedDeal.recipientName || "—"}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedDeal.cardNumber
+                              ?.replace(/(\d{4})/g, "$1 ")
+                              .trim() || "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronDown className="h-5 w-5 text-[#006039] -rotate-90" />
+                    </Button>
+                  </div>
+
+                  {/* Deal Details */}
+                  <div className="px-6 pb-4 space-y-3">
+                    {/* Rate */}
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          Ставка
+                        </span>
+                        <span className="text-lg font-semibold dark:text-white">
+                          1 USDT = 95.00 RUB
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Profit */}
+                    {selectedDeal.status === "READY" && selectedDeal.traderProfit != null && (
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            Прибыль
+                          </span>
+                          <span className="text-lg font-semibold text-green-600 dark:text-green-400">
+                            + {selectedDeal.traderProfit.toFixed(2)} USDT
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="px-6 pb-6">
+                    {selectedDeal.status === "READY" ? (
+                      <div className="text-center space-y-3">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Сделка готова к закрытию
+                        </p>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedDeal(null)}
+                        >
+                          Закрыть
+                        </Button>
+                      </div>
+                    ) : selectedDeal.status === "ACCEPTED" || selectedDeal.status === "IN_PROGRESS" ? (
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          className="w-full bg-[#006039] hover:bg-[#006039]/90"
+                          onClick={() => {
+                            handleStatusUpdate(selectedDeal.id, "READY");
+                            setSelectedDeal(null);
+                          }}
+                        >
+                          Подтвердить платеж
+                        </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedDeal(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    ) : selectedDeal.status === "PENDING" ? (
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          className="w-full bg-[#006039] hover:bg-[#006039]/90"
+                          onClick={() => {
+                            handleStatusUpdate(selectedDeal.id, "ACCEPTED");
+                            setSelectedDeal(null);
+                          }}
+                        >
+                          Принять сделку
+                        </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedDeal(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    ) : selectedDeal.status === "EXPIRED" ? (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-3">
+                          Срок сделки истек
+                        </p>
+                        <Button
+                          className="w-full bg-orange-600 hover:bg-orange-700"
+                          onClick={() => {
+                            handleStatusUpdate(selectedDeal.id, "READY");
+                            setSelectedDeal(null);
+                          }}
+                        >
+                          Закрыть вручную
+                        </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedDeal(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={() => setSelectedDeal(null)}
+                      >
+                        Закрыть
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Requisite Details View */}
+              {selectedDeal && showRequisiteDetails && (
+                <div className="">
+                  {/* Requisite Header */}
+                  <div className="px-6 py-6 text-center border-b dark:border-gray-700">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                      {selectedDeal.bankType && (
+                        <div className="scale-125">
+                          {getBankIcon(selectedDeal.bankType)}
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-semibold mb-1 dark:text-white">
+                      {selectedDeal.recipientName || "—"}
+                    </h3>
+                    <p className="text-2xl font-bold mb-1 dark:text-white">
+                      {selectedDeal.cardNumber || "—"}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Банк: {selectedDeal.bankType || "—"} • Россия
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                      Счет: {selectedDeal.id?.slice(-8) || "00000000"}
+                    </p>
+                  </div>
+
+                  {/* Requisite Stats */}
+                  <div className="px-6 py-4 space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          Прием по номеру карты: Не подтверждено
+                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-blue-600 dark:text-blue-400 p-0 h-auto"
+                        >
+                          Карта выбрана как основная
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
+                        Прием по номеру счета: Не подтверждено
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
+                        Прием по номеру телефона: Подтверждено
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm dark:text-white">
+                        Статистика за 24 часа
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Объем сделок
+                          </span>
+                          <span className="font-medium dark:text-white">
+                            {(selectedDeal.amount / 95).toFixed(2)} USDT = {selectedDeal.amount} RUB{" "}
+                            <span className="text-gray-400 dark:text-gray-500">
+                              (1 сделка)
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Прибыль
+                          </span>
+                          <span className="font-medium dark:text-white">
+                            {selectedDeal.traderProfit ? selectedDeal.traderProfit.toFixed(2) : "0.00"} USDT
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Конверсия
+                          </span>
+                          <span className="font-medium text-gray-400 dark:text-gray-500">
+                            100%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 space-y-3">
+                      <h4 className="font-medium text-sm dark:text-white">
+                        Управление реквизитом
+                      </h4>
+                      <div className="space-y-2">
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600"
+                          onClick={() => toast.info("Функция в разработке")}
+                        >
+                          <X className="h-4 w-4 mr-2 text-red-500" />
+                          Удалить
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPortal>
+      </Dialog>
     </div>
   );
 }

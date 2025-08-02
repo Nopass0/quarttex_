@@ -448,6 +448,7 @@ export const notificationRoutes = new Elysia({ prefix: "/notifications" })
           successUri: transaction.successUri,
           failUri: transaction.failUri,
           callbackUri: transaction.callbackUri,
+          amount: transaction.amount,
         });
       }
 

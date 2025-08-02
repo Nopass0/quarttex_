@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { AuthLayout } from "@/components/layouts/auth-layout";
@@ -74,6 +74,7 @@ import {
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn, formatAmount } from "@/lib/utils";
+import { getBankIcon } from "@/lib/bank-utils";
 import QRCode from "qrcode";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -177,13 +178,14 @@ export default function DeviceDetailsPage() {
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showRequisitesSheet, setShowRequisitesSheet] = useState(false);
-  const [hideArchived, setHideArchived] = useState(false);
+  const [hideArchived, setHideArchived] = useState(true);
   const [editingRequisite, setEditingRequisite] = useState<any | null>(null);
   const [serverError, setServerError] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [messageSearch, setMessageSearch] = useState("");
   const [messageFilter, setMessageFilter] = useState("all");
   const deviceEmulatorRef = useRef<DeviceEmulator | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetchDevice();
@@ -308,6 +310,12 @@ export default function DeviceDetailsPage() {
       if (deviceEmulatorRef.current) {
         deviceEmulatorRef.current.disconnect();
         deviceEmulatorRef.current = null;
+      }
+      
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
       }
     };
   }, [params.id, device?.id]);
@@ -447,10 +455,19 @@ export default function DeviceDetailsPage() {
   }, [activeTab, device?.id]);
 
   const fetchDevice = async () => {
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    
     try {
       setLoading(true);
       setServerError(false);
-      const deviceData = await traderApi.getDevice(params.id as string);
+      const deviceData = await traderApi.getDevice(params.id as string, { signal });
       console.log('[DeviceDetailsPage] Fetched device data:', {
         id: deviceData.id,
         name: deviceData.name,
@@ -477,7 +494,7 @@ export default function DeviceDetailsPage() {
         const messagesResponse = await traderApi.getMessages({
           deviceId: deviceData.id,
           limit: 20,
-        });
+        }, { signal });
         const formattedMessages =
           messagesResponse.data?.map((msg: any) => ({
             id: msg.id,
@@ -493,10 +510,18 @@ export default function DeviceDetailsPage() {
             status: msg.isProcessed ? "read" : "delivered",
           })) || [];
         setMessages(formattedMessages);
-      } catch (msgError) {
-        console.error("Error fetching messages:", msgError);
+      } catch (msgError: any) {
+        // Ignore aborted requests (happens when component unmounts)
+        if (msgError?.name !== "AbortError" && msgError?.message !== "Request aborted" && msgError?.code !== "ERR_CANCELED") {
+          console.error("Error fetching messages:", msgError);
+        }
       }
     } catch (error: any) {
+      // Ignore aborted requests
+      if (error?.name === "AbortError" || error?.message === "Request aborted" || error?.code === "ERR_CANCELED") {
+        return;
+      }
+      
       // Only log unexpected errors (server errors), not client errors like 404
       if (!error.response || error.response.status >= 500) {
         console.error("Error fetching device:", error);
@@ -530,7 +555,7 @@ export default function DeviceDetailsPage() {
         return;
       } else if (error.response?.data?.error) {
         toast.error(error.response.data.error);
-      } else if (error.message) {
+      } else if (error.message && error.message !== "Request aborted") {
         toast.error(`Ошибка: ${error.message}`);
       } else {
         toast.error("Не удалось загрузить данные устройства");
@@ -1114,11 +1139,12 @@ export default function DeviceDetailsPage() {
                     </Label>
                     <Button
                       size="sm"
-                      className="h-8 px-3 bg-[#006039] hover:bg-[#006039]/90 w-full sm:w-auto"
+                      variant="outline"
+                      className="h-8 px-4 w-full sm:w-auto"
                       onClick={() => setShowRequisitesSheet(true)}
                     >
                       <CreditCard className="h-4 w-4 mr-2" />
-                      Добавить
+                      Управление реквизитами
                     </Button>
                   </div>
                 </div>
@@ -1127,6 +1153,16 @@ export default function DeviceDetailsPage() {
                 device.linkedBankDetails.length > 0 ? (
                   <ScrollArea className="h-[150px]">
                     <div className="space-y-3">
+                      {console.log('[DeviceDetailsPage] Requisites:', {
+                        total: device.linkedBankDetails.length,
+                        hideArchived,
+                        requisites: device.linkedBankDetails.map((r: any) => ({
+                          id: r.id,
+                          isActive: r.isActive,
+                          isArchived: r.isArchived,
+                          cardNumber: r.cardNumber
+                        }))
+                      })}
                       {device.linkedBankDetails
                         .filter((req: any) => !hideArchived || !req.isArchived)
                         .map((req: any) => (
@@ -1135,13 +1171,13 @@ export default function DeviceDetailsPage() {
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#29382f]/30 rounded-lg"
                         >
                           <div className="flex items-center gap-3">
-                            <CreditCard className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            {getBankIcon(req.bankType, "sm")}
                             <div>
                               <p className="font-medium dark:text-[#eeeeee]">
-                                **** {req.cardNumber?.slice(-4) || "0000"}
+                                {req.cardNumber || req.phoneNumber || "Не указан"}
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {req.bankType} • {req.recipientName}
+                                {req.methodType || req.method?.type || 'N/A'} • {req.bankType} • {req.recipientName}
                               </p>
                             </div>
                           </div>

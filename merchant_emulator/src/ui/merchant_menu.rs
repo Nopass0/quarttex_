@@ -9,6 +9,7 @@ pub struct MerchantMenu;
 pub enum MerchantMenuItem {
     ConfigureTraffic,
     StartTraffic,
+    StartTrafficQuiet,
     StopTraffic,
     ViewTransactions,
     ViewStatistics,
@@ -16,16 +17,29 @@ pub enum MerchantMenuItem {
     ConfigureCallback,
     TogglePaymentType,
     SetLiquidity,
+    ViewLogs,
     Back,
 }
 
 impl MerchantMenu {
-    pub fn show(merchant: &Merchant, is_traffic_running: bool) -> Result<MerchantMenuItem> {
+    pub fn show(merchant: &Merchant, traffic_info: Option<(bool, bool)>) -> Result<MerchantMenuItem> {
+        let (is_traffic_running, is_quiet) = traffic_info.unwrap_or((false, false));
+        
+        let traffic_status = if is_traffic_running {
+            if is_quiet {
+                "Traffic Running (Quiet Mode)"
+            } else {
+                "Traffic Running"
+            }
+        } else {
+            "Traffic Stopped"
+        };
+        
         let header = format!(
             "\n{} - {} ({})\nBalance: {} USDT | Liquidity: {}% | Payment Type: {:?}",
             Style::new().bold().apply_to(&merchant.name),
             if merchant.is_active { "Active" } else { "Inactive" },
-            if is_traffic_running { "Traffic Running" } else { "Traffic Stopped" },
+            traffic_status,
             merchant.balance_usdt,
             merchant.liquidity_percentage,
             merchant.payment_type
@@ -33,9 +47,21 @@ impl MerchantMenu {
         
         println!("{}", header);
         
-        let items = vec![
+        let mut items = vec![
             "Configure Traffic Parameters",
-            if is_traffic_running { "Stop Traffic" } else { "Start Traffic" },
+        ];
+        
+        if is_traffic_running {
+            items.push("Stop Traffic");
+            if !is_quiet {
+                items.push("View Traffic Logs");
+            }
+        } else {
+            items.push("Start Traffic (With Logs)");
+            items.push("Start Traffic (Quiet Mode)");
+        }
+        
+        items.extend_from_slice(&[
             "View Transactions",
             "View Statistics",
             "Export Data",
@@ -43,7 +69,7 @@ impl MerchantMenu {
             "Toggle Payment Type (RUB/USDT)",
             "Set Liquidity Percentage",
             "Back to Main Menu",
-        ];
+        ]);
         
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Merchant Menu")
@@ -51,20 +77,30 @@ impl MerchantMenu {
             .default(0)
             .interact()?;
             
-        Ok(match selection {
-            0 => MerchantMenuItem::ConfigureTraffic,
-            1 => if is_traffic_running { 
-                MerchantMenuItem::StopTraffic 
-            } else { 
-                MerchantMenuItem::StartTraffic 
+        Ok(match (selection, is_traffic_running) {
+            (0, _) => MerchantMenuItem::ConfigureTraffic,
+            (1, true) => MerchantMenuItem::StopTraffic,
+            (1, false) => MerchantMenuItem::StartTraffic,
+            (2, true) if !is_quiet => MerchantMenuItem::ViewLogs,
+            (2, false) => MerchantMenuItem::StartTrafficQuiet,
+            (n, true) if !is_quiet => match n - 3 {
+                0 => MerchantMenuItem::ViewTransactions,
+                1 => MerchantMenuItem::ViewStatistics,
+                2 => MerchantMenuItem::ExportData,
+                3 => MerchantMenuItem::ConfigureCallback,
+                4 => MerchantMenuItem::TogglePaymentType,
+                5 => MerchantMenuItem::SetLiquidity,
+                _ => MerchantMenuItem::Back,
             },
-            2 => MerchantMenuItem::ViewTransactions,
-            3 => MerchantMenuItem::ViewStatistics,
-            4 => MerchantMenuItem::ExportData,
-            5 => MerchantMenuItem::ConfigureCallback,
-            6 => MerchantMenuItem::TogglePaymentType,
-            7 => MerchantMenuItem::SetLiquidity,
-            _ => MerchantMenuItem::Back,
+            (n, _) => match n - 2 {
+                0 => MerchantMenuItem::ViewTransactions,
+                1 => MerchantMenuItem::ViewStatistics,
+                2 => MerchantMenuItem::ExportData,
+                3 => MerchantMenuItem::ConfigureCallback,
+                4 => MerchantMenuItem::TogglePaymentType,
+                5 => MerchantMenuItem::SetLiquidity,
+                _ => MerchantMenuItem::Back,
+            },
         })
     }
     

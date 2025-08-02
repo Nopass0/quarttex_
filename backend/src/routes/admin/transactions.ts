@@ -399,6 +399,7 @@ export default (app: Elysia) =>
             successUri: trx.successUri,
             failUri: trx.failUri,
             callbackUri: trx.callbackUri,
+            amount: trx.amount,
           })
 
           return { transaction: trx, hook }
@@ -629,6 +630,7 @@ export default (app: Elysia) =>
             successUri: trx.successUri,
             failUri: trx.failUri,
             callbackUri: trx.callbackUri,
+            amount: trx.amount,
           });
           return { transaction: trx, hook };
         } catch (e) {

@@ -277,16 +277,16 @@ model BankDetail {
   phoneNumber          String?
   minAmount            Float
   maxAmount            Float
-  dailyLimit           Float
-  monthlyLimit         Float
-  maxCountTransactions Int?
+  totalAmountLimit     Float               @default(0) // Общий лимит суммы (если 0 - без лимита)
+  currentTotalAmount   Float               @default(0) // Текущая использованная сумма
   intervalMinutes      Int                 @default(0)
+  operationLimit       Int                 @default(0) // Лимит по количеству операций без срока давности (0 - без лимита)
+  sumLimit             Float               @default(0) // Лимит на общую сумму сделок в рублях (0 - без лимита)
   isArchived           Boolean             @default(false)
+  isActive             Boolean             @default(true)
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
-  dailyTraffic         Float               @default(0)
   deviceId             String?
-  monthlyTraffic       Float               @default(0)
   device               Device?             @relation(fields: [deviceId], references: [id])
   user                 User                @relation(fields: [userId], references: [id])
   folders              RequisiteOnFolder[]
@@ -913,17 +913,17 @@ model PayoutFilters {
 
 model TransactionAttempt {
   id            String   @id @default(cuid())
-  transactionId String
+  transactionId String?
   merchantId    String
   methodId      String
   amount        Float
-  status        String
+  status        String?
   success       Boolean  @default(false)
   errorCode     String?
   message       String?
   timestamp     DateTime @default(now())
   createdAt     DateTime @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime @updatedAt
   merchant      Merchant @relation(fields: [merchantId], references: [id])
   method        Method   @relation(fields: [methodId], references: [id])
 

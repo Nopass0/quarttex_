@@ -13,15 +13,32 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
+        // Check for environment variables first, then use fallback directories
+        let data_dir = if let Ok(dir) = std::env::var("MERCHANT_DATA_DIR") {
+            PathBuf::from(dir)
+        } else {
+            // Use home directory instead of system data directory
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".merchant-emulator")
+                .join("data")
+        };
+        
+        let export_dir = if let Ok(dir) = std::env::var("MERCHANT_EXPORT_DIR") {
+            PathBuf::from(dir)
+        } else {
+            // Use home directory instead of Downloads which has permission issues
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".merchant-emulator")
+                .join("exports")
+        };
+        
         Self {
             api_base_url: "http://localhost:3000".to_string(),
             callback_server_port: 8080,
-            data_dir: dirs::data_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("merchant-emulator"),
-            export_dir: dirs::download_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("merchant-emulator-exports"),
+            data_dir,
+            export_dir,
             log_level: "info".to_string(),
             device_emulator_enabled: true,
         }

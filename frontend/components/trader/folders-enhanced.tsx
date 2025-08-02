@@ -50,10 +50,9 @@ interface Requisite {
   recipientName: string
   isActive: boolean
   isArchived: boolean
-  dailyTurnover: number
-  dailyLimit: number
-  monthlyTurnover: number
-  monthlyLimit: number
+  totalAmountLimit: number
+  currentTotalAmount: number
+  activeDeals?: number
   folderId?: string
 }
 
@@ -410,10 +409,10 @@ export function FoldersEnhanced() {
                                 <div className="flex items-center gap-4">
                                   <div className="text-right">
                                     <div className="text-sm dark:text-[#eeeeee]">
-                                      Оборот: {(requisite.dailyTurnover || 0).toLocaleString()} / {(requisite.dailyLimit || 0).toLocaleString()} ₽
+                                      Лимит: {(requisite.currentTotalAmount || 0).toLocaleString()} / {(requisite.totalAmountLimit || 0).toLocaleString()} ₽
                                     </div>
                                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      За месяц: {(requisite.monthlyTurnover || 0).toLocaleString()} / {(requisite.monthlyLimit || 0).toLocaleString()} ₽
+                                      Активные: {(requisite.activeDeals || 0)}
                                     </div>
                                   </div>
                                   

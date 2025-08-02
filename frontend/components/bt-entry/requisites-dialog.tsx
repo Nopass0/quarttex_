@@ -83,8 +83,6 @@ export function RequisitesDialog({
     methodId: "",
     minAmount: "100",
     maxAmount: "100000",
-    dailyLimit: "500000",
-    monthlyLimit: "10000000",
   });
 
   // Fetch methods on mount
@@ -143,8 +141,6 @@ export function RequisitesDialog({
         methodId: formData.methodId,
         minAmount: parseInt(formData.minAmount),
         maxAmount: parseInt(formData.maxAmount),
-        dailyLimit: parseInt(formData.dailyLimit),
-        monthlyLimit: parseInt(formData.monthlyLimit),
         intervalMinutes: 5,
       };
 
@@ -174,8 +170,6 @@ export function RequisitesDialog({
         methodId: "",
         minAmount: "100",
         maxAmount: "100000",
-        dailyLimit: "500000",
-        monthlyLimit: "10000000",
       });
     } catch (error: any) {
       console.error("Failed to create requisite:", error);
@@ -320,33 +314,7 @@ export function RequisitesDialog({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="dailyLimit">Дневной лимит (₽)</Label>
-              <Input
-                id="dailyLimit"
-                type="number"
-                placeholder="500000"
-                value={formData.dailyLimit}
-                onChange={(e) =>
-                  setFormData({ ...formData, dailyLimit: e.target.value })
-                }
-                disabled={loading}
-              />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="monthlyLimit">Месячный лимит (₽)</Label>
-              <Input
-                id="monthlyLimit"
-                type="number"
-                placeholder="10000000"
-                value={formData.monthlyLimit}
-                onChange={(e) =>
-                  setFormData({ ...formData, monthlyLimit: e.target.value })
-                }
-                disabled={loading}
-              />
-            </div>
           </div>
 
           <div className="flex justify-end gap-3">

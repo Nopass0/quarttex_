@@ -331,7 +331,25 @@ impl DeviceMenu {
         let device = &connected_devices[selection];
 
         // Simulate bank notification
-        let banks = vec!["Sberbank", "Tinkoff", "Alfa Bank", "VTB"];
+        let banks = vec![
+            "Sberbank", 
+            "Tinkoff", 
+            "Alfa Bank", 
+            "VTB",
+            "Gazprombank",
+            "Ozon Bank",
+            "OTP Bank",
+            "PSB",
+            "DOM.RF",
+            "MTS Bank",
+            "UralSib",
+            "Raiffeisen",
+            "Pochta Bank",
+            "Bank SPB",
+            "RNKB",
+            "RSHB",
+            "Home Credit"
+        ];
         let bank_selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select bank")
             .items(&banks)
@@ -342,25 +360,14 @@ impl DeviceMenu {
             .default(1000.0)
             .interact()?;
 
-        let notification = NotificationRequest {
-            package_name: format!("com.{}.app", banks[bank_selection].to_lowercase()),
-            app_name: banks[bank_selection].to_string(),
-            title: format!("{} Online", banks[bank_selection]),
-            content: format!("Пополнение +{:.2} ₽", amount),
-            timestamp: Utc::now().timestamp_millis(),
-            priority: 2,
-            category: "transaction".to_string(),
-        };
-
-        if let Some(token) = &device.token {
-            println!("\n🔄 Sending notification...");
-            
-            match self.api_client.send_notification(token, notification).await {
-                Ok(_) => println!("✅ Notification sent successfully!"),
-                Err(e) => println!("❌ Failed to send notification: {}", e),
-            }
-        } else {
-            println!("❌ Device has no token");
+        // Use the device notification service to send bank-specific notification
+        match self.device_notification_service.send_test_notification(
+            &device.id,
+            banks[bank_selection],
+            amount
+        ).await {
+            Ok(_) => println!("✅ Notification sent successfully!"),
+            Err(e) => println!("❌ Failed to send notification: {}", e),
         }
 
         Ok(())

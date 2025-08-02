@@ -43,6 +43,9 @@ import {
   ChevronDown,
   ArrowUpDown,
   SlidersHorizontal,
+  MoreVertical,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
@@ -68,9 +71,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { TraderHeader } from "@/components/trader/trader-header";
-import { RequisiteInfoModal } from "@/components/requisites/requisite-info-modal";
 import { StickySearchFilters } from "@/components/ui/sticky-search-filters";
 import { useDebounce } from "@/hooks/use-debounce";
+import { RequisitesSheet } from "@/components/trader/requisites-sheet";
 
 interface Requisite {
   id: string;
@@ -81,14 +84,17 @@ interface Requisite {
   phoneNumber?: string;
   minAmount: number;
   maxAmount: number;
-  dailyLimit: number;
-  monthlyLimit: number;
+  currentTotalAmount: number;
+  operationLimit: number;
+  sumLimit: number;
+  activeDeals: number;
   intervalMinutes: number;
   turnoverDay: number;
   turnoverTotal: number;
   successfulDeals: number;
   totalDeals: number;
   isArchived: boolean;
+  isActive: boolean;
   hasDevice: boolean;
   device?: {
     id: string;
@@ -106,6 +112,7 @@ export default function TraderRequisitesPage() {
   const [selectedRequisites, setSelectedRequisites] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showRequisitesSheet, setShowRequisitesSheet] = useState(false);
   const [methods, setMethods] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [addingRequisite, setAddingRequisite] = useState(false);
@@ -116,6 +123,7 @@ export default function TraderRequisitesPage() {
   const [deviceSearchInternal, setDeviceSearchInternal] = useState("");
   const [selectedRequisiteForInfo, setSelectedRequisiteForInfo] =
     useState<Requisite | null>(null);
+  const [editingRequisite, setEditingRequisite] = useState<Requisite | null>(null);
 
   // Form state
   const [requisiteForm, setRequisiteForm] = useState({
@@ -126,10 +134,8 @@ export default function TraderRequisitesPage() {
     phoneNumber: "",
     minAmount: 100,
     maxAmount: 50000,
-    dailyLimit: 500000,
-    monthlyLimit: 5000000,
-    intervalMinutes: 0,
-    deviceId: "",
+    operationLimit: 0,
+    sumLimit: 0,
   });
 
   useEffect(() => {
@@ -142,12 +148,48 @@ export default function TraderRequisitesPage() {
     try {
       setLoading(true);
       const data = await traderApi.getRequisites();
+      console.log('[Requisites] Raw data from API:', data);
+      // Ensure data is an array
+      const dataArray = Array.isArray(data) ? data : [];
       // Add mock data for successful deals if not present
-      const requisitesWithDeals = data.map((req: any) => ({
-        ...req,
-        successfulDeals: req.successfulDeals || Math.floor(Math.random() * 50),
-        totalDeals: req.totalDeals || Math.floor(Math.random() * 60) + 10,
-      }));
+      const requisitesWithDeals = dataArray.map((req: any) => {
+        console.log('[Requisites] Processing requisite:', req?.id, {
+          currentTotalAmount: req?.currentTotalAmount,
+          successfulDeals: req?.successfulDeals,
+          totalDeals: req?.totalDeals,
+          activeDeals: req?.activeDeals,
+          sumLimit: req?.sumLimit,
+          methodType: req?.methodType,
+          fullObject: req
+        });
+        // Ensure all required fields exist
+        return {
+          ...req,
+          id: req?.id || '',
+          methodType: req?.methodType || '',
+          bankType: req?.bankType || '',
+          cardNumber: req?.cardNumber || '',
+          recipientName: req?.recipientName || '',
+          phoneNumber: req?.phoneNumber || '',
+          minAmount: req?.minAmount || 0,
+          maxAmount: req?.maxAmount || 0,
+          currentTotalAmount: req?.currentTotalAmount || 0,
+          operationLimit: req?.operationLimit || 0,
+          sumLimit: req?.sumLimit || 0,
+          activeDeals: req?.activeDeals || 0,
+          intervalMinutes: req?.intervalMinutes || 0,
+          turnoverDay: req?.turnoverDay || 0,
+          turnoverTotal: req?.turnoverTotal || 0,
+          successfulDeals: req?.successfulDeals || 0,
+          totalDeals: req?.totalDeals || 0,
+          isArchived: req?.isArchived || false,
+          isActive: req?.isActive !== undefined ? req?.isActive : true,
+          hasDevice: req?.hasDevice || false,
+          device: req?.device || null,
+          createdAt: req?.createdAt || new Date().toISOString(),
+          updatedAt: req?.updatedAt || new Date().toISOString(),
+        };
+      });
       setRequisites(requisitesWithDeals);
     } catch (error) {
       console.error("Error fetching requisites:", error);
@@ -197,12 +239,14 @@ export default function TraderRequisitesPage() {
         return;
       }
 
-      // Prepare data, converting empty string to null for deviceId
+      // Prepare data
       const requisiteData = {
         ...requisiteForm,
-        deviceId: requisiteForm.deviceId || null,
-        intervalMinutes: 5 // По умолчанию 5 минут между транзакциями
+        deviceId: null, // Always null since we removed device selection
+        intervalMinutes: 5 // Default value
       };
+      
+      console.log('[Requisites] Creating requisite with data:', requisiteData);
       
       await traderApi.createRequisite(requisiteData);
       toast.success("Реквизит успешно добавлен");
@@ -218,10 +262,8 @@ export default function TraderRequisitesPage() {
         phoneNumber: "",
         minAmount: 100,
         maxAmount: 50000,
-        dailyLimit: 500000,
-        monthlyLimit: 5000000,
-        intervalMinutes: 0,
-        deviceId: "",
+        operationLimit: 0,
+        sumLimit: 0,
       });
     } catch (error: any) {
       console.error("Error creating requisite:", error);
@@ -241,15 +283,15 @@ export default function TraderRequisitesPage() {
       switch (bulkAction) {
         case "stop":
           for (const id of selectedRequisites) {
-            await traderApi.archiveRequisite(id, true);
+            await traderApi.stopRequisite(id);
           }
-          toast.success(`Остановлено реквизитов: ${selectedRequisites.length}`);
+          toast.success(`Деактивировано реквизитов: ${selectedRequisites.length}`);
           break;
         case "start":
           for (const id of selectedRequisites) {
-            await traderApi.archiveRequisite(id, false);
+            await traderApi.startRequisite(id);
           }
-          toast.success(`Запущено реквизитов: ${selectedRequisites.length}`);
+          toast.success(`Активировано реквизитов: ${selectedRequisites.length}`);
           break;
       }
 
@@ -258,6 +300,35 @@ export default function TraderRequisitesPage() {
       await fetchRequisites();
     } catch (error) {
       toast.error("Не удалось выполнить действие");
+    }
+  };
+
+  const handleToggleStatus = async (requisite: Requisite) => {
+    try {
+      if (requisite.isActive) {
+        await traderApi.stopRequisite(requisite.id);
+        toast.success("Реквизит деактивирован");
+      } else {
+        await traderApi.startRequisite(requisite.id);
+        toast.success("Реквизит активирован");
+      }
+      await fetchRequisites();
+    } catch (error) {
+      console.error("Failed to toggle requisite status:", error);
+      toast.error("Не удалось изменить статус реквизита");
+    }
+  };
+
+  const handleDelete = async (requisiteId: string) => {
+    if (!confirm("Вы уверены, что хотите удалить этот реквизит?")) return;
+
+    try {
+      await traderApi.deleteRequisite(requisiteId);
+      toast.success("Реквизит удален");
+      await fetchRequisites();
+    } catch (error) {
+      console.error("Failed to delete requisite:", error);
+      toast.error("Не удалось удалить реквизит");
     }
   };
 
@@ -648,12 +719,21 @@ export default function TraderRequisitesPage() {
           {/* Requisites List */}
           <div className="space-y-3">
             {filteredRequisites.map((requisite) => {
+              console.log('[Requisites] Rendering requisite:', requisite.id, {
+                activeDeals: requisite.activeDeals,
+                sumLimit: requisite.sumLimit,
+                currentTotalAmount: requisite.currentTotalAmount,
+                methodType: requisite.methodType
+              });
               const successRate =
                 requisite.totalDeals > 0
                   ? (requisite.successfulDeals / requisite.totalDeals) * 100
                   : 0;
               const paymentSystem = detectPaymentSystem(requisite.cardNumber);
 
+              // Determine if requisite is actually working
+              const isWorking = requisite.isActive && (!requisite.hasDevice || (requisite.device?.isOnline === true));
+              
               return (
                 <div key={requisite.id} className="relative">
                   {/* Checkbox - positioned outside card */}
@@ -665,13 +745,12 @@ export default function TraderRequisitesPage() {
                   />
 
                   <Card
-                    className="pl-10 md:pl-12 pr-3 md:pr-4 py-3 md:py-4 hover:shadow-md transition-all duration-300 cursor-pointer border-gray-100"
-                    onClick={() => setSelectedRequisiteForInfo(requisite)}
+                    className="pl-10 md:pl-12 pr-3 md:pr-4 py-3 md:py-4 hover:shadow-md transition-all duration-300 border-gray-100"
                   >
                     {/* Mobile Layout */}
                     <div className="md:hidden">
                       <div className="space-y-3">
-                        {/* Top Row: Bank Logo, Name, Device, Status */}
+                        {/* Top Row: Bank Logo, Name with Device, Status */}
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
                             {/* Bank Logo */}
@@ -701,42 +780,113 @@ export default function TraderRequisitesPage() {
                             </div>
                           </div>
 
-                          {/* Status Badge */}
-                          <div className="flex-shrink-0">
-                            {requisite.isArchived ? (
-                              <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs px-2 py-1">
-                                Остановлен
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-1">
-                                В работе
-                              </Badge>
-                            )}
+                          {/* Status Badge and Actions */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex-shrink-0">
+                              {isWorking ? (
+                                <Badge className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-1">
+                                  В работе
+                                </Badge>
+                              ) : !requisite.isActive ? (
+                                <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs px-2 py-1">
+                                  Неактивен
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-xs px-2 py-1">
+                                  Не в работе
+                                </Badge>
+                              )}
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingRequisite(requisite);
+                                  setShowRequisitesSheet(true);
+                                }}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Редактировать
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleToggleStatus(requisite)}>
+                                  {!requisite.isActive ? (
+                                    <>
+                                      <PlayCircle className="mr-2 h-4 w-4" />
+                                      Активировать
+                                    </>
+                                  ) : (
+                                    <>
+                                      <PauseCircle className="mr-2 h-4 w-4" />
+                                      Деактивировать
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDelete(requisite.id)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Удалить
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
 
-                        {/* Card Number */}
-                        <div className="flex items-center gap-2">
-                          {paymentSystem !== "unknown" && (
-                            <PaymentSystemIcon system={paymentSystem} />
-                          )}
-                          <span className="font-medium text-gray-900 text-sm">
-                            {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
-                          </span>
-                        </div>
-
-                        {/* Success Rate */}
+                        {/* Card Number and Method */}
                         <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-600">
-                              Успешные сделки: {requisite.successfulDeals || 0} из{" "}
-                              {requisite.totalDeals || 0}
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {successRate.toFixed(0)}%
+                          <div className="flex items-center gap-2">
+                            {paymentSystem !== "unknown" && (
+                              <PaymentSystemIcon system={paymentSystem} />
+                            )}
+                            <span className="font-medium text-gray-900 text-sm">
+                              {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
                             </span>
                           </div>
-                          <Progress value={successRate} className="h-1.5" />
+                          <div className="text-xs text-gray-600">
+                            <span>Метод: {requisite.methodType === 'sbp' ? 'СБП' : requisite.methodType === 'c2c' ? 'C2C' : requisite.methodType || ''}</span>
+                          </div>
+                        </div>
+
+                        {/* Success Rate and Limits */}
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">
+                                Успешные сделки: {requisite.successfulDeals || 0} из{" "}
+                                {requisite.totalDeals || 0}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">
+                                {successRate.toFixed(0)}%
+                              </span>
+                            </div>
+                            <Progress value={successRate} className="h-1.5" />
+                          </div>
+                          
+                          {/* Limits Info */}
+                          <div className="flex flex-wrap gap-3 text-xs">
+                            <div>
+                              <span className="text-gray-600">Лимиты суммы: </span>
+                              <span className="font-medium">
+                                {(requisite.minAmount || 0).toLocaleString()} - {(requisite.maxAmount || 0).toLocaleString()} ₽
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Активные сделки: </span>
+                              <span className="font-medium">
+                                {requisite.activeDeals || 0}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Общий лимит: </span>
+                              <span className="font-medium">
+                                {(requisite.currentTotalAmount || 0).toLocaleString()} / {requisite.sumLimit === 0 ? '∞' : (requisite.sumLimit || 0).toLocaleString()} ₽
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -754,27 +904,34 @@ export default function TraderRequisitesPage() {
                         />
                       </div>
 
-                      {/* Requisite Info + Card Number */}
+                      {/* Requisite Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
-                          <div className="font-medium text-gray-900">
-                            {requisite.recipientName}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-3">
+                            <div className="font-medium text-gray-900">
+                              {requisite.recipientName}
+                            </div>
+                            {requisite.device && (
+                              <div className="flex items-center gap-1.5">
+                                <Smartphone className="h-3.5 w-3.5 text-green-600" />
+                                <span className="text-sm text-green-600">
+                                  {requisite.device.name}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          {requisite.device && (
-                            <div className="flex items-center gap-1.5">
-                              <Smartphone className="h-3.5 w-3.5 text-green-600" />
-                              <span className="text-sm text-green-600">
-                                {requisite.device.name}
+                          {/* Card Number and Method */}
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              {paymentSystem !== "unknown" && (
+                                <PaymentSystemIcon system={paymentSystem} />
+                              )}
+                              <span className="font-semibold text-gray-900">
+                                {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
                               </span>
                             </div>
-                          )}
-                          {/* Card Number - moved closer to name/device */}
-                          <div className="flex items-center gap-2">
-                            {paymentSystem !== "unknown" && (
-                              <PaymentSystemIcon system={paymentSystem} />
-                            )}
-                            <span className="font-semibold text-gray-900">
-                              {requisite.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
+                            <span className="text-sm text-gray-600">
+                              Метод: {requisite.methodType === 'sbp' ? 'СБП' : requisite.methodType === 'c2c' ? 'C2C' : requisite.methodType || ''}
                             </span>
                           </div>
                         </div>
@@ -795,18 +952,82 @@ export default function TraderRequisitesPage() {
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Limits Info - in one column */}
+                    <div className="flex-shrink-0 space-y-1 text-sm">
+                      <div>
+                        <span className="text-gray-600">Лимиты суммы: </span>
+                        <span className="font-medium">
+                          {(requisite.minAmount || 0).toLocaleString()} - {(requisite.maxAmount || 0).toLocaleString()} ₽
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Активные сделки: </span>
+                        <span className="font-medium">
+                          {requisite.activeDeals || 0}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Общий лимит: </span>
+                        <span className="font-medium">
+                          {(requisite.currentTotalAmount || 0).toLocaleString()} / {requisite.sumLimit === 0 ? '∞' : (requisite.sumLimit || 0).toLocaleString()} ₽
+                        </span>
+                      </div>
+                    </div>
 
-                      {/* Status */}
-                      <div className="flex-shrink-0">
-                        {requisite.isArchived ? (
-                          <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
-                            Остановлен
-                          </div>
-                        ) : (
-                          <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
-                            В работе
-                          </div>
-                        )}
+                      {/* Status and Actions */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-shrink-0">
+                          {isWorking ? (
+                            <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
+                              В работе
+                            </div>
+                          ) : !requisite.isActive ? (
+                            <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
+                              Неактивен
+                            </div>
+                          ) : (
+                            <div className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg font-medium">
+                              Не в работе
+                            </div>
+                          )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setEditingRequisite(requisite);
+                              setShowRequisitesSheet(true);
+                            }}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Редактировать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleStatus(requisite)}>
+                              {!requisite.isActive ? (
+                                <>
+                                  <PlayCircle className="mr-2 h-4 w-4" />
+                                  Активировать
+                                </>
+                              ) : (
+                                <>
+                                  <PauseCircle className="mr-2 h-4 w-4" />
+                                  Деактивировать
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(requisite.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Удалить
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </Card>
@@ -822,6 +1043,20 @@ export default function TraderRequisitesPage() {
             </div>
           )}
         </div>
+
+        {/* Requisites Sheet */}
+        <RequisitesSheet
+          open={showRequisitesSheet}
+          onOpenChange={(open) => {
+            setShowRequisitesSheet(open);
+            if (!open) {
+              setEditingRequisite(null);
+            }
+          }}
+          onSuccess={fetchRequisites}
+          existingRequisite={editingRequisite}
+          devices={devices}
+        />
 
         {/* Add Requisite Dialog */}
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -995,62 +1230,42 @@ export default function TraderRequisitesPage() {
                 </div>
               </div>
 
+
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <Label htmlFor="dailyLimit" className="text-sm">Дневной лимит</Label>
+                  <Label htmlFor="operationLimit" className="text-sm">Лимит операций (всего)</Label>
                   <Input
-                    id="dailyLimit"
+                    id="operationLimit"
                     type="number"
-                    value={requisiteForm.dailyLimit}
+                    value={requisiteForm.operationLimit}
                     onChange={(e) =>
                       setRequisiteForm({
                         ...requisiteForm,
-                        dailyLimit: parseInt(e.target.value) || 0,
+                        operationLimit: parseInt(e.target.value) || 0,
                       })
                     }
+                    placeholder="0 = без ограничений"
                     className="text-sm md:text-base"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="monthlyLimit" className="text-sm">Месячный лимит</Label>
+                  <Label htmlFor="sumLimit" className="text-sm">Лимит общей суммы (₽)</Label>
                   <Input
-                    id="monthlyLimit"
+                    id="sumLimit"
                     type="number"
-                    value={requisiteForm.monthlyLimit}
+                    value={requisiteForm.sumLimit}
                     onChange={(e) =>
                       setRequisiteForm({
                         ...requisiteForm,
-                        monthlyLimit: parseInt(e.target.value) || 0,
+                        sumLimit: parseInt(e.target.value) || 0,
                       })
                     }
+                    placeholder="0 = без ограничений"
                     className="text-sm md:text-base"
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="device" className="text-sm">
-                  Привязать к устройству (опционально)
-                </Label>
-                <Select
-                  value={requisiteForm.deviceId}
-                  onValueChange={(value) =>
-                    setRequisiteForm({ ...requisiteForm, deviceId: value })
-                  }
-                >
-                  <SelectTrigger id="device" className="text-sm md:text-base">
-                    <SelectValue placeholder="Выберите устройство" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Без устройства</SelectItem>
-                    {devices.map((device) => (
-                      <SelectItem key={device.id} value={device.id}>
-                        {device.name} {device.isOnline && "(В сети)"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -1076,50 +1291,6 @@ export default function TraderRequisitesPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Requisite Info Modal */}
-        {selectedRequisiteForInfo && (
-          <RequisiteInfoModal
-            open={!!selectedRequisiteForInfo}
-            onOpenChange={(open) => !open && setSelectedRequisiteForInfo(null)}
-            requisite={{
-              id: selectedRequisiteForInfo.id,
-              bankType: selectedRequisiteForInfo.bankType,
-              cardNumber: selectedRequisiteForInfo.cardNumber,
-              recipientName: selectedRequisiteForInfo.recipientName,
-              phoneNumber: selectedRequisiteForInfo.phoneNumber,
-              accountNumber: "40817810490069500347", // Mock account number
-              status: selectedRequisiteForInfo.isArchived
-                ? "inactive"
-                : "active",
-              isArchived: selectedRequisiteForInfo.isArchived,
-              device: selectedRequisiteForInfo.device,
-              methodType: selectedRequisiteForInfo.methodType,
-              minAmount: selectedRequisiteForInfo.minAmount,
-              maxAmount: selectedRequisiteForInfo.maxAmount,
-              dailyLimit: selectedRequisiteForInfo.dailyLimit,
-              monthlyLimit: selectedRequisiteForInfo.monthlyLimit,
-              intervalMinutes: selectedRequisiteForInfo.intervalMinutes,
-              successfulDeals: selectedRequisiteForInfo.successfulDeals,
-              totalDeals: selectedRequisiteForInfo.totalDeals,
-              stats: {
-                turnover24h: selectedRequisiteForInfo.turnoverDay || 0,
-                deals24h: selectedRequisiteForInfo.totalDeals || 0,
-                profit24h: 0,
-                conversion24h: selectedRequisiteForInfo.totalDeals > 0 
-                  ? Math.round((selectedRequisiteForInfo.successfulDeals / selectedRequisiteForInfo.totalDeals) * 100)
-                  : 0,
-              },
-              verifications: {
-                cardNumber: false,
-                accountNumber: false,
-                phoneNumber: selectedRequisiteForInfo.phoneNumber
-                  ? true
-                  : false,
-              },
-            }}
-            onRequisiteUpdated={fetchRequisites}
-          />
-        )}
       </AuthLayout>
     </ProtectedRoute>
   );

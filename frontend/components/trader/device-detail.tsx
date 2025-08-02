@@ -48,6 +48,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { traderApi } from '@/services/api'
+import { getBankIcon } from '@/lib/bank-utils'
 import { formatDateTime, cn } from '@/lib/utils'
 import { DeviceRequisitesSheet } from '@/components/trader/device-requisites-sheet'
 
@@ -70,10 +71,18 @@ interface Device {
     cardNumber: string
     recipientName: string
     isArchived: boolean
+    isActive?: boolean
     turnoverDay: number
     turnoverTotal: number
     dailyLimit: number
     monthlyLimit: number
+    minAmount?: number
+    maxAmount?: number
+    maxCountTransactions?: number
+    transactionsReady?: number
+    transactionsInProgress?: number
+    method?: { type: string }
+    methodType?: string
   }>
   recentNotifications?: Array<{
     id: string
@@ -397,12 +406,12 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
               <div className="flex items-center justify-between">
                 <CardTitle>Привязанные реквизиты</CardTitle>
                 <Button
-                  size="sm"
+                  size="default"
                   variant="outline"
                   onClick={() => setShowRequisitesSheet(true)}
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Добавить реквизит
+                  Управление реквизитами
                 </Button>
               </div>
             </CardHeader>
@@ -412,10 +421,11 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Банк</TableHead>
-                        <TableHead>Номер карты</TableHead>
+                        <TableHead>Метод/Банк</TableHead>
+                        <TableHead>Номер карты/телефона</TableHead>
                         <TableHead>Получатель</TableHead>
-                        <TableHead>Дневной трафик</TableHead>
+                        <TableHead>Лимиты</TableHead>
+                        <TableHead>Транзакции</TableHead>
                         <TableHead>Статус</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
@@ -424,27 +434,46 @@ export function DeviceDetail({ deviceId }: DeviceDetailProps) {
                       {device.linkedBankDetails.map((bank) => (
                         <TableRow key={bank.id}>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Building className="w-4 h-4 text-gray-400" />
-                              <span className="font-medium">{bank.bankType}</span>
+                            <div className="space-y-1">
+                              <div className="text-xs text-gray-500">
+                                {bank.method?.type || bank.methodType || 'N/A'}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {React.createElement(getBankIcon(bank.bankType), { className: "w-4 h-4" })}
+                                <span className="font-medium">{bank.bankType}</span>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono">
+                          <TableCell className="font-mono text-sm">
                             {bank.cardNumber}
                           </TableCell>
                           <TableCell>{bank.recipientName}</TableCell>
                           <TableCell>
-                            <div className="text-sm">
-                              <span className="font-medium">{bank.turnoverDay.toLocaleString('ru-RU')} ₽</span>
-                              <span className="text-gray-500"> / {bank.dailyLimit.toLocaleString('ru-RU')} ₽</span>
-                              <div className="text-xs text-gray-400">
-                                {bank.dailyLimit > 0 ? `${((bank.turnoverDay / bank.dailyLimit) * 100).toFixed(1)}%` : '∞'}
+                            <div className="space-y-1 text-sm">
+                              <div>
+                                <span className="text-gray-500">День:</span> {bank.turnoverDay.toLocaleString('ru-RU')} / {bank.dailyLimit.toLocaleString('ru-RU')} ₽
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Лимит:</span> {bank.minAmount.toLocaleString('ru-RU')} - {bank.maxAmount.toLocaleString('ru-RU')} ₽
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Макс. транзакций:</span> {bank.maxCountTransactions || '∞'}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={bank.isArchived ? "secondary" : "default"}>
-                              {bank.isArchived ? 'В архиве' : 'Активен'}
+                            <div className="space-y-2 text-sm">
+                              <div>
+                                <span className="text-gray-500">Готовых:</span> <span className="font-medium text-green-600">{bank.transactionsReady || 0}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">В процессе:</span> <span className="font-medium text-blue-600">{bank.transactionsInProgress || 0}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={bank.isActive ? "default" : "secondary"}>
+                              {bank.isActive ? 'Активен' : 'Неактивен'}
                             </Badge>
                           </TableCell>
                           <TableCell>

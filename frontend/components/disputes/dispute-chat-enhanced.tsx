@@ -246,7 +246,7 @@ export function DisputeChatEnhanced({
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {userType === "trader" ? disputeInfo.merchantName : disputeInfo.traderName} • 
-                  {" "}{disputeInfo.amount.toLocaleString()} ₽
+                  {" "}{(disputeInfo.amount || 0).toLocaleString()} ₽
                 </p>
               </div>
               <div className={cn(

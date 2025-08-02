@@ -21,6 +21,8 @@ A comprehensive merchant emulator application for testing the Chase payment plat
     - 50000-100000 RUB: 92%
   - Transaction limits and counters
   - Automatic mock/liquid transaction handling
+  - **Quiet Mode**: Run traffic without logs in the background
+  - **Log Viewer**: Interactive log viewer with exit capability (press 'q' or ESC)
 
 - **Callback Server**
   - Hosts endpoint on configurable port (default: 8080)
@@ -38,6 +40,12 @@ A comprehensive merchant emulator application for testing the Chase payment plat
   - Export transaction history to JSON
   - Export statistics to JSON
   - Automatic file organization by date
+
+- **Data Persistence**
+  - All merchants and API keys are saved between sessions
+  - Devices and their codes are preserved
+  - Transaction history is maintained
+  - Statistics are accumulated over time
 
 - **Device Emulator Integration** (Planned)
   - Manage virtual devices
@@ -61,10 +69,10 @@ cargo run --release
 
 The application uses default configuration that can be modified:
 
-- **API Base URL**: `http://localhost:5000`
+- **API Base URL**: `https://api.chase.money`
 - **Callback Server Port**: `8080`
-- **Data Directory**: System data directory + `/merchant-emulator`
-- **Export Directory**: Downloads directory + `/merchant-emulator-exports`
+- **Data Directory**: `~/.merchant-emulator/data`
+- **Export Directory**: `~/.merchant-emulator/exports`
 
 ## Usage
 
@@ -79,7 +87,10 @@ The application uses default configuration that can be modified:
 1. Select a merchant
 2. Choose "Configure Traffic Parameters"
 3. Set interval, variance, and amount probabilities
-4. Enable traffic generation with "Start Traffic"
+4. Enable traffic generation:
+   - "Start Traffic (With Logs)" - Shows all transaction logs in real-time
+   - "Start Traffic (Quiet Mode)" - Runs traffic silently in the background
+5. View logs: Select "View Traffic Logs" while traffic is running (press 'q' or ESC to exit)
 
 ### Viewing Statistics
 
@@ -109,6 +120,11 @@ All API errors are:
 - Categorized in statistics
 - Saved in transaction history
 - Displayed in the UI with helpful messages
+
+### Common Errors
+
+- **NO_REQUISITE**: No suitable bank cards available. See [NO_REQUISITE_ERROR_EXPLAINED.md](NO_REQUISITE_ERROR_EXPLAINED.md) for details.
+- **Rate validation errors**: Fixed by ensuring rate is always provided (1.0 for RUB, configurable for USDT)
 
 ## Data Persistence
 

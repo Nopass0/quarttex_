@@ -10,11 +10,10 @@ use device::{DeviceManager, NotificationEmulator, DeviceApiClient};
 use models::Config;
 use services::{MerchantService, StorageService, StatisticsService, TrafficGenerator};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, mpsc};
 use tracing::{error, info};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-use ui::{MainMenu, MenuItem, MerchantMenu, TrafficMenu};
-use ui::merchant_menu::MerchantMenuItem;
+use ui::{MainMenu, MenuItem, MerchantMenu, MerchantMenuItem, TrafficMenu, LogViewer};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -120,9 +119,9 @@ async fn main() -> Result<()> {
                 loop {
                     MainMenu::clear_screen();
                     
-                    let is_traffic_running = traffic_generator.is_running(&merchant.id).await;
+                    let traffic_info = traffic_generator.get_traffic_info(&merchant.id).await;
                     
-                    match MerchantMenu::show(&merchant, is_traffic_running)? {
+                    match MerchantMenu::show(&merchant, traffic_info)? {
                         MerchantMenuItem::ConfigureTraffic => {
                             merchant.traffic_config = TrafficMenu::configure_traffic(&merchant.traffic_config)?;
                             merchant_service.update_merchant(merchant.clone()).await?;
@@ -143,8 +142,11 @@ async fn main() -> Result<()> {
                                     } else {
                                         let method_id = MerchantMenu::select_method_from_list(&methods)?;
                                         
-                                        match traffic_generator.start_traffic(merchant.clone(), method_id).await {
-                                            Ok(_) => MainMenu::show_success("Traffic generation started"),
+                                        // Create log channel for this merchant
+                                        let _ = traffic_generator.create_log_channel(merchant.id).await;
+                                        
+                                        match traffic_generator.start_traffic(merchant.clone(), method_id, false).await {
+                                            Ok(_) => MainMenu::show_success("Traffic generation started (with logs)"),
                                             Err(e) => MainMenu::show_error(&format!("Failed to start traffic: {}", e)),
                                         }
                                     }
@@ -262,6 +264,56 @@ async fn main() -> Result<()> {
                             merchant.liquidity_percentage = MerchantMenu::get_liquidity_percentage()?;
                             merchant_service.update_merchant(merchant.clone()).await?;
                             MainMenu::show_success(&format!("Liquidity set to {}%", merchant.liquidity_percentage));
+                        }
+                        
+                        MerchantMenuItem::StartTrafficQuiet => {
+                            if !merchant.traffic_config.enabled {
+                                merchant.traffic_config.enabled = true;
+                                merchant_service.update_merchant(merchant.clone()).await?;
+                            }
+                            
+                            // Get available methods from API
+                            match merchant_service.get_available_methods(&merchant).await {
+                                Ok(methods) => {
+                                    if methods.is_empty() {
+                                        MainMenu::show_error("No payment methods available for this merchant");
+                                    } else {
+                                        let method_id = MerchantMenu::select_method_from_list(&methods)?;
+                                        
+                                        match traffic_generator.start_traffic(merchant.clone(), method_id, true).await {
+                                            Ok(_) => MainMenu::show_success("Traffic generation started (quiet mode)"),
+                                            Err(e) => MainMenu::show_error(&format!("Failed to start traffic: {}", e)),
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    MainMenu::show_error(&format!("Failed to get payment methods: {}", e));
+                                }
+                            }
+                        }
+                        
+                        MerchantMenuItem::ViewLogs => {
+                            // Check if traffic is running with logs
+                            if let Some((is_running, is_quiet)) = traffic_info {
+                                if is_running && !is_quiet {
+                                    MainMenu::show_info("Starting log viewer. Press 'q' or ESC to exit.");
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                                    
+                                    // Create a new log channel that will receive logs from the traffic generator
+                                    let log_rx = traffic_generator.create_log_channel(merchant.id).await;
+                                    
+                                    let _ = LogViewer::view_logs(log_rx).await;
+                                    
+                                    // Remove the log channel when done viewing
+                                    traffic_generator.remove_log_channel(&merchant.id).await;
+                                } else if is_running && is_quiet {
+                                    MainMenu::show_error("Traffic is running in quiet mode. No logs available.");
+                                } else {
+                                    MainMenu::show_error("No active traffic for this merchant");
+                                }
+                            } else {
+                                MainMenu::show_error("No active traffic for this merchant");
+                            }
                         }
                         
                         MerchantMenuItem::Back => break,

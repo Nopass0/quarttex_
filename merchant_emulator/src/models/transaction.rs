@@ -5,22 +5,32 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
     pub id: String,
+    #[serde(rename = "numericId")]
     pub numeric_id: u64,
     #[serde(alias = "orderId")]
     pub order_id: String,
     pub amount: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crypto: Option<f64>,
     pub status: TransactionStatus,
+    #[serde(rename = "traderId")]
     pub trader_id: Option<String>,
-    pub requisites: Option<Requisites>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub requisites: Option<TransactionRequisites>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    #[serde(rename = "updatedAt")]
+    pub updated_at: String,
+    pub expired_at: String,
+    pub method: Option<PaymentMethod>,
+    #[serde(default)]
     pub is_mock: bool,
+    #[serde(default)]
     pub callback_sent: bool,
     #[serde(alias = "methodId")]
     pub method_id: String,
     pub rate: Option<f64>,
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TransactionStatus {
@@ -40,6 +50,29 @@ pub enum TransactionStatus {
     Paused,
     #[serde(rename = "FUNDS_RETURNED")]
     FundsReturned,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionRequisites {
+    pub id: String,
+    #[serde(rename = "bankType")]
+    pub bank_type: String,
+    #[serde(rename = "cardNumber")]
+    pub card_number: String,
+    #[serde(rename = "recipientName")]
+    pub recipient_name: String,
+    #[serde(rename = "traderName")]
+    pub trader_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentMethod {
+    pub id: String,
+    pub code: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub method_type: String,
+    pub currency: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,14 +106,22 @@ pub struct TransactionRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionResponse {
     pub id: String,
+    #[serde(rename = "numericId")]
     pub numeric_id: u64,
     pub amount: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crypto: Option<f64>,
     pub status: TransactionStatus,
+    #[serde(rename = "traderId")]
     pub trader_id: String,
-    pub requisites: Requisites,
+    pub requisites: TransactionRequisites,
+    #[serde(rename = "createdAt")]
     pub created_at: String,
+    #[serde(rename = "updatedAt")]
     pub updated_at: String,
+    pub expired_at: String,
+    pub method: PaymentMethod,
+    #[serde(default)]
     pub is_mock: bool,
 }
 

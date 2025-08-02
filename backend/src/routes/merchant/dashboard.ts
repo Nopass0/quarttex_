@@ -468,6 +468,12 @@ export default (app: Elysia) =>
         let totalDealsCommission = 0;
         let totalPayoutsCommission = 0;
         let balanceUsdt = 0; // Баланс в USDT для countInRubEquivalent = false
+        
+        // Для USDT формулы
+        let totalDealsUsdt = 0;
+        let totalDealsCommissionUsdt = 0;
+        let totalPayoutsUsdt = 0;
+        let totalPayoutsCommissionUsdt = 0;
 
         // Обрабатываем успешные сделки (входящие платежи)
         for (const deal of successfulDealsForBalance) {
@@ -482,10 +488,19 @@ export default (app: Elysia) =>
             
             // Если countInRubEquivalent = false, считаем USDT по merchantRate
             if (!merchant.countInRubEquivalent && deal.merchantRate && deal.merchantRate > 0) {
+              // Сначала конвертируем в USDT, потом вычитаем комиссию
+              const dealUsdt = deal.amount / deal.merchantRate;
+              const commissionUsdt = dealUsdt * (method.commissionPayin / 100);
+              const netUsdt = dealUsdt - commissionUsdt;
+              
               // Обрезаем до 2 знаков после запятой для каждой транзакции отдельно
-              const usdtAmount = netAmount / deal.merchantRate;
-              const truncatedUsdt = Math.floor(usdtAmount * 100) / 100;
+              const truncatedUsdt = Math.floor(netUsdt * 100) / 100;
+              const truncatedDealUsdt = Math.floor(dealUsdt * 100) / 100;
+              const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100;
+              
               balanceUsdt += truncatedUsdt;
+              totalDealsUsdt += truncatedDealUsdt;
+              totalDealsCommissionUsdt += truncatedCommissionUsdt;
             }
           }
         }
@@ -503,10 +518,19 @@ export default (app: Elysia) =>
             
             // Если countInRubEquivalent = false, вычитаем USDT по merchantRate
             if (!merchant.countInRubEquivalent && payout.merchantRate && payout.merchantRate > 0) {
+              // Конвертируем выплату и комиссию в USDT
+              const payoutUsdt = payout.amount / payout.merchantRate;
+              const commissionUsdt = payoutUsdt * (method.commissionPayout / 100);
+              const totalUsdt = payoutUsdt + commissionUsdt;
+              
               // Обрезаем до 2 знаков после запятой для каждой выплаты отдельно
-              const usdtAmount = totalAmount / payout.merchantRate;
-              const truncatedUsdt = Math.floor(usdtAmount * 100) / 100;
-              balanceUsdt -= truncatedUsdt;
+              const truncatedTotalUsdt = Math.floor(totalUsdt * 100) / 100;
+              const truncatedPayoutUsdt = Math.floor(payoutUsdt * 100) / 100;
+              const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100;
+              
+              balanceUsdt -= truncatedTotalUsdt;
+              totalPayoutsUsdt += truncatedPayoutUsdt;
+              totalPayoutsCommissionUsdt += truncatedCommissionUsdt;
             }
           }
         }
@@ -542,6 +566,14 @@ export default (app: Elysia) =>
               settledAmount: 0,
               calculation: `${totalDealsAmount} - ${totalDealsCommission} - ${totalPayoutsAmount} - ${totalPayoutsCommission} = ${calculatedBalance}`,
             },
+            formulaUsdt: !merchant.countInRubEquivalent ? {
+              dealsTotal: totalDealsUsdt,
+              dealsCommission: totalDealsCommissionUsdt,
+              payoutsTotal: totalPayoutsUsdt,
+              payoutsCommission: totalPayoutsCommissionUsdt,
+              settledAmount: 0,
+              calculation: `${totalDealsUsdt.toFixed(2)} - ${totalDealsCommissionUsdt.toFixed(2)} - ${totalPayoutsUsdt.toFixed(2)} - ${totalPayoutsCommissionUsdt.toFixed(2)} = ${balanceUsdt.toFixed(2)}`,
+            } : undefined,
           },
           deals: {
             total: dealsTotal,
@@ -603,6 +635,14 @@ export default (app: Elysia) =>
                 settledAmount: t.Number(),
                 calculation: t.String(),
               }),
+              formulaUsdt: t.Optional(t.Object({
+                dealsTotal: t.Number(),
+                dealsCommission: t.Number(),
+                payoutsTotal: t.Number(),
+                payoutsCommission: t.Number(),
+                settledAmount: t.Number(),
+                calculation: t.String(),
+              })),
             }),
             deals: t.Object({
               total: t.Number(),

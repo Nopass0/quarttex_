@@ -6,6 +6,7 @@ export async function notifyByStatus(trx: {
   successUri: string; 
   failUri: string;
   callbackUri?: string;
+  amount?: number;
 }) {
   const results = [];
   
@@ -14,22 +15,33 @@ export async function notifyByStatus(trx: {
                   : trx.status === 'CANCELED' ? trx.failUri
                   : undefined;
   
+  // Формируем payload с id, amount и status
+  const payload = {
+    id: trx.id,
+    amount: trx.amount || 0,
+    status: trx.status
+  };
+  
   // Отправляем на success/fail URL если есть
   if (statusUrl) {
     try {
-      const res = await axios.post(statusUrl, { id: trx.id, status: trx.status });
+      console.log(`[Callback] Sending to ${statusUrl}:`, payload);
+      const res = await axios.post(statusUrl, payload);
       results.push({ url: statusUrl, status: res.status, data: res.data });
     } catch (e: any) {
+      console.error(`[Callback] Error sending to ${statusUrl}:`, e?.message);
       results.push({ url: statusUrl, error: e?.message ?? 'request failed' });
     }
   }
   
   // Всегда отправляем на callbackUri если он есть
-  if (trx.callbackUri) {
+  if (trx.callbackUri && trx.callbackUri !== 'none' && trx.callbackUri !== '') {
     try {
-      const res = await axios.post(trx.callbackUri, { id: trx.id, status: trx.status });
+      console.log(`[Callback] Sending to callback ${trx.callbackUri}:`, payload);
+      const res = await axios.post(trx.callbackUri, payload);
       results.push({ url: trx.callbackUri, status: res.status, data: res.data });
     } catch (e: any) {
+      console.error(`[Callback] Error sending to callback ${trx.callbackUri}:`, e?.message);
       results.push({ url: trx.callbackUri, error: e?.message ?? 'request failed' });
     }
   }

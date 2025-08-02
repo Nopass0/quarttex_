@@ -155,6 +155,27 @@ export class NotificationAutoProcessorService extends BaseService {
               where: {
                 isArchived: false,
               },
+              select: {
+                id: true,
+                methodType: true,
+                bankType: true,
+                cardNumber: true,
+                recipientName: true,
+                phoneNumber: true,
+                minAmount: true,
+                maxAmount: true,
+                totalAmountLimit: true,
+                currentTotalAmount: true,
+                operationLimit: true,
+                sumLimit: true,
+                intervalMinutes: true,
+                isArchived: true,
+                isActive: true,
+                createdAt: true,
+                updatedAt: true,
+                deviceId: true,
+                userId: true,
+              },
             },
             user: true,
           },
@@ -181,9 +202,10 @@ export class NotificationAutoProcessorService extends BaseService {
 
       const metadata = notification.metadata as any;
       const packageName = metadata?.packageName;
+      const senderCode = notification.senderCode || notification.application; // Some notifications may have sender code as application
 
       // Parse notification message
-      const parseResult = this.bankFactory.parseMessage(notification.message, packageName);
+      const parseResult = this.bankFactory.parseMessage(notification.message, packageName, senderCode);
       
       if (!parseResult) {
         await this.markNotificationProcessed(notification.id, "PARSE_FAILED");
@@ -273,7 +295,7 @@ export class NotificationAutoProcessorService extends BaseService {
         },
         traderId: notification.Device.userId,
         createdAt: {
-          gte: new Date(notificationTime.getTime() - 600000), // 10 минут вместо 5
+          gte: new Date(notificationTime.getTime() - 14400000), // 4 часа (240 минут) для поиска старых транзакций
           lte: notificationTime,
         },
       },
@@ -308,6 +330,17 @@ export class NotificationAutoProcessorService extends BaseService {
       "ЮниКредит": "UNICREDIT",
       "Ситибанк": "CITIBANK",
       "Русский Стандарт": "RUSSIANSTANDARD",
+      "ПСБ": "PSB",
+      "ДОМ.РФ": "DOMRF",
+      "МТС Банк": "MTSBANK",
+      "УралСиб": "URALSIB",
+      "Райффайзенбанк": "RAIFFEISEN",
+      "Почта Банк": "POCHTABANK",
+      "Банк Санкт-Петербург": "SPBBANK",
+      "РНКБ": "RNKB",
+      "Россельхозбанк": "ROSSELKHOZBANK",
+      "ОТП Банк": "OTPBANK",
+      "Хоум Кредит": "HOMECREDIT",
       // Add more mappings as needed
     };
 

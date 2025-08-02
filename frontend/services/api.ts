@@ -133,6 +133,14 @@ export const traderApi = {
     const response = await traderApiInstance.patch(`/trader/bank-details/${id}/archive`, { archived })
     return response.data
   },
+  startRequisite: async (id: string) => {
+    const response = await traderApiInstance.patch(`/trader/bank-details/${id}/start`)
+    return response.data
+  },
+  stopRequisite: async (id: string) => {
+    const response = await traderApiInstance.patch(`/trader/bank-details/${id}/stop`)
+    return response.data
+  },
   deleteRequisite: async (id: string) => {
     const response = await traderApiInstance.delete(`/trader/bank-details/${id}`)
     return response.data
@@ -149,9 +157,10 @@ export const traderApi = {
     console.log('Devices response data:', response.data)
     return response.data
   },
-  getDevice: async (id: string) => {
+  getDevice: async (id: string, config?: any) => {
     const response = await traderApiInstance.get(`/trader/devices/${id}`, {
-      params: { _t: Date.now() } // Add timestamp to prevent caching
+      params: { _t: Date.now() }, // Add timestamp to prevent caching
+      ...config
     })
     return response.data
   },
@@ -222,8 +231,11 @@ export const traderApi = {
     return response.data
   },
   // Messages endpoints
-  getMessages: async (params?: any) => {
-    const response = await traderApiInstance.get('/trader/messages', { params })
+  getMessages: async (params?: any, config?: any) => {
+    const response = await traderApiInstance.get('/trader/messages', { 
+      params,
+      ...config 
+    })
     return response.data
   },
   // Dashboard endpoint

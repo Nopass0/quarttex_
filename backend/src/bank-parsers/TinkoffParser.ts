@@ -2,7 +2,8 @@ import type { IBankParser, ParsedTransaction } from "./types";
 
 export class TinkoffParser implements IBankParser {
   bankName = "Тинькофф";
-  packageNames = ["com.idamob.tinkoff.android"];
+  packageNames = ["com.idamob.tinkoff.android", "ru.tinkoff", "ru.tinkoff.sme"];
+  senderCodes = ["T-Bank", "Т-Банк"];
 
   private patterns = [
     // "Тинькофф | Пополнение на 352 ₽, счет RUB. Ольга С. Доступно 3 568 ₽"

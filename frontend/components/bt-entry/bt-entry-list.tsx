@@ -270,13 +270,13 @@ export function BtEntryList() {
 
   const manualCloseTransaction = async (transactionId: string) => {
     try {
-      await traderApi.updateTransactionStatus(transactionId, "COMPLETED");
+      await traderApi.updateTransactionStatus(transactionId, "READY");
       toast.success("Сделка закрыта вручную");
 
       // Update the transaction status locally
       setTransactions((prev) =>
         prev.map((tx) =>
-          tx.id === transactionId ? { ...tx, status: "COMPLETED" } : tx,
+          tx.id === transactionId ? { ...tx, status: "READY" } : tx,
         ),
       );
 
@@ -617,17 +617,13 @@ export function BtEntryList() {
 
         return (
           t.numericId.toString().includes(searchQuery) ||
-          t.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (t.requisites?.bankType || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          (t.merchant?.name || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          (t.requisites?.cardNumber || "").includes(searchQuery) ||
           (t.requisites?.recipientName || "")
             .toLowerCase()
             .includes(searchQuery.toLowerCase()) ||
+          (t.requisites?.bankType || "")
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          (t.requisites?.cardNumber || "").includes(searchQuery) ||
           t.amount.toString().includes(searchQuery) || // Search by RUB amount
           usdtAmount.toFixed(2).includes(searchQuery) || // Search by USDT amount
           Math.round(usdtAmount).toString().includes(searchQuery) // Search by rounded USDT
@@ -1699,7 +1695,11 @@ export function BtEntryList() {
                     "p-3 md:p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700",
                     transaction.isNew && "flash-once",
                   )}
-                  onClick={() => setSelectedTransaction(transaction)}
+                  onClick={() => {
+                    console.log("BT-Entry: Transaction clicked:", transaction);
+                    console.log("BT-Entry: Setting selectedTransaction");
+                    setSelectedTransaction(transaction);
+                  }}
                 >
                   <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                     {/* Status Icon */}
@@ -1753,7 +1753,7 @@ export function BtEntryList() {
                             {transaction.requisites?.cardNumber || "—"}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 md:mt-1 truncate">
-                            {transaction.clientName}
+                            {transaction.requisites?.recipientName || "—"}
                           </div>
                         </div>
                       </div>
@@ -1814,9 +1814,12 @@ export function BtEntryList() {
       </div>
 
       {/* Transaction Details Dialog */}
+      {console.log("BT-Entry: selectedTransaction state:", selectedTransaction)}
+      {console.log("BT-Entry: Dialog should be open:", !!selectedTransaction)}
       <Dialog
         open={!!selectedTransaction}
         onOpenChange={() => {
+          console.log("BT-Entry: Dialog onOpenChange called");
           setSelectedTransaction(null);
           setShowRequisiteDetails(false);
         }}
@@ -1989,8 +1992,7 @@ export function BtEntryList() {
                         </div>
                         <div className="text-left">
                           <p className="font-semibold text-xl dark:text-white">
-                            {selectedTransaction.requisites?.recipientName ||
-                              selectedTransaction.clientName}
+                            {selectedTransaction.requisites?.recipientName || "—"}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {selectedTransaction.requisites?.cardNumber
@@ -2076,6 +2078,25 @@ export function BtEntryList() {
                       >
                         Подтвердить платеж
                       </Button>
+                    ) : selectedTransaction.status === "EXPIRED" ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-3">
+                          Время сделки истекло, но вы можете закрыть ее вручную
+                        </p>
+                        <Button
+                          className="w-full bg-orange-600 hover:bg-orange-700"
+                          onClick={() => manualCloseTransaction(selectedTransaction.id)}
+                        >
+                          Закрыть вручную
+                        </Button>
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => setSelectedTransaction(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </div>
                     ) : (
                       <Button
                         className="w-full"
@@ -2102,7 +2123,7 @@ export function BtEntryList() {
                       )}
                     </div>
                     <h3 className="text-lg font-semibold mb-1 dark:text-white">
-                      {selectedTransaction.clientName}
+                      {selectedTransaction.requisites?.recipientName || "—"}
                     </h3>
                     <p className="text-2xl font-bold mb-1 dark:text-white">
                       {selectedTransaction.requisites?.cardNumber || "—"}
@@ -2285,8 +2306,7 @@ export function BtEntryList() {
               selectedTransaction.requisites?.cardNumber ||
               "2200 0000 0000 0000",
             recipientName:
-              selectedTransaction.requisites?.recipientName ||
-              selectedTransaction.clientName,
+              selectedTransaction.requisites?.recipientName || "—",
             phoneNumber: "+7 900 000 00 00",
             accountNumber: "40817810490069500347",
             status:

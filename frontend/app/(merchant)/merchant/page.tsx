@@ -352,74 +352,106 @@ export default function MerchantDashboardPage() {
             <p className="text-sm text-muted-foreground">
               Формула расчета баланса:
             </p>
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Сумма успешных сделок:</span>
-                <span className="font-medium text-green-600">
-                  +{formatAmount(statistics.balance.formula.dealsTotal)} ₽
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Комиссия платформы со сделок:</span>
-                <span className="font-medium text-red-600">
-                  -{formatAmount(statistics.balance.formula.dealsCommission)} ₽
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Сумма выплат:</span>
-                <span className="font-medium text-red-600">
-                  -{formatAmount(statistics.balance.formula.payoutsTotal)} ₽
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Комиссия платформы с выплат:</span>
-                <span className="font-medium text-red-600">
-                  -{formatAmount(statistics.balance.formula.payoutsCommission)}{" "}
-                  ₽
-                </span>
-              </div>
-              {statistics.balance.formula.settledAmount > 0 && (
+            {merchantProfile && !merchantProfile.countInRubEquivalent && statistics.balance.formulaUsdt ? (
+              // Отображаем формулу в USDT
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Уже выведено через Settle:</span>
-                  <span className="font-medium text-red-600">
-                    -{formatAmount(statistics.balance.formula.settledAmount)} ₽
+                  <span>Сумма успешных сделок:</span>
+                  <span className="font-medium text-green-600">
+                    +{truncateDecimals(statistics.balance.formulaUsdt.dealsTotal, 2)} USDT
                   </span>
                 </div>
-              )}
-              <Separator className="my-2" />
-              <div className="flex justify-between text-sm font-medium">
-                <span>Итоговый баланс:</span>
-                <span className="text-green-600">
-                  {formatAmount(statistics.balance.total)} ₽
-                </span>
+                <div className="flex justify-between text-sm">
+                  <span>Комиссия платформы со сделок:</span>
+                  <span className="font-medium text-red-600">
+                    -{truncateDecimals(statistics.balance.formulaUsdt.dealsCommission, 2)} USDT
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Сумма выплат:</span>
+                  <span className="font-medium text-red-600">
+                    -{truncateDecimals(statistics.balance.formulaUsdt.payoutsTotal, 2)} USDT
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Комиссия платформы с выплат:</span>
+                  <span className="font-medium text-red-600">
+                    -{truncateDecimals(statistics.balance.formulaUsdt.payoutsCommission, 2)} USDT
+                  </span>
+                </div>
+                <Separator className="my-2" />
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Итоговый баланс:</span>
+                  <span className="text-green-600">
+                    {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>Эквивалент в рублях:</span>
+                  <span>
+                    {formatAmount(statistics.balance.total)} ₽
+                  </span>
+                </div>
               </div>
-              {statistics.balance.totalUsdt !== undefined &&
-                merchantProfile &&
-                !merchantProfile.countInRubEquivalent && (
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Баланс в USDT:</span>
-                    <span className="text-green-600">
-                      {truncateDecimals(statistics.balance.totalUsdt, 2)} USDT
+            ) : (
+              // Отображаем формулу в рублях
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Сумма успешных сделок:</span>
+                  <span className="font-medium text-green-600">
+                    +{formatAmount(statistics.balance.formula.dealsTotal)} ₽
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Комиссия платформы со сделок:</span>
+                  <span className="font-medium text-red-600">
+                    -{formatAmount(statistics.balance.formula.dealsCommission)} ₽
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Сумма выплат:</span>
+                  <span className="font-medium text-red-600">
+                    -{formatAmount(statistics.balance.formula.payoutsTotal)} ₽
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Комиссия платформы с выплат:</span>
+                  <span className="font-medium text-red-600">
+                    -{formatAmount(statistics.balance.formula.payoutsCommission)}{" "}
+                    ₽
+                  </span>
+                </div>
+                {statistics.balance.formula.settledAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Уже выведено через Settle:</span>
+                    <span className="font-medium text-red-600">
+                      -{formatAmount(statistics.balance.formula.settledAmount)} ₽
                     </span>
                   </div>
                 )}
-            </div>
+                <Separator className="my-2" />
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Итоговый баланс:</span>
+                  <span className="text-green-600">
+                    {formatAmount(statistics.balance.total)} ₽
+                  </span>
+                </div>
+              </div>
+            )}
 
-            {statistics.balance.totalUsdt !== undefined &&
-              merchantProfile &&
-              !merchantProfile.countInRubEquivalent && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-md">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-600 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="text-blue-700">
-                        USDT баланс рассчитан на основе курсов, переданных при
-                        создании каждой транзакции
-                      </p>
-                    </div>
+            {merchantProfile && !merchantProfile.countInRubEquivalent && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="text-blue-700">
+                      USDT баланс рассчитан на основе курсов, переданных при
+                      создании каждой транзакции
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

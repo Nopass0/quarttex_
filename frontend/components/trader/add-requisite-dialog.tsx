@@ -146,9 +146,9 @@ export function AddRequisiteDialog({
       phoneNumber: "",
       minAmount: 1000,
       maxAmount: 100000,
-      dailyLimit: 500000,
+      dailyLimit: 0,
       monthlyLimit: 10000000,
-      maxCountTransactions: 5,
+      maxCountTransactions: 0,
     },
   });
 

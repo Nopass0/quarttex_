@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { PhoneInput, CardNumberInput } from "@/components/ui/formatted-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,9 +69,8 @@ const formSchema = z.object({
   phoneNumber: z.string().optional(),
   minAmount: z.number().min(100),
   maxAmount: z.number().min(1000),
-  dailyLimit: z.number().min(0),
-  monthlyLimit: z.number().min(0),
-  maxCountTransactions: z.number().min(0),
+  operationLimit: z.number().min(0),
+  sumLimit: z.number().min(0),
   isActive: z.boolean().default(true),
 });
 
@@ -92,13 +92,16 @@ interface DeviceRequisite {
   bankType: string;
   recipientName: string;
   isArchived: boolean;
-  dailyLimit: number;
-  monthlyLimit: number;
-  turnoverDay: number;
-  turnoverTotal: number;
+  isActive: boolean;
+  currentTotalAmount: number;
+  operationLimit: number;
+  sumLimit: number;
+  activeDeals: number;
   minAmount: number;
   maxAmount: number;
-  maxCountTransactions: number;
+  methodType?: string;
+  transactionsInProgress?: number;
+  transactionsReady?: number;
   method?: {
     id: string;
     type: string;
@@ -184,9 +187,8 @@ export function DeviceRequisitesSheet({
       phoneNumber: "",
       minAmount: 1000,
       maxAmount: 100000,
-      dailyLimit: 500000,
-      monthlyLimit: 10000000,
-      maxCountTransactions: 5,
+      operationLimit: 0,
+      sumLimit: 0,
       isActive: true,
     },
   });
@@ -218,9 +220,9 @@ export function DeviceRequisitesSheet({
         phoneNumber: "",
         minAmount: existingRequisite.minAmount,
         maxAmount: existingRequisite.maxAmount,
-        dailyLimit: existingRequisite.dailyLimit,
-        monthlyLimit: existingRequisite.monthlyLimit,
-        maxCountTransactions: existingRequisite.maxCountTransactions,
+        operationLimit: existingRequisite.operationLimit || 0,
+        sumLimit: existingRequisite.sumLimit || 0,
+        isActive: existingRequisite.isActive ?? true,
       });
     }
   }, [existingRequisite, methods, form]);
@@ -259,9 +261,8 @@ export function DeviceRequisitesSheet({
       phoneNumber: "",
       minAmount: 1000,
       maxAmount: 100000,
-      dailyLimit: 500000,
-      monthlyLimit: 10000000,
-      maxCountTransactions: 5,
+      operationLimit: 0,
+      sumLimit: 0,
       isActive: true,
     });
     setShowForm(true);
@@ -269,8 +270,8 @@ export function DeviceRequisitesSheet({
 
   const handleEdit = (requisite: DeviceRequisite) => {
     setEditingRequisite(requisite);
-    // Pre-select method based on card number pattern
-    const methodType = requisite.cardNumber.length <= 12 ? "sbp" : "c2c";
+    // Pre-select method based on method type or card number pattern
+    let methodType = requisite.method?.type || (requisite.cardNumber.length <= 12 ? "sbp" : "c2c");
     const method = methods.find(m => m.type === methodType);
     if (method) {
       setSelectedMethod(method);
@@ -285,10 +286,9 @@ export function DeviceRequisitesSheet({
       phoneNumber: methodType === "sbp" ? requisite.cardNumber : "",
       minAmount: requisite.minAmount,
       maxAmount: requisite.maxAmount,
-      dailyLimit: requisite.dailyLimit,
-      monthlyLimit: requisite.monthlyLimit,
-      maxCountTransactions: requisite.maxCountTransactions,
-      isActive: !requisite.isArchived,
+      operationLimit: requisite.operationLimit || 0,
+      sumLimit: requisite.sumLimit || 0,
+      isActive: requisite.isActive ?? true,
     });
     setShowForm(true);
   };
@@ -360,8 +360,12 @@ export function DeviceRequisitesSheet({
         methodType: selectedMethod.type,
         cardNumber: selectedMethod.type === "sbp" ? (data.phoneNumber || "") : (data.cardNumber || ""),
         intervalMinutes: 5, // Требуется бэкендом
-        isArchived: !(data.isActive ?? true), // API ожидает isArchived, а не isActive
+        isActive: data.isActive ?? true, // Отправляем isActive
+        // При редактировании сохраняем существующее значение isArchived, при создании - false
+        isArchived: editingRequisite ? editingRequisite.isArchived : false,
       };
+
+      console.log('[DeviceRequisites] Saving requisite with data:', requisiteData);
 
       if (editingRequisite) {
         await traderApi.updateRequisite(editingRequisite.id, requisiteData);
@@ -371,10 +375,11 @@ export function DeviceRequisitesSheet({
         toast.success("Реквизит добавлен");
       }
 
+      console.log('[DeviceRequisites] Success, resetting form and returning to list');
       form.reset();
-      setShowForm(false);
       setEditingRequisite(null);
-      fetchRequisites();
+      await fetchRequisites();
+      setShowForm(false);
       onSuccess?.();
     } catch (error: any) {
       console.error("Error saving requisite:", error);
@@ -385,6 +390,7 @@ export function DeviceRequisitesSheet({
   };
 
   const handleBack = () => {
+    console.log('[DeviceRequisites] handleBack called');
     setShowForm(false);
     setEditingRequisite(null);
     form.reset();
@@ -450,9 +456,12 @@ export function DeviceRequisitesSheet({
                         {/* Header with status */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Badge variant={!requisite.isArchived ? "default" : "secondary"}>
-                              {!requisite.isArchived ? 'Активен' : 'В архиве'}
+                            <Badge variant={requisite.isActive ? "default" : "secondary"}>
+                              {requisite.isActive ? 'Активен' : 'Неактивен'}
                             </Badge>
+                            {requisite.isArchived && (
+                              <Badge variant="secondary">В архиве</Badge>
+                            )}
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -502,48 +511,37 @@ export function DeviceRequisitesSheet({
                           </div>
                         </div>
 
-                        {/* Turnover info */}
-                        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <TrendingUp className="h-3 w-3" />
-                              <span>Дневной оборот</span>
-                            </div>
-                            <div className="text-sm">
-                              <span className="font-medium">{requisite.turnoverDay.toLocaleString('ru-RU')} ₽</span>
-                              <span className="text-muted-foreground"> / {requisite.dailyLimit.toLocaleString('ru-RU')} ₽</span>
-                              <div className="text-xs text-muted-foreground">
-                                {requisite.dailyLimit > 0 ? `${((requisite.turnoverDay / requisite.dailyLimit) * 100).toFixed(1)}%` : '∞'}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <DollarSign className="h-3 w-3" />
-                              <span>Общий оборот</span>
-                            </div>
-                            <div className="text-sm">
-                              <span className="font-medium">{requisite.turnoverTotal.toLocaleString('ru-RU')} ₽</span>
-                              <span className="text-muted-foreground"> / {requisite.monthlyLimit.toLocaleString('ru-RU')} ₽</span>
-                              <div className="text-xs text-muted-foreground">
-                                {requisite.monthlyLimit > 0 ? `${((requisite.turnoverTotal / requisite.monthlyLimit) * 100).toFixed(1)}%` : '∞'}
-                              </div>
-                            </div>
-                          </div>
+                        {/* Method type */}
+                        <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                          <span>Метод: {requisite.methodType === 'sbp' ? 'СБП' : requisite.methodType === 'c2c' ? 'C2C' : requisite.method?.type || ''}</span>
                         </div>
 
                         {/* Limits */}
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="space-y-1 text-xs">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-muted-foreground">Лимиты суммы:</span>
+                              <span className="ml-1 font-medium">
+                                {(requisite.minAmount || 0).toLocaleString()} - {(requisite.maxAmount || 0).toLocaleString()} ₽
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Активные сделки:</span>
+                              <span className="ml-1 font-medium">
+                                {requisite.activeDeals || 0}
+                              </span>
+                            </div>
+                          </div>
                           <div>
-                            <span className="text-muted-foreground">Лимиты:</span>
+                            <span className="text-muted-foreground">Общий лимит суммы:</span>
                             <span className="ml-1 font-medium">
-                              {requisite.minAmount.toLocaleString()} - {requisite.maxAmount.toLocaleString()} ₽
+                              {(requisite.currentTotalAmount || 0).toLocaleString()} / {requisite.sumLimit === 0 ? '∞' : (requisite.sumLimit || 0).toLocaleString()} ₽
                             </span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Дневной лимит сделок:</span>
+                            <span className="text-muted-foreground">Лимит операций:</span>
                             <span className="ml-1 font-medium">
-                              {requisite.maxCountTransactions || "∞"}
+                              {((requisite.transactionsInProgress || 0) + (requisite.transactionsReady || 0))} / {requisite.operationLimit === 0 ? '∞' : requisite.operationLimit}
                             </span>
                           </div>
                         </div>
@@ -631,13 +629,9 @@ export function DeviceRequisitesSheet({
                       <FormItem>
                         <FormLabel>Номер карты</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="1234 5678 9012 3456"
-                            {...field}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\s/g, "");
-                              field.onChange(value);
-                            }}
+                          <CardNumberInput
+                            value={field.value}
+                            onChange={field.onChange}
                             disabled={loading}
                           />
                         </FormControl>
@@ -676,9 +670,9 @@ export function DeviceRequisitesSheet({
                       <FormItem>
                         <FormLabel>Номер телефона</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="+7 900 123 45 67" 
-                            {...field} 
+                          <PhoneInput 
+                            value={field.value}
+                            onChange={field.onChange}
                             disabled={loading}
                           />
                         </FormControl>
@@ -733,17 +727,19 @@ export function DeviceRequisitesSheet({
                   />
                 </div>
 
+
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="dailyLimit"
+                    name="operationLimit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Дневной лимит (₽)</FormLabel>
+                        <FormLabel>Лимит операций (всего)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="500000"
+                            placeholder="0"
                             {...field}
                             onChange={(e) => field.onChange(Number(e.target.value))}
                             disabled={loading}
@@ -757,14 +753,14 @@ export function DeviceRequisitesSheet({
 
                   <FormField
                     control={form.control}
-                    name="monthlyLimit"
+                    name="sumLimit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Месячный лимит (₽)</FormLabel>
+                        <FormLabel>Лимит общей суммы (₽)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="10000000"
+                            placeholder="0"
                             {...field}
                             onChange={(e) => field.onChange(Number(e.target.value))}
                             disabled={loading}
@@ -776,28 +772,6 @@ export function DeviceRequisitesSheet({
                     )}
                   />
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="maxCountTransactions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Дневной лимит транзакций</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                          disabled={loading}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Максимальное количество сделок в день (0 = без ограничений, по умолчанию 5)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}

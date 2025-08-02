@@ -33,12 +33,11 @@ interface Requisite {
   methodType: string;
   minAmount: number;
   maxAmount: number;
-  dailyLimit: number;
-  monthlyLimit: number;
+  totalAmountLimit: number;
+  currentTotalAmount: number;
   isActive: boolean;
   createdAt: string;
-  turnoverDay: number;
-  turnoverTotal: number;
+  activeDeals?: number;
 }
 
 export function RequisitesListDialog({
@@ -181,9 +180,13 @@ export function RequisitesListDialog({
                               Метод: {req.methodType === "c2c" ? "Банковская карта" : "СБП"}
                             </p>
                             <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
-                              <span>Мин: {req.minAmount.toLocaleString()} ₽</span>
-                              <span>Макс: {req.maxAmount.toLocaleString()} ₽</span>
-                              <span className="hidden sm:inline">Дневной: {req.dailyLimit.toLocaleString()} ₽</span>
+                              <span>Мин: {(req.minAmount || 0).toLocaleString()} ₽</span>
+                              <span>Макс: {(req.maxAmount || 0).toLocaleString()} ₽</span>
+                              {(req.totalAmountLimit || 0) > 0 && (
+                                <span className="hidden sm:inline">
+                                  Лимит: {(req.currentTotalAmount || 0).toLocaleString()}/{(req.totalAmountLimit || 0).toLocaleString()} ₽
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -255,9 +258,13 @@ export function RequisitesListDialog({
                                   Метод: {req.methodType === "c2c" ? "Банковская карта" : "СБП"}
                                 </p>
                                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
-                                  <span>Мин: {req.minAmount.toLocaleString()} ₽</span>
-                                  <span>Макс: {req.maxAmount.toLocaleString()} ₽</span>
-                                  <span className="hidden sm:inline">Дневной: {req.dailyLimit.toLocaleString()} ₽</span>
+                                  <span>Мин: {(req.minAmount || 0).toLocaleString()} ₽</span>
+                                  <span>Макс: {(req.maxAmount || 0).toLocaleString()} ₽</span>
+                                  {(req.totalAmountLimit || 0) > 0 && (
+                                    <span className="hidden sm:inline">
+                                      Лимит: {(req.currentTotalAmount || 0).toLocaleString()}/{(req.totalAmountLimit || 0).toLocaleString()} ₽
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>

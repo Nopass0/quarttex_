@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { BankType, MethodType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { startOfDay, endOfDay } from "date-fns";
+import { notifyByStatus } from "@/utils/notify";
 
 /* ---------- DTOs ---------- */
 const BtDealDTO = t.Object({
@@ -26,6 +27,7 @@ const BtDealDTO = t.Object({
   commission: t.Number(),
   rate: t.Number(),
   btOnly: t.Boolean(),
+  traderProfit: t.Union([t.Number(), t.Null()]),
 });
 
 const BtRequisiteDTO = t.Object({
@@ -37,8 +39,6 @@ const BtRequisiteDTO = t.Object({
   phoneNumber: t.Optional(t.String()),
   minAmount: t.Number(),
   maxAmount: t.Number(),
-  dailyLimit: t.Number(),
-  monthlyLimit: t.Number(),
   intervalMinutes: t.Number(),
   isActive: t.Boolean(),
   btOnly: t.Boolean(),
@@ -46,10 +46,21 @@ const BtRequisiteDTO = t.Object({
   turnoverTotal: t.Number(),
   createdAt: t.String(),
   updatedAt: t.String(),
+  sumLimit: t.Number(),
+  operationLimit: t.Number(),
+  currentTotalAmount: t.Number(),
+  activeDeals: t.Number(),
+  transactionsInProgress: t.Number(),
+  transactionsReady: t.Number(),
 });
 
 /* ---------- helpers ---------- */
 const formatBtDeal = (transaction: any) => {
+  // Debug log for first transaction
+  if (transaction.numericId === transaction.numericId) {
+    console.log(`[BT-Deal Format] Deal #${transaction.numericId}: status=${transaction.status}, traderProfit=${transaction.traderProfit}`);
+  }
+  
   return {
     id: transaction.id,
     numericId: transaction.numericId,
@@ -71,10 +82,11 @@ const formatBtDeal = (transaction: any) => {
     commission: transaction.commission || 0,
     rate: transaction.rate || 0,
     btOnly: true, // All deals in this endpoint are BT-only
+    traderProfit: transaction.traderProfit,
   };
 };
 
-const formatBtRequisite = (requisite: any, turnoverDay = 0, turnoverTotal = 0) => {
+const formatBtRequisite = (requisite: any, turnoverDay = 0, turnoverTotal = 0, additionalData?: any) => {
   return {
     id: requisite.id,
     methodType: requisite.methodType,
@@ -84,8 +96,6 @@ const formatBtRequisite = (requisite: any, turnoverDay = 0, turnoverTotal = 0) =
     phoneNumber: requisite.phoneNumber || "",
     minAmount: requisite.minAmount,
     maxAmount: requisite.maxAmount,
-    dailyLimit: requisite.dailyLimit,
-    monthlyLimit: requisite.monthlyLimit,
     intervalMinutes: requisite.intervalMinutes,
     isActive: !requisite.isArchived,
     btOnly: true, // All requisites in this endpoint are BT-only
@@ -93,6 +103,12 @@ const formatBtRequisite = (requisite: any, turnoverDay = 0, turnoverTotal = 0) =
     turnoverTotal,
     createdAt: requisite.createdAt.toISOString(),
     updatedAt: requisite.updatedAt.toISOString(),
+    sumLimit: requisite.sumLimit || 0,
+    operationLimit: requisite.operationLimit || 0,
+    currentTotalAmount: additionalData?.currentTotalAmount || 0,
+    activeDeals: additionalData?.activeDeals || 0,
+    transactionsInProgress: additionalData?.transactionsInProgress || 0,
+    transactionsReady: additionalData?.transactionsReady || 0,
   };
 };
 
@@ -232,7 +248,6 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
             where: { id: params.id },
             data: {
               status: body.status,
-              completedAt: new Date(),
               acceptedAt: new Date(),
               traderProfit: traderProfit,
             },
@@ -261,6 +276,16 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           return updated;
         });
 
+        // Отправляем колбэк после успешного обновления
+        await notifyByStatus({
+          id: deal.id,
+          status: "READY",
+          successUri: deal.successUri,
+          failUri: deal.failUri,
+          callbackUri: deal.callbackUri,
+          amount: deal.amount,
+        });
+
         return formatBtDeal(await db.transaction.findUnique({
           where: { id: params.id },
           include: { merchant: true, requisites: true }
@@ -278,6 +303,16 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           merchant: true,
           requisites: true,
         },
+      });
+
+      // Отправляем колбэк для любого статуса
+      await notifyByStatus({
+        id: updatedDeal.id,
+        status: updatedDeal.status,
+        successUri: updatedDeal.successUri,
+        failUri: updatedDeal.failUri,
+        callbackUri: updatedDeal.callbackUri,
+        amount: updatedDeal.amount,
       });
 
       return formatBtDeal(updatedDeal);
@@ -343,7 +378,43 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
             _sum: { amount: true },
           });
 
-          return formatBtRequisite(requisite, daySum ?? 0, totalSum ?? 0);
+          // Calculate current total amount for sumLimit
+          const currentTotalResult = await db.transaction.aggregate({
+            where: {
+              bankDetailId: requisite.id,
+              status: { in: ["CREATED", "IN_PROGRESS", "READY"] },
+            },
+            _sum: { amount: true },
+          });
+
+          // Count transactions by status
+          const transactionsInProgress = await db.transaction.count({
+            where: {
+              bankDetailId: requisite.id,
+              status: "IN_PROGRESS",
+            },
+          });
+
+          const transactionsReady = await db.transaction.count({
+            where: {
+              bankDetailId: requisite.id,
+              status: "READY",
+            },
+          });
+
+          const activeDeals = await db.transaction.count({
+            where: {
+              bankDetailId: requisite.id,
+              status: { in: ["CREATED", "IN_PROGRESS"] },
+            },
+          });
+
+          return formatBtRequisite(requisite, daySum ?? 0, totalSum ?? 0, {
+            currentTotalAmount: currentTotalResult._sum.amount || 0,
+            activeDeals,
+            transactionsInProgress,
+            transactionsReady,
+          });
         })
       );
 
@@ -407,15 +478,20 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           phoneNumber: body.phoneNumber,
           minAmount: body.minAmount,
           maxAmount: body.maxAmount,
-          dailyLimit: body.dailyLimit ?? 0,
-          monthlyLimit: body.monthlyLimit ?? 0,
           intervalMinutes: body.intervalMinutes,
           userId: trader.id,
           deviceId: null, // BT requisites don't have devices
+          sumLimit: body.sumLimit ?? 0,
+          operationLimit: body.operationLimit ?? 0,
         },
       });
       
-      return formatBtRequisite(requisite, 0, 0);
+      return formatBtRequisite(requisite, 0, 0, {
+        currentTotalAmount: 0,
+        activeDeals: 0,
+        transactionsInProgress: 0,
+        transactionsReady: 0,
+      });
     },
     {
       tags: ["trader"],
@@ -428,9 +504,9 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         phoneNumber: t.Optional(t.String()),
         minAmount: t.Number(),
         maxAmount: t.Number(),
-        dailyLimit: t.Optional(t.Number()),
-        monthlyLimit: t.Optional(t.Number()),
         intervalMinutes: t.Number(),
+        sumLimit: t.Optional(t.Number()),
+        operationLimit: t.Optional(t.Number()),
       }),
       response: { 
         200: BtRequisiteDTO, 
@@ -460,8 +536,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       // Map TINK to TBANK for consistency if bankType is being updated
       const updateData = {
         ...body,
-        dailyLimit: body.dailyLimit ?? 0,
-        monthlyLimit: body.monthlyLimit ?? 0,
+        sumLimit: body.sumLimit ?? 0,
+        operationLimit: body.operationLimit ?? 0,
       };
       
       if (updateData.bankType === 'TINK') {
@@ -473,7 +549,12 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         data: updateData,
       });
       
-      return formatBtRequisite(requisite, 0, 0);
+      return formatBtRequisite(requisite, 0, 0, {
+        currentTotalAmount: 0,
+        activeDeals: 0,
+        transactionsInProgress: 0,
+        transactionsReady: 0,
+      });
     },
     {
       tags: ["trader"],
@@ -488,9 +569,9 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           phoneNumber: t.Optional(t.String()),
           minAmount: t.Number(),
           maxAmount: t.Number(),
-          dailyLimit: t.Number(),
-          monthlyLimit: t.Number(),
           intervalMinutes: t.Number(),
+          sumLimit: t.Number(),
+          operationLimit: t.Number(),
         })
       ),
       response: {

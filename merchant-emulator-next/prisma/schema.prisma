@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./emulator.db"
+}
+
+model Merchant {
+  id            String        @id @default(cuid())
+  name          String
+  apiKey        String        @unique
+  apiSecret     String
+  isActive      Boolean       @default(true)
+  liquidity     Float         @default(0.7)
+  minAmount     Float         @default(100)
+  maxAmount     Float         @default(100000)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  transactions  Transaction[]
+}
+
+model Device {
+  id              String        @id @default(cuid())
+  name            String
+  deviceKey       String        @unique
+  token           String?
+  traderId        String?
+  isConnected     Boolean       @default(false)
+  isActive        Boolean       @default(true)
+  batteryLevel    Int           @default(100)
+  networkInfo     String        @default("Wi-Fi")
+  deviceModel     String        @default("Xiaomi Redmi Note 10")
+  androidVersion  String        @default("13")
+  appVersion      String        @default("1.0.0")
+  lastPing        DateTime?
+  lastHealthCheck DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  notifications   Notification[]
+  transactions    Transaction[]
+}
+
+model Transaction {
+  id            String        @id @default(cuid())
+  merchantId    String
+  merchant      Merchant      @relation(fields: [merchantId], references: [id])
+  deviceId      String?
+  device        Device?       @relation(fields: [deviceId], references: [id])
+  externalId    String        @unique
+  amount        Float
+  currency      String        @default("RUB")
+  status        String        @default("pending")
+  callbackUrl   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  logs          RequestLog[]
+}
+
+model Notification {
+  id            String        @id @default(cuid())
+  deviceId      String
+  device        Device        @relation(fields: [deviceId], references: [id])
+  message       String
+  amount        Float
+  isProcessed   Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+}
+
+model RequestLog {
+  id            String        @id @default(cuid())
+  transactionId String?
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id])
+  type          String        // request | response
+  method        String
+  url           String
+  headers       String
+  body          String?
+  statusCode    Int?
+  createdAt     DateTime      @default(now())
+}

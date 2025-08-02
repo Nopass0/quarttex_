@@ -96,10 +96,11 @@ impl MerchantService {
             is_mock: Some(is_mock),
         };
         
-        // Add rate for USDT transactions
-        if merchant.payment_type == PaymentType::UsdtTrc20 {
-            request.rate = merchant.rate.or(Some(95.0)); // Default rate if not set
-        }
+        // Set rate - API always expects a rate value
+        request.rate = match merchant.payment_type {
+            PaymentType::UsdtTrc20 => merchant.rate.or(Some(95.0)), // Default rate if not set
+            PaymentType::Rub => Some(1.0), // Rate of 1.0 for RUB transactions
+        };
         
         let start_time = Utc::now();
         
@@ -114,18 +115,20 @@ impl MerchantService {
                     numeric_id: response.numeric_id,
                     order_id: order_id.clone(),
                     amount: response.amount,
-                    crypto: response.crypto.clone(),
+                    crypto: response.crypto,
                     status: response.status.clone(),
                     trader_id: Some(response.trader_id.clone()),
-                    requisites: Some(Requisites {
+                    requisites: Some(TransactionRequisites {
                         id: response.requisites.id.clone(),
                         bank_type: response.requisites.bank_type.clone(),
-                        name: response.requisites.name.clone(),
-                        card: response.requisites.card.clone(),
-                        card_formatted: response.requisites.card_formatted.clone(),
+                        card_number: response.requisites.card_number.clone(),
+                        recipient_name: response.requisites.recipient_name.clone(),
+                        trader_name: response.requisites.trader_name.clone(),
                     }),
-                    created_at: Utc::now(),
-                    updated_at: Utc::now(),
+                    created_at: response.created_at.clone(),
+                    updated_at: response.updated_at.clone(),
+                    expired_at: response.expired_at.clone(),
+                    method: Some(response.method.clone()),
                     is_mock: response.is_mock,
                     callback_sent: false,
                     method_id: method_id.clone(),
@@ -176,8 +179,10 @@ impl MerchantService {
                         status: TransactionStatus::Canceled,
                         trader_id: None,
                         requisites: None,
-                        created_at: start_time,
-                        updated_at: end_time,
+                        created_at: start_time.to_rfc3339(),
+                        updated_at: end_time.to_rfc3339(),
+                        expired_at: request.expired_at.clone(),
+                        method: None,
                         is_mock,
                         callback_sent: false,
                         method_id,

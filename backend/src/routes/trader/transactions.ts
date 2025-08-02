@@ -895,6 +895,16 @@ export default (app: Elysia) =>
                 },
               });
             }
+
+            // Обновляем currentTotalAmount для реквизита
+            if (transaction.bankDetailId) {
+              await prisma.bankDetail.update({
+                where: { id: transaction.bankDetailId },
+                data: {
+                  currentTotalAmount: { increment: transaction.amount },
+                },
+              });
+            }
           });
         }
 
@@ -942,6 +952,7 @@ export default (app: Elysia) =>
           successUri: updatedTransaction.successUri,
           failUri: updatedTransaction.failUri,
           callbackUri: updatedTransaction.callbackUri,
+          amount: updatedTransaction.amount,
         });
 
         return {

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -43,8 +44,13 @@ interface RequisiteInfoModalProps {
     methodType: string;
     minAmount: number;
     maxAmount: number;
-    dailyLimit: number;
-    monthlyLimit: number;
+    totalAmountLimit?: number;
+    currentTotalAmount?: number;
+    operationLimit?: number;
+    sumLimit?: number;
+    activeDeals?: number;
+    dailyLimit?: number;
+    monthlyLimit?: number;
     intervalMinutes: number;
     successfulDeals?: number;
     totalDeals?: number;
@@ -260,6 +266,9 @@ export function RequisiteInfoModal({
       <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col">
         <DialogHeader className="sr-only text-center justify-center items-center">
           <DialogTitle className="">Информация о реквизите</DialogTitle>
+          <DialogDescription className="sr-only">
+            Просмотр информации о реквизите
+          </DialogDescription>
         </DialogHeader>
         {/* Mobile Header */}
         <div className="flex items-center justify-between p-4 border-b md:hidden flex-shrink-0">

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { PhoneInput, CardNumberInput } from "@/components/ui/formatted-input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { traderApi } from "@/services/api";
@@ -42,9 +43,8 @@ const formSchema = z.object({
   phoneNumber: z.string().optional(),
   minAmount: z.number().min(100),
   maxAmount: z.number().min(1000),
-  dailyLimit: z.number().min(0),
-  monthlyLimit: z.number().min(0),
-  maxCountTransactions: z.number().min(0),
+  sumLimit: z.number().min(0),
+  operationLimit: z.number().min(0),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -116,9 +116,8 @@ export function AddBTRequisiteDialog({
       phoneNumber: "",
       minAmount: 1000,
       maxAmount: 100000,
-      dailyLimit: 500000,
-      monthlyLimit: 10000000,
-      maxCountTransactions: 5,
+      sumLimit: 0,
+      operationLimit: 0,
     },
   });
 
@@ -171,12 +170,12 @@ export function AddBTRequisiteDialog({
         phoneNumber: data.phoneNumber || "",
         minAmount: data.minAmount,
         maxAmount: data.maxAmount,
-        dailyLimit: data.dailyLimit,
-        monthlyLimit: data.monthlyLimit,
         intervalMinutes: 5,
-        maxCountTransactions: data.maxCountTransactions
+        sumLimit: data.sumLimit,
+        operationLimit: data.operationLimit,
       };
 
+      console.log('[BTEntrance] Creating requisite with data:', payload);
       await traderApi.btEntrance.createRequisite(payload);
       toast.success("Реквизит успешно добавлен");
       form.reset();
@@ -270,19 +269,14 @@ export function AddBTRequisiteDialog({
                   <FormItem>
                     <FormLabel>Номер карты</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="1234 5678 9012 3456"
-                        {...field}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\s/g, "");
-                          if (/^\d*$/.test(value) && value.length <= 16) {
-                            field.onChange(value);
-                          }
-                        }}
+                      <CardNumberInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        disabled={loading}
                       />
                     </FormControl>
                     <FormDescription>
-                      Введите номер карты без пробелов
+                      Введите номер карты
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -298,13 +292,10 @@ export function AddBTRequisiteDialog({
                   <FormItem>
                     <FormLabel>Номер телефона</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="+7 (999) 123-45-67"
-                        {...field}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^\d+]/g, "");
-                          field.onChange(value);
-                        }}
+                      <PhoneInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        disabled={loading}
                       />
                     </FormControl>
                     <FormDescription>
@@ -374,13 +365,14 @@ export function AddBTRequisiteDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="dailyLimit"
+                name="sumLimit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Дневной лимит (₽)</FormLabel>
+                    <FormLabel>Общий лимит суммы (₽)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
+                        placeholder="0"
                         {...field}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
@@ -393,13 +385,14 @@ export function AddBTRequisiteDialog({
 
               <FormField
                 control={form.control}
-                name="monthlyLimit"
+                name="operationLimit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Месячный лимит (₽)</FormLabel>
+                    <FormLabel>Лимит операций</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
+                        placeholder="0"
                         {...field}
                         onChange={(e) => field.onChange(Number(e.target.value))}
                       />
@@ -410,27 +403,6 @@ export function AddBTRequisiteDialog({
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="maxCountTransactions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Дневной лимит транзакций</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Максимальное количество сделок в день (0 = без ограничений, по умолчанию 5)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <DialogFooter>
               <Button

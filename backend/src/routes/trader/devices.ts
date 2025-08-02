@@ -25,7 +25,27 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         where: { userId: trader.id },
         include: {
           bankDetails: {
-            where: { isArchived: false }
+            select: {
+              id: true,
+              methodType: true,
+              bankType: true,
+              cardNumber: true,
+              recipientName: true,
+              phoneNumber: true,
+              minAmount: true,
+              maxAmount: true,
+              totalAmountLimit: true,
+              currentTotalAmount: true,
+              operationLimit: true,
+              sumLimit: true,
+              intervalMinutes: true,
+              isArchived: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+              deviceId: true,
+              userId: true
+            }
           },
           notifications: {
             where: { isRead: false }
@@ -108,7 +128,27 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         },
         include: {
           bankDetails: {
-            where: { isArchived: false }
+            select: {
+              id: true,
+              methodType: true,
+              bankType: true,
+              cardNumber: true,
+              recipientName: true,
+              phoneNumber: true,
+              minAmount: true,
+              maxAmount: true,
+              totalAmountLimit: true,
+              currentTotalAmount: true,
+              operationLimit: true,
+              sumLimit: true,
+              intervalMinutes: true,
+              isArchived: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+              deviceId: true,
+              userId: true
+            }
           },
           notifications: {
             take: 10,
@@ -174,10 +214,45 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
             _sum: { amount: true },
           });
 
+          // Count transactions in progress (CREATED, IN_PROGRESS)
+          const transactionsInProgress = await db.transaction.count({
+            where: {
+              bankDetailId: bd.id,
+              status: { in: ["CREATED", "IN_PROGRESS"] },
+            },
+          });
+
+          // Count ready transactions
+          const transactionsReady = await db.transaction.count({
+            where: {
+              bankDetailId: bd.id,
+              status: "READY",
+            },
+          });
+
+          // Calculate current total amount for sumLimit
+          const currentTotalResult = await db.transaction.aggregate({
+            where: {
+              bankDetailId: bd.id,
+              status: { in: ["CREATED", "IN_PROGRESS", "READY"] },
+            },
+            _sum: { amount: true },
+          });
+
           return {
             ...bd,
             turnoverDay: daySum ?? 0,
             turnoverTotal: totalSum ?? 0,
+            transactionsInProgress,
+            transactionsReady,
+            activeDeals: transactionsInProgress, // Active deals are in progress transactions
+            currentTotalAmount: currentTotalResult._sum.amount || 0,
+            sumLimit: bd.sumLimit || 0,
+            operationLimit: bd.operationLimit || 0,
+            methodType: bd.methodType,
+            method: {
+              type: bd.methodType
+            },
             createdAt: bd.createdAt.toISOString(),
             updatedAt: bd.updatedAt.toISOString(),
           };
