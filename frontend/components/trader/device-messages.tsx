@@ -46,7 +46,9 @@ interface Notification {
   id: string
   deviceId: string
   device?: Device
-  text: string
+  text?: string
+  message?: string
+  title?: string
   type: string
   packageName?: string
   amount?: number
@@ -86,7 +88,13 @@ export function DeviceMessages() {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout>()
+  const observerRef = useRef<IntersectionObserver>()
+  const lastElementRef = useRef<HTMLDivElement>(null)
 
   const fetchDevices = async () => {
     try {
@@ -101,28 +109,40 @@ export function DeviceMessages() {
     }
   }
 
-  const fetchNotifications = async (deviceId: string = 'all') => {
+  const fetchNotifications = async (deviceId: string = 'all', pageNum: number = 1, append: boolean = false) => {
     try {
-      if (!refreshing) setLoading(true)
+      if (!refreshing && !append) setLoading(true)
+      if (append) setLoadingMore(true)
       
       let allNotifications: Notification[] = []
       
       if (deviceId === 'all') {
-        // Fetch notifications from all devices
+        // Fetch notifications from all devices - for now just get initial batch
         const devicesData = await fetchDevices()
         const notificationPromises = devicesData.map(async (device: Device) => {
           try {
-            const response = await traderApi.getDevice(device.id)
-            const deviceData = response.data || response || {}
-            const notifications = deviceData.recentNotifications || []
-            return Array.isArray(notifications) ? notifications.map((n: any) => ({
-              ...n,
-              device: {
-                id: device.id,
-                name: device.name,
-                isOnline: device.isOnline
+            // Use the new pagination endpoint
+            const response = await fetch(`/api/trader/devices/${device.id}/notifications?page=${pageNum}&limit=20`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('traderToken')}`
               }
-            })) : []
+            })
+            const data = await response.json()
+            
+            if (data.notifications) {
+              setTotalPages(data.pagination?.totalPages || 1)
+              setHasMore(pageNum < (data.pagination?.totalPages || 1))
+              
+              return data.notifications.map((n: any) => ({
+                ...n,
+                device: {
+                  id: device.id,
+                  name: device.name,
+                  isOnline: device.isOnline
+                }
+              }))
+            }
+            return []
           } catch (error) {
             console.error(`Failed to fetch notifications for device ${device.id}:`, error)
             return []
@@ -132,14 +152,23 @@ export function DeviceMessages() {
         const results = await Promise.all(notificationPromises)
         allNotifications = results.flat()
       } else {
-        // Fetch notifications from specific device
-        const response = await traderApi.getDevice(deviceId)
-        const deviceData = response.data || response || {}
-        const notifications = deviceData.recentNotifications || []
-        allNotifications = Array.isArray(notifications) ? notifications.map((n: any) => ({
-          ...n,
-          device: devices.find(d => d.id === deviceId)
-        })) : []
+        // Fetch notifications from specific device with pagination
+        const response = await fetch(`/api/trader/devices/${deviceId}/notifications?page=${pageNum}&limit=50`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('traderToken')}`
+          }
+        })
+        const data = await response.json()
+        
+        if (data.notifications) {
+          setTotalPages(data.pagination?.totalPages || 1)
+          setHasMore(pageNum < (data.pagination?.totalPages || 1))
+          
+          allNotifications = data.notifications.map((n: any) => ({
+            ...n,
+            device: devices.find(d => d.id === deviceId)
+          }))
+        }
       }
       
       // Sort by date, newest first
@@ -149,27 +178,67 @@ export function DeviceMessages() {
         )
       }
       
-      setNotifications(Array.isArray(allNotifications) ? allNotifications : [])
+      if (append) {
+        setNotifications(prev => [...prev, ...allNotifications])
+      } else {
+        setNotifications(Array.isArray(allNotifications) ? allNotifications : [])
+      }
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
-      setNotifications([])
-      if (!refreshing) {
+      if (!refreshing && !append) {
         toast.error('Не удалось загрузить сообщения')
       }
     } finally {
       setLoading(false)
       setRefreshing(false)
+      setLoadingMore(false)
     }
   }
 
+  // Load more when scrolling to bottom
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      fetchNotifications(selectedDevice, page + 1, true)
+      setPage(prev => prev + 1)
+    }
+  }, [selectedDevice, page, loadingMore, hasMore])
+
+  // Set up intersection observer for infinite scroll
   useEffect(() => {
-    fetchNotifications(selectedDevice)
+    if (loading) return
     
-    // Set up auto-refresh every 5 seconds
+    if (observerRef.current) observerRef.current.disconnect()
+    
+    const callback = (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasMore) {
+        handleLoadMore()
+      }
+    }
+    
+    observerRef.current = new IntersectionObserver(callback)
+    if (lastElementRef.current) {
+      observerRef.current.observe(lastElementRef.current)
+    }
+    
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+    }
+  }, [loading, hasMore, handleLoadMore])
+
+  useEffect(() => {
+    setPage(1)
+    setNotifications([])
+    fetchNotifications(selectedDevice, 1, false)
+    
+    // Set up auto-refresh every 10 seconds for new messages only
     intervalRef.current = setInterval(() => {
-      setRefreshing(true)
-      fetchNotifications(selectedDevice)
-    }, 5000)
+      if (!loadingMore) {
+        setRefreshing(true)
+        fetchNotifications(selectedDevice, 1, false)
+      }
+    }, 10000)
     
     return () => {
       if (intervalRef.current) {
@@ -179,12 +248,14 @@ export function DeviceMessages() {
   }, [selectedDevice])
 
   const filteredNotifications = notifications.filter(notification => {
-    const notificationText = notification.text || ''
+    const notificationText = notification.message || notification.text || ''
     const notificationSender = notification.sender || ''
+    const notificationTitle = notification.title || ''
     const searchLower = searchQuery.toLowerCase()
     
     const matchesSearch = notificationText.toLowerCase().includes(searchLower) ||
-                         notificationSender.toLowerCase().includes(searchLower)
+                         notificationSender.toLowerCase().includes(searchLower) ||
+                         notificationTitle.toLowerCase().includes(searchLower)
     const matchesType = typeFilter === 'all' || notification.type === typeFilter
     return matchesSearch && matchesType
   })
@@ -368,7 +439,7 @@ export function DeviceMessages() {
                                 )}
                               </div>
                               <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {notification.text}
+                                {notification.message || notification.text || ''}
                               </p>
                             </div>
                             
@@ -409,6 +480,21 @@ export function DeviceMessages() {
                   })}
                 </div>
               ))}
+              
+              {/* Load more trigger and indicator */}
+              {hasMore && (
+                <div 
+                  ref={lastElementRef}
+                  className="flex items-center justify-center py-4"
+                >
+                  {loadingMore && (
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Загрузка сообщений...</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

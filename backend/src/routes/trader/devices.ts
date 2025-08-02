@@ -277,7 +277,7 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
         isTrusted: false,
         notifications: device.notifications.length,
         linkedBankDetails: linkedBankDetailsWithTurnover,
-        recentNotifications: device.notifications.map(n => ({
+        recentNotifications: device.notifications.slice(0, 50).map(n => ({
           ...n,
           createdAt: n.createdAt.toISOString()
         }))
@@ -368,6 +368,83 @@ export const devicesRoutes = new Elysia({ prefix: "/devices" })
     }
   )
   
+  // Get device notifications with pagination
+  .get(
+    "/:id/notifications",
+    async ({ trader, params, query }) => {
+      const page = parseInt(query.page || '1')
+      const limit = parseInt(query.limit || '50')
+      const offset = (page - 1) * limit
+      
+      const device = await db.device.findFirst({
+        where: { 
+          id: params.id,
+          userId: trader.id
+        }
+      })
+
+      if (!device) {
+        return new Response(JSON.stringify({ error: "Device not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+
+      const [total, notifications] = await Promise.all([
+        db.notification.count({
+          where: { deviceId: device.id }
+        }),
+        db.notification.findMany({
+          where: { deviceId: device.id },
+          orderBy: { createdAt: 'desc' },
+          skip: offset,
+          take: limit,
+          include: {
+            matchedTransactions: {
+              select: {
+                id: true,
+                amount: true,
+                status: true
+              }
+            }
+          }
+        })
+      ])
+
+      return {
+        notifications: notifications.map(n => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          application: n.application,
+          sender: n.metadata?.sender || null,
+          amount: n.metadata?.amount || null,
+          isRead: n.isRead,
+          isProcessed: n.isProcessed,
+          createdAt: n.createdAt.toISOString(),
+          matchedTransactions: n.matchedTransactions
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      }
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      query: t.Object({
+        page: t.Optional(t.String()),
+        limit: t.Optional(t.String())
+      }),
+      detail: {
+        tags: ["trader", "devices"],
+        summary: "Get device notifications with pagination"
+      }
+    }
+  )
   
   // Link device to bank detail
   .post(

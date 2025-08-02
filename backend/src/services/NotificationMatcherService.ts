@@ -77,15 +77,39 @@ export class NotificationMatcherService extends BaseService {
       extractAmount: (match) => this.parseAmount(match[1])
     },
     {
+      packageName: "ru.vtb24.mobilebanking.android",
+      bankName: "VTB",
+      regex: /Перевод\s+от.*?Сумма:\s*([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.vtb24.mobilebanking.android",
+      bankName: "VTB",
+      regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
       packageName: "ru.vtb24",
       bankName: "VTB",
       regex: /\+([\d\s]+[.,]?\d{0,2})\s*₽.*?(?:перевод|пополнение)/i,
       extractAmount: (match) => this.parseAmount(match[1])
     },
     {
+      packageName: "ru.vtb24",
+      bankName: "VTB",
+      regex: /Сумма:\s*([\d\s]+[.,]?\d{0,2})\s*₽/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
       packageName: "ru.vtb",
       bankName: "VTB",
       regex: /Зачислено\s+([\d\s]+[.,]?\d{0,2})\s*RUB/i,
+      extractAmount: (match) => this.parseAmount(match[1])
+    },
+    {
+      packageName: "ru.vtb",
+      bankName: "VTB",
+      regex: /ВТБ.*?(?:Пополнение|Поступление|Перевод).*?([\d\s]+[.,]?\d{0,2})\s*(?:₽|руб|RUB)/i,
       extractAmount: (match) => this.parseAmount(match[1])
     },
     // Альфа-Банк
@@ -609,10 +633,13 @@ export class NotificationMatcherService extends BaseService {
         messageText.includes('перевод') ||
         messageText.includes('зачислен') ||
         messageText.includes('поступление') ||
-        messageText.includes('получен');
+        messageText.includes('получен') ||
+        messageText.includes('поступил') ||
+        messageText.includes('+') ||
+        messageText.includes('от ');
         
       if (!isIncomingTransaction) {
-        console.log(`[NotificationMatcherService] Skipping - not an incoming transaction`);
+        console.log(`[NotificationMatcherService] Skipping - not an incoming transaction: ${notification.message}`);
         return;
       }
 
