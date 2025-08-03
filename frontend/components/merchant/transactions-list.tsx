@@ -27,6 +27,9 @@ type Transaction = {
   amount: number
   commission: number
   merchantRate: number | null
+  effectiveRate: number | null
+  isRecalculated: boolean
+  rate: number | null
   method: {
     id: string
     code: string
@@ -172,6 +175,7 @@ export function TransactionsList({ filters }: TransactionsListProps) {
               <TableHead className="text-right">Сумма</TableHead>
               <TableHead className="text-right">Комиссия</TableHead>
               <TableHead className="text-right">Курс</TableHead>
+              <TableHead className="text-right">USDT</TableHead>
               <TableHead>Дата создания</TableHead>
               <TableHead>Внешний ID</TableHead>
               <TableHead>Действия</TableHead>
@@ -180,12 +184,28 @@ export function TransactionsList({ filters }: TransactionsListProps) {
           <TableBody>
             {transactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={11} className="text-center text-gray-500 py-8">
                   Транзакции не найдены
                 </TableCell>
               </TableRow>
             ) : (
-              transactions.map((transaction) => (
+              transactions.map((transaction) => {
+                // Рассчитываем USDT с учетом комиссии метода
+                // Эффективный курс уже учитывает ККК Рапиры
+                let usdtAmount = null;
+                if (transaction.effectiveRate) {
+                  // Сначала конвертируем в USDT по эффективному курсу
+                  const usdtBeforeCommission = transaction.amount / transaction.effectiveRate;
+                  // Затем вычитаем комиссию метода
+                  const commissionPercent = transaction.type === 'IN' 
+                    ? transaction.method.commissionPayin 
+                    : transaction.method.commissionPayout;
+                  usdtAmount = transaction.type === 'IN'
+                    ? usdtBeforeCommission * (1 - commissionPercent / 100)
+                    : usdtBeforeCommission * (1 + commissionPercent / 100);
+                }
+                
+                return (
                 <TableRow key={transaction.id}>
                   <TableCell className="font-mono">${transaction.numericId}</TableCell>
                   <TableCell>
@@ -214,7 +234,19 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                     }
                   </TableCell>
                   <TableCell className="text-right">
-                    {transaction.merchantRate ? formatAmount(transaction.merchantRate) : '-'}
+                    <div className="flex items-center justify-end gap-1">
+                      <span>
+                        {transaction.effectiveRate ? formatAmount(transaction.effectiveRate) : '-'}
+                      </span>
+                      {transaction.isRecalculated && (
+                        <span className="text-xs text-orange-600 dark:text-orange-400" title="Курс пересчитан по формуле">
+                          пересчитано
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-medium text-[#006039] dark:text-green-400">
+                    {usdtAmount ? formatAmount(usdtAmount) : '-'}
                   </TableCell>
                   <TableCell>{formatDate(transaction.createdAt)}</TableCell>
                   <TableCell className="font-mono text-sm">
@@ -236,7 +268,8 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                     )}
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
           <TableCaption>

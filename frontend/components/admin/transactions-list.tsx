@@ -408,21 +408,31 @@ export function TransactionsList() {
     }
 
     try {
-      const response = await fetch(url, {
+      // Используем прокси-эндпоинт для отправки callback через бэкенд
+      const response = await fetch('/api/callback-proxy/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: transaction.id,
-          status: transaction.status
+          url: url,
+          data: {
+            id: transaction.id,
+            status: transaction.status
+          },
+          headers: {
+            'X-Merchant-Token': transaction.merchant?.token || undefined
+          },
+          transactionId: transaction.id
         })
       })
 
-      if (response.ok) {
+      const result = await response.json()
+
+      if (result.success) {
         toast.success('Колбэк успешно отправлен')
       } else {
-        toast.error(`Ошибка отправки колбэка: ${response.status} ${response.statusText}`)
+        toast.error(`Ошибка отправки колбэка: ${result.status} ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       toast.error('Не удалось отправить колбэк: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'))

@@ -1369,6 +1369,53 @@ export default (app: Elysia) =>
       }
     )
 
+    /* ─────────── GET /admin/transactions/:id/callbacks ─────────── */
+    .get(
+      '/:id/callbacks',
+      async ({ params, error }) => {
+        const transaction = await db.transaction.findUnique({
+          where: { id: params.id },
+          include: {
+            callbackHistory: {
+              orderBy: { createdAt: 'desc' }
+            }
+          }
+        })
+
+        if (!transaction) {
+          return error(404, { error: 'Транзакция не найдена' })
+        }
+
+        return {
+          callbackHistory: transaction.callbackHistory.map(cb => ({
+            ...cb,
+            createdAt: cb.createdAt.toISOString()
+          }))
+        }
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Получение истории колбэков транзакции' },
+        headers: AuthHeaderSchema,
+        params: t.Object({ id: t.String() }),
+        response: {
+          200: t.Object({
+            callbackHistory: t.Array(t.Object({
+              id: t.String(),
+              transactionId: t.String(),
+              url: t.String(),
+              payload: t.Any(),
+              response: t.Union([t.String(), t.Null()]),
+              statusCode: t.Union([t.Number(), t.Null()]),
+              error: t.Union([t.String(), t.Null()]),
+              createdAt: t.String()
+            }))
+          }),
+          404: ErrorSchema
+        }
+      }
+    )
+
     /* ─────────── DELETE /admin/transactions/delete ─────────── */
     .delete(
       '/delete',

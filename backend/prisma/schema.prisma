@@ -229,6 +229,7 @@ model Transaction {
   traderProfit          Float?
   dealDispute           DealDispute?
   receipts              Receipt[]
+  callbackHistory       CallbackHistory[]
   requisites            BankDetail?         @relation(fields: [bankDetailId], references: [id])
   matchedNotification   Notification?       @relation(fields: [matchedNotificationId], references: [id])
   merchant              Merchant            @relation(fields: [merchantId], references: [id])
@@ -237,6 +238,21 @@ model Transaction {
   trader                User?               @relation("TraderTransactions", fields: [traderId], references: [id])
 
   @@index([bankDetailId, amount])
+}
+
+model CallbackHistory {
+  id            String   @id @default(cuid())
+  transactionId String
+  url           String
+  payload       Json
+  response      String?
+  statusCode    Int?
+  error         String?
+  createdAt     DateTime @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  @@index([transactionId])
+  @@index([createdAt(sort: Desc)])
 }
 
 model Receipt {

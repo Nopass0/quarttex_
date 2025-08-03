@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { adminApi as api } from '@/services/api'
+import { useAdminAuth } from '@/stores/auth'
 import { formatAmount, formatDate } from '@/lib/utils'
 import { 
   CreditCard, 
@@ -30,6 +31,17 @@ import {
   Send,
   Copy
 } from 'lucide-react'
+
+interface CallbackHistory {
+  id: string
+  transactionId: string
+  url: string
+  payload: any
+  response: string | null
+  statusCode: number | null
+  error: string | null
+  createdAt: string
+}
 
 interface Transaction {
   id: string
@@ -100,6 +112,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 }
 
 export default function AdminDealsPage() {
+  const adminToken = useAdminAuth((state) => state.token)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -109,6 +122,8 @@ export default function AdminDealsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [activeTab, setActiveTab] = useState('all')
+  const [callbackHistory, setCallbackHistory] = useState<CallbackHistory[]>([])
+  const [loadingCallbacks, setLoadingCallbacks] = useState(false)
 
   useEffect(() => {
     loadTransactions()
@@ -147,6 +162,48 @@ export default function AdminDealsPage() {
       console.error('Failed to load transactions:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const testApiConnection = async () => {
+    try {
+      const response = await fetch('/api/health')
+      console.log('[Debug] API Health check:', response.status, await response.json())
+    } catch (error) {
+      console.error('[Debug] API Health check failed:', error)
+    }
+  }
+
+  const loadCallbackHistory = async (transactionId: string) => {
+    setLoadingCallbacks(true)
+    try {
+      const token = adminToken || ''
+      console.log('[Debug] Loading callback history for transaction:', transactionId)
+      console.log('[Debug] Using admin token:', token ? `${token.substring(0, 10)}...` : 'EMPTY')
+      
+      const response = await fetch(`/api/admin/transactions/${transactionId}/callbacks`, {
+        headers: {
+          'X-Admin-Key': token
+        }
+      })
+      
+      console.log('[Debug] Response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('[Debug] Callback history data:', data)
+        setCallbackHistory(data.callbackHistory || [])
+        toast.success(`Загружено ${data.callbackHistory?.length || 0} записей истории колбэков`)
+      } else {
+        const errorData = await response.text()
+        console.error('[Debug] Error response:', errorData)
+        toast.error(`Ошибка загрузки истории колбэков: ${response.status} ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error('Failed to load callback history:', error)
+      toast.error('Ошибка загрузки истории колбэков: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'))
+    } finally {
+      setLoadingCallbacks(false)
     }
   }
 
@@ -194,33 +251,51 @@ export default function AdminDealsPage() {
     }
 
     try {
-      const response = await fetch(url, {
+      // Используем прокси-эндпоинт для отправки callback через бэкенд
+      const response = await fetch('/api/callback-proxy/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: transaction.id,
-          status: transaction.status
+          url: url,
+          data: {
+            id: transaction.id,
+            status: transaction.status
+          },
+          headers: {
+            'X-Merchant-Token': transaction.merchant?.token || undefined
+          },
+          transactionId: transaction.id
         })
       })
 
-      if (response.ok) {
+      const result = await response.json()
+
+      if (result.success) {
         toast.success('Колбэк успешно отправлен')
       } else {
-        toast.error(`Ошибка отправки колбэка: ${response.status} ${response.statusText}`)
+        toast.error(`Ошибка отправки колбэка: ${result.status} ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       toast.error('Не удалось отправить колбэк: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'))
     }
   }
 
+  const openTransactionDetails = (transaction: Transaction) => {
+    setSelectedTransaction(transaction)
+    loadCallbackHistory(transaction.id)
+  }
+
   const TransactionDetailsDialog = () => {
     if (!selectedTransaction) return null
 
     return (
-      <Dialog open={!!selectedTransaction} onOpenChange={() => setSelectedTransaction(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!selectedTransaction} onOpenChange={() => {
+        setSelectedTransaction(null)
+        setCallbackHistory([])
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Детали сделки #{selectedTransaction.numericId}</DialogTitle>
             <DialogDescription>Полная информация о транзакции</DialogDescription>
@@ -424,6 +499,92 @@ export default function AdminDealsPage() {
               </div>
             </div>
 
+            {/* История колбэков */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-gray-600">История колбэков</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={testApiConnection}
+                  >
+                    Test API
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadCallbackHistory(selectedTransaction.id)}
+                    disabled={loadingCallbacks}
+                  >
+                    {loadingCallbacks ? (
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                    )}
+                    Обновить
+                  </Button>
+                </div>
+              </div>
+              
+              {loadingCallbacks ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : callbackHistory.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {callbackHistory.map((callback) => (
+                    <div key={callback.id} className="bg-gray-50 p-3 rounded-md border">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">
+                            {formatDate(callback.createdAt)}
+                          </div>
+                          <div className="text-xs text-gray-600 break-all">{callback.url}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {callback.statusCode ? (
+                            <Badge className={
+                              callback.statusCode >= 200 && callback.statusCode < 300
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }>
+                              {callback.statusCode}
+                            </Badge>
+                          ) : null}
+                          {callback.error && (
+                            <Badge className="bg-red-100 text-red-800">
+                              Ошибка
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Отправлено:</div>
+                          <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
+                            {JSON.stringify(callback.payload, null, 2)}
+                          </pre>
+                        </div>
+                        
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 mb-1">Ответ:</div>
+                          <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
+                            {callback.response || (callback.error ? callback.error : 'Нет ответа')}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 text-center py-4">
+                  История колбэков пуста
+                </div>
+              )}
+            </div>
+
             {/* Дополнительная информация */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h4 className="font-medium mb-2">Дополнительная информация</h4>
@@ -560,7 +721,7 @@ export default function AdminDealsPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setSelectedTransaction(transaction)}
+                    onClick={() => openTransactionDetails(transaction)}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>

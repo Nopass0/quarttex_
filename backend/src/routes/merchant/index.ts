@@ -1541,12 +1541,14 @@ export default (app: Elysia) =>
         const feeInPercent = traderMerchant?.feeIn || 0;
 
         let currentRate = body.rate;
+        let alwaysRapiraRate = 0;
         if (currentRate === undefined) {
           const rateSettingRecord = await db.rateSetting.findFirst({
             where: { id: 1 },
           });
           const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
           currentRate = await rapiraService.getRateWithKkk(rapiraKkk);
+          alwaysRapiraRate = await rapiraService.getRateWithKkk(rapiraKkk);
         }
 
         // Рассчитываем заморозку напрямую с курсом, который уже содержит KKK
@@ -1605,7 +1607,8 @@ export default (app: Elysia) =>
               commission: 0,
               clientName: `user_${Date.now()}`,
               status: Status.IN_PROGRESS,
-              rate: currentRate,
+              rate: alwaysRapiraRate,
+              merchantRate: currentRate,
               adjustedRate: freezingParams.adjustedRate,
               kkkPercent: kkkPercent,
               kkkOperation: kkkOperation,

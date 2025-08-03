@@ -16,6 +16,7 @@ import { MerchantExtraSettlements } from '@/components/admin/merchant-extra-sett
 import { TestMerchantTransactions } from '@/components/admin/test-merchant-transactions'
 import { WellbitTestDialog } from '@/components/admin/wellbit-test-dialog'
 import { QuickTransactionCreate } from '@/components/admin/quick-transaction-create'
+import { MerchantTransactions } from '@/components/admin/merchant-transactions'
 
 type Merchant = {
   id: string
@@ -50,6 +51,7 @@ export default function MerchantDetailPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false)
   const [showTestDialog, setShowTestDialog] = useState(false)
+  const [balanceFormula, setBalanceFormula] = useState<any>(null)
   
   console.log('MerchantDetailPage: Rendering with merchantId:', merchantId)
   
@@ -113,12 +115,34 @@ export default function MerchantDetailPage() {
       const data = await response.json()
       console.log('fetchMerchant: Received data:', data)
       setMerchant(data)
+      
+      // Fetch balance formula
+      fetchBalanceFormula()
     } catch (error) {
       console.error('fetchMerchant: Error:', error)
       toast.error('Не удалось загрузить данные мерчанта')
       router.push('/admin/merchants')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchBalanceFormula = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/${merchantId}/transactions?pageSize=1`,
+        {
+          headers: {
+            'x-admin-key': adminToken || '',
+          },
+        }
+      )
+      if (response.ok) {
+        const data = await response.json()
+        setBalanceFormula(data.balanceFormula)
+      }
+    } catch (error) {
+      console.error('Failed to fetch balance formula:', error)
     }
   }
 
@@ -283,6 +307,50 @@ export default function MerchantDetailPage() {
             merchantMethods={merchant.merchantMethods?.filter(m => m.isEnabled) || []}
           />
 
+          {/* Balance Formula Display */}
+          {balanceFormula && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold mb-4 text-[#006039] dark:text-green-400">Баланс USDT</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="text-3xl font-bold text-[#006039] dark:text-green-400">
+                    {formatAmount(balanceFormula.currentBalance)} USDT
+                  </div>
+                  <div className="text-lg text-gray-600 dark:text-gray-400 mt-1">
+                    {formatAmount(balanceFormula.currentBalanceRub)} ₽
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Формула расчета баланса:</h3>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Сумма успешных сделок:</span>
+                      <span className="text-green-600 dark:text-green-400">+{formatAmount(balanceFormula.totalSuccessfulDealsUsdt)} USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Комиссия платформы со сделок:</span>
+                      <span className="text-red-600 dark:text-red-400">-{formatAmount(balanceFormula.platformCommissionDeals)} USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Сумма выплат:</span>
+                      <span className="text-red-600 dark:text-red-400">-{formatAmount(balanceFormula.totalPayoutsUsdt)} USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Комиссия платформы с выплат:</span>
+                      <span className="text-red-600 dark:text-red-400">-{formatAmount(balanceFormula.platformCommissionPayouts)} USDT</span>
+                    </div>
+                    <div className="border-t dark:border-gray-700 pt-1 mt-2">
+                      <div className="flex justify-between font-medium">
+                        <span className="text-gray-700 dark:text-gray-300">Итоговый баланс:</span>
+                        <span className="text-[#006039] dark:text-green-400">{formatAmount(balanceFormula.currentBalance)} USDT</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border dark:border-gray-700 hover:shadow-md dark:hover:shadow-gray-900 transition-shadow">
@@ -379,6 +447,10 @@ export default function MerchantDetailPage() {
                 />
               </TabsContent>
             )}
+            
+            <TabsContent value="transactions" className="mt-6">
+              <MerchantTransactions merchantId={merchantId} />
+            </TabsContent>
             
             <TabsContent value="milk-deals" className="mt-6">
               <MerchantMilkDeals merchantId={merchantId} />

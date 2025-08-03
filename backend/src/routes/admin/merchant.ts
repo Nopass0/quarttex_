@@ -11,7 +11,7 @@
 
 import { Elysia, t } from 'elysia'
 import { db } from '@/db'
-import { Prisma, Status, TransactionType, PayoutStatus } from '@prisma/client'
+import { Prisma, Status, TransactionType, PayoutStatus, SettleRequestStatus } from '@prisma/client'
 import ErrorSchema from '@/types/error'
 import { randomBytes } from 'node:crypto'
 
@@ -968,6 +968,284 @@ export default (app: Elysia) =>
               reason: t.String(),
               createdAt: t.String(),
             })),
+            pagination: t.Object({
+              page: t.Number(),
+              pageSize: t.Number(),
+              total: t.Number(),
+              totalPages: t.Number(),
+            }),
+          }),
+          404: ErrorSchema
+        }
+      }
+    )
+
+    /* ───────── GET /admin/merchant/:id/transactions ───────── */
+    .get(
+      '/:id/transactions',
+      async ({ params: { id }, query, error }) => {
+        const merchant = await db.merchant.findUnique({ where: { id } })
+        if (!merchant) return error(404, { error: 'Мерчант не найден' })
+
+        const page = query.page || 1
+        const pageSize = query.pageSize || 50
+        const skip = (page - 1) * pageSize
+
+        const where: any = { 
+          merchantId: id,
+          type: TransactionType.IN
+        }
+        
+        if (query.status) {
+          where.status = query.status
+        }
+        if (query.startDate) {
+          where.createdAt = { ...where.createdAt, gte: new Date(query.startDate) }
+        }
+        if (query.endDate) {
+          where.createdAt = { ...where.createdAt, lte: new Date(query.endDate) }
+        }
+
+        const [transactions, total] = await Promise.all([
+          db.transaction.findMany({
+            where,
+            include: {
+              method: true,
+              trader: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                }
+              },
+              requisites: {
+                select: {
+                  id: true,
+                  cardNumber: true,
+                  bankType: true,
+                  recipientName: true,
+                }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: pageSize,
+          }),
+          db.transaction.count({ where })
+        ])
+
+        // Get last completed settle request to filter transactions
+        const lastCompletedSettle = await db.settleRequest.findFirst({
+          where: {
+            merchantId: id,
+            status: SettleRequestStatus.COMPLETED
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { createdAt: true }
+        });
+
+        // Filter for transactions after last settle
+        const dateFilter = lastCompletedSettle?.createdAt 
+          ? { createdAt: { gt: lastCompletedSettle.createdAt } }
+          : {};
+
+        // Calculate totals for balance formula
+        const [successfulTransactions, successfulPayouts] = await Promise.all([
+          db.transaction.findMany({
+            where: {
+              merchantId: id,
+              status: Status.READY,
+              type: TransactionType.IN,
+              ...dateFilter
+            },
+            include: { method: true },
+          }),
+          db.payout.findMany({
+            where: {
+              merchantId: id,
+              status: PayoutStatus.COMPLETED,
+              ...dateFilter
+            },
+          })
+        ])
+
+        // Get rate settings for methods
+        const methodIds = [...new Set(successfulTransactions.map(tx => tx.method?.id).filter(Boolean))];
+        const rateSettings = await db.rateSettings.findMany({
+          where: { methodId: { in: methodIds } }
+        });
+        const rateSettingsMap = new Map(rateSettings.map(rs => [rs.methodId, rs]));
+        
+        // Calculate sums for balance formula
+        let totalSuccessfulDealsUsdt = 0
+        let platformCommissionDeals = 0
+        let netBalanceUsdt = 0  // Track net balance separately to match merchant dashboard
+        
+        for (const tx of successfulTransactions) {
+          // If merchantRate is null, calculate effective rate using formula
+          let effectiveRate = tx.merchantRate
+          if (!tx.merchantRate && tx.rate && tx.method) {
+            // s0 = s / (1 + (p/100)), where s = rate, p = kkkPercent from RateSettings
+            const rateSetting = rateSettingsMap.get(tx.method.id);
+            const kkkPercent = rateSetting?.kkkPercent || 0;
+            effectiveRate = tx.rate / (1 + (kkkPercent / 100))
+          }
+          
+          if (effectiveRate && effectiveRate > 0) {
+            const dealUsdt = tx.amount / effectiveRate
+            const commissionUsdt = dealUsdt * (tx.method.commissionPayin / 100)
+            const netUsdt = dealUsdt - commissionUsdt
+            
+            // Truncate to 2 decimal places for each transaction separately (same as merchant dashboard)
+            const truncatedDealUsdt = Math.floor(dealUsdt * 100) / 100
+            const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100
+            const truncatedNetUsdt = Math.floor(netUsdt * 100) / 100
+            
+            totalSuccessfulDealsUsdt += truncatedDealUsdt
+            platformCommissionDeals += truncatedCommissionUsdt
+            netBalanceUsdt += truncatedNetUsdt
+          }
+        }
+
+        let totalPayoutsUsdt = 0
+        let platformCommissionPayouts = 0
+        
+        for (const payout of successfulPayouts) {
+          const payoutUsdt = payout.amountUsdt || 0
+          const commissionUsdt = payoutUsdt * (payout.feePercent / 100)
+          
+          // Truncate payouts too
+          const truncatedPayoutUsdt = Math.floor(payoutUsdt * 100) / 100
+          const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100
+          
+          totalPayoutsUsdt += truncatedPayoutUsdt
+          platformCommissionPayouts += truncatedCommissionUsdt
+          netBalanceUsdt -= (truncatedPayoutUsdt + truncatedCommissionUsdt)
+        }
+
+        // Use netBalanceUsdt which matches merchant dashboard calculation
+        const currentBalance = netBalanceUsdt
+
+        // Get rate settings for transaction methods
+        const txMethodIds = [...new Set(transactions.map(tx => tx.method?.id).filter(Boolean))];
+        const txRateSettings = await db.rateSettings.findMany({
+          where: { methodId: { in: txMethodIds } }
+        });
+        const txRateSettingsMap = new Map(txRateSettings.map(rs => [rs.methodId, rs]));
+        
+        return {
+          transactions: transactions.map(tx => {
+            // Calculate effective rate with formula if merchantRate is null
+            let effectiveRate = tx.merchantRate
+            let isRecalculated = false
+            
+            if (!tx.merchantRate && tx.rate && tx.method) {
+              // s0 = s / (1 + (p/100)), where s = rate, p = kkkPercent from RateSettings
+              const rateSetting = txRateSettingsMap.get(tx.method.id);
+              const kkkPercent = rateSetting?.kkkPercent || 0;
+              effectiveRate = tx.rate / (1 + (kkkPercent / 100))
+              isRecalculated = true
+            }
+            
+            const usdtAmount = effectiveRate && effectiveRate > 0 ? tx.amount / effectiveRate : 0
+            const commission = tx.method && usdtAmount > 0 ? usdtAmount * (tx.method.commissionPayin / 100) : 0
+            const merchantBalance = usdtAmount - commission
+
+            return {
+              id: tx.id,
+              numericId: tx.numericId,
+              orderId: tx.orderId,
+              amount: tx.amount,
+              rate: tx.rate,
+              merchantRate: tx.merchantRate,
+              effectiveRate,
+              isRecalculated,
+              usdtAmount,
+              commission,
+              merchantBalance,
+              status: tx.status,
+              method: tx.method ? {
+                id: tx.method.id,
+                code: tx.method.code,
+                name: tx.method.name,
+                commissionPayin: tx.method.commissionPayin,
+              } : null,
+              trader: tx.trader,
+              requisites: tx.requisites,
+              createdAt: tx.createdAt.toISOString(),
+              updatedAt: tx.updatedAt.toISOString(),
+            }
+          }),
+          balanceFormula: {
+            totalSuccessfulDealsUsdt,
+            platformCommissionDeals,
+            totalPayoutsUsdt,
+            platformCommissionPayouts,
+            currentBalance,
+            currentBalanceRub: currentBalance * 95, // Using default rate for display
+          },
+          pagination: {
+            page,
+            pageSize,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+          }
+        }
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Получить историю транзакций мерчанта' },
+        headers: AuthHeader,
+        params: t.Object({ id: t.String() }),
+        query: t.Object({
+          status: t.Optional(t.String()),
+          startDate: t.Optional(t.String()),
+          endDate: t.Optional(t.String()),
+          page: t.Optional(t.Number({ minimum: 1 })),
+          pageSize: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
+        }),
+        response: {
+          200: t.Object({
+            transactions: t.Array(t.Object({
+              id: t.String(),
+              numericId: t.Number(),
+              orderId: t.String(),
+              amount: t.Number(),
+              rate: t.Nullable(t.Number()),
+              merchantRate: t.Nullable(t.Number()),
+              effectiveRate: t.Number(),
+              usdtAmount: t.Number(),
+              commission: t.Number(),
+              merchantBalance: t.Number(),
+              status: t.String(),
+              method: t.Nullable(t.Object({
+                id: t.String(),
+                code: t.String(),
+                name: t.String(),
+                commissionPayin: t.Number(),
+              })),
+              trader: t.Nullable(t.Object({
+                id: t.String(),
+                name: t.String(),
+                email: t.String(),
+              })),
+              requisites: t.Nullable(t.Object({
+                id: t.String(),
+                cardNumber: t.String(),
+                bankType: t.String(),
+                recipientName: t.String(),
+              })),
+              createdAt: t.String(),
+              updatedAt: t.String(),
+            })),
+            balanceFormula: t.Object({
+              totalSuccessfulDealsUsdt: t.Number(),
+              platformCommissionDeals: t.Number(),
+              totalPayoutsUsdt: t.Number(),
+              platformCommissionPayouts: t.Number(),
+              currentBalance: t.Number(),
+              currentBalanceRub: t.Number(),
+            }),
             pagination: t.Object({
               page: t.Number(),
               pageSize: t.Number(),

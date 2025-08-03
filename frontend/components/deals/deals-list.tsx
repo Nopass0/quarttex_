@@ -228,6 +228,7 @@ export function DealsList() {
   const [loading, setLoading] = useState(true);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   // Applied filters (for actual filtering)
@@ -278,6 +279,9 @@ export function DealsList() {
   const financials = useTraderStore((state) => state.financials);
 
   const confirmPayment = async (transactionId: string) => {
+    if (confirmingPayment) return; // Prevent double clicks
+    
+    setConfirmingPayment(true);
     try {
       await traderApi.updateTransactionStatus(transactionId, "READY");
       toast.success("Платеж подтвержден");
@@ -289,12 +293,18 @@ export function DealsList() {
         ),
       );
 
+      // Close dialog immediately after success
       setSelectedTransaction(null);
 
       // Refresh both transactions and profile to update profit
       await Promise.all([fetchTransactions(), fetchTraderProfile()]);
     } catch (error) {
+      console.error("Payment confirmation error:", error);
       toast.error("Не удалось подтвердить платеж");
+      // Still close dialog on error
+      setSelectedTransaction(null);
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
@@ -2284,8 +2294,16 @@ export function DealsList() {
                         <Button
                           className="w-full bg-[#006039] hover:bg-[#006039]/90"
                           onClick={() => confirmPayment(selectedTransaction.id)}
+                          disabled={confirmingPayment}
                         >
-                          Подтвердить платеж
+                          {confirmingPayment ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Подтверждение...
+                            </>
+                          ) : (
+                            "Подтвердить платеж"
+                          )}
                         </Button>
                         <Button
                           className="w-full"

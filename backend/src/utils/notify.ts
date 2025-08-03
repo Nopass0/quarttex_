@@ -1,4 +1,53 @@
 import axios from 'axios'
+import { db } from '@/db'
+
+// Helper function to send callback and save to history
+async function sendCallbackWithHistory(url: string, payload: any, transactionId: string) {
+  let result: any = { url };
+  
+  try {
+    console.log(`[Callback] Sending to ${url}:`, payload);
+    const res = await axios.post(url, payload);
+    result = { ...result, status: res.status, data: res.data };
+    
+    // Save successful callback to history
+    try {
+      await db.callbackHistory.create({
+        data: {
+          transactionId,
+          url,
+          payload,
+          response: typeof res.data === 'string' ? res.data : JSON.stringify(res.data),
+          statusCode: res.status
+        }
+      });
+      console.log(`[Callback] Saved successful callback to history: ${url}`);
+    } catch (dbError: any) {
+      console.error(`[Callback] Failed to save callback history:`, dbError.message);
+    }
+  } catch (e: any) {
+    console.error(`[Callback] Error sending to ${url}:`, e?.message);
+    result = { ...result, error: e?.message ?? 'request failed' };
+    
+    // Save failed callback to history
+    try {
+      await db.callbackHistory.create({
+        data: {
+          transactionId,
+          url,
+          payload,
+          error: e?.message ?? 'request failed',
+          statusCode: e.response?.status || null
+        }
+      });
+      console.log(`[Callback] Saved failed callback to history: ${url}`);
+    } catch (dbError: any) {
+      console.error(`[Callback] Failed to save error callback history:`, dbError.message);
+    }
+  }
+  
+  return result;
+}
 
 export async function notifyByStatus(trx: { 
   id: string; 
@@ -23,27 +72,15 @@ export async function notifyByStatus(trx: {
   };
   
   // Отправляем на success/fail URL если есть
-  if (statusUrl) {
-    try {
-      console.log(`[Callback] Sending to ${statusUrl}:`, payload);
-      const res = await axios.post(statusUrl, payload);
-      results.push({ url: statusUrl, status: res.status, data: res.data });
-    } catch (e: any) {
-      console.error(`[Callback] Error sending to ${statusUrl}:`, e?.message);
-      results.push({ url: statusUrl, error: e?.message ?? 'request failed' });
-    }
+  if (statusUrl && statusUrl !== 'none' && statusUrl !== '') {
+    const result = await sendCallbackWithHistory(statusUrl, payload, trx.id);
+    results.push(result);
   }
   
   // Всегда отправляем на callbackUri если он есть
   if (trx.callbackUri && trx.callbackUri !== 'none' && trx.callbackUri !== '') {
-    try {
-      console.log(`[Callback] Sending to callback ${trx.callbackUri}:`, payload);
-      const res = await axios.post(trx.callbackUri, payload);
-      results.push({ url: trx.callbackUri, status: res.status, data: res.data });
-    } catch (e: any) {
-      console.error(`[Callback] Error sending to callback ${trx.callbackUri}:`, e?.message);
-      results.push({ url: trx.callbackUri, error: e?.message ?? 'request failed' });
-    }
+    const result = await sendCallbackWithHistory(trx.callbackUri, payload, trx.id);
+    results.push(result);
   }
   
   return results.length > 0 ? results : undefined;

@@ -427,6 +427,7 @@ export default (app: Elysia) =>
             amount: true,
             methodId: true,
             merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
+            rate: true, // Нужен для расчета эффективного курса если merchantRate null
           },
         });
 
@@ -441,6 +442,7 @@ export default (app: Elysia) =>
             amount: true,
             methodId: true,
             merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
+            rate: true, // Нужен для расчета эффективного курса если merchantRate null
           },
         });
 
@@ -460,6 +462,12 @@ export default (app: Elysia) =>
         });
 
         const methodCommissionsMap = new Map(methodsForBalance.map(m => [m.id, m]));
+
+        // Получаем настройки ККК для всех методов сразу
+        const rateSettings = await db.rateSettings.findMany({
+          where: { methodId: { in: methodIds } }
+        });
+        const rateSettingsMap = new Map(rateSettings.map(rs => [rs.methodId, rs]));
 
         // Рассчитываем итоговый баланс с учетом комиссий
         let calculatedBalance = 0;
@@ -487,9 +495,20 @@ export default (app: Elysia) =>
             totalDealsCommission += commissionAmount;
             
             // Если countInRubEquivalent = false, считаем USDT по merchantRate
-            if (!merchant.countInRubEquivalent && deal.merchantRate && deal.merchantRate > 0) {
+            // Получаем настройки ККК для метода из кэша
+            const rateSetting = rateSettingsMap.get(deal.methodId);
+            
+            // Определяем эффективный курс
+            let effectiveRate = deal.merchantRate;
+            if (!deal.merchantRate && deal.rate) {
+              // Если merchantRate null, рассчитываем по формуле s0 = s / (1 + (p/100)), где p = kkkPercent
+              const kkkPercent = rateSetting?.kkkPercent || 0;
+              effectiveRate = deal.rate / (1 + (kkkPercent / 100));
+            }
+            
+            if (!merchant.countInRubEquivalent && effectiveRate && effectiveRate > 0) {
               // Сначала конвертируем в USDT, потом вычитаем комиссию
-              const dealUsdt = deal.amount / deal.merchantRate;
+              const dealUsdt = deal.amount / effectiveRate;
               const commissionUsdt = dealUsdt * (method.commissionPayin / 100);
               const netUsdt = dealUsdt - commissionUsdt;
               
@@ -516,10 +535,21 @@ export default (app: Elysia) =>
             totalPayoutsAmount += payout.amount;
             totalPayoutsCommission += commissionAmount;
             
-            // Если countInRubEquivalent = false, вычитаем USDT по merchantRate
-            if (!merchant.countInRubEquivalent && payout.merchantRate && payout.merchantRate > 0) {
+            // Получаем настройки ККК для метода выплаты из кэша
+            const payoutRateSetting = rateSettingsMap.get(payout.methodId);
+            
+            // Определяем эффективный курс для выплаты
+            let effectiveRate = payout.merchantRate;
+            if (!payout.merchantRate && payout.rate) {
+              // Если merchantRate null, рассчитываем по формуле s0 = s / (1 + (p/100)), где p = kkkPercent
+              const kkkPercent = payoutRateSetting?.kkkPercent || 0;
+              effectiveRate = payout.rate / (1 + (kkkPercent / 100));
+            }
+            
+            // Если countInRubEquivalent = false, вычитаем USDT по effectiveRate
+            if (!merchant.countInRubEquivalent && effectiveRate && effectiveRate > 0) {
               // Конвертируем выплату и комиссию в USDT
-              const payoutUsdt = payout.amount / payout.merchantRate;
+              const payoutUsdt = payout.amount / effectiveRate;
               const commissionUsdt = payoutUsdt * (method.commissionPayout / 100);
               const totalUsdt = payoutUsdt + commissionUsdt;
               
@@ -857,32 +887,55 @@ export default (app: Elysia) =>
           db.transaction.count({ where }),
         ]);
 
+        // Получаем настройки ККК для методов
+        const methodIds = [...new Set(transactions.map(tx => tx.method?.id).filter(Boolean))];
+        const rateSettings = await db.rateSettings.findMany({
+          where: { methodId: { in: methodIds } }
+        });
+        const rateSettingsMap = new Map(rateSettings.map(rs => [rs.methodId, rs]));
+        
         // Форматируем данные
-        const data = transactions.map((tx) => ({
-          id: tx.id,
-          numericId: tx.numericId,
-          orderId: tx.orderId,
-          amount: tx.amount,
-          status: tx.status,
-          type: tx.type,
-          clientName: tx.clientName,
-          rate: tx.rate,
-          merchantRate: tx.merchantRate,
-          commission: tx.commission,
-          error: tx.error,
-          createdAt: tx.createdAt.toISOString(),
-          updatedAt: tx.updatedAt.toISOString(),
-          acceptedAt: tx.acceptedAt?.toISOString() || null,
-          expiredAt: tx.expired_at.toISOString(),
-          method: tx.method,
-          trader: tx.trader,
-          receipts: tx.receipts.map(r => ({
-            ...r,
-            createdAt: r.createdAt.toISOString(),
-          })),
-          receiptCount: tx.receipts.length,
-          hasDispute: tx.receipts.some(r => r.isFake),
-        }));
+        const data = transactions.map((tx) => {
+          // Если merchantRate null, рассчитываем эффективный курс по формуле
+          let effectiveRate = tx.merchantRate;
+          let isRecalculated = false;
+          
+          if (!tx.merchantRate && tx.rate && tx.method) {
+            // s0 = s / (1 + (p/100)), где s = rate, p = kkkPercent из RateSettings
+            const rateSetting = rateSettingsMap.get(tx.method.id);
+            const kkkPercent = rateSetting?.kkkPercent || 0;
+            effectiveRate = tx.rate / (1 + (kkkPercent / 100));
+            isRecalculated = true;
+          }
+          
+          return {
+            id: tx.id,
+            numericId: tx.numericId,
+            orderId: tx.orderId,
+            amount: tx.amount,
+            status: tx.status,
+            type: tx.type,
+            clientName: tx.clientName,
+            rate: tx.rate,
+            merchantRate: tx.merchantRate,
+            effectiveRate: effectiveRate,
+            isRecalculated: isRecalculated,
+            commission: tx.commission,
+            error: tx.error,
+            createdAt: tx.createdAt.toISOString(),
+            updatedAt: tx.updatedAt.toISOString(),
+            acceptedAt: tx.acceptedAt?.toISOString() || null,
+            expiredAt: tx.expired_at.toISOString(),
+            method: tx.method,
+            trader: tx.trader,
+            receipts: tx.receipts.map(r => ({
+              ...r,
+              createdAt: r.createdAt.toISOString(),
+            })),
+            receiptCount: tx.receipts.length,
+            hasDispute: tx.receipts.some(r => r.isFake),
+          };
+        });
 
         return {
           data,
@@ -926,6 +979,8 @@ export default (app: Elysia) =>
                 clientName: t.String(),
                 rate: t.Union([t.Number(), t.Null()]),
                 merchantRate: t.Union([t.Number(), t.Null()]),
+                effectiveRate: t.Union([t.Number(), t.Null()]),
+                isRecalculated: t.Boolean(),
                 commission: t.Number(),
                 error: t.Union([t.String(), t.Null()]),
                 createdAt: t.String(),

@@ -32,6 +32,7 @@ import { deviceStatusRoutes } from "@/routes/websocket/device-status";
 import wellbitRoutes from "@/routes/wellbit";
 import wellbitBankMappingRoutes from "@/routes/admin/wellbit-bank-mapping";
 import { callbackTestRoute } from "@/routes/test/callback-test";
+import { callbackProxyRoutes } from "@/routes/callback-proxy";
 
 import { Glob } from "bun";
 import { pathToFileURL } from "node:url";
@@ -202,13 +203,48 @@ const app = new Elysia({ prefix: "/api" })
     }
   })
   .use(cors({
-    origin: true, // Разрешаем все origins в dev режиме
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-trader-token", "x-admin-key", "x-device-token", "x-agent-token", "x-merchant-api-key", "x-api-key", "x-api-token"],
-    exposedHeaders: ["x-trader-token", "x-admin-key", "x-device-token", "x-agent-token", "x-merchant-api-key", "x-api-key", "x-api-token"],
+    origin: (origin) => {
+      // Always allow requests without origin (like Postman, curl, etc.)
+      if (!origin) return true;
+      
+      // Convert to string if needed
+      const originStr = String(origin);
+      
+      // Always allow local development
+      if (originStr.startsWith('http://localhost') || originStr.startsWith('https://localhost')) {
+        return true;
+      }
+      
+      // Allow any origin for callbacks (production domains can be restricted here)
+      return true;
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization", 
+      "x-trader-token", 
+      "x-admin-key", 
+      "x-device-token", 
+      "x-agent-token", 
+      "x-merchant-api-key", 
+      "x-api-key", 
+      "x-api-token",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Methods",
+      "Access-Control-Allow-Headers"
+    ],
+    exposedHeaders: [
+      "x-trader-token", 
+      "x-admin-key", 
+      "x-device-token", 
+      "x-agent-token", 
+      "x-merchant-api-key", 
+      "x-api-key", 
+      "x-api-token"
+    ],
     credentials: true,
     preflight: true,
-    maxAge: 3600
+    maxAge: 86400 // 24 hours
   }))
   
   // Register all service endpoints
@@ -305,7 +341,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(dealDisputeWebSocketRoutes)
   .use(devicePingRoutes)
   .use(deviceStatusRoutes)
-  .use(callbackTestRoute);
+  .use(callbackTestRoute)
+  .use(callbackProxyRoutes);
 
 // Register all service endpoints
 for (const serviceApp of serviceApps) {

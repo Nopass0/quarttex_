@@ -1,4 +1,5 @@
 import { Transaction } from "@prisma/client";
+import { db as prisma } from "../db";
 
 export interface CallbackPayload {
   id: string;
@@ -21,6 +22,10 @@ export class CallbackService {
       status: status || transaction.status
     };
 
+    let responseText: string | null = null;
+    let statusCode: number | null = null;
+    let errorMessage: string | null = null;
+
     try {
       console.log(`[CallbackService] Sending callback to ${callbackUrl} for transaction ${transaction.id}`);
       console.log(`[CallbackService] Payload:`, payload);
@@ -34,18 +39,37 @@ export class CallbackService {
         body: JSON.stringify(payload)
       });
 
+      statusCode = response.status;
+      responseText = await response.text();
+
       if (!response.ok) {
         console.error(`[CallbackService] Callback failed with status ${response.status}`);
-        console.error(`[CallbackService] Response:`, await response.text());
+        console.error(`[CallbackService] Response:`, responseText);
       } else {
         console.log(`[CallbackService] Callback sent successfully to ${callbackUrl}`);
-        const responseData = await response.text();
-        if (responseData) {
-          console.log(`[CallbackService] Response:`, responseData);
+        if (responseText) {
+          console.log(`[CallbackService] Response:`, responseText);
         }
       }
     } catch (error) {
+      errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[CallbackService] Error sending callback:`, error);
+    }
+
+    // Сохраняем историю колбэка в БД
+    try {
+      await prisma.callbackHistory.create({
+        data: {
+          transactionId: transaction.id,
+          url: callbackUrl,
+          payload: payload as any,
+          response: responseText,
+          statusCode: statusCode,
+          error: errorMessage
+        }
+      });
+    } catch (dbError) {
+      console.error(`[CallbackService] Error saving callback history:`, dbError);
     }
   }
 
@@ -55,6 +79,10 @@ export class CallbackService {
       amount: amount,
       status: status
     };
+
+    let responseText: string | null = null;
+    let statusCode: number | null = null;
+    let errorMessage: string | null = null;
 
     try {
       console.log(`[CallbackService] Sending TEST callback to ${callbackUrl}`);
@@ -69,18 +97,46 @@ export class CallbackService {
         body: JSON.stringify(payload)
       });
 
+      statusCode = response.status;
+      responseText = await response.text();
+
       if (!response.ok) {
         console.error(`[CallbackService] TEST callback failed with status ${response.status}`);
-        console.error(`[CallbackService] Response:`, await response.text());
+        console.error(`[CallbackService] Response:`, responseText);
       } else {
         console.log(`[CallbackService] TEST callback sent successfully`);
-        const responseData = await response.text();
-        if (responseData) {
-          console.log(`[CallbackService] Response:`, responseData);
+        if (responseText) {
+          console.log(`[CallbackService] Response:`, responseText);
         }
       }
     } catch (error) {
+      errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[CallbackService] Error sending TEST callback:`, error);
+    }
+
+    // Сохраняем историю тестового колбэка в БД (если транзакция существует)
+    if (transactionId && transactionId !== 'test-transaction-id') {
+      try {
+        // Проверяем, существует ли транзакция
+        const transaction = await prisma.transaction.findUnique({
+          where: { id: transactionId }
+        });
+        
+        if (transaction) {
+          await prisma.callbackHistory.create({
+            data: {
+              transactionId: transactionId,
+              url: callbackUrl,
+              payload: payload as any,
+              response: responseText,
+              statusCode: statusCode,
+              error: errorMessage
+            }
+          });
+        }
+      } catch (dbError) {
+        console.error(`[CallbackService] Error saving test callback history:`, dbError);
+      }
     }
   }
 }

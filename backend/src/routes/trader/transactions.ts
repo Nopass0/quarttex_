@@ -887,13 +887,19 @@ export default (app: Elysia) =>
 
             // Начисляем прибыль трейдеру
             // Используем traderProfit который мы рассчитали выше при установке статуса READY
-            if (updateData.traderProfit && updateData.traderProfit > 0) {
+            console.log('[Trader Profit] updateData.traderProfit:', updateData.traderProfit);
+            console.log('[Trader Profit] Type:', typeof updateData.traderProfit);
+            
+            if (updateData.traderProfit && updateData.traderProfit > 0 && !isNaN(updateData.traderProfit)) {
+              console.log('[Trader Profit] Adding profit to trader:', trader.id, 'amount:', updateData.traderProfit);
               await prisma.user.update({
                 where: { id: trader.id },
                 data: {
-                  profitFromDeals: { increment: updateData.traderProfit },
+                  profitFromDeals: { increment: Number(updateData.traderProfit) },
                 },
               });
+            } else {
+              console.log('[Trader Profit] Skipping profit update - invalid value');
             }
 
             // Обновляем currentTotalAmount для реквизита
