@@ -127,14 +127,10 @@ export default (app: Elysia) =>
           `[Trader API] Найдено ${transactions.length} транзакций из ${total} общих для трейдера ${trader.id}`,
         );
 
-        // Преобразуем даты в ISO формат и корректируем курс с учетом ККК
+        // Преобразуем даты в ISO формат
         const formattedTransactions = transactions.map((tx) => {
-          // Используем сохраненный adjustedRate, если есть, иначе вычисляем с округлением вниз
-          const traderRate =
-            tx.adjustedRate ||
-            (tx.rate !== null && tx.kkkPercent !== null
-              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100
-              : tx.rate);
+          // ВСЕГДА показываем оригинальный rate (курс Рапиры с ККК)
+          const displayRate = tx.rate;
 
           // Используем сохраненную прибыль из базы данных
           const profit = tx.traderProfit || 0;
@@ -144,7 +140,7 @@ export default (app: Elysia) =>
 
           return {
             ...tx,
-            rate: traderRate,
+            rate: displayRate, // Всегда показываем курс Рапиры с ККК
             profit,
             calculatedCommission: profit, // Добавляем для совместимости с фронтендом
             deviceId: device?.id || tx.requisites?.deviceId || null,
@@ -383,14 +379,10 @@ export default (app: Elysia) =>
           `[Trader API] Найдено ${transactions.length} БТ-Вход транзакций из ${total} общих для трейдера ${trader.id}`,
         );
 
-        // Преобразуем даты в ISO формат и корректируем курс с учетом ККК
+        // Преобразуем даты в ISO формат
         const formattedTransactions = transactions.map((tx) => {
-          // Используем сохраненный adjustedRate, если есть, иначе вычисляем с округлением вниз
-          const traderRate =
-            tx.adjustedRate ||
-            (tx.rate !== null && tx.kkkPercent !== null
-              ? Math.floor(tx.rate * (1 - tx.kkkPercent / 100) * 100) / 100
-              : tx.rate);
+          // ВСЕГДА показываем оригинальный rate (курс Рапиры с ККК)
+          const displayRate = tx.rate;
 
           // Используем сохраненную прибыль из базы данных
           const profit = tx.traderProfit || 0;
@@ -400,7 +392,7 @@ export default (app: Elysia) =>
 
           return {
             ...tx,
-            rate: traderRate,
+            rate: displayRate, // Всегда показываем курс Рапиры с ККК
             profit,
             calculatedCommission: profit, // Добавляем для совместимости с фронтендом
             deviceId: device?.id || tx.requisites?.deviceId || null,
@@ -923,11 +915,17 @@ export default (app: Elysia) =>
             });
 
             if (txWithFreezing?.frozenUsdtAmount) {
-              // Размораживаем основную сумму
+              // Размораживаем ПОЛНУЮ сумму (основная + комиссия)
+              const totalToUnfreeze = txWithFreezing.frozenUsdtAmount + (txWithFreezing.calculatedCommission || 0);
+              console.log('[Trader Unfreeze] Unfreezing total amount:', {
+                frozenUsdtAmount: txWithFreezing.frozenUsdtAmount,
+                calculatedCommission: txWithFreezing.calculatedCommission,
+                totalToUnfreeze: totalToUnfreeze
+              });
               await prisma.user.update({
                 where: { id: trader.id },
                 data: {
-                  frozenUsdt: { decrement: txWithFreezing.frozenUsdtAmount },
+                  frozenUsdt: { decrement: totalToUnfreeze },
                 },
               });
             }

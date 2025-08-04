@@ -209,6 +209,9 @@ export const dashboardRoutes = new Elysia({ prefix: "/dashboard" })
         orderBy: { createdAt: "desc" },
         include: {
           bankDetails: {
+            where: {
+              isArchived: false
+            }
           }
         }
       });
@@ -260,8 +263,13 @@ export const dashboardRoutes = new Elysia({ prefix: "/dashboard" })
             name: device.name,
             token: device.token,
             isOnline: device.isOnline,
+            isRegistered: device.isRegistered,
             isActive: device.isOnline || false,
-            activeRequisites: device.bankDetails.length
+            activeRequisites: device.bankDetails.length,
+            linkedBankDetails: device.bankDetails.length,
+            lastSeen: device.lastSeenAt ? device.lastSeenAt.toISOString() : null,
+            stoppedAt: !device.isOnline && device.updatedAt ? device.updatedAt.toISOString() : null,
+            status: device.isOnline ? 'working' : 'stopped'
           }))
         }
       };
@@ -330,8 +338,13 @@ export const dashboardRoutes = new Elysia({ prefix: "/dashboard" })
             name: t.String(),
             token: t.String(),
             isOnline: t.Boolean(),
+            isRegistered: t.Boolean(),
             isActive: t.Boolean(),
-            activeRequisites: t.Number()
+            activeRequisites: t.Number(),
+            linkedBankDetails: t.Number(),
+            lastSeen: t.Union([t.String(), t.Null()]),
+            stoppedAt: t.Union([t.String(), t.Null()]),
+            status: t.String()
           }))
         })
       }),

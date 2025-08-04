@@ -347,108 +347,18 @@ export class NotificationMatcherService extends BaseService {
     // Send callbacks after successful database update
     console.log(`[NotificationMatcherService] Sending callbacks for transaction ${transactionId}`);
     
-    // Send callback to callbackUri
-    if (transaction.callbackUri && transaction.callbackUri !== 'none' && transaction.callbackUri !== '') {
-      try {
-        const callbackPayload = {
-          id: transaction.orderId,
-          amount: transaction.amount,
-          status: Status.READY
-        };
-        
-        console.log(`[NotificationMatcherService] Sending callback to ${transaction.callbackUri}`);
-        const response = await fetch(transaction.callbackUri, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Chase/1.0'
-          },
-          body: JSON.stringify(callbackPayload)
-        });
-
-        const responseText = await response.text();
-        
-        // Save callback history
-        await db.callbackHistory.create({
-          data: {
-            transactionId: transaction.id,
-            url: transaction.callbackUri,
-            payload: callbackPayload as any,
-            response: responseText,
-            statusCode: response.status,
-            error: response.ok ? null : `HTTP ${response.status}`
-          }
-        }).catch(err => console.error('[NotificationMatcherService] Error saving callback history:', err));
-        
-        if (!response.ok) {
-          console.error(`[NotificationMatcherService] Callback failed with status ${response.status}`);
-        } else {
-          console.log(`[NotificationMatcherService] Callback sent successfully`);
-        }
-      } catch (error) {
-        console.error(`[NotificationMatcherService] Error sending callback:`, error);
-        // Save error to callback history
-        await db.callbackHistory.create({
-          data: {
-            transactionId: transaction.id,
-            url: transaction.callbackUri,
-            payload: { id: transaction.orderId, amount: transaction.amount, status: Status.READY } as any,
-            error: error instanceof Error ? error.message : String(error)
-          }
-        }).catch(err => console.error('[NotificationMatcherService] Error saving callback error history:', err));
+    // Use unified callback function instead of direct fetch
+    try {
+      const updatedTransaction = await db.transaction.findUnique({
+        where: { id: transactionId }
+      });
+      
+      if (updatedTransaction) {
+        await sendTransactionCallbacks(updatedTransaction, Status.READY);
+        console.log(`[NotificationMatcherService] Callbacks sent successfully for transaction ${transactionId}`);
       }
-    }
-
-    // Send callback to successUri
-    if (transaction.successUri && transaction.successUri !== 'none' && transaction.successUri !== '') {
-      try {
-        const successPayload = {
-          id: transaction.orderId,
-          amount: transaction.amount,
-          status: Status.READY
-        };
-        
-        console.log(`[NotificationMatcherService] Sending success callback to ${transaction.successUri}`);
-        const response = await fetch(transaction.successUri, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Chase/1.0'
-          },
-          body: JSON.stringify(successPayload)
-        });
-
-        const responseText = await response.text();
-        
-        // Save callback history
-        await db.callbackHistory.create({
-          data: {
-            transactionId: transaction.id,
-            url: transaction.successUri,
-            payload: successPayload as any,
-            response: responseText,
-            statusCode: response.status,
-            error: response.ok ? null : `HTTP ${response.status}`
-          }
-        }).catch(err => console.error('[NotificationMatcherService] Error saving success callback history:', err));
-        
-        if (!response.ok) {
-          console.error(`[NotificationMatcherService] Success callback failed with status ${response.status}`);
-        } else {
-          console.log(`[NotificationMatcherService] Success callback sent successfully`);
-        }
-      } catch (error) {
-        console.error(`[NotificationMatcherService] Error sending success callback:`, error);
-        // Save error to callback history
-        await db.callbackHistory.create({
-          data: {
-            transactionId: transaction.id,
-            url: transaction.successUri,
-            payload: { id: transaction.orderId, amount: transaction.amount, status: Status.READY } as any,
-            error: error instanceof Error ? error.message : String(error)
-          }
-        }).catch(err => console.error('[NotificationMatcherService] Error saving success callback error history:', err));
-      }
+    } catch (error) {
+      console.error(`[NotificationMatcherService] Error sending callbacks:`, error);
     }
   }
 

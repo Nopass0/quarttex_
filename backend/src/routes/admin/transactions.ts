@@ -625,12 +625,14 @@ export default (app: Elysia) =>
           }
 
           const hook = await notifyByStatus({
-            id: trx.id,
+            id: trx.orderId,
+            transactionId: trx.id,
             status: trx.status,
             successUri: trx.successUri,
             failUri: trx.failUri,
             callbackUri: trx.callbackUri,
             amount: trx.amount,
+            merchantId: trx.merchantId,
           });
           return { transaction: trx, hook };
         } catch (e) {

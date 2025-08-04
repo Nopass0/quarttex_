@@ -679,17 +679,17 @@ export default (app: Elysia) =>
         
         // rate field is always from Rapira with KKK
         const transactionRate = rapiraRateWithKkk;
-        console.log(`[Merchant IN] Transaction rate (always Rapira): ${transactionRate}`);
-        console.log(`[Merchant IN] Merchant rate (for freezing): ${merchantRate}`);
+        console.log(`[Merchant IN] Transaction rate (always Rapira with KKK): ${transactionRate}`);
+        console.log(`[Merchant IN] Merchant rate (saved for reference): ${merchantRate}`);
 
-        // Рассчитываем заморозку с курсом мерчанта (или Рапиры если не передан)
+        // ВСЕГДА рассчитываем заморозку с курсом Рапиры с ККК
         // Используем floorDown2 для обрезания до 2 знаков после запятой
-        const frozenUsdtAmount = floorDown2(body.amount / merchantRate);
+        const frozenUsdtAmount = floorDown2(body.amount / transactionRate);
         const calculatedCommission = floorDown2((frozenUsdtAmount * feeInPercent) / 100);
         const totalRequired = floorDown2(frozenUsdtAmount + calculatedCommission);
 
         const freezingParams = {
-          adjustedRate: merchantRate, // Use merchant rate for freezing
+          adjustedRate: transactionRate, // Use Rapira rate with KKK for freezing
           frozenUsdtAmount,
           calculatedCommission,
           totalRequired,

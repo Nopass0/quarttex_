@@ -102,35 +102,46 @@ async function sendCallbackWithHistory(url: string, payload: any, transactionId:
 }
 
 export async function notifyByStatus(trx: { 
-  id: string; 
+  id: string; // This is orderId
   status: string; 
   successUri: string; 
   failUri: string;
   callbackUri?: string;
   amount?: number;
   merchantId?: string;
+  transactionId?: string; // Real transaction ID for history
 }) {
   const results = [];
   
+  // Use transactionId for history, or try to find it by orderId
+  let historyTransactionId = trx.transactionId;
+  if (!historyTransactionId) {
+    // Try to find transaction by orderId
+    const transaction = await db.transaction.findFirst({
+      where: { orderId: trx.id }
+    });
+    historyTransactionId = transaction?.id || trx.id;
+  }
+  
   // Формируем payload с id (orderId), amount и status
   const payload = {
-    id: trx.id, // this is actually orderId passed from the calling code
+    id: trx.id, // orderId for payload
     amount: trx.amount || 0,
     status: trx.status
   };
   
   // Отправляем на success/fail URL в зависимости от статуса
   if (trx.status === 'READY' && trx.successUri && trx.successUri !== 'none' && trx.successUri !== '') {
-    const result = await sendCallbackWithHistory(trx.successUri, payload, trx.id, trx.merchantId);
+    const result = await sendCallbackWithHistory(trx.successUri, payload, historyTransactionId, trx.merchantId);
     results.push(result);
   } else if ((trx.status === 'CANCELED' || trx.status === 'EXPIRED') && trx.failUri && trx.failUri !== 'none' && trx.failUri !== '') {
-    const result = await sendCallbackWithHistory(trx.failUri, payload, trx.id, trx.merchantId);
+    const result = await sendCallbackWithHistory(trx.failUri, payload, historyTransactionId, trx.merchantId);
     results.push(result);
   }
   
   // Всегда отправляем на callbackUri при любом изменении статуса
   if (trx.callbackUri && trx.callbackUri !== 'none' && trx.callbackUri !== '') {
-    const result = await sendCallbackWithHistory(trx.callbackUri, payload, trx.id, trx.merchantId);
+    const result = await sendCallbackWithHistory(trx.callbackUri, payload, historyTransactionId, trx.merchantId);
     results.push(result);
   }
   
@@ -144,7 +155,8 @@ export async function sendTransactionCallbacks(transaction: any, status?: string
   console.log(`[Callback] Sending callbacks for transaction ${transaction.id} with status ${finalStatus}`);
   
   return await notifyByStatus({
-    id: transaction.orderId, // Pass orderId instead of id
+    id: transaction.orderId, // Pass orderId for payload
+    transactionId: transaction.id, // Pass real transaction ID for history
     status: finalStatus,
     successUri: transaction.successUri || '',
     failUri: transaction.failUri || '',  
