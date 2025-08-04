@@ -21,9 +21,8 @@ import { disputesRoutes } from "./disputes";
 import { dealDisputesRoutes } from "./deal-disputes";
 import { dealDisputesApiRoutes } from "./deal-disputes-api";
 import { payoutDisputesApiRoutes } from "./payout-disputes-api";
-import { calculateFreezingParams } from "@/utils/freezing";
 import { rapiraService } from "@/services/rapira.service";
-import { floorDown2 } from '@/utils/freezing';
+import { ceilUp2 } from '@/utils/freezing';
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
 import { validateFileUpload } from "@/middleware/fileUploadValidation";
 import { MerchantRequestLogService } from "@/services/merchant-request-log.service";
@@ -683,10 +682,11 @@ export default (app: Elysia) =>
         console.log(`[Merchant IN] Merchant rate (saved for reference): ${merchantRate}`);
 
         // ВСЕГДА рассчитываем заморозку с курсом Рапиры с ККК
-        // Используем floorDown2 для обрезания до 2 знаков после запятой
-        const frozenUsdtAmount = floorDown2(body.amount / transactionRate);
-        const calculatedCommission = floorDown2((frozenUsdtAmount * feeInPercent) / 100);
-        const totalRequired = floorDown2(frozenUsdtAmount + calculatedCommission);
+        // Используем ceilUp2 для округления вверх до 2 знаков
+        const frozenUsdtAmount = ceilUp2(body.amount / transactionRate);
+        // Комиссию и прибыль не замораживаем при создании сделки
+        const calculatedCommission = 0;
+        const totalRequired = frozenUsdtAmount; // Замораживаем только основную сумму
 
         const freezingParams = {
           adjustedRate: transactionRate, // Use Rapira rate with KKK for freezing

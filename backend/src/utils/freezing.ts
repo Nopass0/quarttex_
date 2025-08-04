@@ -41,9 +41,9 @@ export function calculateAdjustedRate(
  * @returns количество USDT для заморозки (обрезано до 2 знаков)
  */
 export function calculateFrozenUsdt(amountRub: number, adjustedRate: number): number {
-  // Используем floorDown2 для обрезания до 2 знаков после запятой
-  // Например: 0.0098 -> 0.00
-  return floorDown2(amountRub / adjustedRate);
+  // Используем ceilUp2 для округления вверх до 2 знаков после запятой
+  // Например: 0.0098 -> 0.01
+  return ceilUp2(amountRub / adjustedRate);
 }
 
 /**
@@ -53,8 +53,8 @@ export function calculateFrozenUsdt(amountRub: number, adjustedRate: number): nu
  * @returns комиссия в USDT (обрезано до 2 знаков)
  */
 export function calculateCommissionUsdt(frozenUsdt: number, feeInPercent: number): number {
-  // Используем floorDown2 для обрезания до 2 знаков после запятой
-  return floorDown2(frozenUsdt * feeInPercent / 100);
+  // Используем ceilUp2 для округления вверх до 2 знаков после запятой
+  return ceilUp2((frozenUsdt * feeInPercent) / 100);
 }
 
 /**
@@ -81,8 +81,8 @@ export function calculateFreezingParams(
   const adjustedRate = calculateAdjustedRate(rateMerchant, kkkPercent, kkkOperation);
   const frozenUsdtAmount = calculateFrozenUsdt(amountRub, adjustedRate);
   const calculatedCommission = calculateCommissionUsdt(frozenUsdtAmount, feeInPercent);
-  // Обрезаем totalRequired до 2 знаков после запятой
-  const totalRequired = floorDown2(frozenUsdtAmount + calculatedCommission);
+  // Округляем totalRequired вверх до 2 знаков после запятой
+  const totalRequired = ceilUp2(frozenUsdtAmount + calculatedCommission);
 
   return {
     adjustedRate,
