@@ -685,8 +685,9 @@ export default (app: Elysia) =>
         // ВСЕГДА рассчитываем заморозку с курсом Рапиры с ККК
         // Используем floorDown2 для обрезания до 2 знаков после запятой
         const frozenUsdtAmount = floorDown2(body.amount / transactionRate);
-        const calculatedCommission = floorDown2((frozenUsdtAmount * feeInPercent) / 100);
-        const totalRequired = floorDown2(frozenUsdtAmount + calculatedCommission);
+        // Комиссию и прибыль не замораживаем при создании сделки
+        const calculatedCommission = 0;
+        const totalRequired = frozenUsdtAmount; // Замораживаем только основную сумму
 
         const freezingParams = {
           adjustedRate: transactionRate, // Use Rapira rate with KKK for freezing
