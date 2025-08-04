@@ -38,20 +38,23 @@ export function calculateAdjustedRate(
  * Расчет количества USDT для заморозки
  * @param amountRub - сумма в рублях
  * @param adjustedRate - скорректированный курс
- * @returns количество USDT для заморозки
+ * @returns количество USDT для заморозки (обрезано до 2 знаков)
  */
 export function calculateFrozenUsdt(amountRub: number, adjustedRate: number): number {
-  return ceilUp2(amountRub / adjustedRate);
+  // Используем floorDown2 для обрезания до 2 знаков после запятой
+  // Например: 0.0098 -> 0.00
+  return floorDown2(amountRub / adjustedRate);
 }
 
 /**
  * Расчет комиссии в USDT
  * @param frozenUsdt - количество замороженных USDT
  * @param feeInPercent - процент комиссии на ввод
- * @returns комиссия в USDT
+ * @returns комиссия в USDT (обрезано до 2 знаков)
  */
 export function calculateCommissionUsdt(frozenUsdt: number, feeInPercent: number): number {
-  return ceilUp2(frozenUsdt * feeInPercent / 100);
+  // Используем floorDown2 для обрезания до 2 знаков после запятой
+  return floorDown2(frozenUsdt * feeInPercent / 100);
 }
 
 /**
@@ -78,7 +81,8 @@ export function calculateFreezingParams(
   const adjustedRate = calculateAdjustedRate(rateMerchant, kkkPercent, kkkOperation);
   const frozenUsdtAmount = calculateFrozenUsdt(amountRub, adjustedRate);
   const calculatedCommission = calculateCommissionUsdt(frozenUsdtAmount, feeInPercent);
-  const totalRequired = frozenUsdtAmount + calculatedCommission;
+  // Обрезаем totalRequired до 2 знаков после запятой
+  const totalRequired = floorDown2(frozenUsdtAmount + calculatedCommission);
 
   return {
     adjustedRate,
@@ -94,7 +98,7 @@ export function calculateFreezingParams(
  * @param calculatedCommission - рассчитанная комиссия
  * @param amountRub - сумма в рублях
  * @param actualRate - фактический курс выполнения
- * @returns прибыль трейдера в USDT
+ * @returns прибыль трейдера в USDT (обрезано до 2 знаков)
  */
 export function calculateTraderProfit(
   frozenUsdtAmount: number,
@@ -102,11 +106,12 @@ export function calculateTraderProfit(
   amountRub: number,
   actualRate: number
 ): number {
-  // Фактически потраченная сумма USDT
-  const actualSpent = ceilUp2(amountRub / actualRate);
+  // Фактически потраченная сумма USDT (тоже обрезаем до 2 знаков)
+  const actualSpent = floorDown2(amountRub / actualRate);
   
   // Прибыль = (замороженная сумма - фактически потраченная) + комиссия
   const profit = (frozenUsdtAmount - actualSpent) + calculatedCommission;
   
-  return Math.max(0, profit); // Прибыль не может быть отрицательной
+  // Обрезаем итоговую прибыль до 2 знаков
+  return floorDown2(Math.max(0, profit)); // Прибыль не может быть отрицательной
 }

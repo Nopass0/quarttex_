@@ -4,6 +4,7 @@
 
 import { db } from '@/db';
 import { Prisma } from '@prisma/client';
+import { floorDown2 } from './freezing';
 
 export interface FreezingResult {
   frozenUsdtAmount: number;
@@ -49,7 +50,8 @@ export async function calculateTransactionFreezing(
   const feeInPercent = traderMerchant?.feeIn || 0;
 
   // Рассчитываем заморозку - только основная сумма (amount / rate)
-  const frozenUsdtAmount = Math.ceil((amount / rate) * 100) / 100;
+  // Используем floorDown2 для обрезания до 2 знаков после запятой
+  const frozenUsdtAmount = floorDown2(amount / rate);
   // НЕ рассчитываем комиссию при создании - только при подтверждении!
   const calculatedCommission = 0; // Будет рассчитана при смене статуса на READY
   const totalRequired = frozenUsdtAmount; // Замораживаем только основную сумму без комиссии
