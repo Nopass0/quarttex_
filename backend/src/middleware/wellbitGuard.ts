@@ -13,7 +13,7 @@ declare module 'elysia' {
 
 export const wellbitGuard = () => (app: Elysia) =>
   app
-    .onBeforeHandle(async ({ headers, body, error }) => {
+    .derive(async ({ headers, body, error }) => {
       const apiKey = headers['x-api-key'];
       const token = headers['x-api-token'];
       
@@ -37,21 +37,8 @@ export const wellbitGuard = () => (app: Elysia) =>
         .update(canonical)
         .digest('hex');
       
-      console.log('=== Wellbit Signature Debug ===');
-      console.log('Merchant ID:', merchant.id);
-      console.log('API Key Public:', merchant.apiKeyPublic);
-      console.log('API Key Private:', merchant.apiKeyPrivate);
-      console.log('Body (raw):', JSON.stringify(body));
-      console.log('Canonical JSON:', canonical);
-      console.log('Expected signature:', expected);
-      console.log('Received signature:', token);
-      console.log('Signature match:', expected === token);
-      console.log('==============================');
-      
       if (expected !== token) return error(401, { error: 'Invalid signature' });
-    })
-    .derive(async ({ headers }) => {
-      const merchant = await db.merchant.findFirst({ where: { apiKeyPublic: headers['x-api-key'] } });
-      if (!merchant) throw new Error('Merchant not found');
+      
+      // Return the merchant for use in route handlers
       return { wellbitMerchant: merchant };
     });

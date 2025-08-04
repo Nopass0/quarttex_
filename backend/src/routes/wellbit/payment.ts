@@ -19,15 +19,33 @@ import { canonicalJson } from '@/utils/canonicalJson';
 export default (app: Elysia) =>
   app
     .use(wellbitGuard())
-    .onAfterHandle(({ response, wellbitMerchant, set }) => {
+    .onAfterHandle(async ({ response, headers, set }) => {
       try {
+        // Re-fetch merchant to ensure we have the correct data
+        const merchant = await db.merchant.findFirst({ 
+          where: { apiKeyPublic: headers['x-api-key'] } 
+        });
+        
+        if (!merchant) {
+          console.error('Merchant not found in onAfterHandle');
+          return response;
+        }
+        
+        // Extract the actual response body from ElysiaCustomStatusResponse
+        let responseBody = response;
+        if (response && typeof response === 'object' && 'response' in response) {
+          // This is an ElysiaCustomStatusResponse, extract the actual response
+          responseBody = (response as any).response;
+        }
+        
         const canonical = canonicalJson(
-          typeof response === 'string' ? response : JSON.stringify(response)
+          typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody)
         );
-        const signature = createHmac('sha256', wellbitMerchant.apiKeyPrivate || '')
+        const signature = createHmac('sha256', merchant.apiKeyPrivate || '')
           .update(canonical)
           .digest('hex');
-        set.headers['x-api-key'] = wellbitMerchant.apiKeyPublic;
+        
+        set.headers['x-api-key'] = merchant.apiKeyPublic;
         set.headers['x-api-token'] = signature;
       } catch (err) {
         console.error('Failed to sign wellbit response:', err);
