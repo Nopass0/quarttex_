@@ -7,6 +7,7 @@ import { mapWellbitBankToOurs } from '@/utils/wellbit-bank-mapper';
 import { randomBytes, createHmac } from 'node:crypto';
 import { calculateFreezingParams } from '@/utils/freezing';
 import { canonicalJson } from '@/utils/canonicalJson';
+import { rapiraService } from '@/services/rapira.service';
 
 /**
  * Wellbit Payment Integration Routes
@@ -211,13 +212,23 @@ export default (app: Elysia) =>
             }
           });
 
+          // Get rate from Rapira with KKK
+          const rateSettingRecord = await db.rateSetting.findFirst({
+            where: { id: 1 },
+          });
+          const rapiraKkk = rateSettingRecord?.rapiraKkk || 0;
+          const rapiraRateWithKkk = await rapiraService.getRateWithKkk(rapiraKkk);
+          
+          console.log('[Wellbit] Rapira rate with KKK:', rapiraRateWithKkk);
+          console.log('[Wellbit] Merchant provided rate:', body.payment_course);
+          
           // Calculate freezing parameters
           const kkkPercent = 0; // TODO: Get from system config
           const feeInPercent = traderMerchant?.feeIn || 0;
           
           const freezingParams = calculateFreezingParams(
             body.payment_amount,
-            body.payment_course,
+            body.payment_course, // Use merchant rate for freezing calculation
             kkkPercent,
             feeInPercent
           );
@@ -231,7 +242,8 @@ export default (app: Elysia) =>
               amount: body.payment_amount,
               type: TransactionType.IN,
               status: Status.ACTIVE, // Set to ACTIVE since we have requisites
-              rate: body.payment_course,
+              rate: rapiraRateWithKkk, // Always use Rapira rate with KKK
+              merchantRate: body.payment_course, // Store merchant provided rate
               currency: 'RUB',
               expired_at: new Date(Date.now() + body.payment_lifetime * 1000),
               clientName: `Wellbit Payment ${body.payment_id}`,

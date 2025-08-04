@@ -23,6 +23,7 @@ import { dealDisputesApiRoutes } from "./deal-disputes-api";
 import { payoutDisputesApiRoutes } from "./payout-disputes-api";
 import { calculateFreezingParams } from "@/utils/freezing";
 import { rapiraService } from "@/services/rapira.service";
+import { floorDown2 } from '@/utils/freezing';
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
 import { validateFileUpload } from "@/middleware/fileUploadValidation";
 import { MerchantRequestLogService } from "@/services/merchant-request-log.service";
@@ -658,7 +659,7 @@ export default (app: Elysia) =>
 
         const feeInPercent = traderMerchant?.feeIn || 0;
 
-        // Always get Rapira rate with KKK for internal calculations
+        // Always get Rapira rate with KKK for transaction.rate field
         const rateSettingRecord = await db.rateSetting.findFirst({
           where: { id: 1 },
         });
@@ -667,28 +668,28 @@ export default (app: Elysia) =>
         
         console.log(`[Merchant IN] Rapira rate with KKK: ${rapiraRateWithKkk}`);
         
-        // Use merchant rate or Rapira rate based on settings
-        let currentRate = body.rate;
-        if (currentRate === undefined) {
-          currentRate = rapiraRateWithKkk;
-          console.log(`[Merchant IN] No rate provided, using Rapira rate: ${currentRate}`);
+        // merchantRate: merchant provided rate or Rapira rate if not provided
+        let merchantRate = body.rate;
+        if (merchantRate === undefined) {
+          merchantRate = rapiraRateWithKkk;
+          console.log(`[Merchant IN] No rate provided, merchantRate will use Rapira rate: ${merchantRate}`);
         } else {
-          console.log(`[Merchant IN] Using merchant provided rate: ${currentRate}`);
+          console.log(`[Merchant IN] Merchant provided rate: ${merchantRate}`);
         }
         
-        // Always use Rapira rate for internal calculations (trader profit)
-        const alwaysRapiraRate = rapiraRateWithKkk;
-        console.log(`[Merchant IN] Rate for profit calculation: ${alwaysRapiraRate}`);
+        // rate field is always from Rapira with KKK
+        const transactionRate = rapiraRateWithKkk;
+        console.log(`[Merchant IN] Transaction rate (always Rapira): ${transactionRate}`);
+        console.log(`[Merchant IN] Merchant rate (for freezing): ${merchantRate}`);
 
-        // Рассчитываем заморозку напрямую с курсом, который уже содержит KKK
-        const frozenUsdtAmount =
-          Math.ceil((body.amount / currentRate) * 100) / 100;
-        const calculatedCommission =
-          Math.ceil(((frozenUsdtAmount * feeInPercent) / 100) * 100) / 100;
-        const totalRequired = frozenUsdtAmount + calculatedCommission;
+        // Рассчитываем заморозку с курсом мерчанта (или Рапиры если не передан)
+        // Используем floorDown2 для обрезания до 2 знаков после запятой
+        const frozenUsdtAmount = floorDown2(body.amount / merchantRate);
+        const calculatedCommission = floorDown2((frozenUsdtAmount * feeInPercent) / 100);
+        const totalRequired = floorDown2(frozenUsdtAmount + calculatedCommission);
 
         const freezingParams = {
-          adjustedRate: currentRate,
+          adjustedRate: merchantRate, // Use merchant rate for freezing
           frozenUsdtAmount,
           calculatedCommission,
           totalRequired,
@@ -714,7 +715,7 @@ export default (app: Elysia) =>
         });
 
         // Создаем транзакцию с параметрами заморозки и замораживаем средства
-        console.log(`[Merchant IN] Creating transaction with rate=${alwaysRapiraRate}, merchantRate=${currentRate}`);
+        console.log(`[Merchant IN] Creating transaction with rate=${transactionRate}, merchantRate=${merchantRate}`);
         const tx = await db.$transaction(async (prisma) => {
           const transaction = await prisma.transaction.create({
             data: {
@@ -737,8 +738,8 @@ export default (app: Elysia) =>
               commission: 0,
               clientName: `user_${Date.now()}`,
               status: Status.IN_PROGRESS,
-              rate: alwaysRapiraRate,
-              merchantRate: currentRate,
+              rate: transactionRate, // Always Rapira rate with KKK
+              merchantRate: merchantRate, // Merchant provided rate or Rapira if not provided
               adjustedRate: freezingParams.adjustedRate,
               kkkPercent: kkkPercent,
               kkkOperation: kkkOperation,
