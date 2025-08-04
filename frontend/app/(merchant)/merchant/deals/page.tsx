@@ -14,9 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DatePickerWithRange } from "@/components/ui/date-picker-range"
-import { Search, Filter, Download } from "lucide-react"
+import { Search, Filter, Download, Loader2 } from "lucide-react"
+import { exportTransactionsToExcel, type ExportTransaction } from "@/lib/excel-export"
+import { useMerchantAuth } from "@/stores/merchant-auth"
+import { toast } from "sonner"
 
 export default function MerchantDealsPage() {
+  const { sessionToken } = useMerchantAuth()
   const [filters, setFilters] = useState({
     type: "ALL",
     status: "ALL",
@@ -30,6 +34,7 @@ export default function MerchantDealsPage() {
   })
 
   const [showFilters, setShowFilters] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -47,6 +52,59 @@ export default function MerchantDealsPage() {
       sortBy: "createdAt",
       sortOrder: "desc"
     })
+  }
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true)
+      
+      // Build query params for export
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "10000", // Export all available transactions
+      })
+
+      // Add filters
+      if (filters.type && filters.type !== 'ALL') params.append('type', filters.type)
+      if (filters.status && filters.status !== 'ALL') params.append('status', filters.status)
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters.dateTo) params.append('dateTo', filters.dateTo)
+      if (filters.amountFrom) params.append('amountFrom', filters.amountFrom)
+      if (filters.amountTo) params.append('amountTo', filters.amountTo)
+      if (filters.search) params.append('search', filters.search)
+      if (filters.sortBy) params.append('sortBy', filters.sortBy)
+      if (filters.sortOrder) params.append('sortOrder', filters.sortOrder)
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/merchant/dashboard/transactions?${params}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions for export')
+      }
+
+      const data = await response.json()
+      const transactions: ExportTransaction[] = data.data || []
+
+      if (transactions.length === 0) {
+        toast.warning('Нет транзакций для экспорта')
+        return
+      }
+
+      // Export to Excel
+      exportTransactionsToExcel(transactions, 'merchant_transactions')
+      toast.success(`Экспортировано ${transactions.length} транзакций`)
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Не удалось экспортировать транзакции')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   return (
@@ -72,9 +130,22 @@ export default function MerchantDealsPage() {
               <Filter className="h-4 w-4 mr-2" />
               Фильтры
             </Button>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Экспорт
+            <Button 
+              variant="outline"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Экспорт...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Экспорт
+                </>
+              )}
             </Button>
           </div>
 
