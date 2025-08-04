@@ -492,22 +492,26 @@ export default (app: Elysia) =>
       "/update-user",
       async ({ body, error }) => {
         try {
+          const updateData: any = {
+            email: body.email,
+            name: body.name,
+          };
+          
+          // Add optional fields only if they are provided
+          if (body.balanceUsdt !== undefined) updateData.balanceUsdt = body.balanceUsdt;
+          if (body.balanceRub !== undefined) updateData.balanceRub = body.balanceRub;
+          if (body.trustBalance !== undefined) updateData.trustBalance = body.trustBalance;
+          if (body.profitFromDeals !== undefined) updateData.profitFromDeals = body.profitFromDeals;
+          if (body.profitFromPayouts !== undefined) updateData.profitFromPayouts = body.profitFromPayouts;
+          if (body.banned !== undefined) updateData.banned = body.banned;
+          if (body.rateConst !== undefined) updateData.rateConst = body.rateConst;
+          if (body.useConstRate !== undefined) updateData.useConstRate = body.useConstRate;
+          if (body.profitPercent !== undefined) updateData.profitPercent = body.profitPercent;
+          if (body.stakePercent !== undefined) updateData.stakePercent = body.stakePercent;
+          
           const u = await db.user.update({
             where: { id: body.id },
-            data: {
-              email: body.email,
-              name: body.name,
-              balanceUsdt: body.balanceUsdt,
-              balanceRub: body.balanceRub,
-              trustBalance: body.trustBalance,
-              profitFromDeals: body.profitFromDeals,
-              profitFromPayouts: body.profitFromPayouts,
-              banned: body.banned,
-              rateConst: body.rateConst,
-              useConstRate: body.useConstRate,
-              profitPercent: body.profitPercent,
-              stakePercent: body.stakePercent,
-            },
+            data: updateData,
             select: {
               id: true,
               email: true,
@@ -542,16 +546,16 @@ export default (app: Elysia) =>
           id: t.String(),
           email: t.String({ format: "email" }),
           name: t.String(),
-          balanceUsdt: t.Number(),
-          balanceRub: t.Number(),
-          trustBalance: t.Number(),
-          profitFromDeals: t.Number(),
-          profitFromPayouts: t.Number(),
-          rateConst: t.Nullable(t.Number()),
+          balanceUsdt: t.Optional(t.Number()),
+          balanceRub: t.Optional(t.Number()),
+          trustBalance: t.Optional(t.Number()),
+          profitFromDeals: t.Optional(t.Number()),
+          profitFromPayouts: t.Optional(t.Number()),
+          rateConst: t.Optional(t.Nullable(t.Number())),
           useConstRate: t.Optional(t.Boolean()),
-          profitPercent: t.Nullable(t.Number()),
-          stakePercent: t.Nullable(t.Number()),
-          banned: t.Boolean(),
+          profitPercent: t.Optional(t.Nullable(t.Number())),
+          stakePercent: t.Optional(t.Nullable(t.Number())),
+          banned: t.Optional(t.Boolean()),
         }),
         response: {
           200: t.Object({

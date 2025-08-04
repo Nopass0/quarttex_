@@ -886,6 +886,12 @@ export default function TraderRequisitesPage() {
                                 {(requisite.currentTotalAmount || 0).toLocaleString()} / {requisite.sumLimit === 0 ? '∞' : (requisite.sumLimit || 0).toLocaleString()} ₽
                               </span>
                             </div>
+                            <div>
+                              <span className="text-gray-600">Лимит операций: </span>
+                              <span className="font-medium">
+                                {requisite.operationLimit === 0 ? '∞' : (requisite.operationLimit || 0)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -971,6 +977,12 @@ export default function TraderRequisitesPage() {
                         <span className="text-gray-600">Общий лимит: </span>
                         <span className="font-medium">
                           {(requisite.currentTotalAmount || 0).toLocaleString()} / {requisite.sumLimit === 0 ? '∞' : (requisite.sumLimit || 0).toLocaleString()} ₽
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Лимит операций: </span>
+                        <span className="font-medium">
+                          {requisite.operationLimit === 0 ? '∞' : (requisite.operationLimit || 0)}
                         </span>
                       </div>
                     </div>

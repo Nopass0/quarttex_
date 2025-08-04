@@ -769,13 +769,25 @@ export default (app: Elysia) =>
             console.log(
               `[Merchant IN] Freezing funds for trader ${chosen.userId}: ${freezingParams.totalRequired} USDT`,
             );
-            await prisma.user.update({
+            console.log(
+              `[Merchant IN] Trader balance before freezing - trustBalance: ${chosen.user.trustBalance}, frozenUsdt: ${chosen.user.frozenUsdt}`,
+            );
+            
+            const updatedUser = await prisma.user.update({
               where: { id: chosen.userId },
               data: {
                 frozenUsdt: { increment: freezingParams.totalRequired },
                 trustBalance: { decrement: freezingParams.totalRequired }, // Списываем с баланса при заморозке
               },
             });
+            
+            console.log(
+              `[Merchant IN] Trader balance after freezing - trustBalance: ${updatedUser.trustBalance}, frozenUsdt: ${updatedUser.frozenUsdt}`,
+            );
+          } else {
+            console.log(
+              `[Merchant IN] NOT freezing funds. freezingParams: ${!!freezingParams}, chosen.user: ${!!chosen.user}`,
+            );
           }
 
           return transaction;
