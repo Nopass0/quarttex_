@@ -1,5 +1,6 @@
 import { Transaction } from "@prisma/client";
 import { db as prisma } from "../db";
+import { WellbitCallbackService } from "./WellbitCallbackService";
 
 export interface CallbackPayload {
   id: string;
@@ -14,6 +15,15 @@ export class CallbackService {
     if (!callbackUrl || callbackUrl === "none" || callbackUrl === "") {
       console.log(`[CallbackService] No callback URL for transaction ${transaction.id}`);
       return;
+    }
+
+    // Проверяем, является ли мерчант Wellbit
+    if (transaction.merchantId) {
+      const isWellbit = await WellbitCallbackService.isWellbitMerchant(transaction.merchantId);
+      if (isWellbit) {
+        console.log(`[CallbackService] Detected Wellbit merchant, using Wellbit callback format`);
+        return await WellbitCallbackService.sendWellbitCallback(transaction, status);
+      }
     }
 
     const payload: CallbackPayload = {

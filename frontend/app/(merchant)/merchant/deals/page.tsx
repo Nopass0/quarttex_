@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TransactionsList } from "@/components/merchant/transactions-list"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -35,6 +35,34 @@ export default function MerchantDealsPage() {
 
   const [showFilters, setShowFilters] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [merchantInfo, setMerchantInfo] = useState<{ countInRubEquivalent: boolean } | null>(null)
+
+  // Fetch merchant info on mount
+  useEffect(() => {
+    const fetchMerchantInfo = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/merchant/auth/me`,
+          {
+            headers: {
+              'Authorization': `Bearer ${sessionToken}`,
+            },
+          }
+        )
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Merchant countInRubEquivalent:', data.merchant.countInRubEquivalent)
+          setMerchantInfo({ countInRubEquivalent: data.merchant.countInRubEquivalent })
+        }
+      } catch (error) {
+        console.error('Failed to fetch merchant info:', error)
+      }
+    }
+    
+    if (sessionToken) {
+      fetchMerchantInfo()
+    }
+  }, [sessionToken])
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -96,8 +124,8 @@ export default function MerchantDealsPage() {
         return
       }
 
-      // Export to Excel
-      exportTransactionsToExcel(transactions, 'merchant_transactions')
+      // Export to Excel with merchant settings
+      exportTransactionsToExcel(transactions, 'merchant_transactions', merchantInfo?.countInRubEquivalent)
       toast.success(`Экспортировано ${transactions.length} транзакций`)
     } catch (error) {
       console.error('Export error:', error)

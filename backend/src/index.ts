@@ -162,14 +162,7 @@ for await (const file of glob.scan({ cwd: scanRoot, absolute: true })) {
 
 // Create root app for health endpoint
 const rootApp = new Elysia()
-  .get("/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }));
-
-// Main application instance
-const app = new Elysia({ prefix: "/api" })
-  .derive(() => ({
-    serviceRegistry,
-  }))
-  .use(ip())
+  .get("/health", () => ({ status: "healthy", timestamp: new Date().toISOString() }))
   // Custom static file serving for uploads
   .get("/uploads/*", async ({ params, set }) => {
     const filepath = decodeURIComponent(params["*"]);
@@ -201,7 +194,14 @@ const app = new Elysia({ prefix: "/api" })
       set.status = 500;
       return "Error reading file";
     }
-  })
+  });
+
+// Main application instance
+const app = new Elysia({ prefix: "/api" })
+  .derive(() => ({
+    serviceRegistry,
+  }))
+  .use(ip())
   .use(cors({
     origin: (origin) => {
       // Always allow requests without origin (like Postman, curl, etc.)

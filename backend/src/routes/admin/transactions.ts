@@ -840,6 +840,7 @@ export default (app: Elysia) =>
             url = trx.callbackUri
             callbackData = {
               id: trx.id,
+              amount: trx.amount,
               status: body.status || trx.status
             }
           }
@@ -849,6 +850,10 @@ export default (app: Elysia) =>
           }
 
           let result
+          let responseText: string | null = null
+          let statusCode: number | null = null
+          let errorMessage: string | null = null
+          
           try {
             const headers: any = {
               'Content-Type': 'application/json'
@@ -860,20 +865,45 @@ export default (app: Elysia) =>
             }
 
             const res = await axios.post(url, callbackData, { headers })
+            statusCode = res.status
+            responseText = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
             result = { status: res.status, data: res.data }
           } catch (e: any) {
+            errorMessage = e?.message ?? 'request failed'
+            statusCode = e?.response?.status || null
             result = { 
-              error: e?.message ?? 'request failed',
-              status: e?.response?.status,
+              error: errorMessage,
+              status: statusCode,
               data: e?.response?.data
             }
+          }
+
+          // Сохраняем историю колбэка в БД
+          let callbackHistoryEntry = null
+          try {
+            callbackHistoryEntry = await db.callbackHistory.create({
+              data: {
+                transactionId: trx.id,
+                url: url,
+                payload: callbackData as any,
+                response: responseText,
+                statusCode: statusCode,
+                error: errorMessage
+              }
+            })
+          } catch (dbError) {
+            console.error(`[Admin Callback] Error saving callback history:`, dbError)
           }
 
           return { 
             callback: body.type, 
             url, 
             payload: callbackData,
-            result 
+            result,
+            callbackHistoryEntry: callbackHistoryEntry ? {
+              ...callbackHistoryEntry,
+              createdAt: callbackHistoryEntry.createdAt.toISOString()
+            } : null
           }
         } catch (e) {
           if (
@@ -904,7 +934,20 @@ export default (app: Elysia) =>
             callback: t.String(),
             url: t.String(),
             payload: t.Unknown(),
-            result: t.Unknown()
+            result: t.Unknown(),
+            callbackHistoryEntry: t.Union([
+              t.Object({
+                id: t.String(),
+                transactionId: t.String(),
+                url: t.String(),
+                payload: t.Any(),
+                response: t.Union([t.String(), t.Null()]),
+                statusCode: t.Union([t.Number(), t.Null()]),
+                error: t.Union([t.String(), t.Null()]),
+                createdAt: t.String()
+              }),
+              t.Null()
+            ])
           }),
           400: ErrorSchema,
           404: ErrorSchema

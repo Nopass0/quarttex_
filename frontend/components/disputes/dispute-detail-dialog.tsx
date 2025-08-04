@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { getFileUrl } from "@/lib/file-utils";
 import {
   Dialog,
   DialogContent,
@@ -297,7 +298,7 @@ export function DisputeDetailDialog({
                               return (
                                 <a
                                   key={attachment.id}
-                                  href={attachment.url}
+                                  href={getFileUrl(attachment.url)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-2 p-2 rounded bg-white/50 hover:bg-white/80 transition-colors"

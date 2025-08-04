@@ -30,9 +30,14 @@ export const merchantGuard =
             return error(401, { error: 'Missing x-merchant-api-key header' });
           }
           
-          // быстрая валидация: есть ли мерчант с таким токеном
+          // быстрая валидация: есть ли мерчант с таким токеном или API ключом
           const exists = await db.merchant.findFirst({
-            where: { token },
+            where: {
+              OR: [
+                { token },
+                { apiKeyPublic: token }
+              ]
+            },
             select: { id: true },          // только факт существования
           });
           if (!exists)
@@ -51,8 +56,13 @@ export const merchantGuard =
           return error(401, { error: 'Missing x-merchant-api-key header' });
         }
         
-        const merchant = await db.merchant.findUnique({
-          where: { token },
+        const merchant = await db.merchant.findFirst({
+          where: {
+            OR: [
+              { token },
+              { apiKeyPublic: token }
+            ]
+          },
         });
         if (!merchant)
           return error(401, { error: 'Invalid merchant key' });

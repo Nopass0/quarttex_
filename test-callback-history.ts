@@ -1,125 +1,92 @@
-import { db as prisma } from './backend/src/db';
-import { CallbackService } from './backend/src/services/CallbackService';
+import { db } from "./backend/src/db";
 
-async function testCallbackHistory() {
-  console.log('🧪 Тестирование функционала истории колбэков...');
+async function checkCallbackHistory() {
+  console.log("=== Проверка истории callback'ов ===\n");
 
-  try {
-    // 1. Создаем тестовый мерчант и метод
-    console.log('1. Создание тестового мерчанта и метода...');
-    const merchant = await prisma.merchant.create({
-      data: {
-        name: 'Тестовый мерчант',
-        email: 'test@example.com',
-        token: 'test-token-123'
+  // Получаем последние callback'и
+  const recentCallbacks = await db.callbackHistory.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    include: {
+      transaction: {
+        select: {
+          id: true,
+          status: true,
+          amount: true,
+          callbackUri: true,
+          successUri: true,
+          failUri: true,
+          traderId: true,
+          matchedNotificationId: true
+        }
       }
-    });
-
-    const method = await prisma.method.create({
-      data: {
-        name: 'Тестовый метод',
-        code: 'TEST_METHOD',
-        type: 'CARD',
-        currency: 'RUB'
-      }
-    });
-
-    // 2. Создаем тестовую транзакцию
-    console.log('2. Создание тестовой транзакции...');
-    const transaction = await prisma.transaction.create({
-      data: {
-        amount: 1000,
-        assetOrBank: 'SBERBANK',
-        orderId: 'test-order-123',
-        currency: 'RUB',
-        userId: 'test-user-123',
-        userIp: '127.0.0.1',
-        callbackUri: 'https://httpbin.org/post',
-        successUri: 'https://httpbin.org/post',
-        failUri: 'https://httpbin.org/post',
-        expired_at: new Date(Date.now() + 30 * 60 * 1000), // +30 минут
-        commission: 5,
-        clientName: 'Тестовый клиент',
-        status: 'CREATED',
-        merchantId: merchant.id,
-        methodId: method.id
-      }
-    });
-
-    console.log(`✅ Транзакция создана: ${transaction.id}`);
-
-    // 3. Отправляем колбэк
-    console.log('3. Отправка колбэка...');
-    await CallbackService.sendCallback(transaction, 'READY');
-    
-    // 4. Проверяем историю колбэков в БД
-    console.log('4. Проверка истории колбэков...');
-    const callbackHistory = await prisma.callbackHistory.findMany({
-      where: { transactionId: transaction.id },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    console.log(`📋 Найдено записей в истории: ${callbackHistory.length}`);
-    
-    if (callbackHistory.length > 0) {
-      const callback = callbackHistory[0];
-      console.log('📝 Последний колбэк:');
-      console.log(`  - URL: ${callback.url}`);
-      console.log(`  - Payload: ${JSON.stringify(callback.payload)}`);
-      console.log(`  - Status Code: ${callback.statusCode}`);
-      console.log(`  - Response: ${callback.response?.substring(0, 100)}...`);
-      console.log(`  - Error: ${callback.error || 'Нет'}`);
-      console.log(`  - Время: ${callback.createdAt}`);
     }
+  });
 
-    // 5. Тестируем API эндпоинт
-    console.log('5. Тестирование API эндпоинта...');
-    const response = await fetch(`http://localhost:3000/admin/transactions/${transaction.id}/callbacks`, {
-      headers: {
-        'X-Admin-Key': '3d3b2e3efa297cae2bc6b19f3f8448ed2b2c7fd43af823a2a3a0585edfbb67d1'
+  console.log("Найдено " + recentCallbacks.length + " последних callback'ов:\n");
+
+  for (const cb of recentCallbacks) {
+    console.log("Callback ID: " + cb.id);
+    console.log("Transaction ID: " + cb.transactionId);
+    console.log("URL: " + cb.url);
+    console.log("Status Code: " + cb.statusCode);
+    console.log("Error: " + (cb.error || 'none'));
+    console.log("Created: " + cb.createdAt.toISOString());
+    console.log("Transaction Status: " + cb.transaction?.status);
+    console.log("Has Matched Notification: " + (cb.transaction?.matchedNotificationId ? 'Yes' : 'No'));
+    console.log("Payload:", cb.payload);
+    console.log('---');
+  }
+
+  // Проверяем транзакции со статусом READY за последние 24 часа
+  const readyTransactions = await db.transaction.findMany({
+    where: {
+      status: 'READY',
+      updatedAt: {
+        gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+      }
+    },
+    select: {
+      id: true,
+      status: true,
+      callbackUri: true,
+      successUri: true,
+      updatedAt: true,
+      matchedNotificationId: true,
+      traderId: true
+    }
+  });
+
+  console.log("\n=== Транзакции со статусом READY за последние 24 часа: " + readyTransactions.length + " ===\n");
+
+  // Проверяем, есть ли у них callback'и
+  for (const tx of readyTransactions) {
+    const callbacks = await db.callbackHistory.findMany({
+      where: {
+        transactionId: tx.id
       }
     });
 
-    if (response.ok) {
-      const apiData = await response.json();
-      console.log(`✅ API вернул ${apiData.callbackHistory.length} записей`);
-    } else {
-      console.log(`❌ API ошибка: ${response.status}`);
+    console.log("Transaction " + tx.id + ":");
+    console.log("  Status: " + tx.status);
+    console.log("  Has Callback URI: " + (tx.callbackUri ? 'Yes' : 'No'));
+    console.log("  Has Success URI: " + (tx.successUri ? 'Yes' : 'No'));
+    console.log("  Matched Notification: " + (tx.matchedNotificationId ? 'Yes' : 'No'));
+    console.log("  Callbacks sent: " + callbacks.length);
+    if (callbacks.length === 0 && (tx.callbackUri || tx.successUri)) {
+      console.log("  WARNING: Has URIs but no callbacks sent\!");
     }
-
-    // 6. Отправляем еще один колбэк для проверки множественных записей
-    console.log('6. Отправка второго колбэка...');
-    await CallbackService.sendCallback(transaction, 'EXPIRED');
-    
-    const finalHistory = await prisma.callbackHistory.findMany({
-      where: { transactionId: transaction.id },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    console.log(`📋 Итоговое количество записей: ${finalHistory.length}`);
-
-    // Очистка
-    console.log('🧹 Очистка тестовых данных...');
-    await prisma.callbackHistory.deleteMany({
-      where: { transactionId: transaction.id }
-    });
-    await prisma.transaction.delete({
-      where: { id: transaction.id }
-    });
-    await prisma.method.delete({
-      where: { id: method.id }
-    });
-    await prisma.merchant.delete({
-      where: { id: merchant.id }
-    });
-
-    console.log('✅ Тест завершен успешно!');
-
-  } catch (error) {
-    console.error('❌ Ошибка при тестировании:', error);
-  } finally {
-    await prisma.$disconnect();
+    console.log('');
   }
 }
 
-testCallbackHistory();
+checkCallbackHistory()
+  .then(() => {
+    console.log("\n✅ Проверка завершена");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("❌ Ошибка:", error);
+    process.exit(1);
+  });
+ENDOFFILE < /dev/null

@@ -87,6 +87,8 @@ export function TransactionsList({ filters }: TransactionsListProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [merchantInfo, setMerchantInfo] = useState<{ countInRubEquivalent: boolean } | null>(null)
+  const [merchantLoading, setMerchantLoading] = useState(true)
   const pageSize = 50
   
   // Dispute dialog state
@@ -137,6 +139,43 @@ export function TransactionsList({ filters }: TransactionsListProps) {
     fetchTransactions()
   }, [fetchTransactions])
 
+  // Fetch merchant info on mount
+  useEffect(() => {
+    const fetchMerchantInfo = async () => {
+      try {
+        setMerchantLoading(true)
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/merchant/auth/me`,
+          {
+            headers: {
+              'Authorization': `Bearer ${sessionToken}`,
+            },
+          }
+        )
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Full merchant data:', data)
+          console.log('Merchant countInRubEquivalent:', data.merchant?.countInRubEquivalent)
+          console.log('Type of countInRubEquivalent:', typeof data.merchant?.countInRubEquivalent)
+          
+          // Explicitly set the boolean value
+          const countInRub = Boolean(data.merchant?.countInRubEquivalent)
+          setMerchantInfo({ countInRubEquivalent: countInRub })
+          console.log('Set merchantInfo with countInRubEquivalent:', countInRub)
+          console.log('Raw value was:', data.merchant?.countInRubEquivalent, 'type:', typeof data.merchant?.countInRubEquivalent)
+        }
+      } catch (error) {
+        console.error('Failed to fetch merchant info:', error)
+      } finally {
+        setMerchantLoading(false)
+      }
+    }
+    
+    if (sessionToken) {
+      fetchMerchantInfo()
+    }
+  }, [sessionToken])
+
   const handleOpenDispute = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
     setShowDisputeDialog(true)
@@ -152,7 +191,11 @@ export function TransactionsList({ filters }: TransactionsListProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">История транзакций</h2>
+        <h2 className="text-lg font-semibold">
+          История транзакций 
+          {merchantLoading ? ' (загрузка...)' : 
+           merchantInfo?.countInRubEquivalent ? ' (расчеты в рублях)' : ' (расчеты в USDT)'}
+        </h2>
         <Button
           variant="outline"
           size="sm"
@@ -168,23 +211,26 @@ export function TransactionsList({ filters }: TransactionsListProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              <TableHead>Внутренний / Внешний ID</TableHead>
               <TableHead>Тип</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead>Метод</TableHead>
               <TableHead className="text-right">Сумма</TableHead>
               <TableHead className="text-right">Комиссия</TableHead>
-              <TableHead className="text-right">Курс</TableHead>
-              <TableHead className="text-right">USDT</TableHead>
+              {!merchantLoading && !merchantInfo?.countInRubEquivalent && (
+                <>
+                  <TableHead className="text-right">Курс</TableHead>
+                  <TableHead className="text-right">USDT</TableHead>
+                </>
+              )}
               <TableHead>Дата создания</TableHead>
-              <TableHead>Внешний ID</TableHead>
               <TableHead>Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {transactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={!merchantLoading && merchantInfo?.countInRubEquivalent ? 9 : 11} className="text-center text-gray-500 py-8">
                   Транзакции не найдены
                 </TableCell>
               </TableRow>
@@ -207,7 +253,12 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                 
                 return (
                 <TableRow key={transaction.id}>
-                  <TableCell className="font-mono">${transaction.numericId}</TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-mono text-xs">{transaction.id}</div>
+                      <div className="text-sm">{transaction.orderId || '-'}</div>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={transaction.type === 'IN' ? 'default' : 'secondary'}>
                       {transaction.type === 'IN' ? 'Входящая' : 'Исходящая'}
@@ -233,25 +284,17 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                       : `${transaction.method.commissionPayout}%`
                     }
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <span>
+                  {!merchantLoading && !merchantInfo?.countInRubEquivalent && (
+                    <>
+                      <TableCell className="text-right">
                         {transaction.effectiveRate ? formatAmount(transaction.effectiveRate) : '-'}
-                      </span>
-                      {transaction.isRecalculated && (
-                        <span className="text-xs text-orange-600 dark:text-orange-400" title="Курс пересчитан по формуле">
-                          пересчитано
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-medium text-[#006039] dark:text-green-400">
-                    {usdtAmount ? formatAmount(usdtAmount) : '-'}
-                  </TableCell>
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-[#006039] dark:text-green-400">
+                        {usdtAmount ? formatAmount(usdtAmount) : '-'}
+                      </TableCell>
+                    </>
+                  )}
                   <TableCell>{formatDate(transaction.createdAt)}</TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {transaction.orderId || '-'}
-                  </TableCell>
                   <TableCell>
                     {(transaction.status === 'READY' || transaction.status === 'IN_PROGRESS') && 
                      transaction.type === 'IN' && 

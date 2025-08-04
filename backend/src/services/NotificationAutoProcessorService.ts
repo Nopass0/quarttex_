@@ -465,6 +465,111 @@ export class NotificationAutoProcessorService extends BaseService {
         traderId: fullTransaction.traderId,
       });
     });
+
+    // Send callbacks after successful transaction update
+    // Send callback to callbackUri
+    if (transaction.callbackUri && transaction.callbackUri !== 'none' && transaction.callbackUri !== '') {
+      try {
+        const callbackPayload = {
+          id: transaction.id,
+          amount: transaction.amount,
+          status: Status.READY
+        };
+        
+        console.log(`[NotificationAutoProcessor] Sending callback to ${transaction.callbackUri}`);
+        const response = await fetch(transaction.callbackUri, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Chase/1.0'
+          },
+          body: JSON.stringify(callbackPayload)
+        });
+
+        const responseText = await response.text();
+        
+        // Save callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.callbackUri,
+            payload: callbackPayload as any,
+            response: responseText,
+            statusCode: response.status,
+            error: response.ok ? null : `HTTP ${response.status}`
+          }
+        }).catch(err => console.error('[NotificationAutoProcessor] Error saving callback history:', err));
+        
+        if (!response.ok) {
+          console.error(`[NotificationAutoProcessor] Callback failed with status ${response.status}`);
+        } else {
+          console.log(`[NotificationAutoProcessor] Callback sent successfully`);
+        }
+      } catch (error) {
+        console.error(`[NotificationAutoProcessor] Error sending callback:`, error);
+        // Save error to callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.callbackUri,
+            payload: { id: transaction.id, amount: transaction.amount, status: Status.READY } as any,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        }).catch(err => console.error('[NotificationAutoProcessor] Error saving callback error history:', err));
+      }
+    }
+
+    // Send callback to successUri
+    if (transaction.successUri && transaction.successUri !== 'none' && transaction.successUri !== '') {
+      try {
+        const successPayload = {
+          id: transaction.id,
+          amount: transaction.amount,
+          status: Status.READY
+        };
+        
+        console.log(`[NotificationAutoProcessor] Sending success callback to ${transaction.successUri}`);
+        const response = await fetch(transaction.successUri, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Chase/1.0'
+          },
+          body: JSON.stringify(successPayload)
+        });
+
+        const responseText = await response.text();
+        
+        // Save callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.successUri,
+            payload: successPayload as any,
+            response: responseText,
+            statusCode: response.status,
+            error: response.ok ? null : `HTTP ${response.status}`
+          }
+        }).catch(err => console.error('[NotificationAutoProcessor] Error saving success callback history:', err));
+        
+        if (!response.ok) {
+          console.error(`[NotificationAutoProcessor] Success callback failed with status ${response.status}`);
+        } else {
+          console.log(`[NotificationAutoProcessor] Success callback sent successfully`);
+        }
+      } catch (error) {
+        console.error(`[NotificationAutoProcessor] Error sending success callback:`, error);
+        // Save error to callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.successUri,
+            payload: { id: transaction.id, amount: transaction.amount, status: Status.READY } as any,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        }).catch(err => console.error('[NotificationAutoProcessor] Error saving success callback error history:', err));
+      }
+    }
   }
 
   private async markNotificationProcessed(notificationId: string, reason: string, parsedTx?: any): Promise<void> {

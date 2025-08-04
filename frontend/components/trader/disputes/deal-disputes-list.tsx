@@ -217,7 +217,6 @@ export function DealDisputesList() {
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
-  const [filterMerchant, setFilterMerchant] = useState("");
   const [filterBank, setFilterBank] = useState("");
   const [filterDevice, setFilterDevice] = useState("");
   const [filterDateRange, setFilterDateRange] = useState<{
@@ -338,7 +337,6 @@ export function DealDisputesList() {
 
   const clearFilters = () => {
     setFilterStatus("all");
-    setFilterMerchant("");
     setFilterBank("");
     setFilterDevice("");
     setFilterDateRange({ from: undefined, to: undefined });
@@ -387,7 +385,6 @@ export function DealDisputesList() {
     if (searchQuery) {
       filtered = filtered.filter(dispute => 
         dispute.deal.numericId.toString().includes(searchQuery) ||
-        dispute.merchant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         dispute.deal.requisites?.cardNumber.includes(searchQuery) ||
         dispute.deal.requisites?.recipientName.toLowerCase().includes(searchQuery.toLowerCase())
       );
@@ -398,12 +395,6 @@ export function DealDisputesList() {
       filtered = filtered.filter(d => d.status === filterStatus);
     }
 
-    // Merchant filter
-    if (filterMerchant) {
-      filtered = filtered.filter(d => 
-        d.merchant.name.toLowerCase().includes(filterMerchant.toLowerCase())
-      );
-    }
 
     // Bank filter
     if (filterBank) {
@@ -521,9 +512,9 @@ export function DealDisputesList() {
               <Button variant="outline">
                 <SlidersHorizontal className="h-4 w-4 mr-2" />
                 Фильтры
-                {(filterMerchant || filterBank || filterDevice || filterDateRange.from || filterDateRange.to) && (
+                {(filterBank || filterDevice || filterDateRange.from || filterDateRange.to) && (
                   <Badge className="ml-2" variant="secondary">
-                    {[filterMerchant, filterBank, filterDevice, filterDateRange.from].filter(Boolean).length}
+                    {[filterBank, filterDevice, filterDateRange.from].filter(Boolean).length}
                   </Badge>
                 )}
               </Button>
@@ -533,15 +524,6 @@ export function DealDisputesList() {
                 <h4 className="font-medium text-sm">Дополнительные фильтры</h4>
                 
                 <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs">Мерчант</Label>
-                    <Input
-                      placeholder="Название мерчанта"
-                      value={filterMerchant}
-                      onChange={(e) => setFilterMerchant(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
 
                   <div>
                     <Label className="text-xs">Банк</Label>
@@ -732,10 +714,6 @@ export function DealDisputesList() {
                         <span className="text-sm text-muted-foreground">
                           ID сделки: #{dispute.deal.numericId}
                         </span>
-                        <span className="text-sm text-muted-foreground">•</span>
-                        <span className="text-sm text-muted-foreground">
-                          Мерчант: {dispute.merchant.name}
-                        </span>
                       </div>
                     </div>
                   </Card>
@@ -775,7 +753,7 @@ export function DealDisputesList() {
             <div className="flex flex-col h-[calc(90vh-120px)]">
               {/* Deal info */}
               <div className="p-6 pt-4 border-b">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Сумма</p>
                     <p className="font-medium">{formatAmount(disputeDetails.deal.amount)} ₽</p>
@@ -783,10 +761,6 @@ export function DealDisputesList() {
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Метод</p>
                     <p className="font-medium">{disputeDetails.deal.method?.name || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Мерчант</p>
-                    <p className="font-medium">{disputeDetails.merchant.name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Создан</p>

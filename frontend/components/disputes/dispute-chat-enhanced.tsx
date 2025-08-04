@@ -28,6 +28,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getFileUrl } from "@/lib/file-utils";
 
 interface DisputeMessage {
   id: string;
@@ -182,17 +183,8 @@ export function DisputeChatEnhanced({
     try {
       setDownloadingFiles(prev => new Set(prev).add(file.id));
       
-      // Create a proper download URL
-      let downloadUrl = file.url;
-      
-      // If it's a relative path, prepend the backend URL
-      if (!file.url.startsWith("http")) {
-        // Remove any leading slashes from the URL
-        const cleanUrl = file.url.startsWith("/") ? file.url : `/${file.url}`;
-        // Use the backend URL from environment or default
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-        downloadUrl = `${apiUrl}${cleanUrl}`;
-      }
+      // Use our utility function to get the correct URL
+      const downloadUrl = getFileUrl(file.url);
       
       // Open in new tab for preview or download
       window.open(downloadUrl, "_blank");
@@ -245,8 +237,10 @@ export function DisputeChatEnhanced({
                   Спор по сделке #{disputeInfo.transactionId}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  {userType === "trader" ? disputeInfo.merchantName : disputeInfo.traderName} • 
-                  {" "}{(disputeInfo.amount || 0).toLocaleString()} ₽
+                  {userType === "merchant" && disputeInfo.traderName && (
+                    <>{disputeInfo.traderName} • </>
+                  )}
+                  {(disputeInfo.amount || 0).toLocaleString()} ₽
                 </p>
               </div>
               <div className={cn(

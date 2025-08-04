@@ -41,7 +41,8 @@ const statusLabels: Record<string, string> = {
 
 export function exportTransactionsToExcel(
   transactions: ExportTransaction[],
-  filename: string = 'transactions'
+  filename: string = 'transactions',
+  countInRubEquivalent: boolean = false
 ) {
   // Prepare data for Excel
   const excelData = transactions.map((transaction) => {
@@ -57,8 +58,8 @@ export function exportTransactionsToExcel(
         : usdtBeforeCommission * (1 + commissionPercent / 100)
     }
 
-    return {
-      'ID': `$${transaction.numericId}`,
+    const baseData: any = {
+      'Внутренний / Внешний ID': `${transaction.id} / ${transaction.orderId || '-'}`,
       'Тип': transaction.type === 'IN' ? 'Входящая' : 'Исходящая',
       'Статус': statusLabels[transaction.status] || transaction.status,
       'Метод': transaction.method.name,
@@ -67,36 +68,50 @@ export function exportTransactionsToExcel(
       'Комиссия (%)': transaction.type === 'IN' 
         ? transaction.method.commissionPayin 
         : transaction.method.commissionPayout,
-      'Курс': transaction.effectiveRate || null,
-      'Курс пересчитан': transaction.isRecalculated ? 'Да' : 'Нет',
-      'Сумма (USDT)': usdtAmount ? parseFloat(formatAmount(usdtAmount)) : null,
-      'Дата создания': formatDate(transaction.createdAt),
-      'Дата обновления': formatDate(transaction.updatedAt),
-      'Внешний ID': transaction.orderId || '',
-      'Трейдер': transaction.trader?.name || ''
     }
+    
+    // Добавляем поля курса и USDT только если countInRubEquivalent = false
+    if (!countInRubEquivalent) {
+      baseData['Курс'] = transaction.effectiveRate || null
+      baseData['Курс пересчитан'] = transaction.isRecalculated ? 'Да' : 'Нет'
+      baseData['Сумма (USDT)'] = usdtAmount ? parseFloat(formatAmount(usdtAmount)) : null
+    }
+    
+    baseData['Дата создания'] = formatDate(transaction.createdAt)
+    baseData['Дата обновления'] = formatDate(transaction.updatedAt)
+    baseData['Трейдер'] = transaction.trader?.name || ''
+    
+    return baseData
   })
 
   // Create workbook and worksheet
   const ws = XLSX.utils.json_to_sheet(excelData)
   
-  // Set column widths
+  // Set column widths based on whether USDT columns are included
   const columnWidths = [
-    { wch: 12 }, // ID
+    { wch: 30 }, // Внутренний / Внешний ID
     { wch: 12 }, // Тип
     { wch: 15 }, // Статус
     { wch: 20 }, // Метод
     { wch: 15 }, // Код метода
     { wch: 15 }, // Сумма (RUB)
     { wch: 12 }, // Комиссия (%)
-    { wch: 10 }, // Курс
-    { wch: 15 }, // Курс пересчитан
-    { wch: 15 }, // Сумма (USDT)
+  ]
+  
+  if (!countInRubEquivalent) {
+    columnWidths.push(
+      { wch: 10 }, // Курс
+      { wch: 15 }, // Курс пересчитан
+      { wch: 15 }, // Сумма (USDT)
+    )
+  }
+  
+  columnWidths.push(
     { wch: 20 }, // Дата создания
     { wch: 20 }, // Дата обновления
-    { wch: 20 }, // Внешний ID
     { wch: 20 }, // Трейдер
-  ]
+  )
+  
   ws['!cols'] = columnWidths
 
   // Create workbook

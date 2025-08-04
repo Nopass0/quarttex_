@@ -24,6 +24,7 @@ import {
   WifiOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getFileUrl } from "@/lib/file-utils";
 // import { Socket } from "socket.io-client";
 
 interface DisputeMessage {
@@ -355,7 +356,7 @@ export function DisputeMessagesRealtime({
                         return (
                           <a
                             key={attachment.id}
-                            href={attachment.url}
+                            href={getFileUrl(attachment.url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -223,10 +223,169 @@ export function MessagesListNew() {
   const [bankSearch, setBankSearch] = useState("");
   const [filterAmountType, setFilterAmountType] = useState<"all" | "exact" | "range">("all");
   const [filterAmount, setFilterAmount] = useState({ exact: "", min: "", max: "" });
+  
+  // Pagination states for infinite scroll
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [allDevicesLoaded, setAllDevicesLoaded] = useState(false);
 
   const router = useRouter();
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (append = false) => {
+    try {
+      if (!append) {
+        setLoading(true);
+        setCurrentDeviceIndex(0);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      // Fetch devices if not already loaded
+      let devicesData = devices;
+      if (devices.length === 0) {
+        const devicesResponse = await traderApi.getDevices();
+        console.log('Devices response:', devicesResponse);
+        
+        // Handle different response structures
+        if (devicesResponse?.devices) {
+          devicesData = devicesResponse.devices;
+        } else if (devicesResponse?.data?.devices) {
+          devicesData = devicesResponse.data.devices;
+        } else if (Array.isArray(devicesResponse?.data)) {
+          devicesData = devicesResponse.data;
+        } else if (Array.isArray(devicesResponse)) {
+          devicesData = devicesResponse;
+        } else {
+          devicesData = [];
+        }
+        
+        setDevices(devicesData);
+        
+        if (!Array.isArray(devicesData) || devicesData.length === 0) {
+          console.log('No devices found');
+          setHasMore(false);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Determine how many devices to load at once (batch size)
+      const batchSize = 3;
+      const startIndex = append ? currentDeviceIndex : 0;
+      const endIndex = Math.min(startIndex + batchSize, devicesData.length);
+      const devicesToLoad = devicesData.slice(startIndex, endIndex);
+      
+      let newMessages: Message[] = [];
+      
+      // Fetch notifications from the batch of devices
+      if (devicesToLoad.length > 0) {
+        const messagePromises = devicesToLoad.map(async (device: any) => {
+          try {
+            const deviceResponse = await traderApi.getDevice(device.id);
+            console.log(`Device ${device.id} response:`, deviceResponse);
+            
+            // Handle different response structures
+            let deviceData = deviceResponse?.data || deviceResponse || {};
+            let notifications = deviceData.recentNotifications || 
+                              deviceData.notifications || 
+                              [];
+            
+            return Array.isArray(notifications) ? notifications.map((notification: any) => ({
+              id: notification.id || `${device.id}-${Date.now()}`,
+              numericId: parseInt(notification.id?.slice(-8) || '0', 16),
+              packageName: notification.application || 'Unknown App',
+              text: notification.message || notification.text || '',
+              timestamp: notification.createdAt || new Date().toISOString(),
+              deviceId: device.id,
+              deviceName: device.name,
+              deviceModel: device.model || 'Unknown Model',
+              amount: notification.metadata?.extractedAmount || notification.metadata?.amount || 0,
+              currency: 'RUB',
+              status: notification.isRead ? 'processed' : 'new',
+              isNew: !notification.isRead,
+              type: notification.type,
+              title: notification.title,
+              application: notification.application,
+              isRead: notification.isRead,
+              metadata: notification.metadata
+            })) : [];
+          } catch (error) {
+            console.error(`Failed to fetch notifications for device ${device.id}:`, error);
+            return [];
+          }
+        });
+        
+        const results = await Promise.all(messagePromises);
+        newMessages = results.flat();
+      }
+      
+      if (append) {
+        setMessages(prev => [...prev, ...newMessages]);
+      } else {
+        setMessages(newMessages);
+      }
+      
+      // Update pagination state
+      setCurrentDeviceIndex(endIndex);
+      setHasMore(endIndex < devicesData.length);
+      
+      if (endIndex >= devicesData.length) {
+        setAllDevicesLoaded(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+      toast.error('Не удалось загрузить сообщения');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const fetchDevices = async () => {
+    try {
+      const response = await traderApi.getDevices();
+      setDevices(response.devices || response || []);
+    } catch (error) {
+      console.error("Failed to fetch devices:", error);
+    }
+  };
+
+
+  const fetchNotificationDetails = async (id: string) => {
+    try {
+      const response = await traderApi.getNotificationDetails(id);
+      if (response) {
+        // Convert notification to message format
+        const message: Message = {
+          id: response.id,
+          numericId: parseInt(response.id.slice(-6), 36) || 0,
+          packageName: response.packageName || "",
+          text: response.message,
+          timestamp: response.createdAt,
+          deviceId: response.deviceId || undefined,
+          deviceName: response.deviceName || undefined,
+          deviceModel: "",
+          amount: 0,
+          currency: "RUB",
+          status: response.isProcessed ? "processed" : "new",
+          isNew: !response.isRead,
+          type: response.type,
+          title: response.title || response.application || "Уведомление",
+          application: response.application || undefined,
+          isRead: response.isRead,
+          metadata: response.metadata
+        };
+        setSelectedMessage(message);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notification details:", error);
+    }
+  };
+
+  // Fallback to load all messages at once (old method)
+  const fetchAllMessages = async () => {
     try {
       setLoading(true);
       
@@ -274,6 +433,8 @@ export function MessagesListNew() {
       }
       
       setMessages(allMessages);
+      setHasMore(false);
+      setAllDevicesLoaded(true);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
       toast.error('Не удалось загрузить сообщения');
@@ -282,51 +443,33 @@ export function MessagesListNew() {
     }
   };
 
-  const fetchDevices = async () => {
-    try {
-      const response = await traderApi.getDevices();
-      setDevices(response.devices || response || []);
-    } catch (error) {
-      console.error("Failed to fetch devices:", error);
-    }
-  };
-
-
-  const fetchNotificationDetails = async (id: string) => {
-    try {
-      const response = await traderApi.getNotificationDetails(id);
-      if (response) {
-        // Convert notification to message format
-        const message: Message = {
-          id: response.id,
-          numericId: parseInt(response.id.slice(-6), 36) || 0,
-          packageName: response.packageName || "",
-          text: response.message,
-          timestamp: response.createdAt,
-          deviceId: response.deviceId || undefined,
-          deviceName: response.deviceName || undefined,
-          deviceModel: "",
-          amount: 0,
-          currency: "RUB",
-          status: response.isProcessed ? "processed" : "new",
-          isNew: !response.isRead,
-          type: response.type,
-          title: response.title || response.application || "Уведомление",
-          application: response.application || undefined,
-          isRead: response.isRead,
-          metadata: response.metadata
-        };
-        setSelectedMessage(message);
-      }
-    } catch (error) {
-      console.error("Failed to fetch notification details:", error);
-    }
-  };
-
   useEffect(() => {
-    fetchMessages();
+    // Try new paginated loading first, fallback to old method if it fails
+    fetchMessages().catch(() => {
+      console.log('Falling back to loading all messages at once');
+      fetchAllMessages();
+    });
     fetchDevices();
   }, []);
+
+  // Handle scroll for infinite loading
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current || loadingMore || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    // Check if we've scrolled to the bottom
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      fetchMessages(true);
+    }
+  }, [loadingMore, hasMore]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   // Handle notification ID from URL
   useEffect(() => {
@@ -1016,16 +1159,58 @@ export function MessagesListNew() {
         </div>
       </div>
 
-      {/* Messages List in ScrollArea */}
-      <ScrollArea className="h-[calc(100vh-250px)] md:h-[calc(100vh-300px)] pr-2 md:pr-4">
-        <div className="space-y-2 md:space-y-3">
-          {filteredMessages.length === 0 ? (
-            <Card className="p-8 md:p-12 text-center text-gray-500 text-sm md:text-base">
-              Сообщения не найдены
-            </Card>
-          ) : (
-            <>
-              {filteredMessages.map((message) => (
+      {/* Messages List with progress indicator */}
+      <div className="relative">
+        {/* Progress indicator */}
+        {messages.length > 0 && (
+          <div className="sticky top-0 z-10 bg-white border-b px-4 py-2 flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-600">
+              Показано {messages.length} сообщений
+            </span>
+            {hasMore && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchMessages(true)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                      Загрузка...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3 mr-2" />
+                      Загрузить еще
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchAllMessages}
+                  disabled={loadingMore || loading}
+                >
+                  Загрузить все
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Messages List in ScrollArea */}
+        <div ref={scrollContainerRef} className="h-[calc(100vh-250px)] md:h-[calc(100vh-300px)] overflow-y-auto pr-2 md:pr-4">
+          <div className="space-y-2 md:space-y-3">
+            {filteredMessages.length === 0 ? (
+              <Card className="p-8 md:p-12 text-center text-gray-500 text-sm md:text-base">
+                Сообщения не найдены
+              </Card>
+            ) : (
+              <>
+                {filteredMessages.map((message) => (
                 <Card
                   key={message.id}
                   className={cn(
@@ -1149,10 +1334,28 @@ export function MessagesListNew() {
                   </div>
                 </Card>
               ))}
+              
+              {/* Loading indicator at bottom */}
+              {loadingMore && (
+                <div className="flex items-center justify-center py-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    <span className="text-sm text-gray-500">Загрузка сообщений...</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* All loaded indicator */}
+              {!hasMore && messages.length > 0 && (
+                <div className="text-center py-4 text-sm text-gray-500">
+                  Все сообщения загружены ({messages.length} шт.)
+                </div>
+              )}
             </>
           )}
+          </div>
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Count */}
       <div className="text-sm text-gray-600">

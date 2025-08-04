@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { Status, TransactionType, NotificationType } from "@prisma/client";
 import { roundDown2 } from "@/utils/rounding";
 import { BANK_PATTERNS, getBankTypeFromPattern, type BankPattern } from "./bank-patterns";
+import { sendTransactionCallbacks } from "@/utils/notify";
 
 interface ParsedNotification {
   amount?: number;
@@ -93,6 +94,15 @@ export class NotificationMatcherService extends BaseService {
     // Parse notification content
     const parsed = this.parseNotificationContent(message, packageName);
     
+    // Debug log for SBP
+    if (message.includes("SBP")) {
+      console.log(`[NotificationMatcherService] Processing SBP notification:`, {
+        id: notification.id,
+        message: message,
+        parsed: parsed
+      });
+    }
+    
     if (!parsed.amount || parsed.amount <= 0) {
       await this.markNotificationProcessed(notification.id);
       return;
@@ -106,8 +116,17 @@ export class NotificationMatcherService extends BaseService {
     );
 
     if (matchingTransaction) {
+      console.log(`[NotificationMatcherService] Found matching transaction:`, {
+        notificationId: notification.id,
+        transactionId: matchingTransaction.id,
+        amount: parsed.amount,
+        bankType: parsed.bankType
+      });
       await this.completeTransaction(matchingTransaction.id, notification.id, parsed);
     } else {
+      if (message.includes("SBP")) {
+        console.log(`[NotificationMatcherService] No match found for SBP notification ${notification.id}`);
+      }
       // Mark notification as processed even if no match found
       await db.notification.update({
         where: { id: notification.id },
@@ -124,8 +143,14 @@ export class NotificationMatcherService extends BaseService {
     // Try to find matching bank pattern
     let matchedPattern: BankPattern | undefined;
     
-    // First try to match by package name
-    if (packageName) {
+    // FIRST check for SBP - it takes priority over package name
+    // because SBP transactions can come through any bank app
+    if (content.includes("SBP") || content.includes("СБП")) {
+      matchedPattern = this.bankPatterns.find(pattern => pattern.name === "СБП");
+    }
+    
+    // If not SBP, try to match by package name
+    if (!matchedPattern && packageName) {
       matchedPattern = this.bankPatterns.find(pattern => 
         pattern.packageNames?.includes(packageName)
       );
@@ -210,6 +235,10 @@ export class NotificationMatcherService extends BaseService {
     // Set bank type
     if (matchedPattern.name !== "GenericSMS") {
       result.bankType = getBankTypeFromPattern(matchedPattern.name);
+      // Debug log for SBP
+      if (matchedPattern.name === "СБП") {
+        console.log(`[NotificationMatcherService] SBP detected: pattern=${matchedPattern.name}, bankType=${result.bankType}`);
+      }
     }
     
     return result;
@@ -242,11 +271,15 @@ export class NotificationMatcherService extends BaseService {
       }
     };
     
+    // Debug log for SBP matching
+    console.log(`[NotificationMatcherService] findMatchingTransaction: traderId=${traderId}, amount=${amount}, bankType=${bankType}`);
+    
     // If bank type is detected, try to match it
-    if (bankType) {
+    // Special handling for SBP - it can come through any bank
+    if (bankType && bankType !== "СБП" && bankType !== "SBP") {
       const requisites = await db.bankDetail.findMany({
         where: {
-          traderId,
+          userId: traderId,  // bankDetail uses userId, not traderId
           bankType: bankType as any
         },
         select: { id: true }
@@ -258,6 +291,7 @@ export class NotificationMatcherService extends BaseService {
         };
       }
     }
+    // For SBP, don't filter by bank type - it can match any bank requisite
     
     return await db.transaction.findFirst({
       where,
@@ -272,13 +306,24 @@ export class NotificationMatcherService extends BaseService {
     notificationId: string,
     parsed: ParsedNotification
   ): Promise<void> {
+    // Get transaction details for callback
+    const transaction = await db.transaction.findUnique({
+      where: { id: transactionId }
+    });
+    
+    if (!transaction) {
+      console.error(`[NotificationMatcherService] Transaction ${transactionId} not found for callback`);
+      return;
+    }
+
     await db.$transaction(async (tx) => {
       // Update transaction status and link to notification
       await tx.transaction.update({
         where: { id: transactionId },
         data: {
           status: Status.READY,
-          matchedNotificationId: notificationId
+          matchedNotificationId: notificationId,
+          acceptedAt: new Date() // Set acceptedAt when status becomes READY
         }
       });
       
@@ -298,6 +343,113 @@ export class NotificationMatcherService extends BaseService {
         bankType: parsed.bankType
       });
     });
+
+    // Send callbacks after successful database update
+    console.log(`[NotificationMatcherService] Sending callbacks for transaction ${transactionId}`);
+    
+    // Send callback to callbackUri
+    if (transaction.callbackUri && transaction.callbackUri !== 'none' && transaction.callbackUri !== '') {
+      try {
+        const callbackPayload = {
+          id: transaction.id,
+          amount: transaction.amount,
+          status: Status.READY
+        };
+        
+        console.log(`[NotificationMatcherService] Sending callback to ${transaction.callbackUri}`);
+        const response = await fetch(transaction.callbackUri, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Chase/1.0'
+          },
+          body: JSON.stringify(callbackPayload)
+        });
+
+        const responseText = await response.text();
+        
+        // Save callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.callbackUri,
+            payload: callbackPayload as any,
+            response: responseText,
+            statusCode: response.status,
+            error: response.ok ? null : `HTTP ${response.status}`
+          }
+        }).catch(err => console.error('[NotificationMatcherService] Error saving callback history:', err));
+        
+        if (!response.ok) {
+          console.error(`[NotificationMatcherService] Callback failed with status ${response.status}`);
+        } else {
+          console.log(`[NotificationMatcherService] Callback sent successfully`);
+        }
+      } catch (error) {
+        console.error(`[NotificationMatcherService] Error sending callback:`, error);
+        // Save error to callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.callbackUri,
+            payload: { id: transaction.id, amount: transaction.amount, status: Status.READY } as any,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        }).catch(err => console.error('[NotificationMatcherService] Error saving callback error history:', err));
+      }
+    }
+
+    // Send callback to successUri
+    if (transaction.successUri && transaction.successUri !== 'none' && transaction.successUri !== '') {
+      try {
+        const successPayload = {
+          id: transaction.id,
+          amount: transaction.amount,
+          status: Status.READY
+        };
+        
+        console.log(`[NotificationMatcherService] Sending success callback to ${transaction.successUri}`);
+        const response = await fetch(transaction.successUri, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Chase/1.0'
+          },
+          body: JSON.stringify(successPayload)
+        });
+
+        const responseText = await response.text();
+        
+        // Save callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.successUri,
+            payload: successPayload as any,
+            response: responseText,
+            statusCode: response.status,
+            error: response.ok ? null : `HTTP ${response.status}`
+          }
+        }).catch(err => console.error('[NotificationMatcherService] Error saving success callback history:', err));
+        
+        if (!response.ok) {
+          console.error(`[NotificationMatcherService] Success callback failed with status ${response.status}`);
+        } else {
+          console.log(`[NotificationMatcherService] Success callback sent successfully`);
+        }
+      } catch (error) {
+        console.error(`[NotificationMatcherService] Error sending success callback:`, error);
+        // Save error to callback history
+        await db.callbackHistory.create({
+          data: {
+            transactionId: transaction.id,
+            url: transaction.successUri,
+            payload: { id: transaction.id, amount: transaction.amount, status: Status.READY } as any,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        }).catch(err => console.error('[NotificationMatcherService] Error saving success callback error history:', err));
+      }
+    }
   }
 
   private async markNotificationProcessed(notificationId: string): Promise<void> {

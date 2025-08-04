@@ -1,13 +1,65 @@
 import axios from 'axios'
 import { db } from '@/db'
+import { WellbitCallbackService } from '@/services/WellbitCallbackService'
+import crypto from 'crypto'
 
 // Helper function to send callback and save to history
-async function sendCallbackWithHistory(url: string, payload: any, transactionId: string) {
+async function sendCallbackWithHistory(url: string, payload: any, transactionId: string, merchantId?: string) {
   let result: any = { url };
   
+  // Проверяем, является ли мерчант Wellbit и подготавливаем соответствующий payload и headers
+  let finalPayload = payload;
+  let headers: any = { 'Content-Type': 'application/json' };
+  
+  if (merchantId) {
+    const isWellbit = await WellbitCallbackService.isWellbitMerchant(merchantId);
+    if (isWellbit) {
+      console.log(`[Callback] Detected Wellbit merchant, using Wellbit callback format`);
+      
+      // Получаем приватный ключ мерчанта для подписи
+      const merchant = await db.merchant.findUnique({
+        where: { id: merchantId },
+        select: { apiKeyPrivate: true }
+      });
+      
+      // Маппим статус для Wellbit
+      const statusMap: Record<string, string> = {
+        'PENDING': 'new',
+        'IN_PROGRESS': 'new',
+        'READY': 'complete',
+        'CANCELED': 'cancel',
+        'EXPIRED': 'cancel',
+        'FAILED': 'cancel',
+        'REFUNDED': 'chargeback',
+        'DISPUTE': 'appeal'
+      };
+      
+      finalPayload = {
+        callback: 'payment',
+        payment_id: payload.id || transactionId,
+        payment_status: statusMap[payload.status] || 'new'
+      };
+      
+      // Добавляем HMAC подпись, если есть приватный ключ
+      if (merchant?.apiKeyPrivate) {
+        // Сортируем ключи и генерируем подпись
+        const sortedPayload = Object.keys(finalPayload)
+          .sort()
+          .reduce((obj: any, key) => {
+            obj[key] = finalPayload[key];
+            return obj;
+          }, {});
+        
+        const jsonString = JSON.stringify(sortedPayload);
+        const signature = crypto.createHmac('sha256', merchant.apiKeyPrivate).update(jsonString).digest('hex');
+        headers['x-api-token'] = signature;
+      }
+    }
+  }
+  
   try {
-    console.log(`[Callback] Sending to ${url}:`, payload);
-    const res = await axios.post(url, payload);
+    console.log(`[Callback] Sending to ${url}:`, finalPayload);
+    const res = await axios.post(url, finalPayload, { headers });
     result = { ...result, status: res.status, data: res.data };
     
     // Save successful callback to history
@@ -16,7 +68,7 @@ async function sendCallbackWithHistory(url: string, payload: any, transactionId:
         data: {
           transactionId,
           url,
-          payload,
+          payload: finalPayload,
           response: typeof res.data === 'string' ? res.data : JSON.stringify(res.data),
           statusCode: res.status
         }
@@ -35,7 +87,7 @@ async function sendCallbackWithHistory(url: string, payload: any, transactionId:
         data: {
           transactionId,
           url,
-          payload,
+          payload: finalPayload,
           error: e?.message ?? 'request failed',
           statusCode: e.response?.status || null
         }
@@ -56,13 +108,9 @@ export async function notifyByStatus(trx: {
   failUri: string;
   callbackUri?: string;
   amount?: number;
+  merchantId?: string;
 }) {
   const results = [];
-  
-  // Определяем URL для success/fail
-  const statusUrl = trx.status === 'READY' ? trx.successUri
-                  : trx.status === 'CANCELED' ? trx.failUri
-                  : undefined;
   
   // Формируем payload с id, amount и status
   const payload = {
@@ -71,17 +119,37 @@ export async function notifyByStatus(trx: {
     status: trx.status
   };
   
-  // Отправляем на success/fail URL если есть
-  if (statusUrl && statusUrl !== 'none' && statusUrl !== '') {
-    const result = await sendCallbackWithHistory(statusUrl, payload, trx.id);
+  // Отправляем на success/fail URL в зависимости от статуса
+  if (trx.status === 'READY' && trx.successUri && trx.successUri !== 'none' && trx.successUri !== '') {
+    const result = await sendCallbackWithHistory(trx.successUri, payload, trx.id, trx.merchantId);
+    results.push(result);
+  } else if ((trx.status === 'CANCELED' || trx.status === 'EXPIRED') && trx.failUri && trx.failUri !== 'none' && trx.failUri !== '') {
+    const result = await sendCallbackWithHistory(trx.failUri, payload, trx.id, trx.merchantId);
     results.push(result);
   }
   
-  // Всегда отправляем на callbackUri если он есть
+  // Всегда отправляем на callbackUri при любом изменении статуса
   if (trx.callbackUri && trx.callbackUri !== 'none' && trx.callbackUri !== '') {
-    const result = await sendCallbackWithHistory(trx.callbackUri, payload, trx.id);
+    const result = await sendCallbackWithHistory(trx.callbackUri, payload, trx.id, trx.merchantId);
     results.push(result);
   }
   
   return results.length > 0 ? results : undefined;
+}
+
+// Упрощенная функция для отправки callback'ов с минимальными данными
+export async function sendTransactionCallbacks(transaction: any, status?: string) {
+  const finalStatus = status || transaction.status;
+  
+  console.log(`[Callback] Sending callbacks for transaction ${transaction.id} with status ${finalStatus}`);
+  
+  return await notifyByStatus({
+    id: transaction.id,
+    status: finalStatus,
+    successUri: transaction.successUri || '',
+    failUri: transaction.failUri || '',  
+    callbackUri: transaction.callbackUri || '',
+    amount: transaction.amount || 0,
+    merchantId: transaction.merchantId || undefined
+  });
 }

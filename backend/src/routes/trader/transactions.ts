@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { Prisma, Status, TransactionType } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { traderGuard } from "@/middleware/traderGuard";
-import { notifyByStatus } from "@/utils/notify";
+import { sendTransactionCallbacks } from "@/utils/notify";
 
 /**
  * Маршруты для управления транзакциями трейдера
@@ -766,6 +766,10 @@ export default (app: Elysia) =>
     .patch(
       "/:id/status",
       async ({ trader, params, body, error }) => {
+        try {
+        console.log(`[Trader Status Update] Starting for transaction ${params.id} by trader ${trader.id}`);
+        console.log(`[Trader Status Update] Requested status: ${body.status}`);
+        
         // Проверяем, существует ли транзакция и принадлежит ли она трейдеру
         const transaction = await db.transaction.findFirst({
           where: {
@@ -775,8 +779,11 @@ export default (app: Elysia) =>
         });
 
         if (!transaction) {
+          console.error(`[Trader Status Update] Transaction ${params.id} not found for trader ${trader.id}`);
           return error(404, { error: "Транзакция не найдена" });
         }
+        
+        console.log(`[Trader Status Update] Transaction found: status=${transaction.status}, callbackUri=${transaction.callbackUri}`);
 
         // Проверяем, можно ли обновить статус транзакции
         if (transaction.status === Status.CANCELED) {
@@ -817,8 +824,22 @@ export default (app: Elysia) =>
           updateData.acceptedAt = new Date();
 
           // Calculate and set traderProfit if not already set
+          console.log('[Trader Profit] Checking conditions:', {
+            traderProfitIsNull: transaction.traderProfit === null,
+            traderProfit: transaction.traderProfit,
+            rateNotNull: transaction.rate !== null,  
+            rate: transaction.rate,
+            willCalculate: transaction.traderProfit === null && transaction.rate !== null
+          });
+          
           if (transaction.traderProfit === null && transaction.rate !== null) {
             // Get trader merchant settings for commission percentage
+            console.log('[Trader Profit] Looking for traderMerchant with:', {
+              traderId: transaction.traderId,
+              merchantId: transaction.merchantId,
+              methodId: transaction.methodId
+            });
+            
             const traderMerchant = await db.traderMerchant.findUnique({
               where: {
                 traderId_merchantId_methodId: {
@@ -830,12 +851,34 @@ export default (app: Elysia) =>
             });
 
             const feeInPercent = traderMerchant?.feeIn || 0;
-            if (feeInPercent > 0) {
-              // Calculate profit: (amount / rate) * (feeInPercent / 100)
+            console.log('[Trader Profit] TraderMerchant result:', {
+              found: !!traderMerchant,
+              feeIn: traderMerchant?.feeIn,
+              feeInPercent: feeInPercent,
+              fullObject: traderMerchant
+            });
+            
+            if (feeInPercent > 0 && transaction.rate && transaction.rate > 0) {
+              // Правильная формула прибыли: (amount / rate) * (feeInPercent / 100)  
               const spentUsdt = transaction.amount / transaction.rate;
               const profit = spentUsdt * (feeInPercent / 100);
               // Truncate to 2 decimal places
               updateData.traderProfit = Math.trunc(profit * 100) / 100;
+              console.log('[Trader Profit] Calculation details:', {
+                amount: transaction.amount,
+                rate: transaction.rate,
+                feeInPercent: feeInPercent,
+                spentUsdt: spentUsdt,
+                profit: profit,
+                finalProfit: updateData.traderProfit
+              });
+            } else {
+              console.log('[Trader Profit] Cannot calculate profit:', {
+                feeInPercent: feeInPercent,
+                rate: transaction.rate,
+                reason: feeInPercent <= 0 ? 'No fee configured' : 'Invalid rate'
+              });
+              updateData.traderProfit = 0; // Явно устанавливаем 0, чтобы избежать undefined
             }
           }
         }
@@ -844,10 +887,14 @@ export default (app: Elysia) =>
           updateData.completedAt = new Date();
         }
 
+        console.log(`[Trader Status Update] Updating transaction with data:`, updateData);
+        
         const updatedTransaction = await db.transaction.update({
           where: { id: params.id },
           data: updateData,
         });
+        
+        console.log(`[Trader Status Update] Transaction updated successfully: new status=${updatedTransaction.status}`);
 
         // If IN transaction moved to READY, handle freezing and merchant balance
         if (
@@ -890,16 +937,16 @@ export default (app: Elysia) =>
             console.log('[Trader Profit] updateData.traderProfit:', updateData.traderProfit);
             console.log('[Trader Profit] Type:', typeof updateData.traderProfit);
             
-            if (updateData.traderProfit && updateData.traderProfit > 0 && !isNaN(updateData.traderProfit)) {
+            if (typeof updateData.traderProfit === 'number' && updateData.traderProfit > 0) {
               console.log('[Trader Profit] Adding profit to trader:', trader.id, 'amount:', updateData.traderProfit);
               await prisma.user.update({
                 where: { id: trader.id },
                 data: {
-                  profitFromDeals: { increment: Number(updateData.traderProfit) },
+                  profitFromDeals: { increment: updateData.traderProfit },
                 },
               });
             } else {
-              console.log('[Trader Profit] Skipping profit update - invalid value');
+              console.log('[Trader Profit] Skipping profit update - profit is 0 or invalid');
             }
 
             // Обновляем currentTotalAmount для реквизита
@@ -952,15 +999,26 @@ export default (app: Elysia) =>
           // Currently, no additional accounting needed at COMPLETED status
         }
 
-        const hook = await notifyByStatus({
-          id: updatedTransaction.id,
-          status: updatedTransaction.status,
-          successUri: updatedTransaction.successUri,
-          failUri: updatedTransaction.failUri,
-          callbackUri: updatedTransaction.callbackUri,
-          amount: updatedTransaction.amount,
-        });
+        // Отправляем колбэк напрямую при изменении статуса (ПОСЛЕ всех финансовых операций)
+        let callbackResult = null;
+        
+        console.log(`[Trader Status Update] About to send callback for transaction ${updatedTransaction.id}`);
+        console.log(`[Trader Status Update] Callback URI: ${updatedTransaction.callbackUri}`);
+        console.log(`[Trader Status Update] Success URI: ${updatedTransaction.successUri}`);
+        console.log(`[Trader Status Update] Final status: ${updatedTransaction.status}`);
+        
+        // Отправляем callback'и используя универсальную функцию
+        try {
+          callbackResult = await sendTransactionCallbacks(updatedTransaction);
+        } catch (callbackError) {
+          console.error(`[Trader Status Update] Critical error in callback section:`, callbackError);
+          // Не прерываем выполнение, продолжаем
+        }
 
+        const hook = callbackResult;
+
+        console.log(`[Trader Status Update] Success! Returning response with hook:`, hook ? 'yes' : 'no');
+        
         return {
           success: true,
           transaction: {
@@ -995,6 +1053,13 @@ export default (app: Elysia) =>
           },
           hook,
         };
+        } catch (err) {
+          console.error(`[Trader Status Update] Error:`, err);
+          return error(500, { 
+            error: "Не удалось обновить статус транзакции",
+            details: err instanceof Error ? err.message : String(err)
+          });
+        }
       },
       {
         tags: ["trader"],

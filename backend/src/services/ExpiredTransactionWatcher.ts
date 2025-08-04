@@ -2,6 +2,7 @@
 import { BaseService } from './BaseService';
 import { db } from '@/db';
 import { Status } from '@prisma/client';
+import { sendTransactionCallbacks } from '@/utils/notify';
 
 /**
  * ExpiredTransactionWatcher
@@ -104,6 +105,19 @@ export default class ExpiredTransactionWatcher extends BaseService {
             await prisma.transaction.update({
               where: { id: tx.id },
               data: { status: Status.EXPIRED },
+            });
+            
+            // Отправляем callback после смены статуса на EXPIRED
+            // Делаем это асинхронно, чтобы не блокировать транзакцию БД
+            setImmediate(async () => {
+              try {
+                await sendTransactionCallbacks(tx, Status.EXPIRED);
+              } catch (callbackError) {
+                await this.logError(`Failed to send callback for expired transaction ${tx.id}`, {
+                  transactionId: tx.id,
+                  error: callbackError instanceof Error ? callbackError.message : String(callbackError)
+                });
+              }
             });
 
             // Размораживаем средства для IN транзакций
@@ -258,4 +272,5 @@ export default class ExpiredTransactionWatcher extends BaseService {
     // Обновляем в базе данных
     await this.updatePublicFieldsInDb(this.getPublicFields());
   }
+
 }
