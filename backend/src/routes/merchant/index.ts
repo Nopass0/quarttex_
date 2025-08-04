@@ -682,8 +682,10 @@ export default (app: Elysia) =>
         console.log(`[Merchant IN] Merchant rate (saved for reference): ${merchantRate}`);
 
         // ВСЕГДА рассчитываем заморозку с курсом Рапиры с ККК
+
         // Используем ceilUp2 для округления вверх до 2 знаков
         const frozenUsdtAmount = ceilUp2(body.amount / transactionRate);
+
         // Комиссию и прибыль не замораживаем при создании сделки
         const calculatedCommission = 0;
         const totalRequired = frozenUsdtAmount; // Замораживаем только основную сумму
