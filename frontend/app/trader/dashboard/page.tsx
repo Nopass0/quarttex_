@@ -248,9 +248,11 @@ export default function TraderDashboardPage() {
       setLoading(true);
       const response = await traderApi.getDashboard(period);
 
-      if (response.success && response.data) {
-        setDashboardData(response.data);
-      }
+      // Some environments return the data directly while others wrap it
+      // in a { success, data } object. Handle both cases to ensure the
+      // dashboard renders devices consistently.
+      const data = (response && "data" in response) ? response.data : response;
+      setDashboardData(data);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       // Set empty data on error
@@ -597,6 +599,9 @@ export default function TraderDashboardPage() {
                               <h3 className="font-semibold text-sm md:text-base dark:text-[#eeeeee]">{device.name}</h3>
                               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                 ID: {device.numericId || device.id || "N/A"}
+                              </p>
+                              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                {statusInfo.description}
                               </p>
                             </div>
                           </div>
