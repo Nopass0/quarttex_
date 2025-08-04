@@ -443,7 +443,7 @@ export const notificationRoutes = new Elysia({ prefix: "/notifications" })
         // Отправляем webhook
         const { notifyByStatus } = await import("@/utils/notify");
         await notifyByStatus({
-          id: transaction.id,
+          id: transaction.orderId, // Pass orderId instead of id
           status: "READY",
           successUri: transaction.successUri,
           failUri: transaction.failUri,

@@ -80,7 +80,7 @@ export class WellbitCallbackService {
     
     const payload: WellbitCallbackPayload = {
       callback: "payment",
-      payment_id: transaction.id,
+      payment_id: transaction.orderId,
       payment_status: wellbitStatus
     };
 

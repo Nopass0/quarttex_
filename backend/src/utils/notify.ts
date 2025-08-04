@@ -112,9 +112,9 @@ export async function notifyByStatus(trx: {
 }) {
   const results = [];
   
-  // Формируем payload с id, amount и status
+  // Формируем payload с id (orderId), amount и status
   const payload = {
-    id: trx.id,
+    id: trx.id, // this is actually orderId passed from the calling code
     amount: trx.amount || 0,
     status: trx.status
   };
@@ -144,7 +144,7 @@ export async function sendTransactionCallbacks(transaction: any, status?: string
   console.log(`[Callback] Sending callbacks for transaction ${transaction.id} with status ${finalStatus}`);
   
   return await notifyByStatus({
-    id: transaction.id,
+    id: transaction.orderId, // Pass orderId instead of id
     status: finalStatus,
     successUri: transaction.successUri || '',
     failUri: transaction.failUri || '',  

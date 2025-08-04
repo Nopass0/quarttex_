@@ -471,7 +471,7 @@ export class NotificationAutoProcessorService extends BaseService {
     if (transaction.callbackUri && transaction.callbackUri !== 'none' && transaction.callbackUri !== '') {
       try {
         const callbackPayload = {
-          id: transaction.id,
+          id: transaction.orderId,
           amount: transaction.amount,
           status: Status.READY
         };
@@ -512,7 +512,7 @@ export class NotificationAutoProcessorService extends BaseService {
           data: {
             transactionId: transaction.id,
             url: transaction.callbackUri,
-            payload: { id: transaction.id, amount: transaction.amount, status: Status.READY } as any,
+            payload: { id: transaction.orderId, amount: transaction.amount, status: Status.READY } as any,
             error: error instanceof Error ? error.message : String(error)
           }
         }).catch(err => console.error('[NotificationAutoProcessor] Error saving callback error history:', err));
@@ -523,7 +523,7 @@ export class NotificationAutoProcessorService extends BaseService {
     if (transaction.successUri && transaction.successUri !== 'none' && transaction.successUri !== '') {
       try {
         const successPayload = {
-          id: transaction.id,
+          id: transaction.orderId,
           amount: transaction.amount,
           status: Status.READY
         };
@@ -564,7 +564,7 @@ export class NotificationAutoProcessorService extends BaseService {
           data: {
             transactionId: transaction.id,
             url: transaction.successUri,
-            payload: { id: transaction.id, amount: transaction.amount, status: Status.READY } as any,
+            payload: { id: transaction.orderId, amount: transaction.amount, status: Status.READY } as any,
             error: error instanceof Error ? error.message : String(error)
           }
         }).catch(err => console.error('[NotificationAutoProcessor] Error saving success callback error history:', err));

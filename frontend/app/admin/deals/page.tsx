@@ -260,7 +260,8 @@ export default function AdminDealsPage() {
         body: JSON.stringify({
           url: url,
           data: {
-            id: transaction.id,
+            id: transaction.orderId,
+            amount: transaction.amount,
             status: transaction.status
           },
           headers: {

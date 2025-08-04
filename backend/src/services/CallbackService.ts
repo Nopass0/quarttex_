@@ -27,7 +27,7 @@ export class CallbackService {
     }
 
     const payload: CallbackPayload = {
-      id: transaction.id,
+      id: transaction.orderId,
       amount: transaction.amount,
       status: status || transaction.status
     };
