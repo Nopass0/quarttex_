@@ -196,10 +196,32 @@ const dealStatusConfig = {
   }
 };
 
-// Format card number function
+// Format card number function - now shows full card number
 const formatCardNumber = (cardNumber: string) => {
   if (!cardNumber) return "****";
-  return cardNumber.replace(/(\d{4})(\d{2})(\d+)(\d{4})/, "$1 $2** **** $4");
+  // Show full card number with spaces for readability
+  return cardNumber.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+};
+
+// Function to format remaining time
+const formatRemainingTime = (expiredAt: string | undefined) => {
+  if (!expiredAt) return "";
+  
+  const now = new Date().getTime();
+  const expiresAt = new Date(expiredAt).getTime();
+  const diff = expiresAt - now;
+
+  if (diff <= 0) return "Истекло";
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  } else {
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
 };
 
 export function BtEntranceDeals() {
@@ -214,6 +236,7 @@ export function BtEntranceDeals() {
   const [showRequisitesSheet, setShowRequisitesSheet] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<BtDeal | null>(null);
   const [showRequisiteDetails, setShowRequisiteDetails] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -232,6 +255,21 @@ export function BtEntranceDeals() {
 
     return () => clearInterval(interval);
   }, [filterStatus, searchQuery, currentPage]);
+
+  // Timer for countdown update - only update if there are IN_PROGRESS deals
+  useEffect(() => {
+    const hasInProgressDeals = deals.some(
+      (deal) => deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS"
+    );
+
+    if (hasInProgressDeals) {
+      const timer = setInterval(() => {
+        setForceUpdate((prev) => prev + 1);
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [deals]);
 
   const fetchDeals = async (showLoader = true) => {
     try {
@@ -420,7 +458,9 @@ export function BtEntranceDeals() {
                               Сделка #{deal.numericId}
                             </h3>
                             <span className="text-sm text-muted-foreground">
-                              • {statusConfig?.label || "Неизвестный статус"}
+                              • {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt 
+                                ? formatRemainingTime(deal.expiredAt)
+                                : statusConfig?.label || "Неизвестный статус"}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
@@ -444,11 +484,16 @@ export function BtEntranceDeals() {
                           </div>
 
                           {/* Amount */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-bold text-primary">
-                              {formatAmount(deal.amount)}
-                            </span>
-                            <span className="text-sm text-muted-foreground">RUB</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold text-primary">
+                                {formatAmount(deal.amount)}
+                              </span>
+                              <span className="text-sm text-muted-foreground">RUB</span>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {(deal.amount / deal.rate).toFixed(2)} USDT • Курс: {deal.rate.toFixed(2)}
+                            </div>
                           </div>
 
                         </div>
@@ -480,7 +525,9 @@ export function BtEntranceDeals() {
                           statusConfig?.badgeColor || "bg-gray-50 text-gray-700 border-gray-200"
                         )}
                       >
-                        {statusConfig?.label || deal.status}
+                        {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt 
+                          ? formatRemainingTime(deal.expiredAt)
+                          : statusConfig?.label || deal.status}
                       </Badge>
                     </div>
                   </div>
@@ -645,7 +692,7 @@ export function BtEntranceDeals() {
                     {/* Amount */}
                     <div className="mb-1">
                       <span className="text-3xl font-bold text-green-600 dark:text-green-400">
-                        {(selectedDeal.amount / 95).toFixed(2)} USDT
+                        {(selectedDeal.amount / selectedDeal.rate).toFixed(2)} USDT
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -693,7 +740,7 @@ export function BtEntranceDeals() {
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {selectedDeal.cardNumber
-                              ?.replace(/(\d{4})/g, "$1 ")
+                              ?.replace(/(\d{4})(?=\d)/g, "$1 ")
                               .trim() || "—"}
                           </p>
                         </div>
@@ -711,7 +758,7 @@ export function BtEntranceDeals() {
                           Ставка
                         </span>
                         <span className="text-lg font-semibold dark:text-white">
-                          1 USDT = 95.00 RUB
+                          1 USDT = {selectedDeal.rate.toFixed(2)} RUB
                         </span>
                       </div>
                     </div>
@@ -878,7 +925,7 @@ export function BtEntranceDeals() {
                             Объем сделок
                           </span>
                           <span className="font-medium dark:text-white">
-                            {(selectedDeal.amount / 95).toFixed(2)} USDT = {selectedDeal.amount} RUB{" "}
+                            {(selectedDeal.amount / selectedDeal.rate).toFixed(2)} USDT = {selectedDeal.amount} RUB{" "}
                             <span className="text-gray-400 dark:text-gray-500">
                               (1 сделка)
                             </span>

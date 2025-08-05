@@ -624,7 +624,7 @@ export function Sidebar({ variant }: SidebarProps) {
                   onClick={() => {
                     toast.success("Загрузка APK началась");
                     window.open(
-                      `${process.env.NEXT_PUBLIC_API_URL}/app/download-apk`,
+                      `/api/app/download-apk`,
                       "_blank",
                     );
                   }}

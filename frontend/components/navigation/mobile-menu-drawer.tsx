@@ -566,7 +566,7 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
                     className="w-full justify-start gap-2 text-sm text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-gray-50"
                     onClick={() => {
                       window.open(
-                        `${process.env.NEXT_PUBLIC_API_URL}/app/download-apk`,
+                        `/api/app/download-apk`,
                         '_blank'
                       );
                     }}
