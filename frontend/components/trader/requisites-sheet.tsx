@@ -230,7 +230,7 @@ export function RequisitesSheet({
         maxAmount: existingRequisite.maxAmount,
         sumLimit: existingRequisite.sumLimit || 0,
         operationLimit: existingRequisite.operationLimit || 0,
-        isActive: !existingRequisite.isArchived,
+        isActive: existingRequisite.isActive,
       });
     } else if (!existingRequisite && open) {
       // Reset to list view when opening without a requisite
@@ -336,10 +336,7 @@ export function RequisitesSheet({
         cardNumber: data.methodType === "sbp" ? (data.phoneNumber || "") : (data.cardNumber || ""),
         intervalMinutes: 5, // Default value
         deviceId: null, // Always null since we removed device selection
-        isArchived: !data.isActive, // Convert isActive to isArchived
       };
-      // Remove isActive from the data being sent
-      delete (requisiteData as any).isActive;
 
       if (editingRequisite) {
         await traderApi.updateRequisite(editingRequisite.id, requisiteData);
@@ -449,7 +446,7 @@ export function RequisitesSheet({
                                 "text-xs",
                                 statusConfig?.badgeColor || "bg-gray-50 text-gray-700 border-gray-200"
                               )}>
-                                {statusConfig?.label || status}
+                                {requisite.isActive ? "В работе" : "Неактивен"}
                               </Badge>
                             </div>
                             <DropdownMenu>
@@ -462,19 +459,6 @@ export function RequisitesSheet({
                                 <DropdownMenuItem onClick={() => handleEdit(requisite)}>
                                   <Edit className="mr-2 h-4 w-4" />
                                   Редактировать
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleToggleActive(requisite)}>
-                                  {!requisite.isActive ? (
-                                    <>
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      Активировать
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Ban className="mr-2 h-4 w-4" />
-                                      Деактивировать
-                                    </>
-                                  )}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleDelete(requisite.id)}
@@ -793,27 +777,53 @@ export function RequisitesSheet({
 
 
                 {editingRequisite && (
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Активен</FormLabel>
-                          <FormDescription>
-                            Реквизит будет доступен для приема платежей
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={loading}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="isActive"
+                      render={({ field }) => {
+                        const status = field.value ? "ACTIVE" : "INACTIVE";
+                        const statusConfig = requisiteStatusConfig[status as keyof typeof requisiteStatusConfig];
+                        const StatusIcon = statusConfig?.icon || CheckCircle;
+                        
+                        return (
+                          <>
+                            {/* Status Badge */}
+                            <div className="flex items-center gap-2 mb-4">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                statusConfig?.color?.split(" ")[0] || "bg-gray-100"
+                              )}>
+                                <StatusIcon className="h-4 w-4" />
+                              </div>
+                              <Badge className={cn(
+                                "text-xs",
+                                statusConfig?.badgeColor || "bg-gray-50 text-gray-700 border-gray-200"
+                              )}>
+                                {field.value ? "В работе" : "Неактивен"}
+                              </Badge>
+                            </div>
+                            
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">Активный реквизит</FormLabel>
+                                <FormDescription>
+                                  Реквизит будет доступен для приема платежей
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  disabled={loading}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          </>
+                        );
+                      }}
+                    />
+                  </>
                 )}
 
                 <SheetFooter>

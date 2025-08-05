@@ -796,19 +796,6 @@ export default function TraderRequisitesPage() {
                                   <Edit className="mr-2 h-4 w-4" />
                                   Редактировать
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleToggleStatus(requisite)}>
-                                  {!requisite.isActive ? (
-                                    <>
-                                      <PlayCircle className="mr-2 h-4 w-4" />
-                                      Активировать
-                                    </>
-                                  ) : (
-                                    <>
-                                      <PauseCircle className="mr-2 h-4 w-4" />
-                                      Деактивировать
-                                    </>
-                                  )}
-                                </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => handleDelete(requisite.id)}
                                   className="text-red-600"
@@ -1002,19 +989,6 @@ export default function TraderRequisitesPage() {
                             }}>
                               <Edit className="mr-2 h-4 w-4" />
                               Редактировать
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleStatus(requisite)}>
-                              {!requisite.isActive ? (
-                                <>
-                                  <PlayCircle className="mr-2 h-4 w-4" />
-                                  Активировать
-                                </>
-                              ) : (
-                                <>
-                                  <PauseCircle className="mr-2 h-4 w-4" />
-                                  Деактивировать
-                                </>
-                              )}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => handleDelete(requisite.id)}
