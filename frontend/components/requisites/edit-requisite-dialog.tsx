@@ -229,34 +229,38 @@ export function EditRequisiteDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cardNumber">Номер карты</Label>
-              <Input
-                id="cardNumber"
-                value={formData.cardNumber}
-                onChange={(e) => {
-                  const formatted = formatCardNumber(e.target.value);
-                  if (formatted.replace(/\s/g, "").length <= 16) {
-                    setFormData({ ...formData, cardNumber: formatted });
-                  }
-                }}
-                disabled={!canEditCriticalFields || loading}
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4">
+            {formData.methodType === "c2c" && (
+              <div className="space-y-2">
+                <Label htmlFor="cardNumber">Номер карты</Label>
+                <Input
+                  id="cardNumber"
+                  value={formData.cardNumber}
+                  onChange={(e) => {
+                    const formatted = formatCardNumber(e.target.value);
+                    if (formatted.replace(/\s/g, "").length <= 16) {
+                      setFormData({ ...formData, cardNumber: formatted });
+                    }
+                  }}
+                  disabled={!canEditCriticalFields || loading}
+                />
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Номер телефона</Label>
-              <Input
-                id="phoneNumber"
-                placeholder="+7 900 000 00 00"
-                value={formData.phoneNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, phoneNumber: e.target.value })
-                }
-                disabled={loading}
-              />
-            </div>
+            {formData.methodType === "sbp" && (
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">Номер телефона</Label>
+                <Input
+                  id="phoneNumber"
+                  placeholder="+7 900 000 00 00"
+                  value={formData.phoneNumber || formData.cardNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phoneNumber: e.target.value, cardNumber: e.target.value })
+                  }
+                  disabled={!canEditCriticalFields || loading}
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

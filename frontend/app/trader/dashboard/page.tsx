@@ -252,6 +252,8 @@ export default function TraderDashboardPage() {
       // in a { success, data } object. Handle both cases to ensure the
       // dashboard renders devices consistently.
       const data = (response && "data" in response) ? response.data : response;
+      console.log('Dashboard data:', data);
+      console.log('Devices:', data?.devices);
       setDashboardData(data);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);

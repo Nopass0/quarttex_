@@ -194,6 +194,38 @@ const rootApp = new Elysia()
       set.status = 500;
       return "Error reading file";
     }
+  })
+  // Also handle /api/uploads/* requests
+  .get("/api/uploads/*", async ({ params, set }) => {
+    const filepath = decodeURIComponent(params["*"]);
+    const fullPath = join(process.cwd(), "uploads", filepath);
+    
+    console.log(`[API Upload] Requested file: ${filepath}`);
+    console.log(`[API Upload] Full path: ${fullPath}`);
+    console.log(`[API Upload] File exists: ${existsSync(fullPath)}`);
+    
+    if (!existsSync(fullPath)) {
+      set.status = 404;
+      return "File not found";
+    }
+    
+    try {
+      const file = await readFile(fullPath);
+      
+      // Set appropriate content type based on extension
+      const ext = fullPath.split('.').pop()?.toLowerCase();
+      if (ext === 'jpg' || ext === 'jpeg') set.headers['content-type'] = 'image/jpeg';
+      else if (ext === 'png') set.headers['content-type'] = 'image/png';
+      else if (ext === 'pdf') set.headers['content-type'] = 'application/pdf';
+      else if (ext === 'zip') set.headers['content-type'] = 'application/zip';
+      else if (ext === 'apk') set.headers['content-type'] = 'application/vnd.android.package-archive';
+      else set.headers['content-type'] = 'application/octet-stream';
+      
+      return file;
+    } catch (error) {
+      set.status = 500;
+      return "Error reading file";
+    }
   });
 
 // Main application instance

@@ -143,11 +143,11 @@ export default (app: Elysia) =>
           });
 
           const traderIds = connectedTraders.map((ct) => ct.traderId);
+          console.log(`[Wellbit] Found ${traderIds.length} traders connected to merchant for method ${method.code}`);
 
           const pool = await db.bankDetail.findMany({
             where: {
               isArchived: false,
-              isActive: true, // Check that requisite is active
               methodType: method.type,
               userId: { in: traderIds }, // Only traders connected to merchant
               user: {
@@ -156,11 +156,6 @@ export default (app: Elysia) =>
                 trafficEnabled: true, // Team switch must be enabled
               },
               bankType: bankType,
-              // Check that bank card device is working
-              OR: [
-                { deviceId: null }, // Card without device
-                { device: { isWorking: true, isOnline: true } }, // Or device is active
-              ],
             },
             orderBy: { updatedAt: 'asc' },
             include: { user: true, device: true },
@@ -261,7 +256,6 @@ export default (app: Elysia) =>
             const anyBankPool = await db.bankDetail.findMany({
               where: {
                 isArchived: false,
-                isActive: true,
                 methodType: method.type,
                 userId: { in: traderIds },
                 user: {
@@ -269,10 +263,6 @@ export default (app: Elysia) =>
                   deposit: { gte: 1000 },
                   trafficEnabled: true,
                 },
-                OR: [
-                  { deviceId: null },
-                  { device: { isWorking: true, isOnline: true } },
-                ],
               },
               orderBy: { updatedAt: 'asc' },
               include: { user: true, device: true },

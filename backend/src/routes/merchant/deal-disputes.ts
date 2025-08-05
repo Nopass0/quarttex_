@@ -87,7 +87,7 @@ export const dealDisputesRoutes = new Elysia()
 
           uploadedFiles.push({
             filename: file.name,
-            url: `/uploads/deal-disputes/${filename}`,
+            url: `/api/uploads/deal-disputes/${filename}`,
             size: file.size,
             mimeType: file.type
           });
@@ -150,7 +150,7 @@ export const dealDisputesRoutes = new Elysia()
   }, {
     body: t.Object({
       message: t.String({ minLength: 1 }),
-      files: t.Optional(t.Files())
+      files: t.Optional(t.Array(t.File()))
     })
   })
   
@@ -311,7 +311,7 @@ export const dealDisputesRoutes = new Elysia()
 
           uploadedFiles.push({
             filename: file.name,
-            url: `/uploads/deal-disputes/${filename}`,
+            url: `/api/uploads/deal-disputes/${filename}`,
             size: file.size,
             mimeType: file.type
           });
@@ -357,6 +357,6 @@ export const dealDisputesRoutes = new Elysia()
   }, {
     body: t.Object({
       message: t.String({ minLength: 1 }),
-      files: t.Optional(t.Files())
+      files: t.Optional(t.Array(t.File()))
     })
   });
