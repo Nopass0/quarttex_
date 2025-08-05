@@ -565,13 +565,8 @@ export function MobileMenuDrawer({ variant, isOpen, onClose }: MobileMenuDrawerP
                     variant="outline"
                     className="w-full justify-start gap-2 text-sm text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-gray-50"
                     onClick={() => {
-                      // Create a temporary link element
-                      const link = document.createElement('a');
-                      link.href = '/api/app/download-apk';
-                      link.download = 'chase-app.apk';
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                      // Use direct navigation for better compatibility
+                      window.location.href = '/api/app/download-apk';
                     }}
                   >
                     <Download className="h-4 w-4 text-green-600" />
