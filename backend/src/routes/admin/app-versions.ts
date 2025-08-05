@@ -96,7 +96,7 @@ export default (app: Elysia) =>
           // Save file
           const fileName = `app-${version}-${Date.now()}.apk`;
           const filePath = join(process.cwd(), 'uploads', 'apk', fileName);
-          const fileUrl = `/uploads/apk/${fileName}`;
+          const fileUrl = `/api/uploads/apk/${fileName}`;
           
           // Create uploads directory if it doesn't exist
           const { mkdir } = await import('node:fs/promises');
@@ -246,7 +246,9 @@ export default (app: Elysia) =>
           
           // Delete file from disk
           try {
-            const filePath = join(process.cwd(), version.fileUrl);
+            // Remove /api prefix from fileUrl to get actual file path
+            const actualPath = version.fileUrl.replace(/^\/api/, '');
+            const filePath = join(process.cwd(), actualPath);
             await unlink(filePath);
           } catch (err) {
             console.error('Error deleting file:', err);

@@ -67,36 +67,33 @@ export default (app: Elysia) =>
           const methodType = body.payment_type === 'card' ? 'c2c' : body.payment_type === 'sbp' ? 'sbp' : 'c2c';
           console.log('Payment type:', body.payment_type, '->', methodType);
           
-          // Find any active method for the payment type
+          // Select method based on payment type and amount
+          let methodCode: string;
+          if (body.payment_type === 'sbp') {
+            // For SBP: 5k-10k use sbp_wellbit, 10k-300k use sbp_wellbit_10k
+            methodCode = body.payment_amount >= 10000 ? 'sbp_wellbit_10k' : 'sbp_wellbit';
+          } else {
+            // For card (c2c): 5k-10k use c2c_wellbit, 10k-300k use c2c_wellbit_10k
+            methodCode = body.payment_amount >= 10000 ? 'c2c_wellbit_10k' : 'c2c_wellbit';
+          }
+          
+          console.log('Selected method code:', methodCode, 'for amount:', body.payment_amount);
+          
+          // Find the specific method by code
           let method = await db.method.findFirst({
             where: {
-              OR: [
-                { code: 'sber_c2c' },
-                { code: 'tinkoff_c2c' },
-                { code: 'TEST_C2C' },
-                { code: 'test-rub-method' },
-                { code: 'alfa_c2c' },
-                { code: 'vtb_c2c' }
-              ],
+              code: methodCode,
               isEnabled: true
             }
           });
 
           if (!method) {
-            // Try to find any active method with the right type
+            // Fallback: try to find any method with the right type
+            console.warn(`Method ${methodCode} not found, falling back to any ${methodType} method`);
             method = await db.method.findFirst({
               where: {
                 isEnabled: true,
                 type: methodType
-              }
-            });
-          }
-          
-          if (!method) {
-            // Last resort - find any active method
-            method = await db.method.findFirst({
-              where: {
-                isEnabled: true
               }
             });
           }
