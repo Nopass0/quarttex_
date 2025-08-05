@@ -34,16 +34,13 @@ export const dealDisputesRoutes = new Elysia()
       const deal = await db.transaction.findFirst({
         where: {
           id: params.dealId,
-          merchantId: merchant.id,
-          status: {
-            in: [Status.IN_PROGRESS, Status.READY]
-          }
+          merchantId: merchant.id
         }
       });
 
       if (!deal) {
         set.status = 404;
-        return { error: "Deal not found or not eligible for dispute" };
+        return { error: "Deal not found" };
       }
 
       if (!deal.traderId) {
@@ -128,11 +125,13 @@ export const dealDisputesRoutes = new Elysia()
         }
       });
 
-      // Update transaction status
-      await db.transaction.update({
-        where: { id: deal.id },
-        data: { status: Status.DISPUTE }
-      });
+      // Update transaction status only if it's in progress
+      if (deal.status === Status.IN_PROGRESS) {
+        await db.transaction.update({
+          where: { id: deal.id },
+          data: { status: Status.DISPUTE }
+        });
+      }
 
       // Send WebSocket event
       dealDisputeEvents.notifyNewDispute(deal.traderId, dispute);
