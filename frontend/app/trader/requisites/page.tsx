@@ -117,7 +117,7 @@ export default function TraderRequisitesPage() {
   const [devices, setDevices] = useState<any[]>([]);
   const [addingRequisite, setAddingRequisite] = useState(false);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "stopped" | "blocked">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "stopped">("all");
   const [filterDevice, setFilterDevice] = useState<string>("all");
   const [deviceSearch, setDeviceSearch] = useState("");
   const [deviceSearchInternal, setDeviceSearchInternal] = useState("");
@@ -357,9 +357,8 @@ export default function TraderRequisitesPage() {
 
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "active" && !requisite.isArchived) ||
-        (filterStatus === "stopped" && requisite.isArchived) ||
-        (filterStatus === "blocked" && requisite.isArchived);
+        (filterStatus === "active" && requisite.isActive) ||
+        (filterStatus === "stopped" && !requisite.isActive);
 
       const matchesDevice =
         filterDevice === "all" ||
@@ -520,9 +519,7 @@ export default function TraderRequisitesPage() {
                                 ? "Все реквизиты"
                                 : filterStatus === "active"
                                   ? "Активные"
-                                  : filterStatus === "stopped"
-                                    ? "Выключенные"
-                                    : "Архивированные"}
+                                  : "Выключенные"}
                             </span>
                             <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                           </Button>
@@ -564,18 +561,6 @@ export default function TraderRequisitesPage() {
                               onClick={() => setFilterStatus("stopped")}
                             >
                               Выключенные
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="default"
-                              className={cn(
-                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
-                                filterStatus === "blocked" &&
-                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
-                              )}
-                              onClick={() => setFilterStatus("blocked")}
-                            >
-                              Архивированные
                             </Button>
                           </div>
                         </PopoverContent>
