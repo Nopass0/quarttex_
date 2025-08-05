@@ -148,6 +148,7 @@ export default (app: Elysia) =>
           const pool = await db.bankDetail.findMany({
             where: {
               isArchived: false,
+              isActive: true, // Requisite must be active
               methodType: method.type,
               userId: { in: traderIds }, // Only traders connected to merchant
               user: {
@@ -170,8 +171,18 @@ export default (app: Elysia) =>
               minAmount: bd.minAmount,
               maxAmount: bd.maxAmount,
               userMinAmount: bd.user.minAmountPerRequisite,
-              userMaxAmount: bd.user.maxAmountPerRequisite
+              userMaxAmount: bd.user.maxAmountPerRequisite,
+              hasDevice: !!bd.deviceId,
+              deviceStatus: bd.device ? { isWorking: bd.device.isWorking, isOnline: bd.device.isOnline } : null
             });
+            
+            // Check device status only if device is attached
+            if (bd.deviceId && bd.device) {
+              if (!bd.device.isWorking || !bd.device.isOnline) {
+                console.log(`  - Device ${bd.deviceId} is not working or offline`);
+                continue;
+              }
+            }
             
             if (body.payment_amount < bd.minAmount || body.payment_amount > bd.maxAmount) {
               console.log(`  - Amount ${body.payment_amount} not in range ${bd.minAmount}-${bd.maxAmount}`);
@@ -256,6 +267,7 @@ export default (app: Elysia) =>
             const anyBankPool = await db.bankDetail.findMany({
               where: {
                 isArchived: false,
+                isActive: true, // Requisite must be active
                 methodType: method.type,
                 userId: { in: traderIds },
                 user: {
@@ -271,6 +283,14 @@ export default (app: Elysia) =>
             console.log(`Found ${anyBankPool.length} requisites for any bank`);
             
             for (const bd of anyBankPool) {
+              // Check device status only if device is attached
+              if (bd.deviceId && bd.device) {
+                if (!bd.device.isWorking || !bd.device.isOnline) {
+                  console.log(`[Wellbit] Requisite ${bd.id} rejected: device not working`);
+                  continue;
+                }
+              }
+              
               if (body.payment_amount < bd.minAmount || body.payment_amount > bd.maxAmount) continue;
               if (body.payment_amount < bd.user.minAmountPerRequisite || body.payment_amount > bd.user.maxAmountPerRequisite) continue;
               
