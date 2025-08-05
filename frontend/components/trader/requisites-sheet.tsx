@@ -288,6 +288,17 @@ export function RequisitesSheet({
     }
   };
 
+  const handleArchive = async (requisite: Requisite) => {
+    try {
+      await traderApi.updateRequisite(requisite.id, { isArchived: !requisite.isArchived });
+      toast.success(requisite.isArchived ? "Реквизит разархивирован" : "Реквизит архивирован");
+      fetchRequisites();
+    } catch (error) {
+      console.error("Failed to archive/unarchive requisite:", error);
+      toast.error("Не удалось изменить статус архивации");
+    }
+  };
+
   const handleToggleActive = async (requisite: Requisite) => {
     try {
       if (requisite.isActive) {
@@ -459,6 +470,10 @@ export function RequisitesSheet({
                                 <DropdownMenuItem onClick={() => handleEdit(requisite)}>
                                   <Edit className="mr-2 h-4 w-4" />
                                   Редактировать
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleArchive(requisite)}>
+                                  <Ban className="mr-2 h-4 w-4" />
+                                  {requisite.isArchived ? "Разархивировать" : "Архивировать"}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleDelete(requisite.id)}

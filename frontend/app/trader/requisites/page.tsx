@@ -117,7 +117,7 @@ export default function TraderRequisitesPage() {
   const [devices, setDevices] = useState<any[]>([]);
   const [addingRequisite, setAddingRequisite] = useState(false);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "stopped">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "stopped" | "archived">("all");
   const [filterDevice, setFilterDevice] = useState<string>("all");
   const [deviceSearch, setDeviceSearch] = useState("");
   const [deviceSearchInternal, setDeviceSearchInternal] = useState("");
@@ -332,6 +332,17 @@ export default function TraderRequisitesPage() {
     }
   };
 
+  const handleArchive = async (requisite: Requisite) => {
+    try {
+      await traderApi.updateRequisite(requisite.id, { isArchived: !requisite.isArchived });
+      toast.success(requisite.isArchived ? "Реквизит разархивирован" : "Реквизит архивирован");
+      await fetchRequisites();
+    } catch (error) {
+      console.error("Failed to archive/unarchive requisite:", error);
+      toast.error("Не удалось изменить статус архивации");
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedRequisites.length === filteredRequisites.length) {
       setSelectedRequisites([]);
@@ -357,8 +368,9 @@ export default function TraderRequisitesPage() {
 
       const matchesStatus =
         filterStatus === "all" ||
-        (filterStatus === "active" && requisite.isActive) ||
-        (filterStatus === "stopped" && !requisite.isActive);
+        (filterStatus === "active" && requisite.isActive && !requisite.isArchived) ||
+        (filterStatus === "stopped" && !requisite.isActive && !requisite.isArchived) ||
+        (filterStatus === "archived" && requisite.isArchived);
 
       const matchesDevice =
         filterDevice === "all" ||
@@ -519,7 +531,9 @@ export default function TraderRequisitesPage() {
                                 ? "Все реквизиты"
                                 : filterStatus === "active"
                                   ? "Активные"
-                                  : "Выключенные"}
+                                  : filterStatus === "stopped"
+                                    ? "Выключенные"
+                                    : "Архивированные"}
                             </span>
                             <ChevronDown className="h-4 w-4 opacity-50 text-[#006039]" />
                           </Button>
@@ -561,6 +575,18 @@ export default function TraderRequisitesPage() {
                               onClick={() => setFilterStatus("stopped")}
                             >
                               Выключенные
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="default"
+                              className={cn(
+                                "w-full justify-start h-12 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-[#006039] dark:hover:text-green-400",
+                                filterStatus === "archived" &&
+                                  "text-[#006039] dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+                              )}
+                              onClick={() => setFilterStatus("archived")}
+                            >
+                              Архивированные
                             </Button>
                           </div>
                         </PopoverContent>
@@ -768,7 +794,11 @@ export default function TraderRequisitesPage() {
                           {/* Status Badge and Actions */}
                           <div className="flex items-center gap-2">
                             <div className="flex-shrink-0">
-                              {isWorking ? (
+                              {requisite.isArchived ? (
+                                <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs px-2 py-1">
+                                  Архивирован
+                                </Badge>
+                              ) : isWorking ? (
                                 <Badge className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-1">
                                   В работе
                                 </Badge>
@@ -795,6 +825,19 @@ export default function TraderRequisitesPage() {
                                 }}>
                                   <Edit className="mr-2 h-4 w-4" />
                                   Редактировать
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleArchive(requisite)}>
+                                  {requisite.isArchived ? (
+                                    <>
+                                      <Archive className="mr-2 h-4 w-4" />
+                                      Разархивировать
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Archive className="mr-2 h-4 w-4" />
+                                      Архивировать
+                                    </>
+                                  )}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => handleDelete(requisite.id)}
@@ -962,7 +1005,11 @@ export default function TraderRequisitesPage() {
                       {/* Status and Actions */}
                       <div className="flex items-center gap-2">
                         <div className="flex-shrink-0">
-                          {isWorking ? (
+                          {requisite.isArchived ? (
+                            <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium">
+                              Архивирован
+                            </div>
+                          ) : isWorking ? (
                             <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium">
                               В работе
                             </div>
@@ -989,6 +1036,19 @@ export default function TraderRequisitesPage() {
                             }}>
                               <Edit className="mr-2 h-4 w-4" />
                               Редактировать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleArchive(requisite)}>
+                              {requisite.isArchived ? (
+                                <>
+                                  <Archive className="mr-2 h-4 w-4" />
+                                  Разархивировать
+                                </>
+                              ) : (
+                                <>
+                                  <Archive className="mr-2 h-4 w-4" />
+                                  Архивировать
+                                </>
+                              )}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => handleDelete(requisite.id)}

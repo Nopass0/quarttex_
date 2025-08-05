@@ -257,18 +257,22 @@ export function BtEntranceDeals() {
     return () => clearInterval(interval);
   }, [filterStatus, searchQuery, currentPage]);
 
-  // Timer for countdown update - only update if there are IN_PROGRESS deals
+  // Timer for countdown update - only update if there are active deals
   useEffect(() => {
-    const hasInProgressDeals = deals.some(
-      (deal) => deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS"
+    const hasActiveDeals = deals.some(
+      (deal) => (deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt
     );
 
-    if (hasInProgressDeals) {
+    if (hasActiveDeals) {
+      console.log("[BT-Entrance] Starting timer for active deals");
       const timer = setInterval(() => {
         setForceUpdate((prev) => prev + 1);
       }, 1000);
 
-      return () => clearInterval(timer);
+      return () => {
+        console.log("[BT-Entrance] Stopping timer");
+        clearInterval(timer);
+      };
     }
   }, [deals]);
 
@@ -294,6 +298,16 @@ export function BtEntranceDeals() {
       if (readyDeal) {
         console.log("[BT-Entrance] First READY deal:", readyDeal);
         console.log("[BT-Entrance] traderProfit:", readyDeal.traderProfit);
+      }
+      
+      // Debug deals with timer
+      const activeDeals = apiDeals.filter((d: any) => d.status === "ACCEPTED" || d.status === "IN_PROGRESS");
+      if (activeDeals.length > 0) {
+        console.log("[BT-Entrance] Active deals with expiredAt:", activeDeals.map((d: any) => ({
+          id: d.id,
+          status: d.status,
+          expiredAt: d.expiredAt
+        })));
       }
       
       setDeals(apiDeals.filter(isWithoutDevice));
@@ -561,6 +575,15 @@ export function BtEntranceDeals() {
                           {getStatusBadgeText()}
                         </Badge>
                       </div>
+                      {/* Mobile timer */}
+                      {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt && (
+                        <div className="sm:hidden mt-1 flex items-center gap-1 text-xs">
+                          <Clock className="h-3 w-3 text-orange-500" />
+                          <span className="font-medium text-orange-600">
+                            {formatRemainingTime(deal.expiredAt)}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Payment Status and Date */}
@@ -625,6 +648,16 @@ export function BtEntranceDeals() {
                         {getStatusBadgeText()}
                       </Badge>
                     </div>
+
+                    {/* Timer for ACCEPTED and IN_PROGRESS deals */}
+                    {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt && (
+                      <div className="flex-shrink-0 flex items-center gap-1 text-sm">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="font-medium text-orange-600 dark:text-orange-400">
+                          {formatRemainingTime(deal.expiredAt)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </Card>
               );
@@ -770,9 +803,19 @@ export function BtEntranceDeals() {
                     </h2>
 
                     {/* Deal ID */}
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                       #{selectedDeal.id.slice(-6)}
                     </p>
+
+                    {/* Timer for active deals */}
+                    {(selectedDeal.status === "ACCEPTED" || selectedDeal.status === "IN_PROGRESS") && selectedDeal.expiredAt && (
+                      <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-full">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                          Осталось: {formatRemainingTime(selectedDeal.expiredAt)}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Amount */}
                     <div className="mb-1">
