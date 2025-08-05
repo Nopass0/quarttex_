@@ -575,15 +575,6 @@ export function BtEntranceDeals() {
                           {getStatusBadgeText()}
                         </Badge>
                       </div>
-                      {/* Mobile timer */}
-                      {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt && (
-                        <div className="sm:hidden mt-1 flex items-center gap-1 text-xs">
-                          <Clock className="h-3 w-3 text-orange-500" />
-                          <span className="font-medium text-orange-600">
-                            {formatRemainingTime(deal.expiredAt)}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     {/* Payment Status and Date */}
@@ -648,16 +639,6 @@ export function BtEntranceDeals() {
                         {getStatusBadgeText()}
                       </Badge>
                     </div>
-
-                    {/* Timer for ACCEPTED and IN_PROGRESS deals */}
-                    {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt && (
-                      <div className="flex-shrink-0 flex items-center gap-1 text-sm">
-                        <Clock className="h-4 w-4 text-orange-500" />
-                        <span className="font-medium text-orange-600 dark:text-orange-400">
-                          {formatRemainingTime(deal.expiredAt)}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </Card>
               );

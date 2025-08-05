@@ -77,7 +77,7 @@ const formatBtDeal = (transaction: any) => {
     updatedAt: transaction.updatedAt.toISOString(),
     acceptedAt: transaction.acceptedAt?.toISOString(),
     completedAt: transaction.completedAt?.toISOString(),
-    expiredAt: transaction.expiredAt?.toISOString(),
+    expiredAt: transaction.expired_at?.toISOString(),
     requisiteId: transaction.bankDetailId || "",
     commission: transaction.commission || 0,
     rate: transaction.rate || 0,
@@ -265,11 +265,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
               // Увеличиваем прибыль от сделок
               profitFromDeals: {
                 increment: traderProfit
-              },
-              // Увеличиваем доступный баланс на прибыль
-              deposit: {
-                increment: traderProfit
               }
+              // НЕ увеличиваем депозит - он остается неизменным
             }
           });
 
@@ -278,7 +275,9 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
 
         // Отправляем колбэк после успешного обновления
         await notifyByStatus({
-          id: deal.id,
+          id: deal.orderId, // Use orderId instead of internal transaction ID
+          transactionId: deal.id, // Pass internal ID for history tracking
+          merchantId: deal.merchantId,
           status: "READY",
           successUri: deal.successUri,
           failUri: deal.failUri,
@@ -307,7 +306,9 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
 
       // Отправляем колбэк для любого статуса
       await notifyByStatus({
-        id: updatedDeal.id,
+        id: updatedDeal.orderId, // Use orderId instead of internal transaction ID
+        transactionId: updatedDeal.id, // Pass internal ID for history tracking
+        merchantId: updatedDeal.merchantId,
         status: updatedDeal.status,
         successUri: updatedDeal.successUri,
         failUri: updatedDeal.failUri,
