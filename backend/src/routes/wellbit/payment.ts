@@ -131,15 +131,39 @@ export default (app: Elysia) =>
             amount: body.payment_amount
           });
           
+          // Get list of traders connected to Wellbit merchant with enabled inputs
+          const connectedTraders = await db.traderMerchant.findMany({
+            where: {
+              merchantId: wellbitMerchant.id,
+              methodId: method.id,
+              isMerchantEnabled: true,
+              isFeeInEnabled: true, // Check that input is enabled
+            },
+            select: { traderId: true },
+          });
+
+          const traderIds = connectedTraders.map((ct) => ct.traderId);
+
           const pool = await db.bankDetail.findMany({
             where: {
               isArchived: false,
+              isActive: true, // Check that requisite is active
               methodType: method.type,
-              user: { banned: false },
+              userId: { in: traderIds }, // Only traders connected to merchant
+              user: {
+                banned: false,
+                deposit: { gte: 1000 }, // Minimum deposit 1000
+                trafficEnabled: true, // Team switch must be enabled
+              },
               bankType: bankType,
+              // Check that bank card device is working
+              OR: [
+                { deviceId: null }, // Card without device
+                { device: { isWorking: true, isOnline: true } }, // Or device is active
+              ],
             },
             orderBy: { updatedAt: 'asc' },
-            include: { user: true },
+            include: { user: true, device: true },
           });
           
           console.log(`Found ${pool.length} requisites for bank ${bankType} and method ${method.type}`);
@@ -162,6 +186,69 @@ export default (app: Elysia) =>
               console.log(`  - Amount ${body.payment_amount} not in user range ${bd.user.minAmountPerRequisite}-${bd.user.maxAmountPerRequisite}`);
               continue;
             }
+
+            // Check for existing transaction with same amount on this requisite
+            const existingTransaction = await db.transaction.findFirst({
+              where: {
+                bankDetailId: bd.id,
+                amount: body.payment_amount,
+                status: {
+                  in: [Status.CREATED, Status.IN_PROGRESS],
+                },
+                type: TransactionType.IN,
+              },
+            });
+
+            if (existingTransaction) {
+              console.log(
+                `[Wellbit] Requisite ${bd.id} rejected: already has transaction for amount ${body.payment_amount} in status ${existingTransaction.status}`,
+              );
+              continue;
+            }
+
+            // Check operation limit without time limit
+            if (bd.operationLimit > 0) {
+              const totalOperations = await db.transaction.count({
+                where: {
+                  bankDetailId: bd.id,
+                  status: {
+                    in: [Status.IN_PROGRESS, Status.READY],
+                  },
+                },
+              });
+              console.log(
+                `[Wellbit] - Total operations (IN_PROGRESS + READY): ${totalOperations}/${bd.operationLimit}`,
+              );
+              if (totalOperations >= bd.operationLimit) {
+                console.log(
+                  `[Wellbit] Requisite ${bd.id} rejected: operation limit reached. Current: ${totalOperations}, limit: ${bd.operationLimit}`,
+                );
+                continue;
+              }
+            }
+
+            // Check total sum limit
+            if (bd.sumLimit > 0) {
+              const totalSumResult = await db.transaction.aggregate({
+                where: {
+                  bankDetailId: bd.id,
+                  status: {
+                    in: [Status.IN_PROGRESS, Status.READY],
+                  },
+                },
+                _sum: { amount: true },
+              });
+              const totalSum = (totalSumResult._sum.amount ?? 0) + body.payment_amount;
+              console.log(
+                `[Wellbit] - Total sum (IN_PROGRESS + READY): ${totalSumResult._sum.amount ?? 0} + ${body.payment_amount} = ${totalSum}/${bd.sumLimit}`,
+              );
+              if (totalSum > bd.sumLimit) {
+                console.log(
+                  `[Wellbit] Requisite ${bd.id} rejected: sum limit exceeded. Current sum: ${totalSumResult._sum.amount ?? 0}, new sum: ${totalSum}, limit: ${bd.sumLimit}`,
+                );
+                continue;
+              }
+            }
             
             console.log(`  ✓ Chosen requisite ${bd.id}`);
             chosen = bd;
@@ -174,11 +261,21 @@ export default (app: Elysia) =>
             const anyBankPool = await db.bankDetail.findMany({
               where: {
                 isArchived: false,
+                isActive: true,
                 methodType: method.type,
-                user: { banned: false },
+                userId: { in: traderIds },
+                user: {
+                  banned: false,
+                  deposit: { gte: 1000 },
+                  trafficEnabled: true,
+                },
+                OR: [
+                  { deviceId: null },
+                  { device: { isWorking: true, isOnline: true } },
+                ],
               },
               orderBy: { updatedAt: 'asc' },
-              include: { user: true },
+              include: { user: true, device: true },
             });
             
             console.log(`Found ${anyBankPool.length} requisites for any bank`);
@@ -186,6 +283,57 @@ export default (app: Elysia) =>
             for (const bd of anyBankPool) {
               if (body.payment_amount < bd.minAmount || body.payment_amount > bd.maxAmount) continue;
               if (body.payment_amount < bd.user.minAmountPerRequisite || body.payment_amount > bd.user.maxAmountPerRequisite) continue;
+              
+              // Check for existing transaction with same amount
+              const existingTransaction = await db.transaction.findFirst({
+                where: {
+                  bankDetailId: bd.id,
+                  amount: body.payment_amount,
+                  status: {
+                    in: [Status.CREATED, Status.IN_PROGRESS],
+                  },
+                  type: TransactionType.IN,
+                },
+              });
+
+              if (existingTransaction) {
+                console.log(`[Wellbit] Requisite ${bd.id} rejected: duplicate amount`);
+                continue;
+              }
+
+              // Check operation limit
+              if (bd.operationLimit > 0) {
+                const totalOperations = await db.transaction.count({
+                  where: {
+                    bankDetailId: bd.id,
+                    status: {
+                      in: [Status.IN_PROGRESS, Status.READY],
+                    },
+                  },
+                });
+                if (totalOperations >= bd.operationLimit) {
+                  console.log(`[Wellbit] Requisite ${bd.id} rejected: operation limit`);
+                  continue;
+                }
+              }
+
+              // Check sum limit
+              if (bd.sumLimit > 0) {
+                const totalSumResult = await db.transaction.aggregate({
+                  where: {
+                    bankDetailId: bd.id,
+                    status: {
+                      in: [Status.IN_PROGRESS, Status.READY],
+                    },
+                  },
+                  _sum: { amount: true },
+                });
+                const totalSum = (totalSumResult._sum.amount ?? 0) + body.payment_amount;
+                if (totalSum > bd.sumLimit) {
+                  console.log(`[Wellbit] Requisite ${bd.id} rejected: sum limit`);
+                  continue;
+                }
+              }
               
               console.log(`  ✓ Chosen requisite ${bd.id} with bank ${bd.bankType}`);
               chosen = bd;
@@ -230,48 +378,77 @@ export default (app: Elysia) =>
             feeInPercent
           );
 
-          // Create transaction with freezing parameters and assigned trader
-          const transaction = await db.transaction.create({
-            data: {
-              merchantId: wellbitMerchant.id,
-              methodId: method.id,
-              orderId: `WELLBIT_${body.payment_id}`,
-              amount: body.payment_amount,
-              type: TransactionType.IN,
-              status: Status.ACTIVE, // Set to ACTIVE since we have requisites
-              rate: rapiraRateWithKkk, // Always use Rapira rate with KKK
-              merchantRate: body.payment_course, // Store merchant provided rate
-              currency: 'RUB',
-              expired_at: new Date(Date.now() + body.payment_lifetime * 1000),
-              clientName: `Wellbit Payment ${body.payment_id}`,
-              userIp: '127.0.0.1',
-              callbackUri: wellbitMerchant.wellbitCallbackUrl || `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/webhook/${body.payment_id}`,
-              successUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/success/${body.payment_id}`,
-              failUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/fail/${body.payment_id}`,
-              // Required fields
-              assetOrBank: `${chosen.bankType}: ${chosen.cardNumber}`,
-              userId: chosen.userId,
-              commission: method.commissionPayin,
-              // Trader assignment
-              traderId: chosen.userId,
-              bankDetailId: chosen.id,
-              // Freezing parameters
-              adjustedRate: freezingParams.adjustedRate,
-              frozenUsdtAmount: freezingParams.frozenUsdtAmount,
-              calculatedCommission: freezingParams.calculatedCommission,
-              feeInPercent: feeInPercent,
-              kkkPercent: kkkPercent,
-            },
-          });
-
-          // Freeze trader's balance
-          await db.user.update({
-            where: { id: chosen.userId },
-            data: {
-              frozenUsdt: {
-                increment: freezingParams.totalRequired
-              }
+          // Check trader balance sufficiency
+          if (freezingParams && chosen.user) {
+            const availableBalance = chosen.user.trustBalance - chosen.user.frozenUsdt;
+            if (availableBalance < freezingParams.totalRequired) {
+              console.log(
+                `[Wellbit] Insufficient balance. Required: ${freezingParams.totalRequired}, available: ${availableBalance}`,
+              );
+              return error(409, { error: 'No suitable payment credentials available' });
             }
+          }
+
+          // Create transaction with freezing parameters and freeze funds in a transaction
+          const transaction = await db.$transaction(async (prisma) => {
+            const tx = await prisma.transaction.create({
+              data: {
+                merchantId: wellbitMerchant.id,
+                methodId: method.id,
+                orderId: body.payment_id.toString(),
+                amount: body.payment_amount,
+                type: TransactionType.IN,
+                status: Status.IN_PROGRESS, // Set to IN_PROGRESS since we have requisites
+                rate: rapiraRateWithKkk, // Always use Rapira rate with KKK
+                merchantRate: body.payment_course, // Store merchant provided rate
+                currency: 'RUB',
+                expired_at: new Date(Date.now() + body.payment_lifetime * 1000),
+                clientName: `Wellbit Payment ${body.payment_id}`,
+                userIp: '127.0.0.1',
+                callbackUri: wellbitMerchant.wellbitCallbackUrl || `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/webhook/${body.payment_id}`,
+                successUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/success/${body.payment_id}`,
+                failUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/fail/${body.payment_id}`,
+                // Required fields
+                assetOrBank: method.type === MethodType.sbp
+                  ? chosen.cardNumber
+                  : `${chosen.bankType}: ${chosen.cardNumber}`,
+                userId: chosen.userId,
+                commission: method.commissionPayin,
+                // Trader assignment
+                traderId: chosen.userId,
+                bankDetailId: chosen.id,
+                // Freezing parameters
+                adjustedRate: freezingParams.adjustedRate,
+                frozenUsdtAmount: freezingParams.frozenUsdtAmount,
+                calculatedCommission: freezingParams.calculatedCommission,
+                feeInPercent: feeInPercent,
+                kkkPercent: kkkPercent,
+              },
+            });
+
+            // Freeze trader's balance
+            if (freezingParams && chosen.user) {
+              console.log(
+                `[Wellbit] Freezing funds for trader ${chosen.userId}: ${freezingParams.totalRequired} USDT`,
+              );
+              console.log(
+                `[Wellbit] Trader balance before freezing - trustBalance: ${chosen.user.trustBalance}, frozenUsdt: ${chosen.user.frozenUsdt}`,
+              );
+              
+              const updatedUser = await prisma.user.update({
+                where: { id: chosen.userId },
+                data: {
+                  frozenUsdt: { increment: freezingParams.totalRequired },
+                  trustBalance: { decrement: freezingParams.totalRequired }, // Deduct from balance when freezing
+                },
+              });
+              
+              console.log(
+                `[Wellbit] Trader balance after freezing - trustBalance: ${updatedUser.trustBalance}, frozenUsdt: ${updatedUser.frozenUsdt}`,
+              );
+            }
+
+            return tx;
           });
 
           console.log('Created transaction with requisites:', {
@@ -324,7 +501,7 @@ export default (app: Elysia) =>
           const transaction = await db.transaction.findFirst({
             where: {
               merchantId: wellbitMerchant.id,
-              orderId: `WELLBIT_${body.payment_id}`,
+              orderId: body.payment_id.toString(),
             },
           });
 
@@ -357,7 +534,7 @@ export default (app: Elysia) =>
           const transaction = await db.transaction.findFirst({
             where: {
               merchantId: wellbitMerchant.id,
-              orderId: `WELLBIT_${body.payment_id}`,
+              orderId: body.payment_id.toString(),
             },
           });
 
