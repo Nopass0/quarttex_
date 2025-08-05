@@ -237,6 +237,7 @@ export function BtEntranceDeals() {
   const [selectedDeal, setSelectedDeal] = useState<BtDeal | null>(null);
   const [showRequisiteDetails, setShowRequisiteDetails] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -316,21 +317,42 @@ export function BtEntranceDeals() {
   };
 
   const handleStatusUpdate = async (dealId: string, newStatus: string) => {
+    if (confirmingPayment) return; // Prevent double clicks
+    
+    setConfirmingPayment(true);
     try {
       await traderApi.updateBtDealStatus(dealId, newStatus);
-      toast.success("Статус сделки обновлен");
       
-      // Обновляем список сделок
-      fetchDeals();
-      
-      // Обновляем данные пользователя для левого меню
-      if (user) {
-        const userResponse = await traderApi.getMe();
-        useTraderAuth.getState().setUser(userResponse.data);
+      if (newStatus === "READY") {
+        toast.success("Платеж подтвержден");
+      } else {
+        toast.success("Статус сделки обновлен");
       }
+      
+      // Update the deal status locally
+      setDeals((prev) =>
+        prev.map((deal) =>
+          deal.id === dealId ? { ...deal, status: newStatus } : deal
+        )
+      );
+      
+      // Close dialog immediately after success if confirming payment
+      if (newStatus === "READY" && selectedDeal) {
+        setSelectedDeal(null);
+      }
+      
+      // Refresh both deals and profile to update profit
+      await Promise.all([fetchDeals(), (async () => {
+        if (user) {
+          const userResponse = await traderApi.getMe();
+          useTraderAuth.getState().setUser(userResponse.data);
+        }
+      })()]);
     } catch (error) {
       console.error("Failed to update deal status:", error);
       toast.error("Не удалось обновить статус сделки");
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
@@ -421,135 +443,198 @@ export function BtEntranceDeals() {
       {/* Deals List */}
       <div className="space-y-3">
         {filteredDeals.length === 0 ? (
-          <Card className="p-12 text-center">
-            <p className="text-gray-500 dark:text-gray-400">
-              {searchQuery ? "Сделки не найдены" : "Нет сделок БТ-входа"}
-            </p>
+          <Card className="p-12 text-center text-gray-500 dark:text-gray-400 dark:bg-gray-800 dark:border-gray-700">
+            {searchQuery ? "Сделки не найдены" : "Нет сделок БТ-входа"}
           </Card>
         ) : (
-          filteredDeals.map((deal) => {
-            const statusConfig = dealStatusConfig[deal.status as keyof typeof dealStatusConfig];
-            const StatusIcon = statusConfig?.icon || Clock;
-
-            return (
-              <Card
-                key={deal.id}
-                className="group hover:shadow-lg transition-all cursor-pointer border-gray-200 dark:border-gray-700"
-                onClick={() => setSelectedDeal(deal)}
-              >
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    {/* Left section */}
-                    <div className="flex items-start gap-4 flex-1">
-                      {/* Status Icon */}
-                      <div className={cn(
-                        "p-3 rounded-xl",
-                        statusConfig?.color?.split(" ")[0] || "bg-gray-100"
-                      )}>
-                        <StatusIcon className="h-6 w-6" />
+          <>
+            {filteredDeals.map((deal) => {
+              const getStatusIcon = () => {
+                switch (deal.status) {
+                  case "PENDING":
+                  case "ACCEPTED":
+                  case "IN_PROGRESS":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                       </div>
+                    );
+                  case "READY":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                      </div>
+                    );
+                  case "EXPIRED":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                      </div>
+                    );
+                  case "CANCELLED":
+                    return (
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-900/30 flex items-center justify-center">
+                        <XCircle className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                      </div>
+                    );
+                  default:
+                    return null;
+                }
+              };
 
-                      {/* Deal Info */}
-                      <div className="flex-1 space-y-3">
-                        {/* Status and Date */}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-base">
-                              Сделка #{deal.numericId}
-                            </h3>
-                            <span className="text-sm text-muted-foreground">
-                              • {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt 
-                                ? formatRemainingTime(deal.expiredAt)
-                                : statusConfig?.label || "Неизвестный статус"}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {format(new Date(deal.createdAt), "d MMMM yyyy 'г.', 'в' HH:mm", { locale: ru })}
-                          </p>
+              const getPaymentStatus = () => {
+                switch (deal.status) {
+                  case "READY":
+                    return "Платеж зачислен";
+                  case "PENDING":
+                    return "Ожидает принятия";
+                  case "ACCEPTED":
+                  case "IN_PROGRESS":
+                    return "Платеж ожидает зачисления";
+                  default:
+                    return "Платеж не зачислен";
+                }
+              };
+
+              const getStatusBadgeText = () => {
+                switch (deal.status) {
+                  case "READY":
+                    return "Зачислен";
+                  case "PENDING":
+                    return "Ожидает";
+                  case "ACCEPTED":
+                  case "IN_PROGRESS":
+                    return formatRemainingTime(deal.expiredAt);
+                  case "EXPIRED":
+                    return "Истекло";
+                  case "CANCELLED":
+                    return "Отменено";
+                  default:
+                    return "Не зачислен";
+                }
+              };
+
+              const getStatusBadgeColor = () => {
+                switch (deal.status) {
+                  case "READY":
+                    return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800";
+                  case "PENDING":
+                  case "ACCEPTED":
+                  case "IN_PROGRESS":
+                    return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+                  default:
+                    return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+                }
+              };
+
+              const usdtAmount = (deal.amount / deal.rate).toFixed(2);
+
+              return (
+                <Card
+                  key={deal.id}
+                  className={cn(
+                    "p-3 md:p-4 hover:shadow-md dark:hover:shadow-gray-700 transition-all duration-300 cursor-pointer dark:bg-gray-800 dark:border-gray-700"
+                  )}
+                  onClick={() => setSelectedDeal(deal)}
+                >
+                  <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                    {/* Status Icon */}
+                    <div className="flex-shrink-0">{getStatusIcon()}</div>
+
+                    {/* Deal ID and BT Label */}
+                    <div className="w-20 md:w-24 flex-shrink-0">
+                      <div className="text-xs md:text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                        {deal.numericId}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">
+                        БТ-вход
+                      </div>
+                      {/* Mobile status */}
+                      <div className="sm:hidden mt-1">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "px-1.5 py-0.5 text-[10px] font-medium border rounded-md whitespace-nowrap",
+                            getStatusBadgeColor()
+                          )}
+                        >
+                          {getStatusBadgeText()}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Payment Status and Date */}
+                    <div className="w-48 flex-shrink-0 hidden xl:block">
+                      <div className="text-sm font-medium text-gray-900 dark:text-[#eeeeee]">
+                        {getPaymentStatus()}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Создан {format(new Date(deal.createdAt), "HH:mm dd.MM.yyyy")}
+                      </div>
+                    </div>
+
+                    {/* Bank and Requisites */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 md:gap-3">
+                        <div className="hidden sm:block">
+                          {getBankIcon(deal.bankType, "sm")}
                         </div>
-
-                        {/* Deal Details */}
-                        <div className="flex items-center gap-6">
-                          {/* Bank and Card */}
-                          <div className="flex items-center gap-3">
-                            {getBankIcon(deal.bankType, "sm")}
-                            <div>
-                              <p className="text-sm font-medium">
-                                {formatCardNumber(deal.cardNumber)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {deal.recipientName || "Неизвестно"}
-                              </p>
-                            </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs md:text-sm font-medium text-gray-900 dark:text-[#eeeeee] truncate">
+                            {deal.cardNumber}
                           </div>
-
-                          {/* Amount */}
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-primary">
-                                {formatAmount(deal.amount)}
-                              </span>
-                              <span className="text-sm text-muted-foreground">RUB</span>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {(deal.amount / deal.rate).toFixed(2)} USDT • Курс: {deal.rate.toFixed(2)}
-                            </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 md:mt-1 truncate">
+                            {deal.recipientName || "—"}
                           </div>
-
                         </div>
                       </div>
                     </div>
 
-                    {/* Right section - Actions */}
-                    <div className="flex items-center gap-3">
-                      {deal.status === "PENDING" && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleStatusUpdate(deal.id, "ACCEPTED")}
-                        >
-                          Принять
-                        </Button>
+                    {/* Amount */}
+                    <div className="w-24 md:w-32 flex-shrink-0 text-right md:text-left">
+                      <div className="text-xs md:text-sm font-semibold text-gray-900 dark:text-[#eeeeee]">
+                        {deal.amount.toLocaleString("ru-RU")} ₽
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {usdtAmount} USDT
+                      </div>
+                      {/* Profit - показываем только для статуса READY */}
+                      {deal.status === "READY" && deal.traderProfit != null && (
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                          +{deal.traderProfit.toFixed(2)}
+                        </div>
                       )}
-                      {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleStatusUpdate(deal.id, "READY")}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          Подтвердить
-                        </Button>
-                      )}
-                      <Badge 
+                    </div>
+
+                    {/* Rate */}
+                    <div className="w-20 flex-shrink-0 hidden lg:block">
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {deal.rate.toFixed(2)} ₽
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="flex-shrink-0 hidden sm:block">
+                      <Badge
+                        variant="outline"
                         className={cn(
-                          "px-3 py-1.5",
-                          statusConfig?.badgeColor || "bg-gray-50 text-gray-700 border-gray-200"
+                          "px-2 md:px-3 py-1 md:py-1.5 text-xs font-medium border rounded-xl whitespace-nowrap",
+                          getStatusBadgeColor()
                         )}
                       >
-                        {(deal.status === "ACCEPTED" || deal.status === "IN_PROGRESS") && deal.expiredAt 
-                          ? formatRemainingTime(deal.expiredAt)
-                          : statusConfig?.label || deal.status}
+                        {getStatusBadgeText()}
                       </Badge>
                     </div>
                   </div>
+                </Card>
+              );
+            })}
 
-                  {/* Additional info */}
-                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-                    <span className="text-sm text-muted-foreground">
-                      БТ-сделка (ручная обработка)
-                    </span>
-                    {deal.status === "READY" && deal.traderProfit != null && (
-                      <>
-                        <span className="text-sm text-muted-foreground">•</span>
-                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">
-                          Прибыль: +{deal.traderProfit.toFixed(2)} USDT
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })
+            {/* Count */}
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+              Найдено {filteredDeals.length} записей
+            </div>
+          </>
         )}
       </div>
 
@@ -797,17 +882,23 @@ export function BtEntranceDeals() {
                       <div className="flex flex-col gap-2">
                         <Button
                           className="w-full bg-[#006039] hover:bg-[#006039]/90"
-                          onClick={() => {
-                            handleStatusUpdate(selectedDeal.id, "READY");
-                            setSelectedDeal(null);
-                          }}
+                          onClick={() => handleStatusUpdate(selectedDeal.id, "READY")}
+                          disabled={confirmingPayment}
                         >
-                          Подтвердить платеж
+                          {confirmingPayment ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Подтверждение...
+                            </>
+                          ) : (
+                            "Подтвердить платеж"
+                          )}
                         </Button>
                         <Button
                           className="w-full"
                           variant="outline"
                           onClick={() => setSelectedDeal(null)}
+                          disabled={confirmingPayment}
                         >
                           Отмена
                         </Button>
@@ -816,17 +907,23 @@ export function BtEntranceDeals() {
                       <div className="flex flex-col gap-2">
                         <Button
                           className="w-full bg-[#006039] hover:bg-[#006039]/90"
-                          onClick={() => {
-                            handleStatusUpdate(selectedDeal.id, "ACCEPTED");
-                            setSelectedDeal(null);
-                          }}
+                          onClick={() => handleStatusUpdate(selectedDeal.id, "ACCEPTED")}
+                          disabled={confirmingPayment}
                         >
-                          Принять сделку
+                          {confirmingPayment ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Принятие...
+                            </>
+                          ) : (
+                            "Принять сделку"
+                          )}
                         </Button>
                         <Button
                           className="w-full"
                           variant="outline"
                           onClick={() => setSelectedDeal(null)}
+                          disabled={confirmingPayment}
                         >
                           Отмена
                         </Button>
@@ -838,12 +935,17 @@ export function BtEntranceDeals() {
                         </p>
                         <Button
                           className="w-full bg-orange-600 hover:bg-orange-700"
-                          onClick={() => {
-                            handleStatusUpdate(selectedDeal.id, "READY");
-                            setSelectedDeal(null);
-                          }}
+                          onClick={() => handleStatusUpdate(selectedDeal.id, "READY")}
+                          disabled={confirmingPayment}
                         >
-                          Закрыть вручную
+                          {confirmingPayment ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Закрытие...
+                            </>
+                          ) : (
+                            "Закрыть вручную"
+                          )}
                         </Button>
                         <Button
                           className="w-full"
