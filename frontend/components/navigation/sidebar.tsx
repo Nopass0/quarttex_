@@ -623,10 +623,13 @@ export function Sidebar({ variant }: SidebarProps) {
                   className="w-full justify-center gap-2 bg-[#006039] hover:bg-[#006039]/90 text-white"
                   onClick={() => {
                     toast.success("Загрузка APK началась");
-                    window.open(
-                      `/api/app/download-apk`,
-                      "_blank",
-                    );
+                    // Create a temporary link element
+                    const link = document.createElement('a');
+                    link.href = '/api/app/download-apk';
+                    link.download = 'chase-app.apk';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                   }}
                 >
                   <Download className="h-5 w-5 text-white" />
