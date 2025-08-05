@@ -296,8 +296,7 @@ export function TransactionsList({ filters }: TransactionsListProps) {
                   )}
                   <TableCell>{formatDate(transaction.createdAt)}</TableCell>
                   <TableCell>
-                    {(transaction.status === 'READY' || transaction.status === 'IN_PROGRESS') && 
-                     transaction.type === 'IN' && 
+                    {transaction.type === 'IN' && 
                      transaction.trader && (
                       <Button
                         variant="ghost"
