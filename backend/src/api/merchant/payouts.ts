@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { PayoutService } from "../../services/payout.service";
 import { payoutAccountingService } from "../../services/payout-accounting.service";
 import { db } from "../../db";
-import type { PayoutStatus, MerchantRequestType } from "@prisma/client";
+import { PayoutStatus, MerchantRequestType } from "@prisma/client";
 import { validateFileUrls } from "../../middleware/fileUploadValidation";
 import { MerchantRequestLogService } from "../../services/merchant-request-log.service";
 
@@ -11,30 +11,32 @@ const payoutService = PayoutService.getInstance();
 export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
   // Middleware to extract merchant from token
   .derive(async ({ request, set }) => {
-    const token = request.headers.get("x-api-key") || request.headers.get("authorization")?.replace("Bearer ", "");
-    
+    const token =
+      request.headers.get("x-api-key") ||
+      request.headers.get("authorization")?.replace("Bearer ", "");
+
     if (!token) {
       set.status = 401;
       return { error: "API key required" };
     }
-    
+
     const merchant = await db.merchant.findUnique({
       where: { token },
     });
-    
+
     if (!merchant) {
       set.status = 401;
       return { error: "Invalid API key" };
     }
-    
+
     if (merchant.disabled || merchant.banned) {
       set.status = 403;
       return { error: "Merchant is disabled" };
     }
-    
+
     return { merchant };
   })
-  
+
   // Create payout
   .post(
     "/",
@@ -47,14 +49,15 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       await MerchantRequestLogService.log(
         merchant.id,
         MerchantRequestType.PAYOUT_CREATE,
-        body
+        body,
       );
-      
+
       try {
         const payout = await payoutService.createPayout({
           merchantId: merchant.id,
           amount: body.amount,
           wallet: body.wallet,
+          methodId: body.methodId,
           bank: body.bank,
           isCard: body.isCard,
           merchantRate: body.merchantRate,
@@ -64,6 +67,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
           metadata: body.metadata,
         });
 
+        set.status = 200;
         return {
           success: true,
           payout: {
@@ -97,13 +101,18 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         externalReference: t.Optional(t.String()),
         processingTime: t.Optional(t.Number({ minimum: 5, maximum: 60 })),
         webhookUrl: t.Optional(t.String({ format: "uri" })),
-        metadata: t.Optional(t.Object({
-          isMock: t.Optional(t.Boolean()),
-        }, { additionalProperties: true })),
+        metadata: t.Optional(
+          t.Object(
+            {
+              isMock: t.Optional(t.Boolean()),
+            },
+            { additionalProperties: true },
+          ),
+        ),
       }),
-    }
+    },
   )
-  
+
   // Get payout by ID
   .get(
     "/:id",
@@ -111,7 +120,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       if ("error" in merchant) {
         return merchant;
       }
-      
+
       const payout = await payoutService.getPayoutById(params.id);
       if (!payout || payout.merchantId !== merchant.id) {
         set.status = 404;
@@ -148,9 +157,9 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       params: t.Object({
         id: t.String(),
       }),
-    }
+    },
   )
-  
+
   // Approve payout
   .post(
     "/:id/approve",
@@ -158,9 +167,13 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       if ("error" in merchant) {
         return merchant;
       }
-      
+
       try {
-        const payout = await payoutAccountingService.completePayoutWithAccounting(params.id, merchant.id);
+        const payout =
+          await payoutAccountingService.completePayoutWithAccounting(
+            params.id,
+            merchant.id,
+          );
         return {
           success: true,
           payout: {
@@ -178,9 +191,9 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       params: t.Object({
         id: t.String(),
       }),
-    }
+    },
   )
-  
+
   // Create dispute
   .post(
     "/:id/dispute",
@@ -188,7 +201,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       if ("error" in merchant) {
         return merchant;
       }
-      
+
       try {
         // Validate files if provided
         if (body.files && body.files.length > 0) {
@@ -198,12 +211,12 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
             return { error: validation.error };
           }
         }
-        
+
         const payout = await payoutService.createDispute(
           params.id,
           merchant.id,
           body.files || [],
-          body.message
+          body.message,
         );
         return {
           success: true,
@@ -226,22 +239,22 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         message: t.String({ minLength: 10 }),
         files: t.Optional(t.Array(t.String())),
       }),
-    }
+    },
   )
-  
-  // Cancel payout  
+
+  // Cancel payout
   .patch(
     "/:id/cancel",
     async ({ params, body, merchant, set }) => {
       if ("error" in merchant) {
         return merchant;
       }
-      
+
       try {
         const payout = await payoutService.cancelPayoutByMerchant(
           params.id,
           merchant.id,
-          body.reasonCode
+          body.reasonCode,
         );
         return {
           success: true,
@@ -265,9 +278,9 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       body: t.Object({
         reasonCode: t.String({ minLength: 3 }),
       }),
-    }
+    },
   )
-  
+
   // Update payout rate
   .patch(
     "/:id/rate",
@@ -275,13 +288,13 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       if ("error" in merchant) {
         return merchant;
       }
-      
+
       try {
         const payout = await payoutService.updatePayoutRate(
           params.id,
           merchant.id,
           body.merchantRate,
-          body.amount
+          body.amount,
         );
         return {
           success: true,
@@ -307,9 +320,9 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         merchantRate: t.Optional(t.Number({ minimum: 0 })),
         amount: t.Optional(t.Number({ minimum: 0 })),
       }),
-    }
+    },
   )
-  
+
   // List payouts
   .get(
     "/",
@@ -317,31 +330,38 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
       if ("error" in merchant) {
         return merchant;
       }
-      
-      const { status, direction, dateFrom, dateTo, page = 1, limit = 20 } = query;
-      
+
+      const {
+        status,
+        direction,
+        dateFrom,
+        dateTo,
+        page = 1,
+        limit = 20,
+      } = query;
+
       const filters: any = {};
-      
+
       if (status) {
         filters.status = status.split(",") as PayoutStatus[];
       }
-      
+
       if (direction) {
         filters.direction = direction;
       }
-      
+
       if (dateFrom || dateTo) {
         filters.dateFrom = dateFrom ? new Date(dateFrom) : undefined;
         filters.dateTo = dateTo ? new Date(dateTo) : undefined;
       }
-      
+
       const { payouts, total } = await payoutService.getMerchantPayouts(
         merchant.id,
         {
           ...filters,
           limit,
           offset: (page - 1) * limit,
-        }
+        },
       );
 
       return {
@@ -362,10 +382,12 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
           acceptedAt: p.acceptedAt,
           confirmedAt: p.confirmedAt,
           cancelledAt: p.cancelledAt,
-          trader: p.trader ? {
-            numericId: p.trader.numericId,
-            email: p.trader.email,
-          } : null,
+          trader: p.trader
+            ? {
+                numericId: p.trader.numericId,
+                email: p.trader.email,
+              }
+            : null,
         })),
         meta: {
           total,
@@ -384,5 +406,5 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
         page: t.Optional(t.Number({ minimum: 1 })),
         limit: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
       }),
-    }
+    },
   );
