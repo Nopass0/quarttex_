@@ -962,7 +962,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         webhookUrl: t.Optional(t.String()),
         metadata: t.Optional(t.Any()),
       }),
-    },
+    })
 
   // Manually send payout callback
   .post(
@@ -1012,5 +1012,7 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         })),
       };
     },
+
+
     { params: t.Object({ id: t.String() }) },
   );
