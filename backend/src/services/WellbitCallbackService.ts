@@ -57,7 +57,8 @@ export class WellbitCallbackService {
   static async sendWellbitCallback(
     transaction: Transaction & { merchant?: Merchant },
     status?: string,
-    secretKey?: string
+    secretKey?: string,
+    publicKey?: string
   ): Promise<void> {
     const callbackUrl = transaction.callbackUri;
     
@@ -66,14 +67,19 @@ export class WellbitCallbackService {
       return;
     }
 
-    // Получаем приватный ключ мерчанта, если не передан
-    if (!secretKey && transaction.merchantId) {
+    // Получаем ключи мерчанта, если не переданы
+    if ((!secretKey || !publicKey) && transaction.merchantId) {
       const merchant = transaction.merchant || await prisma.merchant.findUnique({
         where: { id: transaction.merchantId },
-        select: { apiKeyPrivate: true }
+        select: { apiKeyPrivate: true, apiKeyPublic: true }
       });
-      
-      secretKey = merchant?.apiKeyPrivate || undefined;
+
+      if (!secretKey) {
+        secretKey = merchant?.apiKeyPrivate || undefined;
+      }
+      if (!publicKey) {
+        publicKey = merchant?.apiKeyPublic || undefined;
+      }
     }
 
     const wellbitStatus = this.mapStatusToWellbit(status || transaction.status);
@@ -96,6 +102,11 @@ export class WellbitCallbackService {
         "Content-Type": "application/json",
         "User-Agent": "Chase/1.0"
       };
+
+      // Добавляем публичный ключ, если он есть
+      if (publicKey) {
+        headers["x-api-key"] = publicKey;
+      }
 
       // Добавляем HMAC подпись, если есть секретный ключ
       if (secretKey) {
