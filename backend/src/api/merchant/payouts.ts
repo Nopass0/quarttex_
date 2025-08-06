@@ -93,6 +93,7 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
     },
     {
       body: t.Object({
+        methodId: t.String(),
         amount: t.Number({ minimum: 100 }),
         wallet: t.String({ minLength: 10 }),
         bank: t.String({ minLength: 3 }),

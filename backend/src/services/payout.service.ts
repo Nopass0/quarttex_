@@ -73,7 +73,11 @@ export class PayoutService {
       throw new Error("Merchant not found");
     }
 
-    const method = await db.method.findUnique({
+    if (!methodId) {
+      throw new Error("Method ID is required");
+    }
+
+    const method = await db.method.findFirst({
       where: { id: methodId, merchantMethods: { some: { merchantId } } },
     });
 
