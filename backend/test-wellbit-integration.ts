@@ -25,7 +25,8 @@ async function testWellbitIntegration() {
           apiKeyPublic,
           apiKeyPrivate,
           disabled: false,
-          wellbitCallbackUrl: "https://wellbit.pro/api/payment/callback"
+          wellbitCallbackUrl:
+            "https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24"
         }
       });
       
@@ -118,7 +119,8 @@ async function testWellbitIntegration() {
       methodId: methods[0].id,
       rate: testPaymentData.payment_course,
       expired_at: new Date(Date.now() + testPaymentData.payment_lifetime * 1000).toISOString(),
-      callbackUri: "https://wellbit.pro/api/payment/callback"
+      callbackUri:
+        "https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24"
     };
 
     console.log("\nRequest to Chase API:");

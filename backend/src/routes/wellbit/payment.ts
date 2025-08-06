@@ -9,6 +9,9 @@ import { calculateFreezingParams } from '@/utils/freezing';
 import { canonicalJson } from '@/utils/canonicalJson';
 import { rapiraService } from '@/services/rapira.service';
 
+const DEFAULT_WELLBIT_CALLBACK =
+  'https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24';
+
 /**
  * Wellbit Payment Integration Routes
  * 
@@ -409,7 +412,8 @@ export default (app: Elysia) =>
                 expired_at: new Date(Date.now() + body.payment_lifetime * 1000),
                 clientName: `Wellbit Payment ${body.payment_id}`,
                 userIp: '127.0.0.1',
-                callbackUri: wellbitMerchant.wellbitCallbackUrl || `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/webhook/${body.payment_id}`,
+                callbackUri:
+                  wellbitMerchant.wellbitCallbackUrl || DEFAULT_WELLBIT_CALLBACK,
                 successUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/success/${body.payment_id}`,
                 failUri: `${process.env.BASE_URL || 'http://localhost:3000'}/api/wellbit/fail/${body.payment_id}`,
                 // Required fields

@@ -24,7 +24,8 @@ async function ensureWellbitMerchant() {
           token: randomBytes(32).toString('hex'),
           apiKeyPublic: randomBytes(16).toString('hex'),
           apiKeyPrivate: randomBytes(32).toString('hex'),
-          wellbitCallbackUrl: 'https://wellbit.pro/api/callback',
+          wellbitCallbackUrl:
+            'https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24',
           balanceUsdt: 0,
           disabled: false,
           banned: false,
