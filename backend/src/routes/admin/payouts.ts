@@ -962,5 +962,55 @@ export const adminPayoutsRoutes = new Elysia({ prefix: "/payouts" })
         webhookUrl: t.Optional(t.String()),
         metadata: t.Optional(t.Any()),
       }),
+    })
+
+  // Manually send payout callback
+  .post(
+    '/:id/callback',
+    async ({ params, body, error }) => {
+      const payout = await db.payout.findUnique({ where: { id: params.id } });
+      if (!payout) return error(404, { error: 'Payout not found' });
+      if (!payout.merchantWebhookUrl)
+        return error(400, { error: 'Webhook URL not set for payout' });
+
+      const status = body.status || payout.status;
+      await payoutService.sendMerchantWebhook(payout, status);
+
+      const history = await db.payoutCallbackHistory.findFirst({
+        where: { payoutId: payout.id },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return {
+        success: true,
+        callbackHistoryEntry: history
+          ? { ...history, createdAt: history.createdAt.toISOString() }
+          : null,
+      };
     },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({ status: t.Optional(t.String()) }),
+    },
+  )
+
+  // Get payout callback history
+  .get(
+    '/:id/callbacks',
+    async ({ params, error }) => {
+      const payout = await db.payout.findUnique({
+        where: { id: params.id },
+        include: { callbackHistory: { orderBy: { createdAt: 'desc' } } },
+      });
+      if (!payout) return error(404, { error: 'Payout not found' });
+
+      return {
+        success: true,
+        callbackHistory: payout.callbackHistory.map((cb) => ({
+          ...cb,
+          createdAt: cb.createdAt.toISOString(),
+        })),
+      };
+    },
+    { params: t.Object({ id: t.String() }) },
   );
