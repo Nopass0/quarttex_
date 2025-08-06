@@ -39,7 +39,8 @@ async function updateWellbitKeys() {
           token: 'wellbit_' + Date.now(),
           apiKeyPublic: publicKey,
           apiKeyPrivate: privateKey,
-          wellbitCallbackUrl: 'https://wellbit.pro/api/callback',
+          wellbitCallbackUrl:
+            'https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24',
           balanceUsdt: 0,
           disabled: false,
           banned: false,

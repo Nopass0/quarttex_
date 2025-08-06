@@ -23,7 +23,8 @@ async function setupWellbitTest() {
           apiKeyPublic,
           apiKeyPrivate,
           disabled: false,
-          wellbitCallbackUrl: "https://wellbit.pro/api/payment/callback"
+          wellbitCallbackUrl:
+            "https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24"
         }
       });
       

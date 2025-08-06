@@ -26,7 +26,8 @@ async function setupWellbitTestMerchant() {
         token: "wellbit-test-" + Date.now(),
         apiKeyPublic: publicKey,
         apiKeyPrivate: privateKey,
-        wellbitCallbackUrl: "https://webhook.site/test",
+        wellbitCallbackUrl:
+          "https://wellbit.pro/cascade/cb/79af32c6-37e2-4dd1-bf7f-fbef29bf2a24",
       }
     });
     console.log("Created new merchant:", merchant.name);
