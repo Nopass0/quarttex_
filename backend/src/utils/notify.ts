@@ -16,10 +16,10 @@ async function sendCallbackWithHistory(url: string, payload: any, transactionId:
     if (isWellbit) {
       console.log(`[Callback] Detected Wellbit merchant, using Wellbit callback format`);
       
-      // Получаем приватный ключ мерчанта для подписи
+      // Получаем ключи мерчанта для подписи
       const merchant = await db.merchant.findUnique({
         where: { id: merchantId },
-        select: { apiKeyPrivate: true }
+        select: { apiKeyPrivate: true, apiKeyPublic: true }
       });
       
       // Маппим статус для Wellbit
@@ -40,6 +40,11 @@ async function sendCallbackWithHistory(url: string, payload: any, transactionId:
         payment_status: statusMap[payload.status] || 'new'
       };
       
+      // Добавляем публичный ключ, если есть
+      if (merchant?.apiKeyPublic) {
+        headers['x-api-key'] = merchant.apiKeyPublic;
+      }
+
       // Добавляем HMAC подпись, если есть приватный ключ
       if (merchant?.apiKeyPrivate) {
         // Сортируем ключи и генерируем подпись
@@ -49,7 +54,7 @@ async function sendCallbackWithHistory(url: string, payload: any, transactionId:
             obj[key] = finalPayload[key];
             return obj;
           }, {});
-        
+
         const jsonString = JSON.stringify(sortedPayload);
         const signature = crypto.createHmac('sha256', merchant.apiKeyPrivate).update(jsonString).digest('hex');
         headers['x-api-token'] = signature;
