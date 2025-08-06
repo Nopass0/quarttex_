@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { BankType, PayoutStatus, Status, TransactionType } from '@prisma/client';
+import { BankType, PayoutStatus, Status, TransactionType, MethodType } from '@prisma/client';
 import { wellbitGuard } from '@/middleware/wellbitGuard';
 import { db } from '@/db';
 import { mapToWellbitStatus, mapFromWellbitStatusToTransaction } from '@/utils/wellbit-status-mapper';
