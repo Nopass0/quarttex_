@@ -1347,30 +1347,36 @@ export class PayoutService {
   async sendMerchantWebhook(payout: Payout, event: string) {
     if (!payout.merchantWebhookUrl) return;
 
+    let responseText: string | null = null;
+    let statusCode: number | null = null;
+    let errorMessage: string | null = null;
+
+    const payload = {
+      event,
+      payout: {
+        id: payout.id,
+        numericId: payout.numericId,
+        status: event,
+        amount: payout.amount,
+        amountUsdt: payout.amountUsdt,
+        wallet: payout.wallet,
+        bank: payout.bank,
+        externalReference: payout.externalReference,
+        proofFiles: payout.proofFiles,
+        disputeFiles: payout.disputeFiles,
+        disputeMessage: payout.disputeMessage,
+        cancelReason: payout.cancelReason,
+        cancelReasonCode: payout.cancelReasonCode,
+        metadata: payout.merchantMetadata,
+      },
+    };
+
     try {
       const merchant = await db.merchant.findUnique({
         where: { id: payout.merchantId },
       });
-      const body = JSON.stringify({
-        event,
-        payout: {
-          id: payout.id,
-          numericId: payout.numericId,
-          status: payout.status,
-          amount: payout.amount,
-          amountUsdt: payout.amountUsdt,
-          wallet: payout.wallet,
-          bank: payout.bank,
-          externalReference: payout.externalReference,
-          proofFiles: payout.proofFiles,
-          disputeFiles: payout.disputeFiles,
-          disputeMessage: payout.disputeMessage,
-          cancelReason: payout.cancelReason,
-          cancelReasonCode: payout.cancelReasonCode,
-          metadata: payout.merchantMetadata,
-        },
-      });
 
+      const body = JSON.stringify(payload);
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
@@ -1389,13 +1395,31 @@ export class PayoutService {
         body,
       });
 
+      statusCode = response.status;
+      responseText = await response.text();
+
       if (!response.ok) {
-        console.error(
-          `Webhook failed: ${response.status} ${response.statusText}`,
-        );
+        errorMessage = `Webhook failed: ${response.status} ${response.statusText}`;
+        console.error(`[Webhook] ${errorMessage}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      errorMessage = error.message;
       console.error("Failed to send webhook:", error);
+    }
+
+    try {
+      await db.payoutCallbackHistory.create({
+        data: {
+          payoutId: payout.id,
+          url: payout.merchantWebhookUrl,
+          payload,
+          response: responseText,
+          statusCode,
+          error: errorMessage ?? undefined,
+        },
+      });
+    } catch (dbError) {
+      console.error(`[Webhook] Error saving callback history:`, dbError);
     }
   }
 }

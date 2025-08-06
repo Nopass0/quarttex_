@@ -774,6 +774,14 @@ export const adminApi = {
     const response = await adminApiInstance.get('/admin/payouts', { params })
     return response.data
   },
+  sendPayoutCallback: async (payoutId: string, data?: { status?: string }) => {
+    const response = await adminApiInstance.post(`/admin/payouts/${payoutId}/callback`, data)
+    return response.data
+  },
+  getPayoutCallbackHistory: async (payoutId: string) => {
+    const response = await adminApiInstance.get(`/admin/payouts/${payoutId}/callbacks`)
+    return response.data
+  },
   approvePayout: async (payoutId: string) => {
     const response = await adminApiInstance.post(`/admin/payouts/${payoutId}/approve`)
     return response.data
