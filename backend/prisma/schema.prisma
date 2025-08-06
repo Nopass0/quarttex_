@@ -255,6 +255,21 @@ model CallbackHistory {
   @@index([createdAt(sort: Desc)])
 }
 
+model PayoutCallbackHistory {
+  id         String   @id @default(cuid())
+  payoutId   String
+  url        String
+  payload    Json
+  response   String?
+  statusCode Int?
+  error      String?
+  createdAt  DateTime @default(now())
+  payout     Payout   @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+
+  @@index([payoutId])
+  @@index([createdAt(sort: Desc)])
+}
+
 model Receipt {
   id            String      @id @default(cuid())
   transactionId String
@@ -710,6 +725,7 @@ model Payout {
   disputes             WithdrawalDispute[]
   blacklistEntries     PayoutBlacklist[]
   cancellationHistory  PayoutCancellationHistory[]
+  callbackHistory      PayoutCallbackHistory[]
 
   @@index([status, traderId])
   @@index([merchantId, status])

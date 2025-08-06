@@ -15,10 +15,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { toast } from 'sonner'
 import { adminApi as api } from '@/services/api'
 import { formatAmount, formatDate } from '@/lib/utils'
-import { 
-  DollarSign, 
-  Search, 
-  Loader2, 
+import {
+  DollarSign,
+  Search,
+  Loader2,
   Download,
   Eye,
   Settings,
@@ -29,7 +29,9 @@ import {
   Clock,
   FileText,
   Check,
-  X
+  X,
+  Send,
+  RefreshCw
 } from 'lucide-react'
 
 interface Payout {
@@ -58,6 +60,7 @@ interface Payout {
   cancelReason?: string
   disputeMessage?: string
   proofFiles?: string[]
+  merchantWebhookUrl?: string
   cancellationHistory?: Array<{
     id: string
     reason: string
@@ -77,6 +80,16 @@ interface Payout {
     numericId: number
     email: string
   }
+}
+
+interface CallbackHistory {
+  id: string
+  url: string
+  payload: any
+  response?: string | null
+  statusCode?: number | null
+  error?: string | null
+  createdAt: string
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -107,6 +120,8 @@ export default function AdminPayoutsPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [testPayoutDialog, setTestPayoutDialog] = useState(false)
   const [testPayoutLoading, setTestPayoutLoading] = useState(false)
+  const [callbackHistory, setCallbackHistory] = useState<CallbackHistory[]>([])
+  const [loadingCallbacks, setLoadingCallbacks] = useState(false)
 
   useEffect(() => {
     loadPayouts()
@@ -241,11 +256,47 @@ export default function AdminPayoutsPage() {
     }
   }
 
+  const loadCallbackHistory = async (payoutId: string) => {
+    setLoadingCallbacks(true)
+    try {
+      const data = await api.getPayoutCallbackHistory(payoutId)
+      setCallbackHistory(data.callbackHistory || [])
+    } catch (error) {
+      toast.error('Ошибка загрузки истории колбэков')
+    } finally {
+      setLoadingCallbacks(false)
+    }
+  }
+
+  const sendCallback = async (payout: Payout) => {
+    try {
+      const result = await api.sendPayoutCallback(payout.id)
+      if (result.success) {
+        toast.success('Колбэк отправлен')
+        loadCallbackHistory(payout.id)
+      } else {
+        toast.error('Ошибка отправки колбэка')
+      }
+    } catch (error) {
+      toast.error('Ошибка отправки колбэка')
+    }
+  }
+
+  const openPayoutDetails = (payout: Payout) => {
+    setSelectedPayout(payout)
+    loadCallbackHistory(payout.id)
+  }
+
   const PayoutDetailsDialog = () => {
     if (!selectedPayout) return null
 
     return (
-      <Dialog open={!!selectedPayout} onOpenChange={() => setSelectedPayout(null)}>
+      <Dialog open={!!selectedPayout} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedPayout(null)
+          setCallbackHistory([])
+        }
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Детали выплаты ${selectedPayout.numericId}</DialogTitle>
@@ -370,6 +421,86 @@ export default function AdminPayoutsPage() {
                 </div>
               </div>
             )}
+
+            <div className="space-y-3">
+              <Label className="text-gray-600">Webhook URL</Label>
+              <div className="bg-gray-50 p-3 rounded-md">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 text-xs break-all">{selectedPayout.merchantWebhookUrl || 'Не указан'}</div>
+                  {selectedPayout.merchantWebhookUrl && (
+                    <Button variant="outline" size="sm" onClick={() => sendCallback(selectedPayout)}>
+                      <Send className="h-3 w-3 mr-1" /> Отправить
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-gray-600">История колбэков</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadCallbackHistory(selectedPayout.id)}
+                  disabled={loadingCallbacks}
+                >
+                  {loadingCallbacks ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                  )}
+                  Обновить
+                </Button>
+              </div>
+
+              {loadingCallbacks ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : callbackHistory.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {callbackHistory.map((callback) => (
+                    <div key={callback.id} className="bg-gray-50 p-3 rounded-md border">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">
+                            {formatDate(callback.createdAt)}
+                          </div>
+                          <div className="text-xs text-gray-600 break-all">{callback.url}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {callback.statusCode ? (
+                            <Badge
+                              className={
+                                callback.statusCode >= 200 && callback.statusCode < 300
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }
+                            >
+                              {callback.statusCode}
+                            </Badge>
+                          ) : null}
+                          {callback.error && (
+                            <Badge className="bg-red-100 text-red-800">Ошибка</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        <pre className="whitespace-pre-wrap break-all">
+                          {JSON.stringify(callback.payload, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {callback.response || (callback.error ? callback.error : 'Нет ответа')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">История пуста</p>
+              )}
+            </div>
 
             {selectedPayout.cancellationHistory && selectedPayout.cancellationHistory.length > 0 && (
               <div>
@@ -555,7 +686,7 @@ export default function AdminPayoutsPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setSelectedPayout(payout)}
+                    onClick={() => openPayoutDetails(payout)}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
