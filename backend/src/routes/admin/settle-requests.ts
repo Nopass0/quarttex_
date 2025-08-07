@@ -138,10 +138,14 @@ export const settleRequestsRoutes = new Elysia({ prefix: "/settle-requests" })
         ])
 
         // Get methods to calculate commissions
-        const methodIds = [...new Set([
-          ...transactions.map(t => t.methodId),
-          ...payouts.map(p => p.methodId)
-        ])];
+        const methodIds = [
+          ...new Set(
+            [
+              ...transactions.map((t) => t.methodId),
+              ...payouts.map((p) => p.methodId),
+            ].filter((id): id is string => Boolean(id))
+          ),
+        ];
 
         const methods = await db.method.findMany({
           where: { id: { in: methodIds } },

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -23,8 +23,11 @@ import {
   History,
   Users
 } from "lucide-react"
+
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
+import { merchantApi } from "@/services/api"
+
 import { useTheme } from "next-themes"
 
 const baseSidebarItems = [
@@ -67,7 +70,26 @@ export default function MerchantLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { logout, merchantName, role, rights } = useMerchantAuth()
+
+  const { logout, merchantName, role, rights, token, sessionToken, setAuth } = useMerchantAuth()
+  useEffect(() => {
+    if (!role && token && sessionToken) {
+      merchantApi
+        .getMe()
+        .then((res) =>
+          setAuth(
+            token,
+            sessionToken,
+            res.merchant.id,
+            res.merchant.name,
+            res.role as 'owner' | 'staff',
+            res.rights,
+          ),
+        )
+        .catch((e) => console.error('Failed to refresh merchant info', e))
+    }
+  }, [role, token, sessionToken, setAuth])
+
   const sidebarItems = baseSidebarItems.filter(item => {
     if (item.href === '/merchant/api-docs' && rights?.can_view_docs === false) return false
     if (item.href === '/merchant/settle-history' && rights?.can_settle === false) return false
