@@ -12,11 +12,11 @@ import { Elysia, t } from "elysia";
 import { db } from "@/db";
 import { PayoutStatus } from "@prisma/client";
 import ErrorSchema from "@/types/error";
-import { merchantSessionGuard } from "@/middleware/merchantSessionGuard";
+import { merchantGuard } from "@/middleware/merchantGuard";
 
 export default (app: Elysia) =>
   app
-    .use(merchantSessionGuard())
+    .use(merchantGuard())
     
     /* ──────── GET /merchant/payouts ──────── */
     .get(
