@@ -462,6 +462,7 @@ export default (app: Elysia) =>
           ...toISO(merchant),
           apiKeyPublic: merchant.apiKeyPublic,
           apiKeyPrivate: merchant.apiKeyPrivate,
+          countInRubEquivalent: merchant.countInRubEquivalent,
           balanceRub: Math.round(balanceRub * 100) / 100,
           merchantMethods: merchant.merchantMethods.map(mm => ({
             id: mm.id,
@@ -490,6 +491,7 @@ export default (app: Elysia) =>
             apiKeyPrivate: t.Nullable(t.String()),
             disabled: t.Boolean(),
             banned: t.Boolean(),
+            countInRubEquivalent: t.Boolean(),
             balanceUsdt: t.Number(),
             balanceRub: t.Number(),
             createdAt: t.String(),
@@ -1066,6 +1068,7 @@ export default (app: Elysia) =>
               status: PayoutStatus.COMPLETED,
               ...dateFilter
             },
+            include: { method: { select: { commissionPayout: true } } },
           })
         ])
 
@@ -1080,6 +1083,10 @@ export default (app: Elysia) =>
         let totalSuccessfulDealsUsdt = 0
         let platformCommissionDeals = 0
         let netBalanceUsdt = 0  // Track net balance separately to match merchant dashboard
+
+        let totalDealsRub = 0
+        let platformCommissionDealsRub = 0
+        let netBalanceRub = 0
         
         for (const tx of successfulTransactions) {
           // If merchantRate is null, calculate effective rate using formula
@@ -1091,16 +1098,23 @@ export default (app: Elysia) =>
             effectiveRate = tx.rate / (1 + (kkkPercent / 100))
           }
           
-          if (effectiveRate && effectiveRate > 0) {
+          const commissionRub = tx.amount * (tx.method.commissionPayin / 100)
+          const netRub = tx.amount - commissionRub
+
+          totalDealsRub += tx.amount
+          platformCommissionDealsRub += commissionRub
+          netBalanceRub += netRub
+
+          if (!merchant.countInRubEquivalent && effectiveRate && effectiveRate > 0) {
             const dealUsdt = tx.amount / effectiveRate
             const commissionUsdt = dealUsdt * (tx.method.commissionPayin / 100)
             const netUsdt = dealUsdt - commissionUsdt
-            
+
             // Truncate to 2 decimal places for each transaction separately (same as merchant dashboard)
             const truncatedDealUsdt = Math.floor(dealUsdt * 100) / 100
             const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100
             const truncatedNetUsdt = Math.floor(netUsdt * 100) / 100
-            
+
             totalSuccessfulDealsUsdt += truncatedDealUsdt
             platformCommissionDeals += truncatedCommissionUsdt
             netBalanceUsdt += truncatedNetUsdt
@@ -1109,22 +1123,36 @@ export default (app: Elysia) =>
 
         let totalPayoutsUsdt = 0
         let platformCommissionPayouts = 0
+
+        let totalPayoutsRub = 0
+        let platformCommissionPayoutsRub = 0
         
         for (const payout of successfulPayouts) {
-          const payoutUsdt = payout.amountUsdt || 0
-          const commissionUsdt = payoutUsdt * (payout.feePercent / 100)
-          
-          // Truncate payouts too
-          const truncatedPayoutUsdt = Math.floor(payoutUsdt * 100) / 100
-          const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100
-          
-          totalPayoutsUsdt += truncatedPayoutUsdt
-          platformCommissionPayouts += truncatedCommissionUsdt
-          netBalanceUsdt -= (truncatedPayoutUsdt + truncatedCommissionUsdt)
+          const commissionPercent = payout.feePercent > 0 ? payout.feePercent : payout.method?.commissionPayout ?? 0
+          const commissionRub = payout.amount * (commissionPercent / 100)
+          const totalRub = payout.amount + commissionRub
+
+          totalPayoutsRub += payout.amount
+          platformCommissionPayoutsRub += commissionRub
+          netBalanceRub -= totalRub
+
+          if (!merchant.countInRubEquivalent) {
+            const payoutUsdt = payout.amountUsdt || 0
+            const commissionUsdt = payoutUsdt * (commissionPercent / 100)
+
+            // Truncate payouts too
+            const truncatedPayoutUsdt = Math.floor(payoutUsdt * 100) / 100
+            const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100
+
+            totalPayoutsUsdt += truncatedPayoutUsdt
+            platformCommissionPayouts += truncatedCommissionUsdt
+            netBalanceUsdt -= (truncatedPayoutUsdt + truncatedCommissionUsdt)
+          }
         }
 
-        // Use netBalanceUsdt which matches merchant dashboard calculation
-        const currentBalance = netBalanceUsdt
+        // Use net balances which match merchant dashboard calculation
+        const currentBalance = merchant.countInRubEquivalent ? 0 : netBalanceUsdt
+        const currentBalanceRub = Math.floor(netBalanceRub * 100) / 100
 
         // Get rate settings for transaction methods
         const txMethodIds = [...new Set(transactions.map(tx => tx.method?.id).filter(Boolean))];
@@ -1177,12 +1205,17 @@ export default (app: Elysia) =>
             }
           }),
           balanceFormula: {
-            totalSuccessfulDealsUsdt,
-            platformCommissionDeals,
-            totalPayoutsUsdt,
-            platformCommissionPayouts,
-            currentBalance,
-            currentBalanceRub: currentBalance * 95, // Using default rate for display
+            totalSuccessfulDealsUsdt: merchant.countInRubEquivalent ? undefined : totalSuccessfulDealsUsdt,
+            platformCommissionDeals: merchant.countInRubEquivalent ? undefined : platformCommissionDeals,
+            totalPayoutsUsdt: merchant.countInRubEquivalent ? undefined : totalPayoutsUsdt,
+            platformCommissionPayouts: merchant.countInRubEquivalent ? undefined : platformCommissionPayouts,
+            currentBalance: merchant.countInRubEquivalent ? undefined : currentBalance,
+            totalSuccessfulDealsRub: totalDealsRub,
+            platformCommissionDealsRub: platformCommissionDealsRub,
+            totalPayoutsRub: totalPayoutsRub,
+            platformCommissionPayoutsRub: platformCommissionPayoutsRub,
+            currentBalanceRub,
+            currency: merchant.countInRubEquivalent ? 'RUB' : 'USDT',
           },
           pagination: {
             page,
@@ -1239,12 +1272,17 @@ export default (app: Elysia) =>
               updatedAt: t.String(),
             })),
             balanceFormula: t.Object({
-              totalSuccessfulDealsUsdt: t.Number(),
-              platformCommissionDeals: t.Number(),
-              totalPayoutsUsdt: t.Number(),
-              platformCommissionPayouts: t.Number(),
-              currentBalance: t.Number(),
+              totalSuccessfulDealsUsdt: t.Optional(t.Number()),
+              platformCommissionDeals: t.Optional(t.Number()),
+              totalPayoutsUsdt: t.Optional(t.Number()),
+              platformCommissionPayouts: t.Optional(t.Number()),
+              currentBalance: t.Optional(t.Number()),
+              totalSuccessfulDealsRub: t.Number(),
+              platformCommissionDealsRub: t.Number(),
+              totalPayoutsRub: t.Number(),
+              platformCommissionPayoutsRub: t.Number(),
               currentBalanceRub: t.Number(),
+              currency: t.String(),
             }),
             pagination: t.Object({
               page: t.Number(),

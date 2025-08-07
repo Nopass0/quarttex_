@@ -443,6 +443,7 @@ export default (app: Elysia) =>
             methodId: true,
             merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
             rate: true, // Нужен для расчета эффективного курса если merchantRate null
+            feePercent: true, // Комиссия на вывод для расчета баланса
           },
         });
 
@@ -531,7 +532,9 @@ export default (app: Elysia) =>
         // Обрабатываем завершенные выплаты (исходящие платежи)
         for (const payout of completedPayoutsForBalance) {
           const method = methodCommissionsMap.get(payout.methodId);
+
           const commissionPercent = method?.commissionPayout ?? 0;
+
           const commissionAmount = payout.amount * (commissionPercent / 100);
           const totalAmount = payout.amount + commissionAmount;
 
