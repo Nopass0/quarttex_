@@ -1,12 +1,16 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
+
+
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
+
   LayoutDashboard,
   Receipt,
   AlertCircle,
@@ -23,11 +27,9 @@ import {
   History,
   Users
 } from "lucide-react"
-
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
 import { merchantApi } from "@/services/api"
-
 import { useTheme } from "next-themes"
 
 const baseSidebarItems = [
@@ -63,6 +65,7 @@ const baseSidebarItems = [
   },
 ]
 
+
 export default function MerchantLayout({
   children,
 }: {
@@ -89,7 +92,6 @@ export default function MerchantLayout({
         .catch((e) => console.error('Failed to refresh merchant info', e))
     }
   }, [role, token, sessionToken, setAuth])
-
   const sidebarItems = baseSidebarItems.filter(item => {
     if (item.href === '/merchant/api-docs' && rights?.can_view_docs === false) return false
     if (item.href === '/merchant/settle-history' && rights?.can_settle === false) return false
@@ -102,6 +104,7 @@ export default function MerchantLayout({
       icon: Users,
     })
   }
+
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { theme, setTheme } = useTheme()
   
