@@ -532,10 +532,9 @@ export default (app: Elysia) =>
         // Обрабатываем завершенные выплаты (исходящие платежи)
         for (const payout of completedPayoutsForBalance) {
           const method = methodCommissionsMap.get(payout.methodId);
-          const commissionPercent =
-            payout.feePercent > 0
-              ? payout.feePercent
-              : method?.commissionPayout ?? 0;
+
+          const commissionPercent = method?.commissionPayout ?? 0;
+
           const commissionAmount = payout.amount * (commissionPercent / 100);
           const totalAmount = payout.amount + commissionAmount;
 
