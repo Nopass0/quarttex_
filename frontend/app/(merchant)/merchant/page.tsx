@@ -55,6 +55,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useMerchantAuth } from "@/stores/merchant-auth";
 
 // Функция для обрезания числа до N знаков после запятой без округления
 function truncateDecimals(value: number, decimals: number): string {
@@ -70,6 +71,7 @@ export default function MerchantDashboardPage() {
   const [settleLoading, setSettleLoading] = useState(false);
   const [merchantProfile, setMerchantProfile] = useState<any>(null);
   const { baseRate: currentRate, refetch: refetchRate } = useRapiraRate();
+  const { rights } = useMerchantAuth();
 
   useEffect(() => {
     fetchStatistics(selectedPeriod);
@@ -166,14 +168,16 @@ export default function MerchantDashboardPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Панель управления</h1>
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            className="flex items-center gap-2"
-            onClick={handleOpenSettleDialog}
-          >
-            <Wallet className="h-4 w-4" />
-            Запросить Settle
-          </Button>
+          {rights?.can_settle !== false && (
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={handleOpenSettleDialog}
+            >
+              <Wallet className="h-4 w-4" />
+              Запросить Settle
+            </Button>
+          )}
 
           <Dialog open={settleDialogOpen} onOpenChange={setSettleDialogOpen}>
             <DialogContent>
