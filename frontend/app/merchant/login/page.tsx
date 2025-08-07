@@ -53,7 +53,7 @@ export default function MerchantLoginPage() {
       
       try {
         const data = JSON.parse(responseText)
-        setAuth(apiToken, data.sessionToken, data.merchant.id, data.merchant.name)
+        setAuth(apiToken, data.sessionToken, data.merchant.id, data.merchant.name, data.role, data.rights)
         toast.success("Вход выполнен успешно")
         router.push("/merchant")
       } catch (e) {

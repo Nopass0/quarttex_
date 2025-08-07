@@ -13,13 +13,44 @@ export default (app: Elysia) =>
     .post(
       "/login",
       async ({ body, error, set }) => {
-        // Поиск мерчанта по токену
-        const merchant = await db.merchant.findUnique({
-          where: { token: body.token },
+        // Проверяем токен сотрудника
+        const staff = await db.merchantStaff.findFirst({
+          where: { token: body.token, isActive: true },
         });
 
-        if (!merchant) {
-          return error(401, { error: "Неверный токен" });
+        let merchant;
+        let role: "owner" | "staff" = "owner";
+        let staffId: string | null = null;
+        let rights = {
+          can_settle: true,
+          can_view_docs: true,
+          can_view_token: true,
+          can_manage_disputes: true,
+        };
+
+        if (staff) {
+          merchant = await db.merchant.findUnique({
+            where: { id: staff.merchantId },
+          });
+          if (!merchant) {
+            return error(401, { error: "Неверный токен" });
+          }
+          role = staff.role;
+          staffId = staff.id;
+          rights = {
+            can_settle: false,
+            can_view_docs: false,
+            can_view_token: false,
+            can_manage_disputes: true,
+          };
+        } else {
+          merchant = await db.merchant.findUnique({
+            where: { token: body.token },
+          });
+
+          if (!merchant) {
+            return error(401, { error: "Неверный токен" });
+          }
         }
 
         // Проверка статуса мерчанта
@@ -35,13 +66,21 @@ export default (app: Elysia) =>
         const sessionToken = crypto.randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 часа
 
-        // Сохраняем сессию в базе данных (используем модель SystemConfig для простоты)
+        // Сохраняем сессию в базе данных
+        const sessionData = {
+          merchantId: merchant.id,
+          staffId,
+          role,
+          rights,
+          expiresAt,
+        };
+
         await db.systemConfig.upsert({
           where: { key: `merchant_session_${sessionToken}` },
-          update: { value: JSON.stringify({ merchantId: merchant.id, expiresAt }) },
-          create: { 
-            key: `merchant_session_${sessionToken}`, 
-            value: JSON.stringify({ merchantId: merchant.id, expiresAt }) 
+          update: { value: JSON.stringify(sessionData) },
+          create: {
+            key: `merchant_session_${sessionToken}`,
+            value: JSON.stringify(sessionData),
           },
         });
 
@@ -64,6 +103,8 @@ export default (app: Elysia) =>
           success: true,
           sessionToken,
           expiresAt: expiresAt.toISOString(),
+          role,
+          rights,
           merchant: {
             id: merchant.id,
             name: merchant.name,
@@ -72,8 +113,8 @@ export default (app: Elysia) =>
             statistics: {
               totalTransactions,
               successfulTransactions,
-              successRate: totalTransactions > 0 
-                ? Math.round((successfulTransactions / totalTransactions) * 100) 
+              successRate: totalTransactions > 0
+                ? Math.round((successfulTransactions / totalTransactions) * 100)
                 : 0,
               totalVolume: totalVolume._sum.amount || 0,
             },
@@ -91,6 +132,8 @@ export default (app: Elysia) =>
             success: t.Boolean(),
             sessionToken: t.String({ description: "Сессионный токен для авторизации" }),
             expiresAt: t.String({ description: "Время истечения сессии" }),
+            role: t.String(),
+            rights: t.Record(t.String(), t.Boolean()),
             merchant: t.Object({
               id: t.String(),
               name: t.String(),
@@ -227,13 +270,15 @@ export default (app: Elysia) =>
             statistics: {
               totalTransactions,
               successfulTransactions,
-              successRate: totalTransactions > 0 
-                ? Math.round((successfulTransactions / totalTransactions) * 100) 
+              successRate: totalTransactions > 0
+                ? Math.round((successfulTransactions / totalTransactions) * 100)
                 : 0,
               totalVolume: totalVolume._sum.amount || 0,
             },
             methods: methods.filter(mm => mm.method.isEnabled).map(mm => mm.method),
-          }
+          },
+          role: session.role,
+          rights: session.rights,
         };
       },
       {
@@ -265,7 +310,9 @@ export default (app: Elysia) =>
                   currency: t.String(),
                 })
               ),
-            })
+            }),
+            role: t.String(),
+            rights: t.Record(t.String(), t.Boolean()),
           }),
           401: ErrorSchema,
           404: ErrorSchema,

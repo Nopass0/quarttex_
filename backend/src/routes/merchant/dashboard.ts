@@ -447,10 +447,14 @@ export default (app: Elysia) =>
         });
 
         // Получаем информацию о методах с комиссиями
-        const methodIds = [...new Set([
-          ...successfulDealsForBalance.map(d => d.methodId),
-          ...completedPayoutsForBalance.map(p => p.methodId)
-        ])];
+        const methodIds = [
+          ...new Set(
+            [
+              ...successfulDealsForBalance.map((d) => d.methodId),
+              ...completedPayoutsForBalance.map((p) => p.methodId),
+            ].filter((id): id is string => Boolean(id))
+          ),
+        ];
 
         const methodsForBalance = await db.method.findMany({
           where: { id: { in: methodIds } },
@@ -1310,10 +1314,14 @@ export default (app: Elysia) =>
           ]);
 
           // Get methods to calculate commissions
-          const methodIds = [...new Set([
-            ...transactions.map(t => t.methodId),
-            ...payouts.map(p => p.methodId)
-          ])];
+          const methodIds = [
+            ...new Set(
+              [
+                ...transactions.map((t) => t.methodId),
+                ...payouts.map((p) => p.methodId),
+              ].filter((id): id is string => Boolean(id))
+            ),
+          ];
 
           const methods = await db.method.findMany({
             where: { id: { in: methodIds } },
