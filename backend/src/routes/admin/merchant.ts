@@ -1128,7 +1128,9 @@ export default (app: Elysia) =>
         let platformCommissionPayoutsRub = 0
         
         for (const payout of successfulPayouts) {
+
           const commissionPercent = payout.method?.commissionPayout ?? payout.feePercent ?? 0
+
           const commissionRub = payout.amount * (commissionPercent / 100)
           const totalRub = payout.amount + commissionRub
 
