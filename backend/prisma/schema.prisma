@@ -152,6 +152,25 @@ model Merchant {
   transactionAttempts  TransactionAttempt[]
   withdrawalDisputes   WithdrawalDispute[]
   merchantRequestLogs  MerchantRequestLog[]
+  merchantStaff        MerchantStaff[]
+}
+
+enum MerchantStaffRole {
+  owner
+  staff
+}
+
+model MerchantStaff {
+  id         String            @id @default(cuid())
+  merchantId String
+  name       String
+  token      String            @unique
+  role       MerchantStaffRole @default(staff)
+  isActive   Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  merchant   Merchant          @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
 }
 
 model Method {
