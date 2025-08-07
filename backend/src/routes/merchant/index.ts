@@ -21,6 +21,7 @@ import { disputesRoutes } from "./disputes";
 import { dealDisputesRoutes } from "./deal-disputes";
 import { dealDisputesApiRoutes } from "./deal-disputes-api";
 import { payoutDisputesApiRoutes } from "./payout-disputes-api";
+import staffRoutes from "./staff";
 import { rapiraService } from "@/services/rapira.service";
 import { ceilUp2 } from '@/utils/freezing';
 import { merchantPayoutsApi } from "@/api/merchant/payouts";
@@ -44,6 +45,9 @@ export default (app: Elysia) =>
 
     // Deal dispute routes (с merchantSessionGuard)
     .group("/deal-disputes", (app) => app.use(dealDisputesRoutes))
+
+    // Staff routes (с merchantSessionGuard, только для owner)
+    .group("/staff", (app) => app.use(staffRoutes))
 
     // Основные API маршруты (с merchantGuard для API ключа)
     .use(merchantGuard())

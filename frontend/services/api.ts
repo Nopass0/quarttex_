@@ -615,6 +615,19 @@ export const merchantApi = {
     })
     return response.data
   },
+  // Staff management
+  getStaff: async () => {
+    const response = await merchantApiInstance.get('/merchant/staff')
+    return response.data
+  },
+  createStaff: async (data: { name: string }) => {
+    const response = await merchantApiInstance.post('/merchant/staff', data)
+    return response.data
+  },
+  regenerateStaffToken: async (id: string) => {
+    const response = await merchantApiInstance.patch(`/merchant/staff/${id}/regenerate`)
+    return response.data
+  },
 }
 
 export const adminApi = {

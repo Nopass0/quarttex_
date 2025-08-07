@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
-  LayoutDashboard, 
-  Receipt, 
-  AlertCircle, 
+  LayoutDashboard,
+  Receipt,
+  AlertCircle,
   FileText,
   LogOut,
   Menu,
@@ -20,13 +20,14 @@ import {
   Moon,
   CreditCard,
   ArrowUpRight,
-  History
+  History,
+  Users
 } from "lucide-react"
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
 import { useTheme } from "next-themes"
 
-const sidebarItems = [
+const baseSidebarItems = [
   {
     title: "Панель управления",
     href: "/merchant",
@@ -34,7 +35,7 @@ const sidebarItems = [
   },
   {
     title: "Сделки",
-    href: "/merchant/deals",  
+    href: "/merchant/deals",
     icon: CreditCard,
   },
   {
@@ -54,7 +55,7 @@ const sidebarItems = [
   },
   {
     title: "API документация",
-    href: "/merchant/api-docs", 
+    href: "/merchant/api-docs",
     icon: FileText,
   },
 ]
@@ -66,7 +67,19 @@ export default function MerchantLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { logout, merchantName } = useMerchantAuth()
+  const { logout, merchantName, role, rights } = useMerchantAuth()
+  const sidebarItems = baseSidebarItems.filter(item => {
+    if (item.href === '/merchant/api-docs' && rights?.can_view_docs === false) return false
+    if (item.href === '/merchant/settle-history' && rights?.can_settle === false) return false
+    return true
+  })
+  if (role === 'owner') {
+    sidebarItems.splice(3, 0, {
+      title: 'Сотрудники',
+      href: '/merchant/staff',
+      icon: Users,
+    })
+  }
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { theme, setTheme } = useTheme()
   
