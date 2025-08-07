@@ -23,9 +23,11 @@ import {
   History,
   Users
 } from "lucide-react"
+
 import { useMerchantAuth } from "@/stores/merchant-auth"
 import { useMerchantApiKeyCheck } from "@/hooks/useMerchantApiKeyCheck"
 import { merchantApi } from "@/services/api"
+
 import { useTheme } from "next-themes"
 
 const baseSidebarItems = [
@@ -68,6 +70,7 @@ export default function MerchantLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+
   const { logout, merchantName, role, rights, token, sessionToken, setAuth } = useMerchantAuth()
   useEffect(() => {
     if (!role && token && sessionToken) {
@@ -86,6 +89,7 @@ export default function MerchantLayout({
         .catch((e) => console.error('Failed to refresh merchant info', e))
     }
   }, [role, token, sessionToken, setAuth])
+
   const sidebarItems = baseSidebarItems.filter(item => {
     if (item.href === '/merchant/api-docs' && rights?.can_view_docs === false) return false
     if (item.href === '/merchant/settle-history' && rights?.can_settle === false) return false
