@@ -81,8 +81,20 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Copy installation script to server
+
+      - name: Prepare deployment directory
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            mkdir -p "${{ secrets.PROJECT_PATH }}"
+            rm -rf "${{ secrets.PROJECT_PATH }}"/* || true
+
+      - name: Copy repository to server
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -92,7 +104,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           source: "."
           target: "${{ secrets.PROJECT_PATH }}"
-          rm: true
+          overwrite: true
       
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
