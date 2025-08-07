@@ -18,18 +18,26 @@ export const merchantGuard =
       /* 1. Схема заголовка + базовая проверка */
       .guard({
         headers: t.Object({
-          'x-merchant-api-key': t.String({
+          'x-merchant-api-key': t.Optional(t.String({
             description: 'API-ключ мерчанта',
-          }),
+          })),
+          authorization: t.Optional(t.String()),
         }),
         async beforeHandle({ headers, error, request }) {
+          const authHeader = headers.authorization;
+
+          // Если есть Bearer токен сессии, пропускаем проверку API-ключа
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            return; // merchantSessionGuard выполнит проверку
+          }
+
           const token = headers['x-merchant-api-key'];
-          
+
           if (!token) {
             console.log('[merchantGuard] Missing x-merchant-api-key header for:', request.url);
             return error(401, { error: 'Missing x-merchant-api-key header' });
           }
-          
+
           // быстрая валидация: есть ли мерчант с таким токеном или API ключом
           const exists = await db.merchant.findFirst({
             where: {
@@ -49,13 +57,20 @@ export const merchantGuard =
 
       /* 2. Добавляем мерчанта в контекст */
       .derive(async ({ headers, error, request }) => {
+        const authHeader = headers.authorization;
+
+        // Если используется сессионный токен, merchantSessionGuard добавит мерчанта
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          return;
+        }
+
         const token = headers['x-merchant-api-key'];
         console.log('[merchantGuard] Request to:', request.url, 'with token:', token ? 'provided' : 'missing');
-        
+
         if (!token) {
           return error(401, { error: 'Missing x-merchant-api-key header' });
         }
-        
+
         const merchant = await db.merchant.findFirst({
           where: {
             OR: [
