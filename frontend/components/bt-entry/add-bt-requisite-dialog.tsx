@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { traderApi } from "@/services/api";
 import { Loader2 } from "lucide-react";
+import { BANKS } from "@/constants/banks";
 
 const formSchema = z.object({
   methodId: z.string().min(1, "Выберите метод"),
@@ -65,38 +66,7 @@ interface AddBTRequisiteDialogProps {
   onSuccess?: () => void;
 }
 
-const AVAILABLE_BANKS = [
-  { code: "SBERBANK", name: "Сбербанк" },
-  { code: "VTB", name: "ВТБ" },
-  { code: "ALFABANK", name: "Альфа-Банк" },
-  { code: "GAZPROMBANK", name: "Газпромбанк" },
-  { code: "OZONBANK", name: "Ozon банк" },
-  { code: "RAIFFEISEN", name: "Райффайзен" },
-  { code: "POCHTABANK", name: "Почта Банк" },
-  { code: "ROSSELKHOZBANK", name: "Россельхозбанк" },
-  { code: "MTSBANK", name: "МТС Банк" },
-  { code: "PROMSVYAZBANK", name: "ПСБ" },
-  { code: "URALSIB", name: "Уралсиб" },
-  { code: "MKB", name: "МКБ" },
-  { code: "SPBBANK", name: "СПБ Банк" },
-  { code: "AKBARS", name: "Ак Барс" },
-  { code: "AVANGARD", name: "Авангард" },
-  { code: "RENAISSANCE", name: "Ренессанс" },
-  { code: "OTPBANK", name: "ОТП Банк" },
-  { code: "LOKOBANK", name: "Локо-Банк" },
-  { code: "VLADBUSINESSBANK", name: "Владбизнесбанк" },
-  { code: "TAVRICHESKIY", name: "Таврический" },
-  { code: "FORABANK", name: "Фора-Банк" },
-  { code: "BCSBANK", name: "БКС Банк" },
-  { code: "HOMECREDIT", name: "Хоум Кредит" },
-  { code: "BBRBANK", name: "ББР Банк" },
-  { code: "CREDITEUROPE", name: "Кредит Европа" },
-  { code: "RNKB", name: "РНКБ" },
-  { code: "UBRIR", name: "УБРиР" },
-  { code: "GENBANK", name: "Генбанк" },
-  { code: "SINARA", name: "Синара" },
-  { code: "ABSOLUTBANK", name: "Абсолют Банк" }
-];
+const AVAILABLE_BANKS = BANKS;
 
 export function AddBTRequisiteDialog({
   open,

@@ -938,6 +938,16 @@ export class PayoutService {
             email: true,
           },
         },
+        method: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            type: true,
+            currency: true,
+            commissionPayout: true,
+          },
+        },
       },
     });
   }
@@ -990,6 +1000,16 @@ export class PayoutService {
               id: true,
               numericId: true,
               email: true,
+            },
+          },
+          method: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              type: true,
+              currency: true,
+              commissionPayout: true,
             },
           },
           rateAudits: {

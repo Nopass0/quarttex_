@@ -11,17 +11,60 @@ const payoutService = PayoutService.getInstance();
 export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
   // Middleware to extract merchant from token
   .derive(async ({ request, set }) => {
-    const token =
-      request.headers.get("x-api-key") ||
-      request.headers.get("authorization")?.replace("Bearer ", "");
+    const authHeader = request.headers.get("authorization");
+
+    // Bearer session token for merchant staff
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const sessionToken = authHeader.substring(7);
+
+      const sessionConfig = await db.systemConfig.findUnique({
+        where: { key: `merchant_session_${sessionToken}` },
+      });
+
+      if (!sessionConfig) {
+        set.status = 401;
+        return { error: "Недействительная сессия" };
+      }
+
+      const session = JSON.parse(sessionConfig.value);
+
+      if (new Date(session.expiresAt) < new Date()) {
+        await db.systemConfig.delete({
+          where: { key: `merchant_session_${sessionToken}` },
+        });
+        set.status = 401;
+        return { error: "Сессия истекла" };
+      }
+
+      const merchant = await db.merchant.findUnique({
+        where: { id: session.merchantId },
+      });
+
+      if (!merchant) {
+        set.status = 401;
+        return { error: "Merchant not found" };
+      }
+
+      if (merchant.disabled || merchant.banned) {
+        set.status = 403;
+        return { error: "Merchant is disabled" };
+      }
+
+      return { merchant };
+    }
+
+    // API key fallback
+    const token = request.headers.get("x-api-key");
 
     if (!token) {
       set.status = 401;
       return { error: "API key required" };
     }
 
-    const merchant = await db.merchant.findUnique({
-      where: { token },
+    const merchant = await db.merchant.findFirst({
+      where: {
+        OR: [{ token }, { apiKeyPublic: token }],
+      },
     });
 
     if (!merchant) {
@@ -142,6 +185,19 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
           bank: payout.bank,
           isCard: payout.isCard,
           status: payout.status,
+          feePercent: payout.feePercent,
+          method: payout.method
+            ? {
+                id: payout.method.id,
+                code: payout.method.code,
+                name: payout.method.name,
+                type: payout.method.type,
+                currency: payout.method.currency,
+              }
+            : null,
+          payoutsCommission:
+            payout.amount *
+            ((payout.method?.commissionPayout ?? payout.feePercent ?? 0) / 100),
           expireAt: payout.expireAt,
           createdAt: payout.createdAt,
           acceptedAt: payout.acceptedAt,
@@ -378,11 +434,24 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
           wallet: p.wallet,
           bank: p.bank,
           isCard: p.isCard,
+          feePercent: p.feePercent,
           externalReference: p.externalReference,
           createdAt: p.createdAt,
           acceptedAt: p.acceptedAt,
           confirmedAt: p.confirmedAt,
           cancelledAt: p.cancelledAt,
+          method: p.method
+            ? {
+                id: p.method.id,
+                code: p.method.code,
+                name: p.method.name,
+                type: p.method.type,
+                currency: p.method.currency,
+              }
+            : null,
+          payoutsCommission:
+            p.amount *
+            ((p.method?.commissionPayout ?? p.feePercent ?? 0) / 100),
           trader: p.trader
             ? {
                 numericId: p.trader.numericId,

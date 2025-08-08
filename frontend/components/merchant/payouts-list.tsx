@@ -31,6 +31,7 @@ type Payout = {
   bank: string
   isCard: boolean
   feePercent?: number
+  payoutsCommission?: number
   direction: string
   externalReference?: string
   method?: {

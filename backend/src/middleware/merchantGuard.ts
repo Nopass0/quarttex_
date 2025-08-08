@@ -26,9 +26,27 @@ export const merchantGuard =
         async beforeHandle({ headers, error, request }) {
           const authHeader = headers.authorization;
 
-          // Если есть Bearer токен сессии, пропускаем проверку API-ключа
           if (authHeader && authHeader.startsWith('Bearer ')) {
-            return; // merchantSessionGuard выполнит проверку
+            const sessionToken = authHeader.substring(7);
+
+            const sessionConfig = await db.systemConfig.findUnique({
+              where: { key: `merchant_session_${sessionToken}` },
+            });
+
+            if (!sessionConfig) {
+              return error(401, { error: 'Недействительная сессия' });
+            }
+
+            const session = JSON.parse(sessionConfig.value);
+
+            if (new Date(session.expiresAt) < new Date()) {
+              await db.systemConfig.delete({
+                where: { key: `merchant_session_${sessionToken}` },
+              });
+              return error(401, { error: 'Сессия истекла' });
+            }
+
+            return;
           }
 
           const token = headers['x-merchant-api-key'];
@@ -38,7 +56,6 @@ export const merchantGuard =
             return error(401, { error: 'Missing x-merchant-api-key header' });
           }
 
-          // быстрая валидация: есть ли мерчант с таким токеном или API ключом
           const exists = await db.merchant.findFirst({
             where: {
               OR: [
@@ -46,7 +63,7 @@ export const merchantGuard =
                 { apiKeyPublic: token }
               ]
             },
-            select: { id: true },          // только факт существования
+            select: { id: true },
           });
           if (!exists)
             return error(401, { error: 'Invalid merchant key' });
@@ -59,9 +76,37 @@ export const merchantGuard =
       .derive(async ({ headers, error, request }) => {
         const authHeader = headers.authorization;
 
-        // Если используется сессионный токен, merchantSessionGuard добавит мерчанта
         if (authHeader && authHeader.startsWith('Bearer ')) {
-          return;
+          const sessionToken = authHeader.substring(7);
+
+          const sessionConfig = await db.systemConfig.findUnique({
+            where: { key: `merchant_session_${sessionToken}` },
+          });
+
+          if (!sessionConfig) {
+            return error(401, { error: 'Недействительная сессия' });
+          }
+
+          const session = JSON.parse(sessionConfig.value);
+
+          const merchant = await db.merchant.findUnique({
+            where: { id: session.merchantId },
+          });
+
+          if (!merchant) {
+            return error(401, { error: 'Мерчант не найден' });
+          }
+
+          if (merchant.disabled || merchant.banned) {
+            return error(403, { error: 'Доступ запрещен' });
+          }
+
+          return {
+            merchant,
+            staffRole: session.role ?? 'owner',
+            staffId: session.staffId ?? null,
+            rights: session.rights ?? {},
+          };
         }
 
         const token = headers['x-merchant-api-key'];
@@ -82,6 +127,5 @@ export const merchantGuard =
         if (!merchant)
           return error(401, { error: 'Invalid merchant key' });
 
-        /* теперь в handlers доступно { merchant } */
         return { merchant };
       });

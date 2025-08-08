@@ -443,6 +443,12 @@ export default (app: Elysia) =>
             methodId: true,
             merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
             rate: true, // Нужен для расчета эффективного курса если merchantRate null
+            feePercent: true, // Комиссия на вывод для расчета баланса
+            method: {
+              select: {
+                commissionPayout: true,
+              },
+            },
           },
         });
 
@@ -530,42 +536,41 @@ export default (app: Elysia) =>
 
         // Обрабатываем завершенные выплаты (исходящие платежи)
         for (const payout of completedPayoutsForBalance) {
-          const method = methodCommissionsMap.get(payout.methodId);
-          if (method) {
-            const commissionAmount = payout.amount * (method.commissionPayout / 100);
-            const totalAmount = payout.amount + commissionAmount;
-            
-            calculatedBalance -= totalAmount;
-            totalPayoutsAmount += payout.amount;
-            totalPayoutsCommission += commissionAmount;
-            
-            // Получаем настройки ККК для метода выплаты из кэша
-            const payoutRateSetting = rateSettingsMap.get(payout.methodId);
-            
-            // Определяем эффективный курс для выплаты
-            let effectiveRate = payout.merchantRate;
-            if (!payout.merchantRate && payout.rate) {
-              // Если merchantRate null, рассчитываем по формуле s0 = s / (1 + (p/100)), где p = kkkPercent
-              const kkkPercent = payoutRateSetting?.kkkPercent || 0;
-              effectiveRate = payout.rate / (1 + (kkkPercent / 100));
-            }
-            
-            // Если countInRubEquivalent = false, вычитаем USDT по effectiveRate
-            if (!merchant.countInRubEquivalent && effectiveRate && effectiveRate > 0) {
-              // Конвертируем выплату и комиссию в USDT
-              const payoutUsdt = payout.amount / effectiveRate;
-              const commissionUsdt = payoutUsdt * (method.commissionPayout / 100);
-              const totalUsdt = payoutUsdt + commissionUsdt;
-              
-              // Обрезаем до 2 знаков после запятой для каждой выплаты отдельно
-              const truncatedTotalUsdt = Math.floor(totalUsdt * 100) / 100;
-              const truncatedPayoutUsdt = Math.floor(payoutUsdt * 100) / 100;
-              const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100;
-              
-              balanceUsdt -= truncatedTotalUsdt;
-              totalPayoutsUsdt += truncatedPayoutUsdt;
-              totalPayoutsCommissionUsdt += truncatedCommissionUsdt;
-            }
+          const commissionPercent =
+            payout.method?.commissionPayout ?? payout.feePercent ?? 0;
+          const commissionAmount = payout.amount * (commissionPercent / 100);
+          const totalAmount = payout.amount + commissionAmount;
+
+          calculatedBalance -= totalAmount;
+          totalPayoutsAmount += payout.amount;
+          totalPayoutsCommission += commissionAmount;
+
+          // Получаем настройки ККК для метода выплаты из кэша
+          const payoutRateSetting = rateSettingsMap.get(payout.methodId);
+
+          // Определяем эффективный курс для выплаты
+          let effectiveRate = payout.merchantRate;
+          if (!payout.merchantRate && payout.rate) {
+            // Если merchantRate null, рассчитываем по формуле s0 = s / (1 + (p/100)), где p = kkkPercent
+            const kkkPercent = payoutRateSetting?.kkkPercent || 0;
+            effectiveRate = payout.rate / (1 + (kkkPercent / 100));
+          }
+
+          // Если countInRubEquivalent = false, вычитаем USDT по effectiveRate
+          if (!merchant.countInRubEquivalent && effectiveRate && effectiveRate > 0) {
+            // Конвертируем выплату и комиссию в USDT
+            const payoutUsdt = payout.amount / effectiveRate;
+            const commissionUsdt = payoutUsdt * (commissionPercent / 100);
+            const totalUsdt = payoutUsdt + commissionUsdt;
+
+            // Обрезаем до 2 знаков после запятой для каждой выплаты отдельно
+            const truncatedTotalUsdt = Math.floor(totalUsdt * 100) / 100;
+            const truncatedPayoutUsdt = Math.floor(payoutUsdt * 100) / 100;
+            const truncatedCommissionUsdt = Math.floor(commissionUsdt * 100) / 100;
+
+            balanceUsdt -= truncatedTotalUsdt;
+            totalPayoutsUsdt += truncatedPayoutUsdt;
+            totalPayoutsCommissionUsdt += truncatedCommissionUsdt;
           }
         }
         
@@ -1293,15 +1298,16 @@ export default (app: Elysia) =>
               },
             }),
             db.payout.findMany({
-              where: { 
+              where: {
                 merchantId: merchant.id,
                 status: "COMPLETED",
                 ...dateFilter
               },
-              select: { 
-                amount: true, 
+              select: {
+                amount: true,
                 methodId: true,
-                merchantRate: true  // Нужен для расчета USDT если countInRubEquivalent = false
+                merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
+                feePercent: true
               },
             }),
             db.settleRequest.findMany({
@@ -1352,12 +1358,10 @@ export default (app: Elysia) =>
           let payoutsCommission = 0;
           for (const payout of payouts) {
             const method = methodCommissionsMap.get(payout.methodId);
-            if (method) {
-              const commission = payout.amount * (method.commissionPayout / 100);
-              payoutsTotal += payout.amount;
-              payoutsCommission += commission;
-            } else {
-              payoutsTotal += payout.amount;
+            const percent = payout.feePercent ?? method?.commissionPayout;
+            payoutsTotal += payout.amount;
+            if (percent) {
+              payoutsCommission += payout.amount * (percent / 100);
             }
           }
           
