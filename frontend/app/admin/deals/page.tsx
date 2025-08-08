@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { toast } from 'sonner'
 import { adminApi as api } from '@/services/api'
 import { useAdminAuth } from '@/stores/auth'
-import { formatAmount, formatDate } from '@/lib/utils'
+import { formatAmount, formatDate, formatDateTime } from '@/lib/utils'
 import { 
   CreditCard, 
   Search, 
@@ -801,7 +801,7 @@ export default function AdminDealsPage() {
           <TableBody>
             {attempts.map(a => (
               <TableRow key={a.id}>
-                <TableCell>{formatDate(a.createdAt)}</TableCell>
+                <TableCell>{formatDateTime(a.createdAt)}</TableCell>
                 <TableCell>{a.merchantName || a.merchantId}</TableCell>
                 <TableCell>{a.methodName || a.methodId}</TableCell>
                 <TableCell>{formatAmount(a.amount)} ₽</TableCell>
