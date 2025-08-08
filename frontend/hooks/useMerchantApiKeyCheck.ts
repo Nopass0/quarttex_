@@ -9,7 +9,8 @@ export const useMerchantApiKeyCheck = () => {
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    if (!sessionToken) {
+    // Skip API key validation when using session-based auth
+    if (sessionToken) {
       return
     }
 
