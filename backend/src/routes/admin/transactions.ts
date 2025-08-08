@@ -155,18 +155,38 @@ export default (app: Elysia) =>
             take: limit,
             include: {
               merchant: { select: { id: true, name: true } },
-              method: { select: { id: true, name: true } },
-              transaction: { select: { id: true, numericId: true } }
+
+              method: { select: { id: true, name: true } }
+
             }
           }),
           db.transactionAttempt.count()
         ]);
 
+
+        const transactionMap = attempts.length
+          ? await db.transaction
+              .findMany({
+                where: {
+                  id: {
+                    in: attempts
+                      .filter(a => a.transactionId)
+                      .map(a => a.transactionId!)
+                  }
+                },
+                select: { id: true, numericId: true }
+              })
+              .then(trxs => trxs.reduce((acc, t) => ({ ...acc, [t.id]: t.numericId }), {}))
+          : {};
+
+
         return {
           data: attempts.map(a => ({
             id: a.id,
             transactionId: a.transactionId,
-            transactionNumericId: a.transaction?.numericId ?? null,
+
+            transactionNumericId: a.transactionId ? transactionMap[a.transactionId] ?? null : null,
+
             merchantId: a.merchantId,
             merchantName: a.merchant?.name ?? null,
             methodId: a.methodId,
