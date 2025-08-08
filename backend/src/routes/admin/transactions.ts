@@ -155,11 +155,14 @@ export default (app: Elysia) =>
             take: limit,
             include: {
               merchant: { select: { id: true, name: true } },
+
               method: { select: { id: true, name: true } }
+
             }
           }),
           db.transactionAttempt.count()
         ]);
+
 
         const transactionMap = attempts.length
           ? await db.transaction
@@ -176,11 +179,14 @@ export default (app: Elysia) =>
               .then(trxs => trxs.reduce((acc, t) => ({ ...acc, [t.id]: t.numericId }), {}))
           : {};
 
+
         return {
           data: attempts.map(a => ({
             id: a.id,
             transactionId: a.transactionId,
+
             transactionNumericId: a.transactionId ? transactionMap[a.transactionId] ?? null : null,
+
             merchantId: a.merchantId,
             merchantName: a.merchant?.name ?? null,
             methodId: a.methodId,
