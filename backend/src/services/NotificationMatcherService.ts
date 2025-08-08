@@ -1,23 +1,12 @@
 import { BaseService } from "./BaseService";
 import { db } from "@/db";
-import { Status, TransactionType, NotificationType } from "@prisma/client";
+import { Status, TransactionType } from "@prisma/client";
 import { roundDown2 } from "@/utils/rounding";
-import { BANK_PATTERNS, getBankTypeFromPattern, type BankPattern } from "./bank-patterns";
 import { sendTransactionCallbacks } from "@/utils/notify";
-
-interface ParsedNotification {
-  amount?: number;
-  balance?: number;
-  card?: string;
-  senderName?: string;
-  bankType?: string;
-}
 
 export class NotificationMatcherService extends BaseService {
   // Auto-start this service when the application starts
   public autoStart = true;
-  
-  private bankPatterns: BankPattern[] = BANK_PATTERNS;
   
   constructor() {
     super({
@@ -84,164 +73,48 @@ export class NotificationMatcherService extends BaseService {
   }
 
   private async processNotification(notification: any): Promise<void> {
-    const { Device, message, packageName } = notification;
-    
-    if (!Device?.user) {
+    const { Device, message, title } = notification;
+
+    if (!Device?.id) {
       await this.markNotificationProcessed(notification.id);
       return;
     }
 
-    // Parse notification content
-    const parsed = this.parseNotificationContent(message, packageName);
-    
-    // Debug log for SBP
-    if (message.includes("SBP")) {
-      console.log(`[NotificationMatcherService] Processing SBP notification:`, {
-        id: notification.id,
-        message: message,
-        parsed: parsed
-      });
-    }
-    
-    if (!parsed.amount || parsed.amount <= 0) {
+    const combinedContent = [title, message].filter(Boolean).join(" ");
+    const amounts = this.extractAmounts(combinedContent);
+
+    if (amounts.length === 0) {
       await this.markNotificationProcessed(notification.id);
       return;
     }
 
-    // Find matching transaction
-    const matchingTransaction = await this.findMatchingTransaction(
-      Device.user.id,
-      parsed.amount,
-      parsed.bankType
-    );
-
-    if (matchingTransaction) {
-      console.log(`[NotificationMatcherService] Found matching transaction:`, {
-        notificationId: notification.id,
-        transactionId: matchingTransaction.id,
-        amount: parsed.amount,
-        bankType: parsed.bankType
-      });
-      await this.completeTransaction(matchingTransaction.id, notification.id, parsed);
-    } else {
-      if (message.includes("SBP")) {
-        console.log(`[NotificationMatcherService] No match found for SBP notification ${notification.id}`);
+    for (const amount of amounts) {
+      const matchingTransaction = await this.findMatchingTransaction(Device.id, amount);
+      if (matchingTransaction) {
+        console.log(`[NotificationMatcherService] Found matching transaction:`, {
+          notificationId: notification.id,
+          transactionId: matchingTransaction.id,
+          amount
+        });
+        await this.completeTransaction(matchingTransaction.id, notification.id, amount);
+        return;
       }
-      // Mark notification as processed even if no match found
-      await db.notification.update({
-        where: { id: notification.id },
-        data: {
-          isProcessed: true
-        }
-      });
     }
+
+    await db.notification.update({
+      where: { id: notification.id },
+      data: { isProcessed: true }
+    });
   }
 
-  private parseNotificationContent(content: string, packageName: string): ParsedNotification {
-    const result: ParsedNotification = {};
-    
-    // Try to find matching bank pattern
-    let matchedPattern: BankPattern | undefined;
-    
-    // FIRST check for SBP - it takes priority over package name
-    // because SBP transactions can come through any bank app
-    if (content.includes("SBP") || content.includes("СБП")) {
-      matchedPattern = this.bankPatterns.find(pattern => pattern.name === "СБП");
+  private extractAmounts(content: string): number[] {
+    const amounts: number[] = [];
+    const regex = /(\d+(?:[\s.,]\d{3})*(?:[.,]\d+)?)/g;
+    for (const match of content.matchAll(regex)) {
+      const amount = this.parseAmount(match[1]);
+      if (amount > 0) amounts.push(amount);
     }
-    
-    // If not SBP, try to match by package name
-    if (!matchedPattern && packageName) {
-      matchedPattern = this.bankPatterns.find(pattern => 
-        pattern.packageNames?.includes(packageName)
-      );
-    }
-    
-    // If no match by package name, try to detect bank by content
-    if (!matchedPattern) {
-      for (const pattern of this.bankPatterns) {
-        // Check if any alias appears in the content
-        const hasAlias = pattern.aliases.some(alias => 
-          content.toLowerCase().includes(alias.toLowerCase())
-        );
-        
-        if (hasAlias) {
-          matchedPattern = pattern;
-          break;
-        }
-        
-        // Try to match amount pattern to detect bank
-        for (const amountRegex of pattern.patterns.amount) {
-          if (amountRegex.test(content)) {
-            matchedPattern = pattern;
-            break;
-          }
-        }
-        
-        if (matchedPattern) break;
-      }
-    }
-    
-    // Use generic patterns if no specific bank matched
-    if (!matchedPattern) {
-      matchedPattern = this.bankPatterns.find(p => p.name === "GenericSMS");
-    }
-    
-    if (!matchedPattern) {
-      return result;
-    }
-    
-    // Extract amount
-    for (const amountRegex of matchedPattern.patterns.amount) {
-      const match = content.match(amountRegex);
-      if (match && match[1]) {
-        result.amount = this.parseAmount(match[1]);
-        if (result.amount > 0) break;
-      }
-    }
-    
-    // Extract balance
-    if (matchedPattern.patterns.balance) {
-      for (const balanceRegex of matchedPattern.patterns.balance) {
-        const match = content.match(balanceRegex);
-        if (match && match[1]) {
-          result.balance = this.parseAmount(match[1]);
-          if (result.balance > 0) break;
-        }
-      }
-    }
-    
-    // Extract card number
-    if (matchedPattern.patterns.card) {
-      for (const cardRegex of matchedPattern.patterns.card) {
-        const match = content.match(cardRegex);
-        if (match && match[1]) {
-          result.card = match[1];
-          break;
-        }
-      }
-    }
-    
-    // Extract sender name
-    if (matchedPattern.patterns.sender_name) {
-      for (const senderRegex of matchedPattern.patterns.sender_name) {
-        const match = content.match(senderRegex);
-        if (match && match[1]) {
-          result.senderName = match[1];
-          break;
-        }
-      }
-    }
-    
-    // Set bank type
-    if (matchedPattern.name !== "GenericSMS") {
-      result.bankType = getBankTypeFromPattern(matchedPattern.name);
-      // Debug log for SBP
-      if (matchedPattern.name === "СБП") {
-        console.log(`[NotificationMatcherService] SBP detected: pattern=${matchedPattern.name}, bankType=${result.bankType}`);
-      }
-    }
-    
-    return result;
+    return [...new Set(amounts)];
   }
 
   private parseAmount(amountStr: string): number {
@@ -254,47 +127,20 @@ export class NotificationMatcherService extends BaseService {
     return isNaN(amount) ? 0 : roundDown2(amount);
   }
 
-  private async findMatchingTransaction(
-    traderId: string, 
-    amount: number,
-    bankType?: string
-  ): Promise<any> {
-    const tolerance = 1; // Allow 1 ruble difference
-    
-    const where: any = {
-      traderId,
-      type: TransactionType.IN,
-      status: Status.IN_PROGRESS,
-      amount: {
-        gte: amount - tolerance,
-        lte: amount + tolerance
-      }
-    };
-    
-    // Debug log for SBP matching
-    console.log(`[NotificationMatcherService] findMatchingTransaction: traderId=${traderId}, amount=${amount}, bankType=${bankType}`);
-    
-    // If bank type is detected, try to match it
-    // Special handling for SBP - it can come through any bank
-    if (bankType && bankType !== "СБП" && bankType !== "SBP") {
-      const requisites = await db.bankDetail.findMany({
-        where: {
-          userId: traderId,  // bankDetail uses userId, not traderId
-          bankType: bankType as any
-        },
-        select: { id: true }
-      });
-      
-      if (requisites.length > 0) {
-        where.bankDetailId = {
-          in: requisites.map(r => r.id)
-        };
-      }
-    }
-    // For SBP, don't filter by bank type - it can match any bank requisite
-    
+  private async findMatchingTransaction(deviceId: string, amount: number): Promise<any> {
+    const tolerance = 1;
     return await db.transaction.findFirst({
-      where,
+      where: {
+        type: TransactionType.IN,
+        status: Status.IN_PROGRESS,
+        amount: {
+          gte: amount - tolerance,
+          lte: amount + tolerance
+        },
+        requisites: {
+          deviceId
+        }
+      },
       orderBy: {
         createdAt: 'desc'
       }
@@ -302,9 +148,9 @@ export class NotificationMatcherService extends BaseService {
   }
 
   private async completeTransaction(
-    transactionId: string, 
+    transactionId: string,
     notificationId: string,
-    parsed: ParsedNotification
+    amount: number
   ): Promise<void> {
     // Get transaction details for callback
     const transaction = await db.transaction.findUnique({
@@ -339,8 +185,7 @@ export class NotificationMatcherService extends BaseService {
       await this.logInfo('Transaction matched with notification', {
         transactionId,
         notificationId,
-        amount: parsed.amount,
-        bankType: parsed.bankType
+        amount
       });
     });
 

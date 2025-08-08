@@ -30,8 +30,13 @@ export const dealDisputesApiRoutes = new Elysia()
       console.log('[DealDisputesAPI] Creating dispute for deal:', params.dealId);
       console.log('[DealDisputesAPI] Request headers:', request.headers);
       console.log('[DealDisputesAPI] Body:', body);
-      
-      const { message, files } = body;
+
+      const { message, files: rawFiles } = body;
+      const files = rawFiles
+        ? Array.isArray(rawFiles)
+          ? rawFiles
+          : [rawFiles]
+        : [];
       
       // Check if deal exists and belongs to merchant
       const deal = await db.transaction.findFirst({
@@ -74,9 +79,9 @@ export const dealDisputesApiRoutes = new Elysia()
 
       // Process uploaded files if provided
       const uploadedFiles = [];
-      if (files && Array.isArray(files) && files.length > 0) {
+      if (files.length > 0) {
         console.log('[DealDisputesAPI] Processing', files.length, 'files');
-        
+
         if (files.length > MAX_FILES) {
           set.status = 400;
           return { error: `Maximum ${MAX_FILES} files allowed` };
@@ -178,9 +183,9 @@ export const dealDisputesApiRoutes = new Elysia()
   }, {
     body: t.Object({
       message: t.String({ minLength: 1, description: "Dispute message" }),
-      files: t.Optional(t.Array(t.File({ 
-        description: "Attached files (max 10 files, 20MB each)" 
-      })))
+      files: t.Optional(
+        t.Files({ description: "Attached files (max 10 files, 20MB each)" })
+      )
     }),
     detail: {
       summary: "Create deal dispute",
@@ -320,8 +325,13 @@ export const dealDisputesApiRoutes = new Elysia()
   .post("/:disputeId/messages", async ({ merchant, params, body, set }) => {
     try {
       await ensureUploadDir();
-      
-      const { message, files } = body;
+
+      const { message, files: rawFiles } = body;
+      const files = rawFiles
+        ? Array.isArray(rawFiles)
+          ? rawFiles
+          : [rawFiles]
+        : [];
       
       // Check if dispute exists and merchant can send messages
       const dispute = await db.dealDispute.findFirst({
@@ -341,7 +351,7 @@ export const dealDisputesApiRoutes = new Elysia()
 
       // Process uploaded files
       const uploadedFiles = [];
-      if (files && Array.isArray(files) && files.length > 0) {
+      if (files.length > 0) {
         if (files.length > MAX_FILES) {
           set.status = 400;
           return { error: `Maximum ${MAX_FILES} files allowed` };
@@ -418,9 +428,9 @@ export const dealDisputesApiRoutes = new Elysia()
     }),
     body: t.Object({
       message: t.String({ minLength: 1, description: "Message text" }),
-      files: t.Optional(t.Array(t.File({ 
-        description: "Attached files (max 10 files, 20MB each)" 
-      })))
+      files: t.Optional(
+        t.Files({ description: "Attached files (max 10 files, 20MB each)" })
+      )
     }),
     detail: {
       summary: "Send dispute message",
