@@ -152,40 +152,90 @@ export class NotificationMatcherService extends BaseService {
     notificationId: string,
     amount: number
   ): Promise<void> {
-    // Get transaction details for callback
+    // Get transaction details with method info for calculations
     const transaction = await db.transaction.findUnique({
-      where: { id: transactionId }
+      where: { id: transactionId },
+      include: { method: true }
     });
-    
-    if (!transaction) {
-      console.error(`[NotificationMatcherService] Transaction ${transactionId} not found for callback`);
+
+    if (!transaction || !transaction.traderId) {
+      console.error(
+        `[NotificationMatcherService] Transaction ${transactionId} not found for callback`
+      );
       return;
     }
 
     await db.$transaction(async (tx) => {
-      // Update transaction status and link to notification
+      // Get trader merchant settings for fee calculation
+      const traderMerchant = await tx.traderMerchant.findUnique({
+        where: {
+          traderId_merchantId_methodId: {
+            traderId: transaction.traderId!,
+            merchantId: transaction.merchantId,
+            methodId: transaction.methodId,
+          },
+        },
+      });
+
+      const feeInPercent = traderMerchant?.feeIn || 0;
+      const spentUsdt = transaction.rate ? transaction.amount / transaction.rate : 0;
+      const traderProfit = Math.trunc(spentUsdt * (feeInPercent / 100) * 100) / 100;
+
+      const merchantCommission = transaction.method?.commissionPayin || 0;
+      const netAmount = transaction.amount - (transaction.amount * merchantCommission / 100);
+      const merchantCreditUsdt = transaction.rate ? netAmount / transaction.rate : 0;
+
+      const totalToUnfreeze =
+        (transaction.frozenUsdtAmount || 0) + (transaction.calculatedCommission || 0);
+
+      // Update transaction status, profit and link to notification
       await tx.transaction.update({
         where: { id: transactionId },
         data: {
           status: Status.READY,
           matchedNotificationId: notificationId,
-          acceptedAt: new Date() // Set acceptedAt when status becomes READY
-        }
+          acceptedAt: new Date(),
+          traderProfit,
+        },
       });
-      
+
       // Mark notification as processed
       await tx.notification.update({
         where: { id: notificationId },
-        data: {
-          isProcessed: true
-        }
+        data: { isProcessed: true },
       });
-      
+
+      // Update trader balances: unfreeze and add profit
+      await tx.user.update({
+        where: { id: transaction.traderId! },
+        data: {
+          frozenUsdt: { decrement: totalToUnfreeze },
+          profitFromDeals: { increment: traderProfit },
+        },
+      });
+
+      // Credit merchant with net amount
+      if (merchantCreditUsdt > 0) {
+        await tx.merchant.update({
+          where: { id: transaction.merchantId },
+          data: { balanceUsdt: { increment: merchantCreditUsdt } },
+        });
+      }
+
+      // Update bank detail turnover
+      if (transaction.bankDetailId) {
+        await tx.bankDetail.update({
+          where: { id: transaction.bankDetailId },
+          data: { currentTotalAmount: { increment: transaction.amount } },
+        });
+      }
+
       // Log the match
       await this.logInfo('Transaction matched with notification', {
         transactionId,
         notificationId,
-        amount
+        amount,
+        traderProfit,
       });
     });
 
