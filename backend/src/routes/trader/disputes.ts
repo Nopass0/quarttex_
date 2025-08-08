@@ -180,7 +180,7 @@ export default new Elysia({ prefix: "/disputes" })
 
           uploadedFiles.push({
             filename: file.name,
-            url: `/uploads/disputes/${filename}`,
+            url: `/api/uploads/disputes/${filename}`,
             size: file.size,
             mimeType: file.type
           });

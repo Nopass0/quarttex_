@@ -16,8 +16,15 @@ export function getFileUrl(url: string): string {
   
   // Ensure the URL starts with /
   const cleanUrl = url.startsWith('/') ? url : `/${url}`;
-  
-  return `${baseUrl}${cleanUrl}`;
+
+  // If the URL points to uploads without /api prefix, add it
+  const finalUrl = cleanUrl.startsWith('/api/')
+    ? cleanUrl
+    : cleanUrl.startsWith('/uploads/')
+      ? `/api${cleanUrl}`
+      : cleanUrl;
+
+  return `${baseUrl}${finalUrl}`;
 }
 
 /**

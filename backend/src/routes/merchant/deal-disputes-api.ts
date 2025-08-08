@@ -107,7 +107,7 @@ export const dealDisputesApiRoutes = new Elysia()
 
             uploadedFiles.push({
               filename: name,
-              url: `/uploads/deal-disputes/${filename}`,
+              url: `/api/uploads/deal-disputes/${filename}`,
               size: file.size,
               mimeType: file.type || 'application/octet-stream'
             });
@@ -376,7 +376,9 @@ export const dealDisputesApiRoutes = new Elysia()
 
             uploadedFiles.push({
               filename: name,
-              url: `/uploads/deal-disputes/${filename}`,
+
+              url: `/api/uploads/deal-disputes/${filename}`,
+
               size: file.size,
               mimeType: file.type || 'application/octet-stream'
             });
