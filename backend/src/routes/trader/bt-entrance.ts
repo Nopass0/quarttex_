@@ -56,11 +56,6 @@ const BtRequisiteDTO = t.Object({
 
 /* ---------- helpers ---------- */
 const formatBtDeal = (transaction: any) => {
-  // Debug log for first transaction
-  if (transaction.numericId === transaction.numericId) {
-    console.log(`[BT-Deal Format] Deal #${transaction.numericId}: status=${transaction.status}, traderProfit=${transaction.traderProfit}`);
-  }
-  
   return {
     id: transaction.id,
     numericId: transaction.numericId,
@@ -122,11 +117,14 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       const limit = query.limit || 50;
       const offset = (page - 1) * limit;
 
-      // Get transactions that use requisites without devices (BT deals)
+      // Get trader transactions for BT deals (bank methods)
       const where: any = {
         traderId: trader.id,
-        // Проверяем, что транзакция связана с реквизитом
-        bankDetailId: { not: null },
+        method: {
+          type: {
+            in: [MethodType.c2c, MethodType.sbp],
+          },
+        },
       };
 
       // Add status filter if provided
@@ -143,29 +141,27 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         ];
       }
 
-      console.log("[BT-Entrance] Query where conditions:", JSON.stringify(where, null, 2));
-      
-      // First fetch all transactions with requisites for this trader
+      // First fetch all transactions for this trader with bank methods
       const allDeals = await db.transaction.findMany({
         where,
         include: {
           merchant: true,
           requisites: true,
+          method: true,
         },
         orderBy: { createdAt: "desc" },
       });
-      
-      // Filter to only include BT deals (requisites without devices)
+
+      // Filter to include deals with requisites without devices
+      // and deals with deleted requisites
       const btDeals = allDeals.filter(
-        (deal) => deal.requisites?.deviceId === null,
+        (deal) => !deal.requisites || deal.requisites.deviceId === null,
       );
       
       // Apply pagination to filtered results
       const paginatedDeals = btDeals.slice(offset, offset + limit);
       const total = btDeals.length;
       
-      console.log(`[BT-Entrance] Found ${paginatedDeals.length} BT deals out of ${allDeals.length} total deals, filtered total: ${total}`);
-
       return {
         data: paginatedDeals.map(formatBtDeal),
         total,
@@ -240,8 +236,6 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           const spentUsdt = deal.rate ? deal.amount / deal.rate : 0;
           const commissionPercent = traderMerchant?.feeIn || 0;
           const traderProfit = Math.round(spentUsdt * (commissionPercent / 100) * 100) / 100;
-
-          console.log(`[BT-Entrance] Manual confirmation: amount=${deal.amount}, rate=${deal.rate}, spentUsdt=${spentUsdt}, commissionPercent=${commissionPercent}, profit=${traderProfit}`);
 
           // Обновляем транзакцию
           const updated = await prisma.transaction.update({
@@ -573,6 +567,7 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           intervalMinutes: t.Number(),
           sumLimit: t.Number(),
           operationLimit: t.Number(),
+          isArchived: t.Boolean(),
         })
       ),
       response: {
@@ -601,15 +596,16 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         return error(404, { error: "BT реквизит не найден" });
       }
 
-      await db.bankDetail.delete({
+      await db.bankDetail.update({
         where: { id: params.id },
+        data: { isArchived: true },
       });
 
-      return { ok: true, message: "BT реквизит удален" };
+      return { ok: true, message: "BT реквизит архивирован" };
     },
     {
       tags: ["trader"],
-      detail: { summary: "Удалить BT реквизит" },
+      detail: { summary: "Архивировать BT реквизит" },
       params: t.Object({ id: t.String() }),
       response: {
         200: t.Object({ ok: t.Boolean(), message: t.String() }),
