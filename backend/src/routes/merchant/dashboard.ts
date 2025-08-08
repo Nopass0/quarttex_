@@ -432,6 +432,7 @@ export default (app: Elysia) =>
         });
 
         // Получаем все завершенные выплаты для расчета баланса
+
         const completedPayoutsForBalance = await db.payout.findMany({
           where: {
             merchantId: merchant.id,
@@ -451,6 +452,10 @@ export default (app: Elysia) =>
             },
           },
         });
+
+
+
+
 
         // Получаем информацию о методах с комиссиями
         const methodIds = [
@@ -534,6 +539,7 @@ export default (app: Elysia) =>
           }
         }
 
+
         // Обрабатываем завершенные выплаты (исходящие платежи)
         for (const payout of completedPayoutsForBalance) {
           const commissionPercent =
@@ -573,6 +579,7 @@ export default (app: Elysia) =>
             totalPayoutsCommissionUsdt += truncatedCommissionUsdt;
           }
         }
+
         
         // Больше не вычитаем выведенные средства, так как используем date filter
         // который уже учитывает только транзакции после последнего settle
