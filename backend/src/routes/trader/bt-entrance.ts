@@ -56,11 +56,6 @@ const BtRequisiteDTO = t.Object({
 
 /* ---------- helpers ---------- */
 const formatBtDeal = (transaction: any) => {
-  // Debug log for first transaction
-  if (transaction.numericId === transaction.numericId) {
-    console.log(`[BT-Deal Format] Deal #${transaction.numericId}: status=${transaction.status}, traderProfit=${transaction.traderProfit}`);
-  }
-  
   return {
     id: transaction.id,
     numericId: transaction.numericId,
@@ -146,8 +141,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         ];
       }
 
-      console.log("[BT-Entrance] Query where conditions:", JSON.stringify(where, null, 2));
-      
+
+
       // First fetch all transactions for this trader with bank methods
       const allDeals = await db.transaction.findMany({
         where,
@@ -169,8 +164,6 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       const paginatedDeals = btDeals.slice(offset, offset + limit);
       const total = btDeals.length;
       
-      console.log(`[BT-Entrance] Found ${paginatedDeals.length} BT deals out of ${allDeals.length} total deals, filtered total: ${total}`);
-
       return {
         data: paginatedDeals.map(formatBtDeal),
         total,
@@ -245,8 +238,6 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           const spentUsdt = deal.rate ? deal.amount / deal.rate : 0;
           const commissionPercent = traderMerchant?.feeIn || 0;
           const traderProfit = Math.round(spentUsdt * (commissionPercent / 100) * 100) / 100;
-
-          console.log(`[BT-Entrance] Manual confirmation: amount=${deal.amount}, rate=${deal.rate}, spentUsdt=${spentUsdt}, commissionPercent=${commissionPercent}, profit=${traderProfit}`);
 
           // Обновляем транзакцию
           const updated = await prisma.transaction.update({
@@ -578,6 +569,7 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
           intervalMinutes: t.Number(),
           sumLimit: t.Number(),
           operationLimit: t.Number(),
+          isArchived: t.Boolean(),
         })
       ),
       response: {

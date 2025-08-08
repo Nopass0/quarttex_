@@ -33,7 +33,7 @@ interface Requisite {
   methodType: string;
   minAmount: number;
   maxAmount: number;
-  totalAmountLimit: number;
+  sumLimit: number;
   currentTotalAmount: number;
   isActive: boolean;
   createdAt: string;
@@ -182,9 +182,9 @@ export function RequisitesListDialog({
                             <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
                               <span>Мин: {(req.minAmount || 0).toLocaleString()} ₽</span>
                               <span>Макс: {(req.maxAmount || 0).toLocaleString()} ₽</span>
-                              {(req.totalAmountLimit || 0) > 0 && (
+                              {(req.sumLimit || 0) > 0 && (
                                 <span className="hidden sm:inline">
-                                  Лимит: {(req.currentTotalAmount || 0).toLocaleString()}/{(req.totalAmountLimit || 0).toLocaleString()} ₽
+                                  Лимит: {(req.currentTotalAmount || 0).toLocaleString()}/{(req.sumLimit || 0).toLocaleString()} ₽
                                 </span>
                               )}
                             </div>
@@ -252,9 +252,9 @@ export function RequisitesListDialog({
                                 <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs text-gray-500">
                                   <span>Мин: {(req.minAmount || 0).toLocaleString()} ₽</span>
                                   <span>Макс: {(req.maxAmount || 0).toLocaleString()} ₽</span>
-                                  {(req.totalAmountLimit || 0) > 0 && (
+                                  {(req.sumLimit || 0) > 0 && (
                                     <span className="hidden sm:inline">
-                                      Лимит: {(req.currentTotalAmount || 0).toLocaleString()}/{(req.totalAmountLimit || 0).toLocaleString()} ₽
+                                      Лимит: {(req.currentTotalAmount || 0).toLocaleString()}/{(req.sumLimit || 0).toLocaleString()} ₽
                                     </span>
                                   )}
                                 </div>
