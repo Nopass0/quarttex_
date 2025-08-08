@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { toast } from 'sonner'
 import { adminApi as api } from '@/services/api'
 import { useAdminAuth } from '@/stores/auth'
-import { formatAmount, formatDate, formatDateTime } from '@/lib/utils'
+import { formatAmount, formatDateTime } from '@/lib/utils'
 import { 
   CreditCard, 
   Search, 
@@ -135,6 +135,33 @@ export default function AdminDealsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [amountFilter, setAmountFilter] = useState('')
+  const [methodFilter, setMethodFilter] = useState('all')
+  const [methodTypeFilter, setMethodTypeFilter] = useState('all')
+  const [merchantFilter, setMerchantFilter] = useState('all')
+  const [methods, setMethods] = useState<{ id: string; name: string }[]>([])
+  const [merchants, setMerchants] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const headers = { 'x-admin-key': adminToken || '' }
+        const [methodsRes, merchantsRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/methods`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/merchants`, { headers })
+        ])
+        const methodsData = await methodsRes.json()
+        const merchantsData = await merchantsRes.json()
+        const methodList = methodsData.data || methodsData.methods || []
+        const merchantList = merchantsData.data || merchantsData.merchants || []
+        setMethods(methodList)
+        setMerchants(merchantList)
+      } catch (error) {
+        console.error('Failed to load methods or merchants', error)
+      }
+    }
+    loadData()
+  }, [adminToken])
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -148,7 +175,7 @@ export default function AdminDealsPage() {
     } else {
       loadTransactions()
     }
-  }, [statusFilter, typeFilter, currentPage, activeTab])
+  }, [statusFilter, typeFilter, amountFilter, methodFilter, methodTypeFilter, merchantFilter, currentPage, activeTab])
 
   const loadTransactions = async () => {
     setIsLoading(true)
@@ -167,13 +194,29 @@ export default function AdminDealsPage() {
         params.status = statusFilter
       }
       
-      if (typeFilter !== 'all') {
-        params.type = typeFilter
-      }
-      
-      if (search) {
-        params.search = search
-      }
+    if (typeFilter !== 'all') {
+      params.type = typeFilter
+    }
+
+    if (amountFilter) {
+      params.amount = parseFloat(amountFilter)
+    }
+
+    if (methodFilter !== 'all') {
+      params.methodId = methodFilter
+    }
+
+    if (methodTypeFilter !== 'all') {
+      params.methodType = methodTypeFilter
+    }
+
+    if (merchantFilter !== 'all') {
+      params.merchantId = merchantFilter
+    }
+
+    if (search) {
+      params.search = search
+    }
 
       const response = await api.getTransactionDeals(params)
       setTransactions(response.data || response.transactions || [])
@@ -192,6 +235,21 @@ export default function AdminDealsPage() {
       const params: any = {
         limit: 20,
         page: currentPage,
+      }
+      if (amountFilter) {
+        params.amount = parseFloat(amountFilter)
+      }
+      if (methodFilter !== 'all') {
+        params.methodId = methodFilter
+      }
+      if (methodTypeFilter !== 'all') {
+        params.methodType = methodTypeFilter
+      }
+      if (merchantFilter !== 'all') {
+        params.merchantId = merchantFilter
+      }
+      if (search) {
+        params.search = search
       }
       const response = await api.getTransactionAttempts(params)
       setAttempts(response.data || [])
@@ -249,7 +307,11 @@ export default function AdminDealsPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setCurrentPage(1)
-    loadTransactions()
+    if (activeTab === 'requests') {
+      loadAttempts()
+    } else {
+      loadTransactions()
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -466,15 +528,15 @@ export default function AdminDealsPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label className="text-gray-600">Создано</Label>
-                <p className="font-medium">{formatDate(selectedTransaction.createdAt)}</p>
+                <p className="font-medium">{formatDateTime(selectedTransaction.createdAt)}</p>
               </div>
               <div>
                 <Label className="text-gray-600">Обновлено</Label>
-                <p className="font-medium">{formatDate(selectedTransaction.updatedAt)}</p>
+                <p className="font-medium">{formatDateTime(selectedTransaction.updatedAt)}</p>
               </div>
               <div>
                 <Label className="text-gray-600">Истекает</Label>
-                <p className="font-medium">{formatDate(selectedTransaction.expired_at || selectedTransaction.expiredAt)}</p>
+                <p className="font-medium">{formatDateTime(selectedTransaction.expired_at || selectedTransaction.expiredAt)}</p>
               </div>
             </div>
 
@@ -578,7 +640,7 @@ export default function AdminDealsPage() {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <div className="text-sm font-medium">
-                            {formatDate(callback.createdAt)}
+                            {formatDateTime(callback.createdAt)}
                           </div>
                           <div className="text-xs text-gray-600 break-all">{callback.url}</div>
                         </div>
@@ -639,7 +701,7 @@ export default function AdminDealsPage() {
             {selectedTransaction.acceptedAt && (
               <div>
                 <Label className="text-gray-600">Принята в работу</Label>
-                <p className="font-medium">{formatDate(selectedTransaction.acceptedAt)}</p>
+                <p className="font-medium">{formatDateTime(selectedTransaction.acceptedAt)}</p>
               </div>
             )}
 
@@ -754,7 +816,7 @@ export default function AdminDealsPage() {
                 </Badge>
               </TableCell>
               <TableCell>
-                {formatDate(transaction.createdAt)}
+                {formatDateTime(transaction.createdAt)}
               </TableCell>
               <TableCell>
                 <div className="flex gap-2">
@@ -843,35 +905,76 @@ export default function AdminDealsPage() {
                     className="w-full"
                   />
                 </div>
-                {activeTab === 'all' && (
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Статус" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Все статусы</SelectItem>
-                        <SelectItem value="CREATED">Создана</SelectItem>
-                        <SelectItem value="IN_PROGRESS">В работе</SelectItem>
-                        <SelectItem value="DISPUTE">Спор</SelectItem>
-                        <SelectItem value="READY">Готова</SelectItem>
-                        <SelectItem value="EXPIRED">Истекла</SelectItem>
-                        <SelectItem value="CANCELED">Отменена</SelectItem>
-                        <SelectItem value="MILK">Слив</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-full sm:w-[180px]">
-                        <SelectValue placeholder="Тип" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Все типы</SelectItem>
-                        <SelectItem value="IN">Входящие (IN)</SelectItem>
-                        <SelectItem value="OUT">Исходящие (OUT)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  {activeTab === 'all' && (
+                    <>
+                      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1) }}>
+                        <SelectTrigger className="w-full sm:w-[180px]">
+                          <SelectValue placeholder="Статус" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Все статусы</SelectItem>
+                          <SelectItem value="CREATED">Создана</SelectItem>
+                          <SelectItem value="IN_PROGRESS">В работе</SelectItem>
+                          <SelectItem value="DISPUTE">Спор</SelectItem>
+                          <SelectItem value="READY">Готова</SelectItem>
+                          <SelectItem value="EXPIRED">Истекла</SelectItem>
+                          <SelectItem value="CANCELED">Отменена</SelectItem>
+                          <SelectItem value="MILK">Слив</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setCurrentPage(1) }}>
+                        <SelectTrigger className="w-full sm:w-[180px]">
+                          <SelectValue placeholder="Тип" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Все типы</SelectItem>
+                          <SelectItem value="IN">Входящие (IN)</SelectItem>
+                          <SelectItem value="OUT">Исходящие (OUT)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </>
+                  )}
+                  <Input
+                    type="number"
+                    placeholder="Сумма"
+                    value={amountFilter}
+                    onChange={(e) => { setAmountFilter(e.target.value); setCurrentPage(1) }}
+                    className="w-full sm:w-[140px]"
+                  />
+                  <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v); setCurrentPage(1) }}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Метод" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все методы</SelectItem>
+                      {methods.map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={methodTypeFilter} onValueChange={(v) => { setMethodTypeFilter(v); setCurrentPage(1) }}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Тип метода" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все типы</SelectItem>
+                      <SelectItem value="c2c">C2C</SelectItem>
+                      <SelectItem value="sbp">СБП</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={merchantFilter} onValueChange={(v) => { setMerchantFilter(v); setCurrentPage(1) }}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Мерчант" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все мерчанты</SelectItem>
+                      {merchants.map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button type="submit" className="w-full sm:w-auto">
                   <Search className="h-4 w-4" />
                 </Button>

@@ -17,6 +17,23 @@ import { TestMerchantTransactions } from '@/components/admin/test-merchant-trans
 import { WellbitTestDialog } from '@/components/admin/wellbit-test-dialog'
 import { QuickTransactionCreate } from '@/components/admin/quick-transaction-create'
 import { MerchantTransactions } from '@/components/admin/merchant-transactions'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  endOfDay,
+  endOfMonth,
+  endOfYear,
+  startOfDay,
+  startOfMonth,
+  startOfYear,
+  subDays,
+  subHours,
+} from 'date-fns'
 
 type Merchant = {
   id: string
@@ -53,6 +70,7 @@ export default function MerchantDetailPage() {
   const [isGeneratingKeys, setIsGeneratingKeys] = useState(false)
   const [showTestDialog, setShowTestDialog] = useState(false)
   const [balanceFormula, setBalanceFormula] = useState<any>(null)
+  const [selectedPeriod, setSelectedPeriod] = useState('all')
   
   console.log('MerchantDetailPage: Rendering with merchantId:', merchantId)
   
@@ -63,6 +81,7 @@ export default function MerchantDetailPage() {
   useEffect(() => {
     fetchMerchant()
   }, [merchantId])
+
 
   const handleGenerateKeys = async () => {
     try {
@@ -116,9 +135,7 @@ export default function MerchantDetailPage() {
       const data = await response.json()
       console.log('fetchMerchant: Received data:', data)
       setMerchant(data)
-      
-      // Fetch balance formula
-      fetchBalanceFormula()
+      await fetchBalanceFormula(selectedPeriod)
     } catch (error) {
       console.error('fetchMerchant: Error:', error)
       toast.error('Не удалось загрузить данные мерчанта')
@@ -128,10 +145,50 @@ export default function MerchantDetailPage() {
     }
   }
 
-  const fetchBalanceFormula = async () => {
+  const getDateRange = (period: string) => {
+    const now = new Date()
+    let startDate: Date
+    let endDate: Date = now
+    switch (period) {
+      case '24h':
+        startDate = subHours(now, 24)
+        break
+      case 'today':
+        startDate = startOfDay(now)
+        endDate = endOfDay(now)
+        break
+      case 'yesterday':
+        startDate = startOfDay(subDays(now, 1))
+        endDate = endOfDay(subDays(now, 1))
+        break
+      case 'week':
+        startDate = subDays(now, 7)
+        break
+      case 'month':
+        startDate = startOfMonth(now)
+        endDate = endOfMonth(now)
+        break
+      case 'year':
+        startDate = startOfYear(now)
+        endDate = endOfYear(now)
+        break
+      case 'all':
+      default:
+        startDate = new Date(0)
+    }
+    return { startDate, endDate }
+  }
+
+  const fetchBalanceFormula = async (period: string) => {
     try {
+      const { startDate, endDate } = getDateRange(period)
+      const params = new URLSearchParams({
+        pageSize: '1',
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      })
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/${merchantId}/transactions?pageSize=1`,
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/merchant/${merchantId}/transactions?${params.toString()}`,
         {
           headers: {
             'x-admin-key': adminToken || '',
@@ -146,6 +203,10 @@ export default function MerchantDetailPage() {
       console.error('Failed to fetch balance formula:', error)
     }
   }
+
+  useEffect(() => {
+    fetchBalanceFormula(selectedPeriod)
+  }, [selectedPeriod])
 
   const copyToClipboard = (text: string, message: string = 'Скопировано в буфер обмена') => {
     navigator.clipboard.writeText(text)
@@ -301,12 +362,29 @@ export default function MerchantDetailPage() {
           )}
 
           {/* Quick Transaction Creation */}
-          <QuickTransactionCreate 
+          <QuickTransactionCreate
             merchantId={merchantId}
             merchantToken={merchant.token}
             merchantName={merchant.name}
             merchantMethods={merchant.merchantMethods?.filter(m => m.isEnabled) || []}
           />
+
+          <div className="flex justify-end mb-4">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Период" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="24h">24 часа</SelectItem>
+                <SelectItem value="today">Сегодня</SelectItem>
+                <SelectItem value="yesterday">Вчера</SelectItem>
+                <SelectItem value="week">Неделя</SelectItem>
+                <SelectItem value="month">Месяц</SelectItem>
+                <SelectItem value="year">Год</SelectItem>
+                <SelectItem value="all">Все время</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Balance Formula Display */}
           {balanceFormula && (

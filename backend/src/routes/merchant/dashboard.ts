@@ -3,7 +3,17 @@ import { db } from "@/db";
 import { Prisma, Status, TransactionType, MethodType, Currency, PayoutStatus } from "@prisma/client";
 import ErrorSchema from "@/types/error";
 import { merchantSessionGuard } from "@/middleware/merchantSessionGuard";
-import { endOfDay, endOfMonth, startOfDay, startOfMonth, subDays, format } from "date-fns";
+import {
+  endOfDay,
+  endOfMonth,
+  endOfYear,
+  startOfDay,
+  startOfMonth,
+  startOfYear,
+  subDays,
+  subHours,
+  format,
+} from "date-fns";
 
 /**
  * Маршруты для дашборда мерчанта
@@ -61,9 +71,16 @@ export default (app: Elysia) =>
         let dateTo: Date = new Date();
 
         switch (period) {
+          case "24h":
+            dateFrom = subHours(new Date(), 24);
+            break;
           case "today":
             dateFrom = startOfDay(new Date());
             dateTo = endOfDay(new Date());
+            break;
+          case "yesterday":
+            dateFrom = startOfDay(subDays(new Date(), 1));
+            dateTo = endOfDay(subDays(new Date(), 1));
             break;
           case "week":
             dateFrom = subDays(new Date(), 7);
@@ -71,6 +88,10 @@ export default (app: Elysia) =>
           case "month":
             dateFrom = startOfMonth(new Date());
             dateTo = endOfMonth(new Date());
+            break;
+          case "year":
+            dateFrom = startOfYear(new Date());
+            dateTo = endOfYear(new Date());
             break;
           case "all":
             dateFrom = new Date(0);
@@ -658,12 +679,17 @@ export default (app: Elysia) =>
         detail: { summary: "Получение статистики мерчанта" },
         headers: t.Object({ authorization: t.String() }),
         query: t.Object({
-          period: t.Optional(t.Union([
-            t.Literal("today"),
-            t.Literal("week"),
-            t.Literal("month"),
-            t.Literal("all"),
-          ])),
+          period: t.Optional(
+            t.Union([
+              t.Literal("24h"),
+              t.Literal("today"),
+              t.Literal("yesterday"),
+              t.Literal("week"),
+              t.Literal("month"),
+              t.Literal("year"),
+              t.Literal("all"),
+            ]),
+          ),
         }),
         response: {
           200: t.Object({
