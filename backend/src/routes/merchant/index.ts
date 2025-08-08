@@ -624,6 +624,17 @@ export default (app: Elysia) =>
         }
 
         if (!chosen) {
+          await db.transactionAttempt.create({
+            data: {
+              merchantId: merchant.id,
+              methodId: method.id,
+              amount: body.amount,
+              success: false,
+              status: 'NO_REQUISITE',
+              errorCode: 'NO_REQUISITE',
+              message: 'Не найден подходящий реквизит'
+            }
+          });
           return error(409, { error: "NO_REQUISITE" });
         }
 
@@ -709,6 +720,17 @@ export default (app: Elysia) =>
             console.log(
               `[Merchant IN] Недостаточно баланса. Нужно: ${freezingParams.totalRequired}, доступно: ${availableBalance}`,
             );
+            await db.transactionAttempt.create({
+              data: {
+                merchantId: merchant.id,
+                methodId: method.id,
+                amount: body.amount,
+                success: false,
+                status: 'NO_REQUISITE',
+                errorCode: 'INSUFFICIENT_BALANCE',
+                message: 'Недостаточно баланса трейдера'
+              }
+            });
             return error(409, { error: "NO_REQUISITE" });
           }
         }
@@ -797,6 +819,16 @@ export default (app: Elysia) =>
           }
 
           return transaction;
+        });
+        await db.transactionAttempt.create({
+          data: {
+            transactionId: tx.id,
+            merchantId: merchant.id,
+            methodId: method.id,
+            amount: tx.amount,
+            success: true,
+            status: tx.status
+          }
         });
 
         const crypto =

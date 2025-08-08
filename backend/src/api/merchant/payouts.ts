@@ -124,6 +124,15 @@ export const merchantPayoutsApi = new Elysia({ prefix: "/payouts" })
             wallet: payout.wallet,
             bank: payout.bank,
             isCard: payout.isCard,
+            method: payout.method
+              ? {
+                  id: payout.method.id,
+                  code: payout.method.code,
+                  name: payout.method.name,
+                  type: payout.method.type,
+                  currency: payout.method.currency,
+                }
+              : null,
             status: payout.status,
             expireAt: payout.expireAt,
             createdAt: payout.createdAt,

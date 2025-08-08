@@ -825,6 +825,10 @@ export const adminApi = {
     const response = await adminApiInstance.get(`/admin/transactions/${id}`)
     return response.data
   },
+  getTransactionAttempts: async (params?: any) => {
+    const response = await adminApiInstance.get('/admin/transactions/attempts', { params })
+    return response.data
+  },
   updateTransactionStatus: async (id: string, status: string) => {
     const response = await adminApiInstance.patch(`/admin/transactions/${id}/status`, { status })
     return response.data
