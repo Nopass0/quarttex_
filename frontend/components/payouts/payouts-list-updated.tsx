@@ -636,7 +636,17 @@ export function PayoutsList() {
       const response = await payoutApi.acceptPayout(payout.uuid);
       if (response.success) {
         toast.success("Выплата принята в работу");
-        fetchPayouts();
+        setPayouts((prev) =>
+          prev.map((p) =>
+            p.id === payoutId
+              ? {
+                  ...p,
+                  status: "active",
+                  accepted_at: new Date().toISOString(),
+                }
+              : p,
+          ),
+        );
         fetchPayoutBalance();
       }
     } catch (error: any) {
@@ -644,10 +654,10 @@ export function PayoutsList() {
       const errorMessage =
         error.response?.data?.error || "Не удалось принять выплату";
 
-      // Always refresh the list after error to get the latest state
+      // Refresh state after error to get the latest data
       fetchPayouts();
+      fetchPayoutBalance();
 
-      // Provide more specific error messages
       if (
         errorMessage.includes("not available for acceptance") ||
         errorMessage.includes("already accepted")
@@ -661,8 +671,6 @@ export function PayoutsList() {
         toast.error("Достигнут лимит одновременных выплат");
       } else if (errorMessage.includes("expired")) {
         toast.error("Выплата истекла");
-      } else if (errorMessage.includes("already accepted")) {
-        toast.error("Выплата уже принята другим трейдером");
       } else {
         toast.error(errorMessage);
       }

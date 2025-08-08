@@ -98,7 +98,7 @@ export async function freezeTraderBalance(
     where: { id: traderId },
     data: {
       frozenUsdt: { increment: freezingParams.totalRequired },
-      trustBalance: { decrement: freezingParams.totalRequired } // Списываем с баланса при заморозке
+      trustBalance: { decrement: freezingParams.totalRequired }
     }
   });
 
