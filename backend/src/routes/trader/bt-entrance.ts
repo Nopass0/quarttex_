@@ -122,11 +122,14 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
       const limit = query.limit || 50;
       const offset = (page - 1) * limit;
 
-      // Get transactions that use requisites without devices (BT deals)
+      // Get trader transactions for BT deals (bank methods)
       const where: any = {
         traderId: trader.id,
-        // Проверяем, что транзакция связана с реквизитом
-        bankDetailId: { not: null },
+        method: {
+          type: {
+            in: [MethodType.c2c, MethodType.sbp],
+          },
+        },
       };
 
       // Add status filter if provided
@@ -145,19 +148,21 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
 
       console.log("[BT-Entrance] Query where conditions:", JSON.stringify(where, null, 2));
       
-      // First fetch all transactions with requisites for this trader
+      // First fetch all transactions for this trader with bank methods
       const allDeals = await db.transaction.findMany({
         where,
         include: {
           merchant: true,
           requisites: true,
+          method: true,
         },
         orderBy: { createdAt: "desc" },
       });
-      
-      // Filter to only include BT deals (requisites without devices)
+
+      // Filter to include deals with requisites without devices
+      // and deals with deleted requisites
       const btDeals = allDeals.filter(
-        (deal) => deal.requisites?.deviceId === null,
+        (deal) => !deal.requisites || deal.requisites.deviceId === null,
       );
       
       // Apply pagination to filtered results
@@ -601,15 +606,16 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         return error(404, { error: "BT реквизит не найден" });
       }
 
-      await db.bankDetail.delete({
+      await db.bankDetail.update({
         where: { id: params.id },
+        data: { isArchived: true },
       });
 
-      return { ok: true, message: "BT реквизит удален" };
+      return { ok: true, message: "BT реквизит архивирован" };
     },
     {
       tags: ["trader"],
-      detail: { summary: "Удалить BT реквизит" },
+      detail: { summary: "Архивировать BT реквизит" },
       params: t.Object({ id: t.String() }),
       response: {
         200: t.Object({ ok: t.Boolean(), message: t.String() }),
