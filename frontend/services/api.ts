@@ -493,8 +493,7 @@ merchantApiInstance.interceptors.request.use((config) => {
   const { sessionToken, token } = useMerchantAuth.getState()
   if (sessionToken) {
     config.headers['Authorization'] = `Bearer ${sessionToken}`
-  }
-  if (token) {
+  } else if (token) {
     config.headers['x-merchant-api-key'] = token
     // Some payout endpoints expect the legacy `x-api-key` header
     // so include it alongside the new header
