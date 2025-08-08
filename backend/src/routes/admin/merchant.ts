@@ -457,6 +457,7 @@ export default (app: Elysia) =>
           const netAmount = payout.amount * (1 + payout.feePercent / 100);
           balanceRub -= netAmount; // Выплаты уменьшают баланс
         }
+
         
         return {
           ...toISO(merchant),
@@ -468,6 +469,7 @@ export default (app: Elysia) =>
             id: mm.id,
             isEnabled: mm.isEnabled,
             method: {
+
               id: mm.method.id,
               code: mm.method.code,
               name: mm.method.name,
@@ -482,6 +484,7 @@ export default (app: Elysia) =>
         detail: { summary: 'Получить мерчанта с методами' },
         headers: AuthHeader,
         params: t.Object({ id: t.String() }),
+
         response: {
           200: t.Object({
             id: t.String(),
@@ -497,6 +500,7 @@ export default (app: Elysia) =>
             createdAt: t.String(),
             merchantMethods: t.Array(t.Object({
               id: t.String(),
+
               isEnabled: t.Boolean(),
               method: t.Object({
                 id: t.String(),
@@ -1052,6 +1056,7 @@ export default (app: Elysia) =>
           : {};
 
         // Calculate totals for balance formula
+
         const [successfulTransactions, successfulPayouts] = await Promise.all([
           db.transaction.findMany({
             where: {
@@ -1072,6 +1077,8 @@ export default (app: Elysia) =>
           })
         ])
 
+
+
         // Get rate settings for methods
         const methodIds = [...new Set(successfulTransactions.map(tx => tx.method?.id).filter(Boolean))];
         const rateSettings = await db.rateSettings.findMany({
@@ -1080,6 +1087,7 @@ export default (app: Elysia) =>
         const rateSettingsMap = new Map(rateSettings.map(rs => [rs.methodId, rs]));
         
         // Calculate sums for balance formula
+
         let totalSuccessfulDealsUsdt = 0
         let platformCommissionDeals = 0
         let netBalanceUsdt = 0  // Track net balance separately to match merchant dashboard
@@ -1087,6 +1095,7 @@ export default (app: Elysia) =>
         let totalDealsRub = 0
         let platformCommissionDealsRub = 0
         let netBalanceRub = 0
+
         
         for (const tx of successfulTransactions) {
           // If merchantRate is null, calculate effective rate using formula
@@ -1098,6 +1107,7 @@ export default (app: Elysia) =>
             effectiveRate = tx.rate / (1 + (kkkPercent / 100))
           }
           
+
           const commissionRub = tx.amount * (tx.method.commissionPayin / 100)
           const netRub = tx.amount - commissionRub
 
@@ -1154,6 +1164,7 @@ export default (app: Elysia) =>
         const currentBalance = merchant.countInRubEquivalent ? 0 : netBalanceUsdt
         const currentBalanceRub = Math.floor(netBalanceRub * 100) / 100
 
+
         // Get rate settings for transaction methods
         const txMethodIds = [...new Set(transactions.map(tx => tx.method?.id).filter(Boolean))];
         const txRateSettings = await db.rateSettings.findMany({
@@ -1204,6 +1215,7 @@ export default (app: Elysia) =>
               updatedAt: tx.updatedAt.toISOString(),
             }
           }),
+
           balanceFormula: {
             totalSuccessfulDealsUsdt: merchant.countInRubEquivalent ? undefined : totalSuccessfulDealsUsdt,
             platformCommissionDeals: merchant.countInRubEquivalent ? undefined : platformCommissionDeals,
@@ -1217,6 +1229,7 @@ export default (app: Elysia) =>
             currentBalanceRub,
             currency: merchant.countInRubEquivalent ? 'RUB' : 'USDT',
           },
+
           pagination: {
             page,
             pageSize,
@@ -1271,6 +1284,7 @@ export default (app: Elysia) =>
               createdAt: t.String(),
               updatedAt: t.String(),
             })),
+
             balanceFormula: t.Object({
               totalSuccessfulDealsUsdt: t.Optional(t.Number()),
               platformCommissionDeals: t.Optional(t.Number()),
@@ -1284,6 +1298,7 @@ export default (app: Elysia) =>
               currentBalanceRub: t.Number(),
               currency: t.String(),
             }),
+
             pagination: t.Object({
               page: t.Number(),
               pageSize: t.Number(),
