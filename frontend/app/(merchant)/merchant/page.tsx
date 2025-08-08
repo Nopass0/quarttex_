@@ -310,9 +310,12 @@ export default function MerchantDashboardPage() {
               <SelectValue placeholder="Выберите период" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="24h">24 часа</SelectItem>
               <SelectItem value="today">Сегодня</SelectItem>
+              <SelectItem value="yesterday">Вчера</SelectItem>
               <SelectItem value="week">Неделя</SelectItem>
               <SelectItem value="month">Месяц</SelectItem>
+              <SelectItem value="year">Год</SelectItem>
               <SelectItem value="all">Весь период</SelectItem>
             </SelectContent>
           </Select>
