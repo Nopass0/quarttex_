@@ -43,20 +43,43 @@ export default class PayoutExpiryService extends BaseService {
         },
         select: {
           id: true,
-          traderId: true
+          traderId: true,
+          acceptanceTime: true
         }
       });
-      
-      // Update each payout individually to disconnect trader
+
+      // Process created payouts
       for (const payout of createdPayoutsToExpire) {
-        await db.payout.update({
-          where: { id: payout.id },
-          data: {
-            status: "EXPIRED",
-            traderId: null, // Disconnect from trader
-            acceptedAt: null
-          }
-        });
+        // Calculate new expiration time based on acceptance time
+        const newExpireAt = new Date(
+          Date.now() + payout.acceptanceTime * 60 * 1000
+        );
+
+        if (payout.traderId) {
+          // Return to pool and remember previous trader
+          await db.payout.update({
+            where: { id: payout.id },
+            data: {
+              traderId: null,
+              acceptedAt: null,
+              expireAt: newExpireAt,
+              // Keep status as CREATED
+              status: "CREATED",
+              // Track previous trader to prevent reassignment
+              previousTraderIds: {
+                push: payout.traderId
+              }
+            }
+          });
+        } else {
+          // No trader assigned - just extend expiration
+          await db.payout.update({
+            where: { id: payout.id },
+            data: {
+              expireAt: newExpireAt
+            }
+          });
+        }
       }
       
       // Also find ACTIVE payouts that expired (not confirmed in time)
@@ -84,7 +107,13 @@ export default class PayoutExpiryService extends BaseService {
                 traderId: null,
                 acceptedAt: null,
                 // Reset expiration to original acceptance time
-                expireAt: new Date(Date.now() + payout.acceptanceTime * 60 * 1000)
+                expireAt: new Date(Date.now() + payout.acceptanceTime * 60 * 1000),
+                confirmedAt: null,
+                sumToWriteOffUSDT: null,
+                // Track previous trader to prevent reassignment
+                previousTraderIds: {
+                  push: payout.traderId
+                }
               }
             }),
             // Unfreeze trader's RUB balance
