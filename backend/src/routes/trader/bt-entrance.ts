@@ -141,6 +141,8 @@ export const btEntranceRoutes = new Elysia({ prefix: "/bt-entrance" })
         ];
       }
 
+
+
       // First fetch all transactions for this trader with bank methods
       const allDeals = await db.transaction.findMany({
         where,
