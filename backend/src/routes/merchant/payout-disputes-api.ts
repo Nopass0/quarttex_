@@ -29,8 +29,13 @@ export const payoutDisputesApiRoutes = new Elysia()
       console.log('[PayoutDisputesAPI] Creating dispute for payout:', params.payoutId);
       console.log('[PayoutDisputesAPI] Request headers:', request.headers);
       console.log('[PayoutDisputesAPI] Body:', body);
-      
-      const { message, files } = body;
+
+      const { message, files: rawFiles } = body;
+      const files = rawFiles
+        ? Array.isArray(rawFiles)
+          ? rawFiles
+          : [rawFiles]
+        : [];
       
       // Check if payout exists and belongs to merchant
       const payout = await db.payout.findFirst({
@@ -73,9 +78,9 @@ export const payoutDisputesApiRoutes = new Elysia()
 
       // Process uploaded files if provided
       const uploadedFiles = [];
-      if (files && Array.isArray(files) && files.length > 0) {
+      if (files.length > 0) {
         console.log('[PayoutDisputesAPI] Processing', files.length, 'files');
-        
+
         if (files.length > MAX_FILES) {
           set.status = 400;
           return { error: `Maximum ${MAX_FILES} files allowed` };
@@ -101,7 +106,7 @@ export const payoutDisputesApiRoutes = new Elysia()
 
             uploadedFiles.push({
               filename: name,
-              url: `/uploads/payout-disputes/${filename}`,
+              url: `/api/uploads/payout-disputes/${filename}`,
               size: file.size,
               mimeType: file.type || 'application/octet-stream'
             });
@@ -170,9 +175,9 @@ export const payoutDisputesApiRoutes = new Elysia()
   }, {
     body: t.Object({
       message: t.String({ minLength: 1, description: "Dispute message" }),
-      files: t.Optional(t.Array(t.File({ 
-        description: "Attached files (max 10 files, 20MB each)" 
-      })))
+      files: t.Optional(
+        t.Files({ description: "Attached files (max 10 files, 20MB each)" })
+      )
     }),
     detail: {
       summary: "Create payout dispute",
@@ -311,8 +316,13 @@ export const payoutDisputesApiRoutes = new Elysia()
   .post("/dispute/:disputeId/messages", async ({ merchant, params, body, set }) => {
     try {
       await ensureUploadDir();
-      
-      const { message, files } = body;
+
+      const { message, files: rawFiles } = body;
+      const files = rawFiles
+        ? Array.isArray(rawFiles)
+          ? rawFiles
+          : [rawFiles]
+        : [];
       
       // Check if dispute exists and merchant can send messages
       const dispute = await db.payoutDispute.findFirst({
@@ -332,7 +342,7 @@ export const payoutDisputesApiRoutes = new Elysia()
 
       // Process uploaded files
       const uploadedFiles = [];
-      if (files && Array.isArray(files) && files.length > 0) {
+      if (files.length > 0) {
         if (files.length > MAX_FILES) {
           set.status = 400;
           return { error: `Maximum ${MAX_FILES} files allowed` };
@@ -357,7 +367,7 @@ export const payoutDisputesApiRoutes = new Elysia()
 
             uploadedFiles.push({
               filename: name,
-              url: `/uploads/payout-disputes/${filename}`,
+              url: `/api/uploads/payout-disputes/${filename}`,
               size: file.size,
               mimeType: file.type || 'application/octet-stream'
             });
@@ -402,9 +412,9 @@ export const payoutDisputesApiRoutes = new Elysia()
     }),
     body: t.Object({
       message: t.String({ minLength: 1, description: "Message text" }),
-      files: t.Optional(t.Array(t.File({ 
-        description: "Attached files (max 10 files, 20MB each)" 
-      })))
+      files: t.Optional(
+        t.Files({ description: "Attached files (max 10 files, 20MB each)" })
+      )
     }),
     detail: {
       summary: "Send payout dispute message",
