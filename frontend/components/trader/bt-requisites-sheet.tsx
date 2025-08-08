@@ -57,6 +57,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getBankIcon, formatCardNumber } from "@/lib/bank-utils";
+import { BANKS } from "@/constants/banks";
 
 const formSchema = z.object({
   methodType: z.string().min(1, "Выберите тип метода"),
@@ -104,50 +105,7 @@ interface BtRequisitesSheetProps {
   existingRequisite?: BtRequisite;
 }
 
-const AVAILABLE_BANKS = [
-  { code: "SBERBANK", label: "Сбербанк" },
-  { code: "TBANK", label: "Т-Банк" },
-  { code: "VTB", label: "ВТБ" },
-  { code: "ALFABANK", label: "Альфа-Банк" },
-  { code: "RAIFFEISEN", label: "Райффайзенбанк" },
-  { code: "GAZPROMBANK", label: "Газпромбанк" },
-  { code: "OTPBANK", label: "ОТП Банк" },
-  { code: "OTKRITIE", label: "Открытие" },
-  { code: "ROSBANK", label: "Росбанк" },
-  { code: "PROMSVYAZBANK", label: "Промсвязьбанк" },
-  { code: "SOVCOMBANK", label: "Совкомбанк" },
-  { code: "POCHTABANK", label: "Почта Банк" },
-  { code: "ROSSELKHOZBANK", label: "Россельхозбанк" },
-  { code: "MKB", label: "МКБ" },
-  { code: "URALSIB", label: "Уралсиб" },
-  { code: "AKBARS", label: "Ак Барс" },
-  { code: "SPBBANK", label: "Банк Санкт-Петербург" },
-  { code: "MTSBANK", label: "МТС Банк" },
-  { code: "OZONBANK", label: "Озон Банк" },
-  { code: "RENAISSANCE", label: "Ренессанс" },
-  { code: "OTP", label: "ОТП Банк" },
-  { code: "AVANGARD", label: "Авангард" },
-  { code: "RNKB", label: "РНКБ" },
-  { code: "LOKOBANK", label: "Локо-Банк" },
-  { code: "RUSSIANSTANDARD", label: "Русский Стандарт" },
-  { code: "HOMECREDIT", label: "Хоум Кредит" },
-  { code: "UNICREDIT", label: "ЮниКредит" },
-  { code: "CITIBANK", label: "Ситибанк" },
-  { code: "BCSBANK", label: "БКС Банк" },
-  { code: "ABSOLUTBANK", label: "Абсолют Банк" },
-  { code: "SVOYBANK", label: "Свой Банк" },
-  { code: "TRANSKAPITALBANK", label: "Транскапиталбанк" },
-  { code: "MTSMONEY", label: "МТС Деньги" },
-  { code: "FORABANK", label: "Фора-Банк" },
-  { code: "CREDITEUROPE", label: "Кредит Европа" },
-  { code: "BBRBANK", label: "ББР Банк" },
-  { code: "UBRIR", label: "УБРиР" },
-  { code: "GENBANK", label: "Генбанк" },
-  { code: "SINARA", label: "Синара" },
-  { code: "VLADBUSINESSBANK", label: "Владбизнесбанк" },
-  { code: "TAVRICHESKIY", label: "Таврический" },
-  { code: "DOLINSK", label: "Долинск" }
-];
+const AVAILABLE_BANKS = BANKS;
 
 const btRequisiteStatusConfig = {
   ACTIVE: {

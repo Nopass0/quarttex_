@@ -41,6 +41,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useMerchantAuth } from "@/stores/merchant-auth";
+import { BANKS } from "@/constants/banks";
 
 interface ApiEndpoint {
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
@@ -2330,6 +2331,21 @@ print(result)`,
               </div>
             </TabsContent>
           </Tabs>
+        </CardContent>
+      </Card>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Коды банков</CardTitle>
+          <CardDescription>
+            Поддерживаемые значения параметра <code>bank</code>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-64">
+            <pre className="text-xs whitespace-pre-wrap">
+{BANKS.map(b => `${b.code} - ${b.label}`).join('\n')}
+            </pre>
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>

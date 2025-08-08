@@ -456,6 +456,7 @@ export default (app: Elysia) =>
 
 
 
+
         // Получаем информацию о методах с комиссиями
         const methodIds = [
           ...new Set(
@@ -1304,15 +1305,16 @@ export default (app: Elysia) =>
               },
             }),
             db.payout.findMany({
-              where: { 
+              where: {
                 merchantId: merchant.id,
                 status: "COMPLETED",
                 ...dateFilter
               },
-              select: { 
-                amount: true, 
+              select: {
+                amount: true,
                 methodId: true,
-                merchantRate: true  // Нужен для расчета USDT если countInRubEquivalent = false
+                merchantRate: true, // Нужен для расчета USDT если countInRubEquivalent = false
+                feePercent: true
               },
             }),
             db.settleRequest.findMany({
@@ -1363,12 +1365,10 @@ export default (app: Elysia) =>
           let payoutsCommission = 0;
           for (const payout of payouts) {
             const method = methodCommissionsMap.get(payout.methodId);
-            if (method) {
-              const commission = payout.amount * (method.commissionPayout / 100);
-              payoutsTotal += payout.amount;
-              payoutsCommission += commission;
-            } else {
-              payoutsTotal += payout.amount;
+            const percent = payout.feePercent ?? method?.commissionPayout;
+            payoutsTotal += payout.amount;
+            if (percent) {
+              payoutsCommission += payout.amount * (percent / 100);
             }
           }
           

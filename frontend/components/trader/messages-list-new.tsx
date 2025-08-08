@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { traderApi } from "@/services/api";
+import { BANKS } from "@/constants/banks";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TraderHeader } from "@/components/trader/trader-header";
@@ -124,28 +125,7 @@ const mockMessages: Message[] = [
   },
 ];
 
-const AVAILABLE_BANKS = [
-  { code: "SBER", name: "Сбербанк" },
-  { code: "TINK", name: "Тинькофф" },
-  { code: "VTB", name: "ВТБ" },
-  { code: "ALFA", name: "Альфа-Банк" },
-  { code: "GAZPROM", name: "Газпромбанк" },
-  { code: "OZON", name: "Ozon банк" },
-  { code: "RAIFF", name: "Райффайзен" },
-  { code: "POCHTA", name: "Почта Банк" },
-  { code: "RSHB", name: "Россельхозбанк" },
-  { code: "MTS", name: "МТС Банк" },
-  { code: "PSB", name: "ПСБ" },
-  { code: "SOVCOM", name: "Совкомбанк" },
-  { code: "URALSIB", name: "Уралсиб" },
-  { code: "MKB", name: "МКБ" },
-  { code: "ROSBANK", name: "Росбанк" },
-  { code: "OTKRITIE", name: "Открытие" },
-  { code: "AVANGARD", name: "Авангард" },
-  { code: "ZENIT", name: "Зенит" },
-  { code: "AKBARS", name: "Ак Барс" },
-  { code: "SBP", name: "СБП" }
-];
+const AVAILABLE_BANKS = BANKS;
 
 const getBankIcon = (bankType: string, size: "sm" | "md" = "md") => {
   const bankLogos: Record<string, string> = {

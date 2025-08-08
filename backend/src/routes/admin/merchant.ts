@@ -459,6 +459,7 @@ export default (app: Elysia) =>
         }
 
         
+
         return {
           ...toISO(merchant),
           apiKeyPublic: merchant.apiKeyPublic,
@@ -1076,6 +1077,7 @@ export default (app: Elysia) =>
             include: { method: { select: { commissionPayout: true } } },
           })
         ])
+
 
 
 

@@ -1124,6 +1124,7 @@ export default (app: Elysia) =>
           transactionType: Object.values(TransactionType),
           methodType: Object.values(MethodType),
           currency: Object.values(Currency),
+          bankType: Object.values(BankType),
         };
       },
       {
@@ -1136,6 +1137,7 @@ export default (app: Elysia) =>
             transactionType: t.Array(t.Enum(TransactionType)),
             methodType: t.Array(t.Enum(MethodType)),
             currency: t.Array(t.Enum(Currency)),
+            bankType: t.Array(t.Enum(BankType)),
           }),
           401: ErrorSchema,
         },
