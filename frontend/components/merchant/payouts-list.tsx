@@ -221,7 +221,9 @@ export function PayoutsList({ filters }: PayoutsListProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-red-600">
-                  {payout.feePercent ? `-${payout.feePercent.toFixed(2)}%` : '—'}
+                  {typeof payout.payoutsCommission === 'number'
+                    ? `-${formatAmount(payout.payoutsCommission)} ₽`
+                    : '—'}
                 </TableCell>
                 <TableCell>
                   {payout.method ? (

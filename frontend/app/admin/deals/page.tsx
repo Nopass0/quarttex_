@@ -101,6 +101,22 @@ interface Transaction {
   }
 }
 
+interface TransactionAttempt {
+  id: string
+  transactionId: string | null
+  transactionNumericId: number | null
+  merchantId: string
+  merchantName: string | null
+  methodId: string
+  methodName: string | null
+  amount: number
+  success: boolean
+  status: string | null
+  errorCode?: string | null
+  message?: string | null
+  createdAt: string
+}
+
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   CREATED: { label: 'Создана', color: 'bg-blue-100 text-blue-800', icon: Clock },
   IN_PROGRESS: { label: 'В работе', color: 'bg-yellow-100 text-yellow-800', icon: RefreshCw },
@@ -114,6 +130,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 export default function AdminDealsPage() {
   const adminToken = useAdminAuth((state) => state.token)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [attempts, setAttempts] = useState<TransactionAttempt[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -126,7 +143,11 @@ export default function AdminDealsPage() {
   const [loadingCallbacks, setLoadingCallbacks] = useState(false)
 
   useEffect(() => {
-    loadTransactions()
+    if (activeTab === 'requests') {
+      loadAttempts()
+    } else {
+      loadTransactions()
+    }
   }, [statusFilter, typeFilter, currentPage, activeTab])
 
   const loadTransactions = async () => {
@@ -160,6 +181,24 @@ export default function AdminDealsPage() {
     } catch (error: any) {
       toast.error('Ошибка загрузки сделок')
       console.error('Failed to load transactions:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadAttempts = async () => {
+    setIsLoading(true)
+    try {
+      const params: any = {
+        limit: 20,
+        page: currentPage,
+      }
+      const response = await api.getTransactionAttempts(params)
+      setAttempts(response.data || [])
+      setTotalPages(response.pagination?.totalPages || 1)
+    } catch (error: any) {
+      toast.error('Ошибка загрузки запросов')
+      console.error('Failed to load attempts:', error)
     } finally {
       setIsLoading(false)
     }
@@ -743,11 +782,42 @@ export default function AdminDealsPage() {
         </TableBody>
       </Table>
     </div>
-  )
+    )
 
-  return (
-    <ProtectedRoute variant="admin">
-      <AuthLayout variant="admin">
+    const AttemptsTable = () => (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Дата</TableHead>
+              <TableHead>Мерчант</TableHead>
+              <TableHead>Метод</TableHead>
+              <TableHead>Сумма</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Ошибка</TableHead>
+              <TableHead>Сделка</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {attempts.map(a => (
+              <TableRow key={a.id}>
+                <TableCell>{formatDate(a.createdAt)}</TableCell>
+                <TableCell>{a.merchantName || a.merchantId}</TableCell>
+                <TableCell>{a.methodName || a.methodId}</TableCell>
+                <TableCell>{formatAmount(a.amount)} ₽</TableCell>
+                <TableCell>{a.success ? 'Успех' : 'Ошибка'}</TableCell>
+                <TableCell>{a.errorCode || '-'}</TableCell>
+                <TableCell>{a.transactionNumericId ? `#${a.transactionNumericId}` : '-'}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    )
+
+    return (
+      <ProtectedRoute variant="admin">
+        <AuthLayout variant="admin">
         <div className="space-y-4">
           <div className="mb-6">
             <h1 className="text-3xl font-bold flex items-center gap-3">
@@ -828,6 +898,7 @@ export default function AdminDealsPage() {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="requests">Запросы</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all">
@@ -870,26 +941,45 @@ export default function AdminDealsPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="disputes">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Спорные сделки</CardTitle>
-                  <CardDescription>
-                    Сделки с открытыми спорами
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin" />
-                    </div>
-                  ) : (
-                    <TransactionsTable />
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="disputes">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Спорные сделки</CardTitle>
+                    <CardDescription>
+                      Сделки с открытыми спорами
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    ) : (
+                      <TransactionsTable />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="requests">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Запросы на сделки</CardTitle>
+                    <CardDescription>
+                      Всего найдено: {attempts.length} запросов
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    ) : (
+                      <AttemptsTable />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           
           {totalPages > 1 && (
             <div className="flex justify-center gap-2 mt-4">

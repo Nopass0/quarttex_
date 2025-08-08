@@ -1,4 +1,4 @@
-export const BANKS = [
+const BANKS_RAW = [
   {
     "code": "SBERBANK",
     "label": "Сбербанк"
@@ -819,5 +819,10 @@ export const BANKS = [
     "code": "UZUMBANK",
     "label": "UZUMBANK"
   }
-] as const;
-export type BankCode = typeof BANKS[number]["code"];
+];
+
+export const BANKS = Array.from(
+  new Map(BANKS_RAW.map((b) => [b.label, b])).values(),
+) as typeof BANKS_RAW;
+
+export type BankCode = typeof BANKS_RAW[number]["code"];

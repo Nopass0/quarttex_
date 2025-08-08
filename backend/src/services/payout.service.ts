@@ -53,7 +53,7 @@ export class PayoutService {
     wallet: string;
     bank: string;
     isCard: boolean;
-    methodId: string;
+    methodId?: string;
     merchantRate?: number;
     direction?: "IN" | "OUT";
     rateDelta?: number;
@@ -73,42 +73,41 @@ export class PayoutService {
       throw new Error("Merchant not found");
     }
 
-    if (!methodId) {
-      throw new Error("Method ID is required");
-    }
+    let method = null;
+    if (methodId) {
+      method = await db.method.findFirst({
+        where: { id: methodId, merchantMethods: { some: { merchantId } } },
+      });
 
-    const method = await db.method.findFirst({
-      where: { id: methodId, merchantMethods: { some: { merchantId } } },
-    });
+      if (!method) {
+        throw new Error("Method not found");
+      }
 
-    if (!method) {
-      throw new Error("Method not found");
-    }
+      if (!method.isEnabled) {
+        throw new Error("Method is disabled");
+      }
 
-    if (!method.isEnabled) {
-      throw new Error("Method is disabled");
-    }
+      if (
+        (method.minPayout !== 0 || method.minPayin !== 0) &&
+        (amount < method.minPayout || amount > method.maxPayout)
+      ) {
+        throw new Error("Amount is out of range by method limits");
+      }
 
-    if (
-      (method.minPayout !== 0 || method.minPayin !== 0) &&
-      (amount < method.minPayout || amount > method.maxPayout)
-    ) {
-      throw new Error("Amount is out of range by method limits");
-    }
-
-    switch (method.type) {
-      case "sbp":
-        if (isCard === true) {
-          throw new Error("In SBP method should use isCard: false");
-        }
-        break;
-      case "c2c":
-        if (isCard === false) {
-          throw new Error("In C2C method should use isCard: true");
-        }
-        break;
-      default:
-        throw new Error("Invalid method type");
+      switch (method.type) {
+        case "sbp":
+          if (isCard === true) {
+            throw new Error("In SBP method should use isCard: false");
+          }
+          break;
+        case "c2c":
+          if (isCard === false) {
+            throw new Error("In C2C method should use isCard: true");
+          }
+          break;
+        default:
+          throw new Error("Invalid method type");
+      }
     }
 
     // Always get the current rate from Rapira for trader calculations
@@ -180,11 +179,13 @@ export class PayoutService {
         wallet,
         bank,
         isCard,
+        ...(methodId ? { methodId } : {}),
         expireAt,
         processingTime,
         merchantWebhookUrl: webhookUrl,
         merchantMetadata: metadata,
       },
+      include: { method: true },
     });
 
     // Distribute to available traders

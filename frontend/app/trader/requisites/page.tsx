@@ -151,7 +151,6 @@ export default function TraderRequisitesPage() {
       console.log('[Requisites] Raw data from API:', data);
       // Ensure data is an array
       const dataArray = Array.isArray(data) ? data : [];
-      // Add mock data for successful deals if not present
       const requisitesWithDeals = dataArray.map((req: any) => {
         console.log('[Requisites] Processing requisite:', req?.id, {
           currentTotalAmount: req?.currentTotalAmount,
@@ -171,17 +170,17 @@ export default function TraderRequisitesPage() {
           cardNumber: req?.cardNumber || '',
           recipientName: req?.recipientName || '',
           phoneNumber: req?.phoneNumber || '',
-          minAmount: req?.minAmount || 0,
-          maxAmount: req?.maxAmount || 0,
-          currentTotalAmount: req?.currentTotalAmount || 0,
-          operationLimit: req?.operationLimit || 0,
-          sumLimit: req?.sumLimit || 0,
-          activeDeals: req?.activeDeals || 0,
+          minAmount: Number(req?.minAmount ?? 0),
+          maxAmount: Number(req?.maxAmount ?? 0),
+          currentTotalAmount: Number(req?.currentTotalAmount ?? 0),
+          operationLimit: Number(req?.operationLimit ?? 0),
+          sumLimit: Number(req?.sumLimit ?? 0),
+          activeDeals: Number(req?.activeDeals ?? 0),
           intervalMinutes: req?.intervalMinutes || 0,
           turnoverDay: req?.turnoverDay || 0,
           turnoverTotal: req?.turnoverTotal || 0,
-          successfulDeals: req?.successfulDeals || 0,
-          totalDeals: req?.totalDeals || 0,
+          successfulDeals: Number(req?.successfulDeals ?? 0),
+          totalDeals: Number(req?.totalDeals ?? 0),
           isArchived: req?.isArchived || false,
           isActive: req?.isActive !== undefined ? req?.isActive : true,
           hasDevice: req?.hasDevice || false,

@@ -140,6 +140,103 @@ const AuthHeaderSchema = t.Object({ 'x-admin-key': t.String() })
 
 export default (app: Elysia) =>
   app
+    /* ─────────── GET /admin/transactions/attempts ─────────── */
+    .get(
+      '/attempts',
+      async ({ query }) => {
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const [attempts, total] = await db.$transaction([
+          db.transactionAttempt.findMany({
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+            include: {
+              merchant: { select: { id: true, name: true } },
+              method: { select: { id: true, name: true } }
+            }
+          }),
+          db.transactionAttempt.count()
+        ]);
+
+        const transactionMap = attempts.length
+          ? await db.transaction
+              .findMany({
+                where: {
+                  id: {
+                    in: attempts
+                      .filter(a => a.transactionId)
+                      .map(a => a.transactionId!)
+                  }
+                },
+                select: { id: true, numericId: true }
+              })
+              .then(trxs => trxs.reduce((acc, t) => ({ ...acc, [t.id]: t.numericId }), {}))
+          : {};
+
+        return {
+          data: attempts.map(a => ({
+            id: a.id,
+            transactionId: a.transactionId,
+            transactionNumericId: a.transactionId ? transactionMap[a.transactionId] ?? null : null,
+            merchantId: a.merchantId,
+            merchantName: a.merchant?.name ?? null,
+            methodId: a.methodId,
+            methodName: a.method?.name ?? null,
+            amount: a.amount,
+            success: a.success,
+            status: a.status,
+            errorCode: a.errorCode,
+            message: a.message,
+            createdAt: a.createdAt.toISOString()
+          })),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+          }
+        };
+      },
+      {
+        tags: ['admin'],
+        detail: { summary: 'Список запросов на создание сделок' },
+        headers: AuthHeaderSchema,
+        query: t.Object({
+          page: t.Optional(t.String()),
+          limit: t.Optional(t.String())
+        }),
+        response: {
+          200: t.Object({
+            data: t.Array(
+              t.Object({
+                id: t.String(),
+                transactionId: t.Union([t.String(), t.Null()]),
+                transactionNumericId: t.Union([t.Number(), t.Null()]),
+                merchantId: t.String(),
+                merchantName: t.Union([t.String(), t.Null()]),
+                methodId: t.String(),
+                methodName: t.Union([t.String(), t.Null()]),
+                amount: t.Number(),
+                success: t.Boolean(),
+                status: t.Union([t.String(), t.Null()]),
+                errorCode: t.Union([t.String(), t.Null()]),
+                message: t.Union([t.String(), t.Null()]),
+                createdAt: t.String()
+              })
+            ),
+            pagination: t.Object({
+              page: t.Number(),
+              limit: t.Number(),
+              total: t.Number(),
+              totalPages: t.Number()
+            })
+          })
+        }
+      }
+    )
     /* ─────────── POST /admin/transactions/create ─────────── */
     .post(
       '/create',
