@@ -458,6 +458,7 @@ export default (app: Elysia) =>
           balanceRub -= netAmount; // Выплаты уменьшают баланс
         }
 
+        
         return {
           ...toISO(merchant),
           apiKeyPublic: merchant.apiKeyPublic,
@@ -1075,6 +1076,7 @@ export default (app: Elysia) =>
             include: { method: { select: { commissionPayout: true } } },
           })
         ])
+
 
 
         // Get rate settings for methods
