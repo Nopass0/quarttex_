@@ -28,7 +28,12 @@ export const dealDisputesRoutes = new Elysia()
   // Create a new dispute for a deal
   .post("/deal/:dealId", async ({ merchant, params, body, set }) => {
     try {
-      const { message, files } = body;
+      const { message, files: rawFiles } = body;
+      const files = rawFiles
+        ? Array.isArray(rawFiles)
+          ? rawFiles
+          : [rawFiles]
+        : [];
       
       // Check if deal exists and belongs to merchant
       const deal = await db.transaction.findFirst({
@@ -65,7 +70,7 @@ export const dealDisputesRoutes = new Elysia()
 
       // Process uploaded files
       const uploadedFiles = [];
-      if (files && files.length > 0) {
+      if (files.length > 0) {
         if (files.length > MAX_FILES) {
           set.status = 400;
           return { error: `Maximum ${MAX_FILES} files allowed` };
@@ -150,7 +155,7 @@ export const dealDisputesRoutes = new Elysia()
   }, {
     body: t.Object({
       message: t.String({ minLength: 1 }),
-      files: t.Optional(t.Array(t.File()))
+      files: t.Optional(t.Files())
     })
   })
   
@@ -269,7 +274,12 @@ export const dealDisputesRoutes = new Elysia()
   // Send message in dispute
   .post("/:disputeId/messages", async ({ merchant, params, body, set }) => {
     try {
-      const { message, files } = body;
+      const { message, files: rawFiles } = body;
+      const files = rawFiles
+        ? Array.isArray(rawFiles)
+          ? rawFiles
+          : [rawFiles]
+        : [];
       
       // Check if dispute exists and merchant can send messages
       const dispute = await db.dealDispute.findFirst({
@@ -289,7 +299,7 @@ export const dealDisputesRoutes = new Elysia()
 
       // Process uploaded files
       const uploadedFiles = [];
-      if (files && files.length > 0) {
+      if (files.length > 0) {
         if (files.length > MAX_FILES) {
           set.status = 400;
           return { error: `Maximum ${MAX_FILES} files allowed` };
@@ -357,6 +367,6 @@ export const dealDisputesRoutes = new Elysia()
   }, {
     body: t.Object({
       message: t.String({ minLength: 1 }),
-      files: t.Optional(t.Array(t.File()))
+      files: t.Optional(t.Files())
     })
   });

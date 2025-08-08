@@ -314,11 +314,7 @@ export const traderApi = {
     return response.data
   },
   sendDisputeMessage: async (disputeId: string, data: FormData) => {
-    const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/messages`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/messages`, data)
     return response.data
   },
   resolveDispute: async (disputeId: string, data: { status: string; resolution: string }) => {
@@ -381,11 +377,7 @@ export const traderApi = {
     return response.data
   },
   sendDealDisputeMessage: async (disputeId: string, data: FormData) => {
-    const response = await traderApiInstance.post(`/trader/deal-disputes/${disputeId}/messages`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await traderApiInstance.post(`/trader/deal-disputes/${disputeId}/messages`, data)
     return response.data
   },
   resolveDealDispute: async (disputeId: string, data: { status: string; resolution: string }) => {
@@ -402,11 +394,7 @@ export const traderApi = {
     return response.data
   },
   sendPayoutDisputeMessage: async (disputeId: string, data: FormData) => {
-    const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/messages`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await traderApiInstance.post(`/trader/disputes/${disputeId}/messages`, data)
     return response.data
   },
   resolvePayoutDispute: async (disputeId: string, data: { status: string; resolution: string }) => {
@@ -549,11 +537,7 @@ export const merchantApi = {
     return response.data
   },
   createDispute: async (transactionId: string, data: FormData) => {
-    const response = await merchantApiInstance.post(`/merchant/dashboard/transactions/${transactionId}/dispute`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await merchantApiInstance.post(`/merchant/dashboard/transactions/${transactionId}/dispute`, data)
     return response.data
   },
   createSettleRequest: async () => {
@@ -566,11 +550,7 @@ export const merchantApi = {
   },
   // Payout disputes
   createPayoutDispute: async (payoutId: string, data: FormData) => {
-    const response = await merchantApiInstance.post(`/merchant/disputes/${payoutId}`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await merchantApiInstance.post(`/merchant/disputes/${payoutId}`, data)
     return response.data
   },
   getPayoutDisputes: async (params?: { page?: number; limit?: number; status?: string }) => {
@@ -582,20 +562,12 @@ export const merchantApi = {
     return response.data
   },
   sendPayoutDisputeMessage: async (disputeId: string, data: FormData) => {
-    const response = await merchantApiInstance.post(`/merchant/disputes/${disputeId}/messages`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await merchantApiInstance.post(`/merchant/disputes/${disputeId}/messages`, data)
     return response.data
   },
   // Deal disputes
   createDealDispute: async (dealId: string, data: FormData) => {
-    const response = await merchantApiInstance.post(`/merchant/deal-disputes/deal/${dealId}`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await merchantApiInstance.post(`/merchant/deal-disputes/deal/${dealId}`, data)
     return response.data
   },
   getDealDisputes: async (params?: { page?: number; limit?: number; status?: string }) => {
@@ -607,11 +579,7 @@ export const merchantApi = {
     return response.data
   },
   sendDealDisputeMessage: async (disputeId: string, data: FormData) => {
-    const response = await merchantApiInstance.post(`/merchant/deal-disputes/${disputeId}/messages`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    const response = await merchantApiInstance.post(`/merchant/deal-disputes/${disputeId}/messages`, data)
     return response.data
   },
   // Staff management
@@ -848,8 +816,7 @@ export const adminApi = {
   },
   sendDealDisputeMessage: async (id: string, data: FormData | string) => {
     const requestData = typeof data === 'string' ? { message: data } : data
-    const headers = typeof data === 'string' ? {} : { 'Content-Type': 'multipart/form-data' }
-    const response = await adminApiInstance.post(`/admin/deal-disputes/${id}/messages`, requestData, { headers })
+    const response = await adminApiInstance.post(`/admin/deal-disputes/${id}/messages`, requestData)
     return response.data
   },
   // Withdrawal disputes management
@@ -867,8 +834,7 @@ export const adminApi = {
   },
   sendWithdrawalDisputeMessage: async (id: string, data: FormData | string) => {
     const requestData = typeof data === 'string' ? { message: data } : data
-    const headers = typeof data === 'string' ? {} : { 'Content-Type': 'multipart/form-data' }
-    const response = await adminApiInstance.post(`/admin/withdrawal-disputes/${id}/messages`, requestData, { headers })
+    const response = await adminApiInstance.post(`/admin/withdrawal-disputes/${id}/messages`, requestData)
     return response.data
   },
   
