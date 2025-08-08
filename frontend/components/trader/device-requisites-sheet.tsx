@@ -103,6 +103,7 @@ interface DeviceRequisite {
   methodType?: string;
   transactionsInProgress?: number;
   transactionsReady?: number;
+  phoneNumber?: string;
   method?: {
     id: string;
     type: string;
@@ -170,12 +171,13 @@ export function DeviceRequisitesSheet({
           form.setValue("methodId", method.type);
         }
       }
+      const methodType = existingRequisite.method?.type || "";
       form.reset({
-        methodId: existingRequisite.method?.type || "",
+        methodId: methodType,
         bankType: existingRequisite.bankType,
-        cardNumber: existingRequisite.cardNumber,
+        cardNumber: methodType === "c2c" ? existingRequisite.cardNumber : "",
         recipientName: existingRequisite.recipientName,
-        phoneNumber: "",
+        phoneNumber: existingRequisite.phoneNumber || "",
         minAmount: existingRequisite.minAmount,
         maxAmount: existingRequisite.maxAmount,
         operationLimit: existingRequisite.operationLimit || 0,
@@ -241,7 +243,7 @@ export function DeviceRequisitesSheet({
       bankType: requisite.bankType,
       cardNumber: methodType === "c2c" ? requisite.cardNumber : "",
       recipientName: requisite.recipientName,
-      phoneNumber: methodType === "sbp" ? requisite.cardNumber : "",
+      phoneNumber: requisite.phoneNumber || "",
       minAmount: requisite.minAmount,
       maxAmount: requisite.maxAmount,
       operationLimit: requisite.operationLimit || 0,

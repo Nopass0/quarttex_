@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/table";
 import { BankCard } from "@/components/ui/bank-card";
 import Image from "next/image";
-import { Progress } from "@/components/ui/progress";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
 import {
@@ -735,10 +734,6 @@ export default function TraderRequisitesPage() {
                 currentTotalAmount: requisite.currentTotalAmount,
                 methodType: requisite.methodType
               });
-              const successRate =
-                requisite.totalDeals > 0
-                  ? (requisite.successfulDeals / requisite.totalDeals) * 100
-                  : 0;
               const paymentSystem = detectPaymentSystem(requisite.cardNumber);
 
               // Determine if requisite is actually working
@@ -867,19 +862,10 @@ export default function TraderRequisitesPage() {
 
                         {/* Success Rate and Limits */}
                         <div className="space-y-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-gray-600">
-                                Успешные сделки: {requisite.successfulDeals || 0} из{" "}
-                                {requisite.totalDeals || 0}
-                              </span>
-                              <span className="text-sm font-medium text-gray-900">
-                                {successRate.toFixed(0)}%
-                              </span>
-                            </div>
-                            <Progress value={successRate} className="h-1.5" />
+                          <div className="text-xs text-gray-600">
+                            Успешные сделки: {requisite.successfulDeals || 0}
                           </div>
-                          
+
                           {/* Limits Info */}
                           <div className="flex flex-wrap gap-3 text-xs">
                             <div>
@@ -958,19 +944,8 @@ export default function TraderRequisitesPage() {
                       </div>
 
                     {/* Success Rate */}
-                    <div className="flex-shrink-0">
-                      <div className="flex items-center gap-2">
-                        <div className="w-32">
-                          <Progress value={successRate} className="h-1.5" />
-                          <div className="text-xs text-gray-600 mt-1">
-                            Успешные сделки: {requisite.successfulDeals || 0} из{" "}
-                            {requisite.totalDeals || 0}
-                          </div>
-                        </div>
-                        <span className="text-sm font-medium text-gray-900">
-                          {successRate.toFixed(0)}%
-                        </span>
-                      </div>
+                    <div className="flex-shrink-0 text-sm text-gray-600">
+                      Успешные сделки: {requisite.successfulDeals || 0}
                     </div>
                     
                     {/* Limits Info - in one column */}
