@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { traderApi } from "@/services/api";
 import { toast } from "sonner";
-import { Loader2, CreditCard, Plus, Trash2, Edit } from "lucide-react";
+import { Loader2, CreditCard, Plus, Trash2 } from "lucide-react";
 import { AddBTRequisiteDialog } from "@/components/bt-entry/add-bt-requisite-dialog";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +46,7 @@ export function RequisitesListDialog({
 }: RequisitesListDialogProps) {
   const [loading, setLoading] = useState(true);
   const [activeRequisites, setActiveRequisites] = useState<Requisite[]>([]);
-  const [archivedRequisites, setArchivedRequisites] = useState<Requisite[]>([]);
+  const [deletedRequisites, setDeletedRequisites] = useState<Requisite[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
 
@@ -59,9 +59,9 @@ export function RequisitesListDialog({
       // Separate active and archived requisites based on isActive field
       const active = allRequisites.filter((req: any) => req.isActive);
       const archived = allRequisites.filter((req: any) => !req.isActive);
-      
+
       setActiveRequisites(active);
-      setArchivedRequisites(archived);
+      setDeletedRequisites(archived);
     } catch (error) {
       console.error("Failed to fetch requisites:", error);
       toast.error("Не удалось загрузить реквизиты");
@@ -76,23 +76,23 @@ export function RequisitesListDialog({
     }
   }, [open]);
 
-  const deleteRequisite = async (id: string) => {
+  const archiveRequisite = async (id: string) => {
     try {
       await traderApi.btEntrance.deleteRequisite(id);
-      toast.success("Реквизит удален");
+      toast.success("Реквизит архивирован");
       fetchRequisites();
     } catch (error) {
-      toast.error("Не удалось удалить реквизит");
+      toast.error("Не удалось архивировать реквизит");
     }
   };
 
-  const toggleRequisiteStatus = async (id: string, isActive: boolean) => {
+  const restoreRequisite = async (id: string) => {
     try {
-      await traderApi.btEntrance.updateRequisite(id, { isArchived: !isActive });
-      toast.success(isActive ? "Реквизит архивирован" : "Реквизит активирован");
+      await traderApi.btEntrance.updateRequisite(id, { isArchived: false });
+      toast.success("Реквизит восстановлен");
       fetchRequisites();
     } catch (error) {
-      toast.error("Не удалось изменить статус");
+      toast.error("Не удалось восстановить реквизит");
     }
   };
 
@@ -110,7 +110,7 @@ export function RequisitesListDialog({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="active">Активные ({activeRequisites.length})</TabsTrigger>
-              <TabsTrigger value="archived">Архив ({archivedRequisites.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Удаленные ({deletedRequisites.length})</TabsTrigger>
             </TabsList>
             
             <div className="flex justify-end mt-4">
@@ -193,17 +193,9 @@ export function RequisitesListDialog({
                         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="w-full sm:w-auto"
-                            onClick={() => toggleRequisiteStatus(req.id, req.isActive)}
-                          >
-                            {req.isActive ? "Архивировать" : "Активировать"}
-                          </Button>
-                          <Button
-                            variant="ghost"
                             size="icon"
                             className="text-red-600 hover:text-red-700 w-full sm:w-auto"
-                            onClick={() => deleteRequisite(req.id)}
+                            onClick={() => archiveRequisite(req.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -216,16 +208,16 @@ export function RequisitesListDialog({
                 )}
               </TabsContent>
               
-              <TabsContent value="archived" className="mt-4">
-                {archivedRequisites.length === 0 ? (
+              <TabsContent value="deleted" className="mt-4">
+                {deletedRequisites.length === 0 ? (
                   <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <CreditCard className="h-12 w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                    <p>Нет архивированных реквизитов</p>
+                    <p>Нет удаленных реквизитов</p>
                   </div>
                 ) : (
                   <ScrollArea className="h-[300px] sm:h-[400px] pr-2 sm:pr-4">
                     <div className="space-y-3">
-                      {archivedRequisites.map((req) => (
+                      {deletedRequisites.map((req) => (
                         <Card
                           key={req.id}
                           className={cn(
@@ -273,20 +265,12 @@ export function RequisitesListDialog({
                                 variant="ghost"
                                 size="sm"
                                 className="w-full sm:w-auto"
-                                onClick={() => toggleRequisiteStatus(req.id, req.isActive)}
+                                onClick={() => restoreRequisite(req.id)}
                               >
-                                {req.isActive ? "Архивировать" : "Активировать"}
+                                Восстановить
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-red-600 hover:text-red-700 w-full sm:w-auto"
-                                onClick={() => deleteRequisite(req.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
                           </div>
+                        </div>
                         </Card>
                       ))}
                     </div>
