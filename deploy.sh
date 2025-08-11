@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Deploy Chase to production server locally after git pull
+# Deploy Quattrex to production server locally after git pull
 # Requires environment variables: DATABASE_URL, JWT_SECRET, SUPER_ADMIN_KEY, ADMIN_IPS
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,7 +75,7 @@ LOGS_PID=$!
 sleep 45
 kill $LOGS_PID 2>/dev/null || true
 
-if ! docker ps | grep -q "chase_backend"; then
+if ! docker ps | grep -q "quattrex_backend"; then
   echo "Backend container is not running after startup"
   docker compose -f docker-compose.prod.yml logs backend
   exit 1
@@ -84,7 +84,7 @@ fi
 echo "Waiting for backend container to be ready..."
 timeout=180
 while [ $timeout -gt 0 ]; do
-  if ! docker ps | grep -q "chase_backend"; then
+  if ! docker ps | grep -q "quattrex_backend"; then
     echo "Backend container stopped running, checking logs..."
     docker compose -f docker-compose.prod.yml logs backend
     exit 1
@@ -120,19 +120,19 @@ docker compose -f docker-compose.prod.yml exec -T backend bun run scripts/disabl
 }
 
 # Verify containers are running
-if ! docker ps | grep -q "chase_backend"; then
+if ! docker ps | grep -q "quattrex_backend"; then
   echo "ERROR: Backend container is not running!"
   docker compose logs backend
   exit 1
 fi
 
-if ! docker ps | grep -q "chase_frontend"; then
+if ! docker ps | grep -q "quattrex_frontend"; then
   echo "ERROR: Frontend container is not running!"
   docker compose logs frontend
   exit 1
 fi
 
-if ! docker ps | grep -q "chase_nginx"; then
+if ! docker ps | grep -q "quattrex_nginx"; then
   echo "ERROR: Nginx container is not running!"
   docker compose -f docker-compose.prod.yml logs nginx
   exit 1

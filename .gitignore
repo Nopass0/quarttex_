@@ -110,3 +110,4 @@ apk/gradle/wrapper/gradle-wrapper.jar
 *.ap_
 *.dex
 *.class
+apk/tools/
