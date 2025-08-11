@@ -1,0 +1,186 @@
+name: Test SSH Connection
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ssh:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Show GitHub Runner IP
+        run: |
+          echo "GitHub Runner Public IP:"
+          curl -s ifconfig.me
+          echo ""
+          
+      - name: Test Network Connectivity
+        run: |
+          echo "========================================="
+          echo "Testing network connectivity to server..."
+          echo "========================================="
+          
+          SERVER_HOST="${{ secrets.SERVER_HOST }}"
+          SERVER_PORT="${{ secrets.SERVER_PORT }}"
+          
+          # Default port if not set
+          if [ -z "$SERVER_PORT" ]; then
+            SERVER_PORT="22"
+            echo "Using default SSH port: 22"
+          else
+            echo "Using configured SSH port: $SERVER_PORT"
+          fi
+          
+          echo ""
+          echo "1. DNS Resolution test:"
+          nslookup $SERVER_HOST || echo "DNS resolution failed"
+          
+          echo ""
+          echo "2. Ping test (may fail if ICMP blocked):"
+          ping -c 3 $SERVER_HOST || echo "Ping failed (might be blocked)"
+          
+          echo ""
+          echo "3. Port connectivity test with nc:"
+          timeout 5 nc -zv $SERVER_HOST $SERVER_PORT 2>&1 || echo "Port test with nc failed"
+          
+          echo ""
+          echo "4. Port connectivity test with telnet:"
+          (echo "quit" | timeout 5 telnet $SERVER_HOST $SERVER_PORT 2>&1) || echo "Port test with telnet failed"
+          
+          echo ""
+          echo "5. Raw TCP test:"
+          timeout 5 bash -c "cat < /dev/null > /dev/tcp/$SERVER_HOST/$SERVER_PORT" 2>&1 && echo "✅ TCP connection successful" || echo "❌ TCP connection failed"
+
+      - name: Test SSH with OpenSSH client (verbose)
+        run: |
+          echo "========================================="
+          echo "Testing SSH with OpenSSH client..."
+          echo "========================================="
+          
+          # Setup SSH directory
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Disable host key checking for test
+          cat > ~/.ssh/config <<EOF
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+            LogLevel DEBUG3
+            ConnectTimeout 10
+            ServerAliveInterval 5
+            ServerAliveCountMax 3
+          EOF
+          
+          # Test based on authentication method
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "Testing with SSH key authentication..."
+            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/test_key
+            chmod 600 ~/.ssh/test_key
+            
+            ssh -vvv -i ~/.ssh/test_key \
+              -o ConnectTimeout=10 \
+              -o PasswordAuthentication=no \
+              -p ${{ secrets.SERVER_PORT || '22' }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "echo 'SSH KEY AUTH SUCCESS'" 2>&1 | head -100
+          elif [ -n "${{ secrets.SERVER_PASSWORD }}" ]; then
+            echo "Testing with password authentication..."
+            sudo apt-get update && sudo apt-get install -y sshpass
+            
+            sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh -vvv \
+              -o ConnectTimeout=10 \
+              -o PreferredAuthentications=password \
+              -p ${{ secrets.SERVER_PORT || '22' }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "echo 'SSH PASSWORD AUTH SUCCESS'" 2>&1 | head -100
+          else
+            echo "❌ No authentication method configured (need SERVER_SSH_KEY or SERVER_PASSWORD)"
+          fi
+        continue-on-error: true
+
+      - name: Test with different SSH ciphers
+        run: |
+          echo "========================================="
+          echo "Testing different SSH cipher suites..."
+          echo "========================================="
+          
+          if [ -z "${{ secrets.SERVER_PASSWORD }}" ] && [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "Skipping cipher tests - no auth method configured"
+            exit 0
+          fi
+          
+          # Install sshpass if using password
+          if [ -n "${{ secrets.SERVER_PASSWORD }}" ]; then
+            sudo apt-get update && sudo apt-get install -y sshpass
+          fi
+          
+          # Prepare key if using key auth
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/test_key
+            chmod 600 ~/.ssh/test_key
+          fi
+          
+          # Test different cipher combinations
+          CIPHERS=(
+            "aes128-ctr"
+            "aes192-ctr"
+            "aes256-ctr"
+            "aes128-cbc"
+            "3des-cbc"
+            "aes256-gcm@openssh.com"
+            "chacha20-poly1305@openssh.com"
+          )
+          
+          for cipher in "${CIPHERS[@]}"; do
+            echo ""
+            echo "Testing cipher: $cipher"
+            
+            if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+              timeout 5 ssh -i ~/.ssh/test_key \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                -o Ciphers=$cipher \
+                -p ${{ secrets.SERVER_PORT || '22' }} \
+                ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+                "echo 'Success with $cipher'" 2>&1 | grep -E "(Success|failed|mismatch)" || true
+            elif [ -n "${{ secrets.SERVER_PASSWORD }}" ]; then
+              timeout 5 sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                -o Ciphers=$cipher \
+                -p ${{ secrets.SERVER_PORT || '22' }} \
+                ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+                "echo 'Success with $cipher'" 2>&1 | grep -E "(Success|failed|mismatch)" || true
+            fi
+          done
+        continue-on-error: true
+
+      - name: Summary
+        run: |
+          echo "========================================="
+          echo "DIAGNOSTIC SUMMARY"
+          echo "========================================="
+          echo ""
+          echo "If all tests failed with 'handshake failed: EOF', possible causes:"
+          echo ""
+          echo "1. ❌ FIREWALL: Server is blocking GitHub Actions IP addresses"
+          echo "   Solution: Whitelist GitHub Actions IP ranges or use self-hosted runner"
+          echo ""
+          echo "2. ❌ WRONG PORT: SSH is running on a different port"
+          echo "   Solution: Verify SERVER_PORT secret has correct value"
+          echo ""
+          echo "3. ❌ SSH SERVICE: SSH service is not running or misconfigured"
+          echo "   Solution: Check 'systemctl status sshd' on server"
+          echo ""
+          echo "4. ❌ AUTHENTICATION: SSH key format is wrong or password auth disabled"
+          echo "   Solution: Verify key format (OpenSSH) or enable password auth"
+          echo ""
+          echo "5. ❌ FAIL2BAN/DENYHOSTS: IP might be banned after failed attempts"
+          echo "   Solution: Check /var/log/auth.log and fail2ban status"
+          echo ""
+          echo "To check on your server:"
+          echo "  sudo tail -f /var/log/auth.log"
+          echo "  sudo systemctl status sshd"
+          echo "  sudo ufw status"
+          echo "  sudo fail2ban-client status sshd"
