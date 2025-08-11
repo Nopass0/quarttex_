@@ -82,6 +82,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate required secrets
+        run: |
+          echo "Validating required secrets..."
+          
+          # Check if required secrets are set (will show 'set' or 'not set' without exposing values)
+          if [ -z "${{ secrets.SERVER_HOST }}" ]; then
+            echo "ERROR: SERVER_HOST secret is not set"
+            exit 1
+          else
+            echo "✓ SERVER_HOST is set"
+          fi
+          
+          if [ -z "${{ secrets.SERVER_USER }}" ]; then
+            echo "ERROR: SERVER_USER secret is not set"
+            exit 1
+          else
+            echo "✓ SERVER_USER is set"
+          fi
+          
+          if [ -z "${{ secrets.PROJECT_PATH }}" ]; then
+            echo "ERROR: PROJECT_PATH secret is not set"
+            exit 1
+          else
+            echo "✓ PROJECT_PATH is set"
+          fi
+          
+          if [ -z "${{ secrets.SERVER_PORT }}" ]; then
+            echo "WARNING: SERVER_PORT is not set, will use default 22"
+          else
+            echo "✓ SERVER_PORT is set"
+          fi
+          
+          # Check for authentication method
+          if [ -z "${{ secrets.SERVER_PASSWORD }}" ] && [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "ERROR: Neither SERVER_PASSWORD nor SERVER_SSH_KEY is set"
+            exit 1
+          else
+            echo "✓ Authentication method configured"
+          fi
+          
+          echo "All required secrets are configured!"
+
       - name: Prepare deployment directory
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -89,9 +131,14 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           script: |
+            if [ -z "${{ secrets.PROJECT_PATH }}" ]; then
+              echo "ERROR: PROJECT_PATH is not configured"
+              exit 1
+            fi
+            echo "Creating project directory: ${{ secrets.PROJECT_PATH }}"
             mkdir -p "${{ secrets.PROJECT_PATH }}"
             rm -rf "${{ secrets.PROJECT_PATH }}"/* || true
 
@@ -102,7 +149,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
           source: "."
           target: "${{ secrets.PROJECT_PATH }}"
           overwrite: true
@@ -115,7 +162,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           script: |
             set -e
