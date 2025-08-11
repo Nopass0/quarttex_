@@ -84,45 +84,85 @@ jobs:
 
       - name: Validate required secrets
         run: |
-          echo "Validating required secrets..."
+          echo "==========================================="
+          echo "Validating deployment secrets..."
+          echo "==========================================="
           
-          # Check if required secrets are set (will show 'set' or 'not set' without exposing values)
+          MISSING_SECRETS=""
+          
+          # Check required secrets
           if [ -z "${{ secrets.SERVER_HOST }}" ]; then
-            echo "ERROR: SERVER_HOST secret is not set"
-            exit 1
+            MISSING_SECRETS="${MISSING_SECRETS}SERVER_HOST "
+            echo "❌ SERVER_HOST is NOT configured"
           else
-            echo "✓ SERVER_HOST is set"
+            echo "✅ SERVER_HOST is configured"
           fi
           
           if [ -z "${{ secrets.SERVER_USER }}" ]; then
-            echo "ERROR: SERVER_USER secret is not set"
-            exit 1
+            MISSING_SECRETS="${MISSING_SECRETS}SERVER_USER "
+            echo "❌ SERVER_USER is NOT configured"
           else
-            echo "✓ SERVER_USER is set"
+            echo "✅ SERVER_USER is configured"
           fi
           
           if [ -z "${{ secrets.PROJECT_PATH }}" ]; then
-            echo "ERROR: PROJECT_PATH secret is not set"
-            exit 1
+            MISSING_SECRETS="${MISSING_SECRETS}PROJECT_PATH "
+            echo "❌ PROJECT_PATH is NOT configured"
           else
-            echo "✓ PROJECT_PATH is set"
+            echo "✅ PROJECT_PATH is configured"
           fi
           
-          if [ -z "${{ secrets.SERVER_PORT }}" ]; then
-            echo "WARNING: SERVER_PORT is not set, will use default 22"
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}DATABASE_URL "
+            echo "❌ DATABASE_URL is NOT configured"
           else
-            echo "✓ SERVER_PORT is set"
+            echo "✅ DATABASE_URL is configured"
           fi
           
-          # Check for authentication method
+          if [ -z "${{ secrets.JWT_SECRET }}" ]; then
+            MISSING_SECRETS="${MISSING_SECRETS}JWT_SECRET "
+            echo "❌ JWT_SECRET is NOT configured"
+          else
+            echo "✅ JWT_SECRET is configured"
+          fi
+          
+          # Check authentication
           if [ -z "${{ secrets.SERVER_PASSWORD }}" ] && [ -z "${{ secrets.SERVER_SSH_KEY }}" ]; then
-            echo "ERROR: Neither SERVER_PASSWORD nor SERVER_SSH_KEY is set"
-            exit 1
+            MISSING_SECRETS="${MISSING_SECRETS}AUTH_METHOD "
+            echo "❌ No authentication method configured (need SERVER_PASSWORD or SERVER_SSH_KEY)"
           else
-            echo "✓ Authentication method configured"
+            echo "✅ Authentication method is configured"
           fi
           
-          echo "All required secrets are configured!"
+          # Check optional but recommended
+          if [ -z "${{ secrets.SERVER_PORT }}" ]; then
+            echo "⚠️  SERVER_PORT is not set (will use default: 22)"
+          else
+            echo "✅ SERVER_PORT is configured"
+          fi
+          
+          # Final check
+          if [ -n "$MISSING_SECRETS" ]; then
+            echo ""
+            echo "==========================================="
+            echo "❌ DEPLOYMENT CANNOT PROCEED"
+            echo "==========================================="
+            echo ""
+            echo "The following required secrets are missing:"
+            echo "$MISSING_SECRETS"
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "2. Click 'New repository secret'"
+            echo "3. Add each missing secret with the appropriate value"
+            echo ""
+            echo "For detailed instructions, run the 'Check Deployment Secrets' workflow"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ All required secrets are configured!"
+          echo "==========================================="
 
       - name: Prepare deployment directory
         uses: appleboy/ssh-action@v1.0.3
