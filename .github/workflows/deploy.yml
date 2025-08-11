@@ -164,6 +164,13 @@ jobs:
           echo "✅ All required secrets are configured!"
           echo "==========================================="
 
+      - name: Test SSH connectivity
+        run: |
+          echo "Testing SSH connectivity to ${{ secrets.SERVER_HOST }}..."
+          # Test if the port is open
+          timeout 5 bash -c "cat < /dev/null > /dev/tcp/${{ secrets.SERVER_HOST }}/${{ secrets.SERVER_PORT || '22' }}" 2>/dev/null && echo "✅ Port is open" || echo "❌ Port appears to be closed or unreachable"
+        continue-on-error: true
+
       - name: Prepare deployment directory
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -173,6 +180,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
+          cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
+          timeout: "30s"
           script: |
             if [ -z "${{ secrets.PROJECT_PATH }}" ]; then
               echo "ERROR: PROJECT_PATH is not configured"
@@ -194,6 +203,7 @@ jobs:
           target: "${{ secrets.PROJECT_PATH }}"
           overwrite: true
           use_insecure_cipher: true
+          timeout: "10m"
       
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -204,6 +214,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
+          cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
+          timeout: "30s"
           script: |
             set -e
             
