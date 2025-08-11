@@ -171,7 +171,7 @@ jobs:
           timeout 5 bash -c "cat < /dev/null > /dev/tcp/${{ secrets.SERVER_HOST }}/${{ secrets.SERVER_PORT || '22' }}" 2>/dev/null && echo "✅ Port is open" || echo "❌ Port appears to be closed or unreachable"
         continue-on-error: true
 
-      - name: Prepare deployment directory
+      - name: Prepare deployment directory  
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -182,6 +182,7 @@ jobs:
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
           timeout: "30s"
+          debug: true
           script: |
             if [ -z "${{ secrets.PROJECT_PATH }}" ]; then
               echo "ERROR: PROJECT_PATH is not configured"
@@ -216,6 +217,7 @@ jobs:
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
           timeout: "30s"
+          debug: true
           script: |
             set -e
             

@@ -1,0 +1,139 @@
+name: Deploy to Production (Alternative)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          # Create SSH directory
+          mkdir -p ~/.ssh
+          
+          # Setup SSH key if provided
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "Setting up SSH key authentication..."
+            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            
+            # Add SSH config
+            cat >> ~/.ssh/config <<EOF
+          Host deploy-server
+            HostName ${{ secrets.SERVER_HOST }}
+            User ${{ secrets.SERVER_USER }}
+            Port ${{ secrets.SERVER_PORT || '22' }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            ConnectTimeout 30
+            ConnectionAttempts 3
+          EOF
+            
+            echo "SSH key configured"
+          else
+            echo "Using password authentication"
+            # Install sshpass for password authentication
+            sudo apt-get update && sudo apt-get install -y sshpass
+          fi
+
+      - name: Test SSH Connection
+        run: |
+          echo "Testing SSH connection..."
+          
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            # Test with key
+            ssh -v deploy-server "echo 'SSH connection successful'" 2>&1 | head -50
+          else
+            # Test with password
+            sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh -v \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o ConnectTimeout=30 \
+              -p ${{ secrets.SERVER_PORT || '22' }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "echo 'SSH connection successful'" 2>&1 | head -50
+          fi
+        continue-on-error: true
+
+      - name: Prepare deployment directory
+        run: |
+          echo "Creating project directory on server..."
+          
+          COMMAND="mkdir -p ${{ secrets.PROJECT_PATH }} && rm -rf ${{ secrets.PROJECT_PATH }}/* || true"
+          
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            ssh deploy-server "$COMMAND"
+          else
+            sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -p ${{ secrets.SERVER_PORT || '22' }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "$COMMAND"
+          fi
+
+      - name: Copy files to server
+        run: |
+          echo "Copying files to server..."
+          
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            rsync -avz --delete \
+              -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+              ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.PROJECT_PATH }}/
+          else
+            sshpass -p "${{ secrets.SERVER_PASSWORD }}" rsync -avz --delete \
+              -e "ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_PORT || '22' }}" \
+              ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.PROJECT_PATH }}/
+          fi
+
+      - name: Deploy application
+        run: |
+          echo "Deploying application..."
+          
+          # Create deployment script
+          cat > deploy.sh << 'DEPLOY_SCRIPT'
+          set -e
+          cd ${{ secrets.PROJECT_PATH }}
+          
+          # Stop existing containers
+          docker compose -f docker-compose.prod.yml down || true
+          
+          # Create .env file
+          cat > .env << 'EOF'
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          SUPER_ADMIN_KEY=${{ secrets.SUPER_ADMIN_KEY }}
+          ADMIN_IPS=${{ secrets.ADMIN_IPS }}
+          NODE_ENV=production
+          EOF
+          
+          # Build and start containers
+          docker compose -f docker-compose.prod.yml build --no-cache
+          docker compose -f docker-compose.prod.yml up -d
+          
+          # Show status
+          docker compose -f docker-compose.prod.yml ps
+          
+          echo "Deployment completed!"
+          DEPLOY_SCRIPT
+          
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            ssh deploy-server 'bash -s' < deploy.sh
+          else
+            sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -p ${{ secrets.SERVER_PORT || '22' }} \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              'bash -s' < deploy.sh
+          fi
