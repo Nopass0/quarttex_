@@ -1,36 +1,51 @@
 #!/bin/sh
 set -e
 
-echo "Starting nginx SSL certificate setup..."
+echo "Starting nginx configuration..."
 
-# Check if fullchain.crt exists
+# Check if SSL certificates exist
+SSL_AVAILABLE=false
 if [ -f "/etc/nginx/ssl/fullchain.crt" ]; then
-    echo "Using existing fullchain.crt"
-    ls -la /etc/nginx/ssl/
+    echo "✓ Using existing fullchain.crt"
+    SSL_AVAILABLE=true
 elif [ -f "/etc/nginx/ssl/certificate.crt" ] && [ -f "/etc/nginx/ssl/certificate_ca.crt" ]; then
-    echo "WARNING: fullchain.crt not found but individual certificates exist."
-    echo "Please create fullchain.crt on the host system by running:"
-    echo "  cat ssl/certificate.crt ssl/certificate_ca.crt > ssl/fullchain.crt"
-    echo ""
-    echo "SSL directory contents:"
-    ls -la /etc/nginx/ssl/
-    
-    # Exit with error since we can't write to read-only volume
-    exit 1
-else
-    echo "ERROR: SSL certificates not found!"
-    echo "Please ensure one of the following files exist in the ssl/ directory:"
-    echo "  - fullchain.crt (recommended)"
-    echo "  - OR both certificate.crt and certificate_ca.crt"
-    echo ""
-    echo "To create fullchain.crt, run on the host:"
-    echo "  cat ssl/certificate.crt ssl/certificate_ca.crt > ssl/fullchain.crt"
-    
-    # For development/testing, we might want to continue anyway
-    if [ "$NGINX_ALLOW_NO_SSL" = "true" ]; then
-        echo "NGINX_ALLOW_NO_SSL is set, continuing without SSL..."
+    echo "✓ Found certificate.crt and certificate_ca.crt"
+    # Try to create fullchain.crt if possible
+    if [ -w "/etc/nginx/ssl/" ]; then
+        cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt > /etc/nginx/ssl/fullchain.crt
+        echo "✓ Created fullchain.crt from individual certificates"
+        SSL_AVAILABLE=true
     else
-        exit 1
+        echo "✓ Using individual certificates (read-only volume)"
+        SSL_AVAILABLE=true
+    fi
+fi
+
+# Configure nginx based on SSL availability
+if [ "$SSL_AVAILABLE" = "true" ]; then
+    echo "✓ SSL certificates found - using HTTPS configuration"
+    # Check if default.conf exists, if not copy the appropriate config
+    if [ ! -f "/etc/nginx/conf.d/default.conf" ]; then
+        echo "! No default.conf found, using quattrex.pro.conf"
+    fi
+else
+    echo "⚠ No SSL certificates found - using HTTP-only configuration"
+    echo ""
+    echo "To enable HTTPS, add SSL certificates to the ssl/ directory:"
+    echo "  - fullchain.crt and certificate.key (recommended)"
+    echo "  - OR certificate.crt, certificate_ca.crt, and certificate.key"
+    echo ""
+    
+    # Use HTTP-only configuration
+    if [ -f "/etc/nginx/conf.d/default.conf" ]; then
+        # Backup original if it exists
+        mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak 2>/dev/null || true
+    fi
+    
+    # Copy HTTP-only config to default.conf if it exists
+    if [ -f "/etc/nginx/conf.d/default-http-only.conf" ]; then
+        cp /etc/nginx/conf.d/default-http-only.conf /etc/nginx/conf.d/default.conf
+        echo "✓ Using HTTP-only configuration"
     fi
 fi
 

@@ -55,8 +55,9 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./ssl:/opt/quattrex/ssl:ro
+      - ./ssl:/etc/nginx/ssl:ro
       - ./nginx/logs:/var/log/nginx
+      - ./backend/uploads:/app/uploads:ro
     depends_on:
       - frontend
       - backend
