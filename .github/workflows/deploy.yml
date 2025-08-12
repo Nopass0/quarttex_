@@ -273,9 +273,14 @@ jobs:
                     sudo apt-get update
                     
                     # Install Docker packages (compatible with Ubuntu 20.04)
+                    echo "Installing core Docker packages..."
                     sudo apt-get install -y docker-ce docker-ce-cli containerd.io || {
-                        echo "Failed to install Docker, trying alternative method..."
-                        curl -fsSL https://get.docker.com | sudo sh || wget -qO- https://get.docker.com | sudo sh
+                        echo "Failed to install some packages, retrying with available packages only..."
+                        # Try installing packages one by one to see which are available
+                        sudo apt-get install -y docker-ce || echo "docker-ce not available"
+                        sudo apt-get install -y docker-ce-cli || echo "docker-ce-cli not available"
+                        sudo apt-get install -y containerd.io || echo "containerd.io not available"
+                        sudo apt-get install -y docker.io || echo "Trying docker.io as fallback"
                     }
                     
                     # Install docker-compose-plugin separately (may not be available on all versions)
@@ -287,12 +292,17 @@ jobs:
                     sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
                     sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
                 else
-                    # Fallback to official script
-                    echo "Using official Docker installation script..."
-                    if command -v curl &> /dev/null; then
-                        curl -fsSL https://get.docker.com | sudo sh
-                    elif command -v wget &> /dev/null; then
-                        wget -qO- https://get.docker.com | sudo sh
+                    # Fallback to package manager's Docker
+                    echo "Installing Docker from default package manager..."
+                    if command -v apt-get &> /dev/null; then
+                        sudo apt-get update && sudo apt-get install -y docker.io docker-compose
+                    elif command -v yum &> /dev/null; then
+                        sudo yum install -y docker docker-compose
+                    elif command -v dnf &> /dev/null; then
+                        sudo dnf install -y docker docker-compose
+                    else
+                        echo "ERROR: Cannot install Docker - unsupported system"
+                        exit 1
                     fi
                 fi
                 
