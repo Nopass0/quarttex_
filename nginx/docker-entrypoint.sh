@@ -10,8 +10,11 @@ if [ -f "/etc/nginx/ssl/fullchain.crt" ]; then
     SSL_AVAILABLE=true
 elif [ -f "/etc/nginx/ssl/certificate.crt" ] && [ -f "/etc/nginx/ssl/certificate_ca.crt" ]; then
     echo "✓ Found certificate.crt and certificate_ca.crt"
-    # Try to create fullchain.crt if possible, but handle read-only volume gracefully
-    if cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt > /etc/nginx/ssl/fullchain.crt 2>/dev/null; then
+
+    # Try to create fullchain.crt; suppress errors if volume is read-only
+    if cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt \
+        | tee /etc/nginx/ssl/fullchain.crt >/dev/null 2>/dev/null; then
+
         echo "✓ Created fullchain.crt from individual certificates"
     else
         echo "✗ Failed to create fullchain.crt (read-only volume)"
@@ -22,9 +25,10 @@ fi
 # Configure nginx based on SSL availability
 if [ "$SSL_AVAILABLE" = "true" ]; then
     echo "✓ SSL certificates found - using HTTPS configuration"
-    # Check if default.conf exists, if not copy the appropriate config
+    # Ensure default.conf exists by copying the HTTPS template if missing
     if [ ! -f "/etc/nginx/conf.d/default.conf" ]; then
         echo "! No default.conf found, using quattrex.pro.conf"
+        cp /etc/nginx/conf.d/quattrex.pro.conf /etc/nginx/conf.d/default.conf
     fi
 else
     echo "⚠ No SSL certificates found - using HTTP-only configuration"
