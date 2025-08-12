@@ -487,7 +487,10 @@ jobs:
               echo "Build failed with buildkit, trying standard build..."
               sudo docker compose -f docker-compose.prod.yml build --no-cache
             }
-            
+
+            # Re-enter project directory in case build step changed it
+            cd "${{ secrets.PROJECT_PATH }}" || exit 1
+
             echo "Starting containers..."
             if ! sudo docker compose -f docker-compose.prod.yml up -d; then
               echo "Failed to start containers"
