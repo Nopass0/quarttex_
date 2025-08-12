@@ -495,7 +495,9 @@ jobs:
             }
 
             # Re-enter project directory in case build step changed it
+
             cd "$PROJECT_DIR" || exit 1
+
 
             echo "Starting containers..."
             if ! sudo docker compose -f docker-compose.prod.yml up -d; then
