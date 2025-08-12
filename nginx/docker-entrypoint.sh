@@ -10,8 +10,10 @@ if [ -f "/etc/nginx/ssl/fullchain.crt" ]; then
     SSL_AVAILABLE=true
 elif [ -f "/etc/nginx/ssl/certificate.crt" ] && [ -f "/etc/nginx/ssl/certificate_ca.crt" ]; then
     echo "✓ Found certificate.crt and certificate_ca.crt"
+
     # Try to create fullchain.crt; suppress errors if volume is read-only
     if sh -c 'cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt > /etc/nginx/ssl/fullchain.crt' 2>/dev/null; then
+
         echo "✓ Created fullchain.crt from individual certificates"
     else
         echo "✗ Failed to create fullchain.crt (read-only volume)"
