@@ -1,0 +1,99 @@
+name: Debug Deployment Paths
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-paths:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Debug PROJECT_PATH
+        run: |
+          echo "========================================"
+          echo "Debugging Deployment Paths"
+          echo "========================================"
+          
+          # Check if PROJECT_PATH is set
+          if [ -z "${{ secrets.PROJECT_PATH }}" ]; then
+            echo "❌ PROJECT_PATH is NOT set"
+            echo "Please set PROJECT_PATH in GitHub Secrets"
+            echo "Go to: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          else
+            echo "✅ PROJECT_PATH is set"
+            echo "PROJECT_PATH length: ${#PROJECT_PATH}"
+            
+            # Check if it contains asterisks
+            if [[ "${{ secrets.PROJECT_PATH }}" == *"*"* ]]; then
+              echo "⚠️ WARNING: PROJECT_PATH contains asterisks (*)"
+              echo "This may cause issues with Docker build context"
+              echo "Please update PROJECT_PATH to a valid path without asterisks"
+            fi
+          fi
+          
+          echo ""
+          echo "========================================"
+          echo "Checking Repository Structure"
+          echo "========================================"
+          
+          # List current structure
+          echo "Repository root contents:"
+          ls -la
+          
+          echo ""
+          echo "Checking for required directories:"
+          [ -d "nginx" ] && echo "✅ nginx/ directory exists" || echo "❌ nginx/ directory missing"
+          [ -d "backend" ] && echo "✅ backend/ directory exists" || echo "❌ backend/ directory missing"
+          [ -d "frontend" ] && echo "✅ frontend/ directory exists" || echo "❌ frontend/ directory missing"
+          
+          echo ""
+          echo "nginx directory contents:"
+          if [ -d "nginx" ]; then
+            ls -la nginx/
+          else
+            echo "nginx directory not found"
+          fi
+          
+          echo ""
+          echo "========================================"
+          echo "Testing Docker Compose Configuration"
+          echo "========================================"
+          
+          # Test docker-compose syntax
+          if [ -f "docker-compose.prod.yml" ]; then
+            echo "docker-compose.prod.yml exists"
+            echo ""
+            echo "Validating docker-compose.prod.yml syntax..."
+            docker compose -f docker-compose.prod.yml config > /dev/null 2>&1 && echo "✅ Syntax is valid" || echo "❌ Syntax error in docker-compose.prod.yml"
+            
+            echo ""
+            echo "Build contexts in docker-compose.prod.yml:"
+            grep -A2 "build:" docker-compose.prod.yml | grep "context:" || echo "No build contexts found"
+          else
+            echo "❌ docker-compose.prod.yml not found"
+          fi
+
+      - name: Test Docker Build Locally
+        run: |
+          echo "========================================"
+          echo "Testing Docker Build Locally"
+          echo "========================================"
+          
+          # Try to build nginx image locally to verify context
+          echo "Testing nginx build context..."
+          cd nginx 2>/dev/null && {
+            echo "✅ Changed to nginx directory"
+            echo "Contents:"
+            ls -la
+            cd ..
+          } || echo "❌ Cannot change to nginx directory"
+          
+          echo ""
+          echo "Attempting to build nginx image..."
+          DOCKER_BUILDKIT=1 docker build -t test-nginx ./nginx 2>&1 | head -20 || {
+            echo "❌ Failed to build nginx image"
+            echo "This is expected in CI environment, but confirms the build context path"
+          }

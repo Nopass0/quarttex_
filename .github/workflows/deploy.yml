@@ -212,6 +212,7 @@ jobs:
           use_insecure_cipher: true
           timeout: "10m"
           rm: true
+          strip_components: 0
       
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -461,6 +462,27 @@ jobs:
             sudo docker system prune -af --volumes || true
             # Free up memory by clearing build cache
             sudo docker builder prune -af || true
+            
+            # Debug build context before building
+            echo "========================================"
+            echo "Pre-build verification"
+            echo "========================================"
+            echo "Current directory: $(pwd)"
+            echo "Checking build contexts:"
+            [ -d "nginx" ] && echo "✅ nginx/ exists" || echo "❌ nginx/ missing"
+            [ -f "nginx/Dockerfile" ] && echo "✅ nginx/Dockerfile exists" || echo "❌ nginx/Dockerfile missing"
+            [ -d "backend" ] && echo "✅ backend/ exists" || echo "❌ backend/ missing"
+            [ -f "backend/Dockerfile" ] && echo "✅ backend/Dockerfile exists" || echo "❌ backend/Dockerfile missing"
+            [ -d "frontend" ] && echo "✅ frontend/ exists" || echo "❌ frontend/ missing"
+            [ -f "frontend/Dockerfile" ] && echo "✅ frontend/Dockerfile exists" || echo "❌ frontend/Dockerfile missing"
+            
+            # If nginx directory is missing, create a basic structure
+            if [ ! -d "nginx" ]; then
+              echo "ERROR: nginx directory not found!"
+              echo "Listing all directories:"
+              find . -type d -maxdepth 2
+              exit 1
+            fi
             
             # Build with memory-efficient options
             echo "Building containers with memory optimization..."
