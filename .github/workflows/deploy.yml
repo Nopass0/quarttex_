@@ -174,10 +174,12 @@ jobs:
       - name: Prepare deployment directory  
         uses: appleboy/ssh-action@v1.0.3
         with:
+
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || '22' }}
+
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
           timeout: "30s"
@@ -200,10 +202,12 @@ jobs:
       - name: Copy repository to server
         uses: appleboy/scp-action@v0.1.7
         with:
+
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || '22' }}
+
           source: "."
           target: "${{ secrets.PROJECT_PATH }}"
           overwrite: true
@@ -215,14 +219,17 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
         with:
+
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT || '22' }}
+
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
           timeout: "30m"
           debug: true
+
           script: |
             set -e
 
@@ -235,6 +242,7 @@ jobs:
             echo "========================================"
             echo "Starting deployment process..."
             echo "========================================"
+
             
             # Check if Docker is installed
             if ! command -v docker &> /dev/null; then
@@ -373,8 +381,10 @@ jobs:
                 docker compose version || sudo docker compose version || docker-compose version || sudo docker-compose version
             fi
             
+
             # Navigate to project directory
             cd "$PROJECT_DIR"
+
             
             # Debug: Check directory structure
             echo "========================================"
@@ -489,6 +499,7 @@ jobs:
             
             # Build with memory-efficient options
             echo "Building containers with memory optimization..."
+
             DOCKER_BUILDKIT=1 sudo docker compose -f docker-compose.prod.yml build --no-cache || {
               echo "Build failed with buildkit, trying standard build..."
               sudo docker compose -f docker-compose.prod.yml build --no-cache
@@ -502,6 +513,7 @@ jobs:
               echo "Failed to start containers"
               sudo docker compose -f docker-compose.prod.yml logs
               exit 1
+
             fi
             
             # Show initial container status
