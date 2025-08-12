@@ -366,35 +366,52 @@ jobs:
             cd ${{ secrets.PROJECT_PATH }}
             
             # Debug: Check directory structure
-            echo "Current directory contents:"
+            echo "========================================"
+            echo "Checking directory structure..."
+            echo "========================================"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
             ls -la
-            echo "Checking for nginx directory:"
-            ls -la nginx/ || echo "nginx directory not found directly"
             
-            # Check if files are in a subdirectory (common with scp-action)
-            if [ ! -d "nginx" ]; then
-              echo "nginx not found in current directory, checking subdirectories..."
+            # Handle potential nested directory from scp-action
+            # scp-action with source: "." creates a directory with the repo name
+            if [ ! -d "nginx" ] && [ ! -d "backend" ] && [ ! -d "frontend" ]; then
+              echo "Main directories not found, checking for nested structure..."
+              
+              # Find the directory containing our project files
+              PROJECT_DIR=""
               for dir in */; do
-                if [ -d "$dir" ] && [ -d "${dir}nginx" ]; then
-                  echo "Found nginx in $dir, moving files up..."
-                  mv ${dir}* . 2>/dev/null || true
-                  mv ${dir}.* . 2>/dev/null || true
-                  rmdir "$dir" 2>/dev/null || true
+                if [ -d "${dir}nginx" ] && [ -d "${dir}backend" ] && [ -d "${dir}frontend" ]; then
+                  PROJECT_DIR="$dir"
+                  echo "Found project files in: $PROJECT_DIR"
                   break
                 fi
               done
+              
+              if [ -n "$PROJECT_DIR" ]; then
+                echo "Moving files from $PROJECT_DIR to current directory..."
+                mv ${PROJECT_DIR}* . 2>/dev/null || true
+                mv ${PROJECT_DIR}.* . 2>/dev/null || true
+                rmdir "$PROJECT_DIR" 2>/dev/null || true
+                echo "Files moved successfully"
+              fi
             fi
             
-            # Verify nginx directory exists now
-            if [ ! -d "nginx" ]; then
-              echo "ERROR: nginx directory still not found!"
-              echo "Directory structure:"
-              find . -type d -name "nginx" 2>/dev/null || true
-              ls -la
+            # Verify essential directories exist
+            echo "Verifying essential directories..."
+            MISSING_DIRS=""
+            [ ! -d "nginx" ] && MISSING_DIRS="$MISSING_DIRS nginx"
+            [ ! -d "backend" ] && MISSING_DIRS="$MISSING_DIRS backend"
+            [ ! -d "frontend" ] && MISSING_DIRS="$MISSING_DIRS frontend"
+            
+            if [ -n "$MISSING_DIRS" ]; then
+              echo "ERROR: Missing essential directories:$MISSING_DIRS"
+              echo "Full directory listing:"
+              find . -maxdepth 2 -type d
               exit 1
             fi
             
-            echo "nginx directory confirmed to exist"
+            echo "✓ All essential directories found"
             
             # Stop existing containers first
             sudo docker compose -f docker-compose.prod.yml down || true
