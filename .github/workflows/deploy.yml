@@ -248,16 +248,52 @@ jobs:
                     echo "Warning: Could not detect package manager"
                 fi
                 
-                # Install Docker using official script
-                echo "Installing Docker..."
-                if command -v curl &> /dev/null; then
-                    curl -fsSL https://get.docker.com | sudo sh
-                elif command -v wget &> /dev/null; then
-                    wget -qO- https://get.docker.com | sudo sh
+                # Install Docker manually for better control
+                echo "Installing Docker packages..."
+                
+                # Detect OS for proper installation
+                if [ -f /etc/debian_version ]; then
+                    # Debian/Ubuntu installation
+                    
+                    # Add Docker's official GPG key
+                    sudo mkdir -p /etc/apt/keyrings
+                    if command -v curl &> /dev/null; then
+                        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    elif command -v wget &> /dev/null; then
+                        wget -qO- https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    fi
+                    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+                    
+                    # Add the repository
+                    echo \
+                      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+                      $(lsb_release -cs 2>/dev/null || echo focal) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+                    
+                    # Update and install
+                    sudo apt-get update
+                    
+                    # Install Docker packages (compatible with Ubuntu 20.04)
+                    sudo apt-get install -y docker-ce docker-ce-cli containerd.io || {
+                        echo "Failed to install Docker, trying alternative method..."
+                        curl -fsSL https://get.docker.com | sudo sh || wget -qO- https://get.docker.com | sudo sh
+                    }
+                    
+                    # Install docker-compose-plugin separately (may not be available on all versions)
+                    sudo apt-get install -y docker-compose-plugin 2>/dev/null || echo "docker-compose-plugin not available"
+                    
+                elif [ -f /etc/redhat-release ]; then
+                    # RedHat/CentOS installation
+                    sudo yum install -y yum-utils
+                    sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                    sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
                 else
-                    echo "ERROR: Neither curl nor wget available after installation attempt."
-                    echo "Please install Docker manually on the server."
-                    exit 1
+                    # Fallback to official script
+                    echo "Using official Docker installation script..."
+                    if command -v curl &> /dev/null; then
+                        curl -fsSL https://get.docker.com | sudo sh
+                    elif command -v wget &> /dev/null; then
+                        wget -qO- https://get.docker.com | sudo sh
+                    fi
                 fi
                 
                 # Enable and start Docker service
@@ -283,20 +319,37 @@ jobs:
             
             # Check if docker compose is available
             if ! docker compose version &> /dev/null && ! sudo docker compose version &> /dev/null; then
-                echo "Installing Docker Compose plugin..."
+                echo "Docker Compose plugin not found, checking for standalone docker-compose..."
                 
-                # Detect OS and install docker-compose-plugin
+                # Try to install docker-compose-plugin first
                 if [ -f /etc/debian_version ]; then
                     sudo apt-get update
-                    sudo apt-get install -y docker-compose-plugin
+                    sudo apt-get install -y docker-compose-plugin 2>/dev/null || {
+                        echo "docker-compose-plugin not available, installing standalone docker-compose..."
+                        # Install standalone docker-compose as fallback
+                        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                        sudo chmod +x /usr/local/bin/docker-compose
+                        sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+                    }
                 elif [ -f /etc/redhat-release ]; then
-                    sudo yum install -y docker-compose-plugin
-                else
-                    echo "Warning: Could not install docker-compose-plugin automatically"
+                    sudo yum install -y docker-compose-plugin 2>/dev/null || {
+                        echo "Installing standalone docker-compose..."
+                        sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                        sudo chmod +x /usr/local/bin/docker-compose
+                    }
+                fi
+                
+                # Verify installation
+                if docker compose version &> /dev/null || sudo docker compose version &> /dev/null; then
+                    echo "Docker Compose plugin installed successfully"
+                elif docker-compose version &> /dev/null || sudo docker-compose version &> /dev/null; then
+                    echo "Standalone docker-compose installed successfully"
+                    # Create alias for consistency
+                    echo 'alias docker-compose="docker compose"' >> ~/.bashrc 2>/dev/null || true
                 fi
             else
                 echo "Docker Compose is already installed:"
-                docker compose version || sudo docker compose version
+                docker compose version || sudo docker compose version || docker-compose version || sudo docker-compose version
             fi
             
             # Navigate to project directory
