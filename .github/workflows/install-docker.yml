@@ -1,0 +1,75 @@
+name: Install Docker on Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  install-docker:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Docker on server
+        run: |
+          echo "Installing Docker on server..."
+          
+          # Setup SSH
+          mkdir -p ~/.ssh
+          
+          if [ -n "${{ secrets.SERVER_SSH_KEY }}" ]; then
+            echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+            SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+          else
+            sudo apt-get update && sudo apt-get install -y sshpass
+            SSH_CMD="sshpass -p '${{ secrets.SERVER_PASSWORD }}' ssh -o StrictHostKeyChecking=no"
+          fi
+          
+          # Connect and install Docker
+          $SSH_CMD -p ${{ secrets.SERVER_PORT || '22' }} \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'INSTALL_SCRIPT'
+          
+          set -e
+          
+          echo "========================================"
+          echo "Installing Docker..."
+          echo "========================================"
+          
+          # Check if Docker is already installed
+          if command -v docker &> /dev/null; then
+              echo "Docker is already installed:"
+              docker --version
+              docker compose version || echo "Docker Compose not found"
+              exit 0
+          fi
+          
+          # Install Docker using official script
+          echo "Docker not found. Installing..."
+          curl -fsSL https://get.docker.com | sudo sh
+          
+          # Enable Docker service
+          sudo systemctl enable docker
+          sudo systemctl start docker
+          
+          # Add user to docker group
+          sudo usermod -aG docker $USER
+          
+          # Install docker-compose plugin
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin || true
+          
+          # Verify installation
+          echo ""
+          echo "Installation complete. Verifying..."
+          sudo docker --version
+          sudo docker compose version
+          
+          echo ""
+          echo "========================================"
+          echo "Docker installed successfully!"
+          echo "========================================"
+          
+          INSTALL_SCRIPT
+          
+          echo "Docker installation completed!"
