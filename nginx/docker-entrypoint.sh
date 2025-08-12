@@ -10,6 +10,7 @@ if [ -f "/etc/nginx/ssl/fullchain.crt" ]; then
     SSL_AVAILABLE=true
 elif [ -f "/etc/nginx/ssl/certificate.crt" ] && [ -f "/etc/nginx/ssl/certificate_ca.crt" ]; then
     echo "✓ Found certificate.crt and certificate_ca.crt"
+
     # Only attempt to create fullchain.crt if the directory is writable
     if [ -w "/etc/nginx/ssl" ]; then
         if cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt \
@@ -20,6 +21,7 @@ elif [ -f "/etc/nginx/ssl/certificate.crt" ] && [ -f "/etc/nginx/ssl/certificate
         fi
     else
         echo "✗ Cannot create fullchain.crt (read-only volume)"
+
     fi
     SSL_AVAILABLE=true
 fi
