@@ -177,7 +177,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
@@ -204,7 +203,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           source: "."
           target: "${{ secrets.PROJECT_PATH }}"
@@ -220,7 +218,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
@@ -228,7 +225,13 @@ jobs:
           debug: true
           script: |
             set -e
-            
+
+            # Resolve project directory (expand ~ if present)
+            PROJECT_DIR="${{ secrets.PROJECT_PATH }}"
+            PROJECT_DIR=$(eval echo "$PROJECT_DIR")
+
+            echo "Using project directory: $PROJECT_DIR"
+
             echo "========================================"
             echo "Starting deployment process..."
             echo "========================================"
@@ -371,7 +374,7 @@ jobs:
             fi
             
             # Navigate to project directory
-            cd ${{ secrets.PROJECT_PATH }}
+            cd "$PROJECT_DIR"
             
             # Debug: Check directory structure
             echo "========================================"
@@ -385,22 +388,22 @@ jobs:
             # scp-action with source: "." creates a directory with the repo name
             if [ ! -d "nginx" ] && [ ! -d "backend" ] && [ ! -d "frontend" ]; then
               echo "Main directories not found, checking for nested structure..."
-              
+
               # Find the directory containing our project files
-              PROJECT_DIR=""
+              NESTED_DIR=""
               for dir in */; do
                 if [ -d "${dir}nginx" ] && [ -d "${dir}backend" ] && [ -d "${dir}frontend" ]; then
-                  PROJECT_DIR="$dir"
-                  echo "Found project files in: $PROJECT_DIR"
+                  NESTED_DIR="$dir"
+                  echo "Found project files in: $NESTED_DIR"
                   break
                 fi
               done
-              
-              if [ -n "$PROJECT_DIR" ]; then
-                echo "Moving files from $PROJECT_DIR to current directory..."
-                mv ${PROJECT_DIR}* . 2>/dev/null || true
-                mv ${PROJECT_DIR}.* . 2>/dev/null || true
-                rmdir "$PROJECT_DIR" 2>/dev/null || true
+
+              if [ -n "$NESTED_DIR" ]; then
+                echo "Moving files from $NESTED_DIR to current directory..."
+                mv "${NESTED_DIR}"* . 2>/dev/null || true
+                mv "${NESTED_DIR}".* . 2>/dev/null || true
+                rmdir "$NESTED_DIR" 2>/dev/null || true
                 echo "Files moved successfully"
               fi
             fi
@@ -490,7 +493,10 @@ jobs:
               echo "Build failed with buildkit, trying standard build..."
               sudo docker compose -f docker-compose.prod.yml build --no-cache
             }
-            
+
+            # Re-enter project directory in case build step changed it
+            cd "$PROJECT_DIR" || exit 1
+
             echo "Starting containers..."
             if ! sudo docker compose -f docker-compose.prod.yml up -d; then
               echo "Failed to start containers"
