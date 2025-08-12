@@ -1,0 +1,38 @@
+name: Deploy via Self-Hosted Runner
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy locally
+        run: |
+          echo "Deploying on self-hosted runner (same server)..."
+          
+          # Since we're already on the server, just copy files
+          rsync -av --delete ./ ${{ secrets.PROJECT_PATH }}/
+          
+          cd ${{ secrets.PROJECT_PATH }}
+          
+          # Create .env file
+          cat > .env << 'EOF'
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          SUPER_ADMIN_KEY=${{ secrets.SUPER_ADMIN_KEY }}
+          ADMIN_IPS=${{ secrets.ADMIN_IPS }}
+          NODE_ENV=production
+          EOF
+          
+          # Deploy with Docker
+          docker compose -f docker-compose.prod.yml down
+          docker compose -f docker-compose.prod.yml build --no-cache
+          docker compose -f docker-compose.prod.yml up -d
+          
+          echo "Deployment completed!"
