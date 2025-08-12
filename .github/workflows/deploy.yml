@@ -177,7 +177,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
@@ -204,7 +203,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           source: "."
           target: "${{ secrets.PROJECT_PATH }}"
@@ -220,7 +218,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
@@ -228,7 +225,13 @@ jobs:
           debug: true
           script: |
             set -e
-            
+
+            # Resolve project directory (expand ~ if present)
+            PROJECT_DIR="${{ secrets.PROJECT_PATH }}"
+            PROJECT_DIR=$(eval echo "$PROJECT_DIR")
+
+            echo "Using project directory: $PROJECT_DIR"
+
             echo "========================================"
             echo "Starting deployment process..."
             echo "========================================"
@@ -371,7 +374,7 @@ jobs:
             fi
             
             # Navigate to project directory
-            cd ${{ secrets.PROJECT_PATH }}
+            cd "$PROJECT_DIR"
             
             # Debug: Check directory structure
             echo "========================================"
@@ -490,7 +493,10 @@ jobs:
               echo "Build failed with buildkit, trying standard build..."
               sudo docker compose -f docker-compose.prod.yml build --no-cache
             }
-            
+
+            # Re-enter project directory in case build step changed it
+            cd "$PROJECT_DIR" || exit 1
+
             echo "Starting containers..."
             if ! sudo docker compose -f docker-compose.prod.yml up -d; then
               echo "Failed to start containers"
