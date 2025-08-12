@@ -225,7 +225,13 @@ jobs:
           debug: true
           script: |
             set -e
-            
+
+            # Resolve project directory (expand ~ if present)
+            PROJECT_DIR="${{ secrets.PROJECT_PATH }}"
+            PROJECT_DIR=$(eval echo "$PROJECT_DIR")
+
+            echo "Using project directory: $PROJECT_DIR"
+
             echo "========================================"
             echo "Starting deployment process..."
             echo "========================================"
@@ -368,7 +374,7 @@ jobs:
             fi
             
             # Navigate to project directory
-            cd ${{ secrets.PROJECT_PATH }}
+            cd "$PROJECT_DIR"
             
             # Debug: Check directory structure
             echo "========================================"
@@ -489,7 +495,9 @@ jobs:
             }
 
             # Re-enter project directory in case build step changed it
-            cd "${{ secrets.PROJECT_PATH }}" || exit 1
+
+            cd "$PROJECT_DIR" || exit 1
+
 
             echo "Starting containers..."
             if ! sudo docker compose -f docker-compose.prod.yml up -d; then
