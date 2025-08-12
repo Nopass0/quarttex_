@@ -177,7 +177,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
@@ -204,7 +203,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           source: "."
           target: "${{ secrets.PROJECT_PATH }}"
@@ -220,7 +218,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || '22' }}
           use_insecure_cipher: true
           cipher: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc"
