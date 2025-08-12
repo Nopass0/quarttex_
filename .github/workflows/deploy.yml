@@ -190,7 +190,13 @@ jobs:
             fi
             echo "Creating project directory: ${{ secrets.PROJECT_PATH }}"
             mkdir -p "${{ secrets.PROJECT_PATH }}"
-            rm -rf "${{ secrets.PROJECT_PATH }}"/* || true
+            # Clean up the directory more carefully to avoid rsync conflicts
+            if [ -d "${{ secrets.PROJECT_PATH }}/nginx" ]; then
+              # Remove nginx directory if it exists to avoid conflicts
+              rm -rf "${{ secrets.PROJECT_PATH }}/nginx"
+            fi
+            # Clean other directories
+            find "${{ secrets.PROJECT_PATH }}" -mindepth 1 -delete 2>/dev/null || true
 
       - name: Copy repository to server
         uses: appleboy/scp-action@v0.1.7
@@ -205,6 +211,7 @@ jobs:
           overwrite: true
           use_insecure_cipher: true
           timeout: "10m"
+          rm: true
       
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
