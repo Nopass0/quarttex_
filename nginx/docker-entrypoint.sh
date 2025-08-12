@@ -11,13 +11,17 @@ if [ -f "/etc/nginx/ssl/fullchain.crt" ]; then
 elif [ -f "/etc/nginx/ssl/certificate.crt" ] && [ -f "/etc/nginx/ssl/certificate_ca.crt" ]; then
     echo "✓ Found certificate.crt and certificate_ca.crt"
 
-    # Try to create fullchain.crt; suppress errors if volume is read-only
-    if cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt \
-        | tee /etc/nginx/ssl/fullchain.crt >/dev/null 2>&1; then
-
-        echo "✓ Created fullchain.crt from individual certificates"
+    # Only attempt to create fullchain.crt if the directory is writable
+    if [ -w "/etc/nginx/ssl" ]; then
+        if cat /etc/nginx/ssl/certificate.crt /etc/nginx/ssl/certificate_ca.crt \
+            > /etc/nginx/ssl/fullchain.crt 2>/dev/null; then
+            echo "✓ Created fullchain.crt from individual certificates"
+        else
+            echo "✗ Failed to create fullchain.crt"
+        fi
     else
-        echo "✗ Failed to create fullchain.crt (read-only volume)"
+        echo "✗ Cannot create fullchain.crt (read-only volume)"
+
     fi
     SSL_AVAILABLE=true
 fi
