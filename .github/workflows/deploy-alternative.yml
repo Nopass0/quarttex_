@@ -108,8 +108,31 @@ jobs:
           if ! command -v docker &> /dev/null; then
               echo "Docker is not installed. Installing Docker..."
               
-              # Install Docker
-              curl -fsSL https://get.docker.com | sh
+              # First, ensure we have required tools
+              echo "Installing prerequisites..."
+              if command -v apt-get &> /dev/null; then
+                  # Debian/Ubuntu
+                  sudo apt-get update
+                  sudo apt-get install -y curl wget ca-certificates gnupg lsb-release
+              elif command -v yum &> /dev/null; then
+                  # CentOS/RHEL
+                  sudo yum install -y curl wget ca-certificates
+              elif command -v dnf &> /dev/null; then
+                  # Fedora
+                  sudo dnf install -y curl wget ca-certificates
+              else
+                  echo "Warning: Could not detect package manager"
+              fi
+              
+              # Install Docker using official script
+              if command -v curl &> /dev/null; then
+                  curl -fsSL https://get.docker.com | sudo sh
+              elif command -v wget &> /dev/null; then
+                  wget -qO- https://get.docker.com | sudo sh
+              else
+                  echo "ERROR: Neither curl nor wget available. Cannot install Docker."
+                  exit 1
+              fi
               
               # Enable and start Docker
               sudo systemctl enable docker
